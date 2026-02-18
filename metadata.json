@@ -1,0 +1,8 @@
+{
+  "name": "KizombaTok - Angola Vibe",
+  "description": "A modern TikTok-like social media platform tailored for the Angolan community, featuring short-form video content, real-time messaging, and interactive social features powered by Supabase.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
