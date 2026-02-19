@@ -6,9 +6,10 @@ import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Cam
 interface ProfileViewProps {
   userId: string;
   isOwnProfile?: boolean;
+  onNavigateToPost?: (postId: string) => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
@@ -373,9 +374,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile }) => {
         ) : (
           <div className="grid grid-cols-3 gap-0.5 p-0.5">
             {currentGridData.map(post => (
-              <div key={post.id} className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all">
+              <div
+                key={post.id}
+                className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer"
+                onClick={() => onNavigateToPost && onNavigateToPost(post.id)}
+              >
                 {post.media_type === 'video' ? (
-                  <video src={post.media_url} className="w-full h-full object-cover" muted playsInline poster={post.thumbnail_url || undefined} />
+                  <>
+                    <video src={post.media_url} className="w-full h-full object-cover" muted playsInline poster={post.thumbnail_url || undefined} />
+                    {/* Overlay de play no centro ao hover */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-active:opacity-100 transition-opacity">
+                      <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center">
+                        <span className="text-white text-lg ml-0.5">▶</span>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <img src={post.media_url} className="w-full h-full object-cover" />
                 )}
