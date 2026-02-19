@@ -23,6 +23,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE_SIZE = 6;
   
+  // Logout Confirm Modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -163,6 +166,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   };
 
   const handleLogout = async () => {
+    setShowLogoutModal(false);
     try {
       await supabase.auth.signOut();
     } catch (error) {
@@ -254,7 +258,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
-            <button onClick={handleLogout} className="text-zinc-400 hover:text-red-600 transition-all p-1">
+            <button onClick={() => setShowLogoutModal(true)} className="text-zinc-400 hover:text-red-600 transition-all p-1">
               <LogOut size={20}/>
             </button>
           )}
@@ -531,6 +535,39 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   </>
                 )}
               </button>
+      {/* Logout Confirm Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowLogoutModal(false)} />
+          <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-t-[32px] p-6 pb-10 flex flex-col gap-5 animate-[slideUp_0.3s_cubic-bezier(0.2,0.8,0.2,1)] shadow-2xl">
+            <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-1" />
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-600/10 border border-red-600/20 flex items-center justify-center mb-1">
+                <LogOut size={24} className="text-red-500" />
+              </div>
+              <h3 className="text-base font-black text-white uppercase tracking-widest">Sair da Banda?</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Vais mesmo deixar a vibe? Podes voltar quando quiseres.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 mt-1">
+              <button
+                onClick={handleLogout}
+                className="w-full py-4 rounded-2xl bg-red-600 text-white text-[11px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
+              >
+                <LogOut size={14} />
+                Sim, sair
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="w-full py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white text-[11px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
+              >
+                Ficar na Banda
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
