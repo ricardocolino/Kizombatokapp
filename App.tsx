@@ -164,11 +164,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white relative">
-      <main className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 80px)' }}>
+      <main className="flex-1 min-h-0 overflow-hidden">
         {renderContent()}
       </main>
 
-      <nav className="h-20 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-50 flex-shrink-0">
+      <nav className="h-20 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl flex-shrink-0 z-50">
         <button 
           onClick={handleGoHome}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600'}`}
