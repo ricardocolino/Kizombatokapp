@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin } from 'lucide-react';
+import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin, LogIn } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
@@ -33,6 +33,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Logout Modal State
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -162,13 +166,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
-  const handleLogout = async () => {
-    if (!confirm('Queres mesmo sair da banda?')) return;
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
 
+  const handleLogoutConfirm = async () => {
+    setLoggingOut(true);
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Erro ao sair:", error);
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+    }
+  };
+
+  const handleLogoutCancel = () => {
+    if (!loggingOut) {
+      setShowLogoutModal(false);
     }
   };
 
@@ -256,7 +271,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
-            <button onClick={handleLogout} className="text-zinc-400 hover:text-red-600 transition-all p-1">
+            <button onClick={handleLogoutClick} className="text-zinc-400 hover:text-red-600 transition-all p-1">
               <LogOut size={20}/>
             </button>
           )}
@@ -529,8 +544,96 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </div>
         </div>
       )}
+
+      {/* Logout Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+          {/* Backdrop with blur */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            onClick={handleLogoutCancel}
+          />
+          
+          {/* Modal */}
+          <div className="relative bg-zinc-950 rounded-[40px] w-full max-w-sm overflow-hidden border border-zinc-800 shadow-2xl animate-[fadeIn_0.3s_ease-out]">
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-br from-red-600/20 to-transparent p-8 pb-6">
+              <div className="w-16 h-16 mx-auto rounded-full bg-red-600/20 flex items-center justify-center mb-4">
+                <LogOut size={32} className="text-red-600" />
+              </div>
+              <h3 className="text-xl font-black text-center text-white mb-2">
+                Sair da Banda?
+              </h3>
+              <p className="text-sm text-zinc-400 text-center leading-relaxed">
+              Tens a certeza que queres sair? <br /> 
+              Vais perder a vibe do momento.
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 pt-2 space-y-3">
+              <button
+                onClick={handleLogoutConfirm}
+                disabled={loggingOut}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              >
+                {loggingOut ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    A Sair...
+                  </>
+                ) : (
+                  <>
+                    <LogOut size={16} />
+                    Sim, Sair Agora
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleLogoutCancel}
+                disabled={loggingOut}
+                className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 disabled:opacity-50"
+              >
+                Ficar na Banda
+              </button>
+            </div>
+
+            {/* Footer note */}
+            <div className="px-6 pb-6">
+              <p className="text-[10px] text-center text-zinc-700 uppercase tracking-widest">
+                Podes sempre voltar mais tarde 🇦🇴
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add animation keyframes to your global CSS or add them to your component */}
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
 export default ProfileView;
+    
