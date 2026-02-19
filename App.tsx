@@ -154,7 +154,7 @@ const App: React.FC = () => {
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.PROFILE:
         const targetId = viewProfileId || user?.id;
-        return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} />;
+        return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;
       case Tab.SOUND_DETAIL:
         return selectedSoundPost ? <SoundDetail post={selectedSoundPost} onBack={() => setActiveTab(Tab.HOME)} onUseSound={handleUseSound} /> : null;
       default:
