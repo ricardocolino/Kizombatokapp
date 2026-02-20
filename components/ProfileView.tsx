@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin, LogIn } from 'lucide-react';
+import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin, LogIn, Upload } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
@@ -33,10 +33,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Logout Modal State
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAll();
@@ -220,6 +224,65 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      setEditError('Por favor, seleciona uma imagem válida.');
+      return;
+    }
+
+    // Validar tamanho (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setEditError('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setEditError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Não estás logado');
+
+      // Gerar nome único para o arquivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload do arquivo para o Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública do arquivo
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+
+      // Atualizar o form com a nova URL
+      setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
+
+    } catch (err: any) {
+      console.error('Erro ao fazer upload:', err);
+      setEditError(err.message || 'Erro ao fazer upload da imagem.');
+    } finally {
+      setUploadingAvatar(false);
+      // Limpar o input para poder selecionar o mesmo arquivo novamente
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -232,8 +295,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           username: editForm.username,
           name: editForm.name,
           bio: editForm.bio,
-          avatar_url: editForm.avatar_url,
-         })
+          avatar_url: editForm.avatar_url
+        })
         .eq('id', userId);
 
       if (error) throw error;
@@ -425,12 +488,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Edit Profile Drawer */}
       {isEditing && (
         <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !saving && setIsEditing(false)} />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !saving && !uploadingAvatar && setIsEditing(false)} />
           <div className="relative bg-zinc-950 rounded-t-[40px] h-[85%] flex flex-col shadow-2xl border-t border-zinc-800 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
             <div className="flex items-center justify-between p-6 border-b border-zinc-900">
               <button 
                 onClick={() => setIsEditing(false)} 
-                disabled={saving}
+                disabled={saving || uploadingAvatar}
                 className="p-2 text-zinc-500 hover:text-white transition-colors disabled:opacity-30"
               >
                 <X size={24} />
@@ -438,7 +501,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">Editar Perfil</h2>
               <button 
                 onClick={handleUpdateProfile}
-                disabled={saving || !editForm.username}
+                disabled={saving || uploadingAvatar || !editForm.username}
                 className="p-2 text-red-600 hover:text-red-500 transition-colors disabled:opacity-30 flex items-center gap-2"
               >
                 {saving ? <Loader2 size={20} className="animate-spin" /> : <Check size={24} />}
@@ -447,7 +510,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
             <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
               <div className="flex flex-col items-center gap-4">
-                <div className="relative group cursor-pointer">
+                {/* Avatar Upload Area */}
+                <div 
+                  className="relative group cursor-pointer"
+                  onClick={handleAvatarClick}
+                >
                   <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-zinc-800">
                     <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
                       {editForm.avatar_url ? (
@@ -457,16 +524,43 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                       )}
                     </div>
                   </div>
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="text-white" size={24} />
+                  
+                  {/* Overlay com ícone de upload */}
+                  <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    {uploadingAvatar ? (
+                      <Loader2 size={24} className="text-white animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="text-white" size={20} />
+                        <span className="text-[8px] font-black text-white mt-1">MUDAR FOTO</span>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* Input file oculto */}
+                <input 
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {/* Opção de URL (mantida para compatibilidade) */}
+                <div className="w-full flex items-center gap-2">
+                  <div className="flex-1 h-px bg-zinc-800" />
+                  <span className="text-[8px] font-black text-zinc-700 uppercase tracking-widest">OU URL</span>
+                  <div className="flex-1 h-px bg-zinc-800" />
+                </div>
+
                 <input 
                   type="text" 
                   value={editForm.avatar_url}
                   onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})}
                   placeholder="URL da Foto (HTTP...)"
                   className="w-full max-w-xs bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-center focus:ring-1 focus:ring-red-600 outline-none transition-all text-zinc-400"
+                  disabled={uploadingAvatar}
                 />
               </div>
 
@@ -479,6 +573,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     onChange={(e) => setEditForm({...editForm, name: e.target.value})}
                     placeholder="Como te chamam na banda?"
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
+                    disabled={uploadingAvatar}
                   />
                 </div>
 
@@ -493,6 +588,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                       placeholder="teu_username"
                       className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-10 pr-5 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
                       required
+                      disabled={uploadingAvatar}
                     />
                   </div>
                 </div>
@@ -504,6 +600,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     onChange={(e) => setEditForm({...editForm, bio: e.target.value.slice(0, 150)})}
                     placeholder="Conta um mambo sobre ti..."
                     className="w-full h-32 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner resize-none"
+                    disabled={uploadingAvatar}
                   />
                   <div className="flex justify-end">
                     <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">{editForm.bio.length}/150</span>
@@ -522,15 +619,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent">
               <button 
                 onClick={handleUpdateProfile}
-                disabled={saving || !editForm.username}
+                disabled={saving || uploadingAvatar || !editForm.username}
                 className={`w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 ${
-                  saving || !editForm.username ? 'bg-zinc-800 text-zinc-600' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'
+                  saving || uploadingAvatar || !editForm.username ? 'bg-zinc-800 text-zinc-600' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'
                 }`}
               >
                 {saving ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
                     A Atualizar...
+                  </>
+                ) : uploadingAvatar ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    A Enviar Foto...
                   </>
                 ) : (
                   <>
