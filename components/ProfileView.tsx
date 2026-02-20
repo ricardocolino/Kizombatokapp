@@ -233,8 +233,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           name: editForm.name,
           bio: editForm.bio,
           avatar_url: editForm.avatar_url,
-          updated_at: new Date().toISOString()
-        })
+         })
         .eq('id', userId);
 
       if (error) throw error;
@@ -636,4 +635,3 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 };
 
 export default ProfileView;
-    
