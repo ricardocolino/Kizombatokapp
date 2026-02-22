@@ -115,6 +115,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     await new Promise(r => setTimeout(r, 300));
     
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('O teu navegador ou WebView não suporta acesso à câmera. Se estás no Android, verifica as permissões do App.');
+      }
+
       const constraints = {
         video: { 
           facingMode: { ideal: facingMode }, 
