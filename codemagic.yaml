@@ -17,11 +17,10 @@ workflows:
       - name: Build Android APK
         script: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          gradle assembleDebug
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
     publishing:
       email:
         recipients:
-          - 200ricardocolino@gmail.com
+          - your-email@example.com
