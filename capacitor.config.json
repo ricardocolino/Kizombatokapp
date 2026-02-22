@@ -2,5 +2,18 @@
   "appId": "com.kizombatok.angolavibe",
   "appName": "KizombaTok",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#000000",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": true,
+      "androidSpinnerStyle": "large",
+      "spinnerColor": "#DC2626",
+      "splashFullScreen": true,
+      "splashImmersive": true
+    }
+  }
 }
