@@ -1,26 +1,39 @@
 workflows:
-  android-build:
-    name: Android Build
+  android-workflow:
+    name: Android Build Workflow
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       node: latest
       groups:
-        - google_play # Optional: for publishing
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.kizombatok.angolavibe"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     scripts:
       - name: Install dependencies
-        script: npm install
+        script: |
+          npm install
       - name: Build web app
-        script: npm run build
+        script: |
+          npm run build
       - name: Sync Capacitor
-        script: npx cap sync android
+        script: |
+          npx cap sync android
       - name: Build Android APK
         script: |
           cd android
-          gradle assembleDebug
+          chmod +x gradlew
+          ./gradlew assembleDebug
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
     publishing:
       email:
         recipients:
-          - your-email@example.com
+          - your-email@example.com # Altera para o teu e-mail nas definições do Codemagic
