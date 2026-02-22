@@ -3,14 +3,18 @@ workflows:
     name: Android Build
     environment:
       node: latest
+      flutter: stable
       java: 17
-      # Adicionar variáveis de ambiente para garantir a versão correta
-      vars:
-        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.m2/repository
     scripts:
       - name: Verificar versão do Java
         script: |
-          echo "Java version:"
+          echo "Verificando versão do Java..."
           java -version
           echo "JAVA_HOME: $JAVA_HOME"
       
@@ -19,7 +23,7 @@ workflows:
           npm install
           npm install @capacitor/core @capacitor/cli @capacitor/android
       
-      - name: Build do projeto
+      - name: Build do projeto web
         script: |
           npm run build
       
@@ -36,22 +40,14 @@ workflows:
           npx cap add android
           npx cap copy
       
-      - name: Compilar Android com Java 17
+      - name: Compilar Android
         script: |
-          # Forçar uso do Java 17
-          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-          echo "JAVA_HOME configurado para: $JAVA_HOME"
-          java -version
-          
           cd android
-          # Limpar build anterior
-          ./gradlew clean
-          # Compilar com informações detalhadas
-          ./gradlew assembleRelease --stacktrace
-      
-      - name: Listar arquivos gerados
-        script: |
-          echo "Arquivos APK gerados:"
-          find . -name "*.apk" -type f
+          chmod +x gradlew
+          ./gradlew assembleRelease
     artifacts:
       - android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - seu@email.com
