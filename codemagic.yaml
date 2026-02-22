@@ -4,113 +4,26 @@ workflows:
     environment:
       node: latest
       java: 17
-    cache:
-      cache_paths:
-        - ~/.gradle/caches
-        - ~/.m2/repository
-        - node_modules
     scripts:
-      - name: Instalar dependências
+      - name: Build Android
         script: |
-          echo "=== INSTALANDO DEPENDÊNCIAS ==="
+          echo "=== INICIANDO BUILD ==="
+          
+          # Instalar dependências
           npm install
-          npm install -g @capacitor/cli
-      
-      - name: Instalar Capacitor
-        script: |
-          echo "=== INSTALANDO CAPACITOR ==="
           npm install @capacitor/core @capacitor/android
-      
-      - name: Build do projeto web
-        script: |
-          echo "=== BUILD DO PROJETO ==="
-          # Verificar qual comando de build usar
-          if grep -q "\"build\":" package.json; then
-            npm run build
-          else
-            echo "Comando build não encontrado no package.json"
-            # Se for React, geralmente é npm run build
-            npm run build || echo "Build falhou, mas continuando..."
-          fi
           
-          # Verificar qual pasta foi gerada (dist, build, www, etc)
-          echo "Pastas geradas:"
-          ls -la
-      
-      - name: Configurar Capacitor
-        script: |
-          echo "=== CONFIGURANDO CAPACITOR ==="
+          # Build do web app
+          npm run build
           
-          # Determinar a pasta web (dist, build, www)
-          WEB_DIR="dist"
-          if [ -d "build" ]; then
-            WEB_DIR="build"
-          elif [ -d "dist" ]; then
-            WEB_DIR="dist"
-          elif [ -d "www" ]; then
-            WEB_DIR="www"
-          elif [ -d "public" ]; then
-            WEB_DIR="public"
-          fi
-          
-          echo "Usando webDir: $WEB_DIR"
-          
-          # Criar capacitor.config.json se não existir
-          if [ ! -f capacitor.config.json ]; then
-            cat > capacitor.config.json << EOF
-{
-  "appId": "com.kizombatok.app",
-  "appName": "KizombaTok",
-  "webDir": "$WEB_DIR",
-  "bundledWebRuntime": false,
-  "server": {
-    "url": "https://KizombaTok.vercel.app",
-    "cleartext": true
-  }
-}
-EOF
-          fi
-          
-          # Mostrar configuração
-          cat capacitor.config.json
-          
-          # Adicionar Android
-          npx cap add android || echo "Android já adicionado"
+          # Configurar Capacitor
+          npx cap init KizombaTok com.kizombatok.app
+          npx cap add android
           npx cap copy
-      
-      - name: Compilar Android
-        script: |
-          echo "=== COMPILANDO ANDROID ==="
           
-          # Verificar se pasta android existe
-          if [ ! -d "android" ]; then
-            echo "ERRO: Pasta android não foi criada"
-            exit 1
-          fi
-          
+          # Compilar APK
           cd android
           chmod +x gradlew
-          
-          # Mostrar versão do Java
-          java -version
-          
-          # Compilar
           ./gradlew assembleRelease
-          
-          cd ..
-      
-      - name: Listar APKs gerados
-        script: |
-          echo "=== APKs GERADOS ==="
-          find . -name "*.apk" -type f | while read apk; do
-            ls -la "$apk"
-          done
     artifacts:
       - "android/app/build/outputs/**/*.apk"
-      - "**/*.apk"
-    publishing:
-      email:
-        recipients:
-          - seu@email.com
-      
-      
