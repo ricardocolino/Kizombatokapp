@@ -7,7 +7,15 @@ workflows:
       - npm install
       - npm install @capacitor/core @capacitor/cli @capacitor/android
       - npm run build
-      - npx cap init KizombaTok com.kizombatok.app --web-dir=dist --yes
+      - |
+        if [ ! -f capacitor.config.json ]; then
+          echo '{
+            "appId": "com.kizombatok.app",
+            "appName": "KizombaTok",
+            "webDir": "dist",
+            "bundledWebRuntime": false
+          }' > capacitor.config.json
+        fi
       - npx cap add android
       - npx cap copy
       - cd android
