@@ -1,5 +1,5 @@
 workflows:
-  android-workflow:
+  android-build:
     name: Android Build
     max_build_duration: 60
     instance_type: mac_mini_m1
@@ -23,4 +23,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - 200ricardocolino@gmail.com
+          - your-email@example.com
