@@ -4,9 +4,13 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: latest
+      node: 18
+      android: latest
+      vars:
+        ANDROID_HOME: /Users/builder/Library/Android/sdk
+        PATH: $ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$PATH
       groups:
-        - google_play # Optional: for publishing
+        - google_play
     scripts:
       - name: Install dependencies
         script: npm install
@@ -14,10 +18,12 @@ workflows:
         script: npm run build
       - name: Sync Capacitor
         script: npx cap sync android
+      - name: Fix gradlew permissions
+        script: chmod +x android/gradlew
       - name: Build Android APK
         script: |
           cd android
-          gradle assembleDebug
+          ./gradlew assembleDebug
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
     publishing:
