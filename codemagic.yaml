@@ -3,6 +3,7 @@ workflows:
     name: Android Build
     environment:
       node: latest
+      java_version: 17  # Para Codemagic
     scripts:
       - npm install
       - npm install @capacitor/core @capacitor/cli @capacitor/android
