@@ -5,10 +5,9 @@ workflows:
       node: latest
     scripts:
       - npm install
-      - npm install @capacitor/android
+      - npm install @capacitor/core @capacitor/cli @capacitor/android
       - npm run build
-      - npx cap add android
-      - npx cap copy
+      - npx cap sync android
       - cd android
       - ./gradlew assembleRelease
     artifacts:
