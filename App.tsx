@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabaseClient';
 import Feed from './components/Feed';
 import ProfileView from './components/ProfileView';
@@ -29,6 +31,12 @@ const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    // Configure Status Bar for mobile
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Dark });
+      StatusBar.setBackgroundColor({ color: '#000000' });
+    }
+
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
