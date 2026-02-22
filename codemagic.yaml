@@ -3,24 +3,55 @@ workflows:
     name: Android Build
     environment:
       node: latest
-      java: 17  # Use 'java' em vez de 'java_version' para Codemagic
+      java: 17
+      # Adicionar variáveis de ambiente para garantir a versão correta
+      vars:
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
     scripts:
-      - npm install
-      - npm install @capacitor/core @capacitor/cli @capacitor/android
-      - npm run build
-      - |
-        if [ ! -f capacitor.config.json ]; then
-          echo '{
-            "appId": "com.kizombatok.app",
-            "appName": "KizombaTok",
-            "webDir": "dist",
-            "bundledWebRuntime": false
-          }' > capacitor.config.json
-        fi
-      - npx cap add android
-      - npx cap copy
-      - |
-        cd android
-        ./gradlew assembleRelease
+      - name: Verificar versão do Java
+        script: |
+          echo "Java version:"
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"
+      
+      - name: Instalar dependências npm
+        script: |
+          npm install
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+      
+      - name: Build do projeto
+        script: |
+          npm run build
+      
+      - name: Configurar Capacitor
+        script: |
+          if [ ! -f capacitor.config.json ]; then
+            echo '{
+              "appId": "com.kizombatok.app",
+              "appName": "KizombaTok",
+              "webDir": "dist",
+              "bundledWebRuntime": false
+            }' > capacitor.config.json
+          fi
+          npx cap add android
+          npx cap copy
+      
+      - name: Compilar Android com Java 17
+        script: |
+          # Forçar uso do Java 17
+          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          echo "JAVA_HOME configurado para: $JAVA_HOME"
+          java -version
+          
+          cd android
+          # Limpar build anterior
+          ./gradlew clean
+          # Compilar com informações detalhadas
+          ./gradlew assembleRelease --stacktrace
+      
+      - name: Listar arquivos gerados
+        script: |
+          echo "Arquivos APK gerados:"
+          find . -name "*.apk" -type f
     artifacts:
       - android/app/build/outputs/**/*.apk
