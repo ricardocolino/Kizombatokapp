@@ -5,8 +5,7 @@ workflows:
       node: latest
     scripts:
       - npm install
-      - npm install @capacitor/core @capacitor/cli
-      - npx cap init KizombaTok com.kizombatok.app --web-dir=dist
+      - npm install @capacitor/android
       - npm run build
       - npx cap add android
       - npx cap copy
