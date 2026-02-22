@@ -2,56 +2,102 @@ workflows:
   android-build:
     name: Android Build
     environment:
+      node: latest
       java: 17
     cache:
       cache_paths:
         - ~/.gradle/caches
         - ~/.m2/repository
+        - node_modules
     scripts:
-      - name: Verificar estrutura do projeto
+      - name: Instalar dependências
         script: |
-          echo "=== DIAGNÓSTICO DO PROJETO ==="
-          echo "Diretório atual: $(pwd)"
-          echo "\n=== LISTANDO ARQUIVOS NA RAIZ ==="
-          ls -la
-          
-          echo "\n=== PROCURANDO ARQUIVOS GRADLE ==="
-          find . -name "build.gradle" -type f | head -10
-          find . -name "gradlew" -type f | head -5
-          
-          echo "\n=== VERIFICANDO PASTAS COMUNS ==="
-          if [ -d "app" ]; then
-            echo "\nConteúdo da pasta app:"
-            ls -la app/
-          fi
-          
-          if [ -d "android" ]; then
-            echo "\nConteúdo da pasta android:"
-            ls -la android/
-          fi
+          echo "=== INSTALANDO DEPENDÊNCIAS ==="
+          npm install
+          npm install -g @capacitor/cli
       
-      - name: Compilar APK
+      - name: Instalar Capacitor
         script: |
-          echo "=== COMPILANDO APK ==="
-          
-          if [ -f "gradlew" ]; then
-            echo "Encontrado gradlew na raiz"
-            chmod +x gradlew
-            ./gradlew assembleRelease
-          elif [ -d "android" ] && [ -f "android/gradlew" ]; then
-            echo "Encontrado gradlew na pasta android"
-            cd android
-            chmod +x gradlew
-            ./gradlew assembleRelease
-            cd ..
-          elif [ -d "app" ] && [ -f "gradlew" ]; then
-            echo "Encontrado gradlew na raiz com pasta app"
-            chmod +x gradlew
-            ./gradlew assembleRelease
+          echo "=== INSTALANDO CAPACITOR ==="
+          npm install @capacitor/core @capacitor/android
+      
+      - name: Build do projeto web
+        script: |
+          echo "=== BUILD DO PROJETO ==="
+          # Verificar qual comando de build usar
+          if grep -q "\"build\":" package.json; then
+            npm run build
           else
-            echo "ERRO: Não foi possível encontrar o projeto Android"
+            echo "Comando build não encontrado no package.json"
+            # Se for React, geralmente é npm run build
+            npm run build || echo "Build falhou, mas continuando..."
+          fi
+          
+          # Verificar qual pasta foi gerada (dist, build, www, etc)
+          echo "Pastas geradas:"
+          ls -la
+      
+      - name: Configurar Capacitor
+        script: |
+          echo "=== CONFIGURANDO CAPACITOR ==="
+          
+          # Determinar a pasta web (dist, build, www)
+          WEB_DIR="dist"
+          if [ -d "build" ]; then
+            WEB_DIR="build"
+          elif [ -d "dist" ]; then
+            WEB_DIR="dist"
+          elif [ -d "www" ]; then
+            WEB_DIR="www"
+          elif [ -d "public" ]; then
+            WEB_DIR="public"
+          fi
+          
+          echo "Usando webDir: $WEB_DIR"
+          
+          # Criar capacitor.config.json se não existir
+          if [ ! -f capacitor.config.json ]; then
+            cat > capacitor.config.json << EOF
+{
+  "appId": "com.kizombatok.app",
+  "appName": "KizombaTok",
+  "webDir": "$WEB_DIR",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://KizombaTok.vercel.app",
+    "cleartext": true
+  }
+}
+EOF
+          fi
+          
+          # Mostrar configuração
+          cat capacitor.config.json
+          
+          # Adicionar Android
+          npx cap add android || echo "Android já adicionado"
+          npx cap copy
+      
+      - name: Compilar Android
+        script: |
+          echo "=== COMPILANDO ANDROID ==="
+          
+          # Verificar se pasta android existe
+          if [ ! -d "android" ]; then
+            echo "ERRO: Pasta android não foi criada"
             exit 1
           fi
+          
+          cd android
+          chmod +x gradlew
+          
+          # Mostrar versão do Java
+          java -version
+          
+          # Compilar
+          ./gradlew assembleRelease
+          
+          cd ..
       
       - name: Listar APKs gerados
         script: |
@@ -60,6 +106,11 @@ workflows:
             ls -la "$apk"
           done
     artifacts:
-      - "app/build/outputs/**/*.apk"
       - "android/app/build/outputs/**/*.apk"
       - "**/*.apk"
+    publishing:
+      email:
+        recipients:
+          - seu@email.com
+      
+      
