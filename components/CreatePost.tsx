@@ -310,28 +310,80 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
+  const generateThumbnail = (file: File | Blob): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      video.onloadedmetadata = () => {
+        video.currentTime = 0.5; // Capture at 0.5 seconds
+      };
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to generate thumbnail'));
+        }, 'image/jpeg', 0.7);
+        URL.revokeObjectURL(video.src);
+      };
+      video.onerror = (e) => {
+        URL.revokeObjectURL(video.src);
+        reject(e);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleUpload = async () => {
     if (!mediaFile) return;
     setUploading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada.');
+      
       const isRecorded = (mediaFile instanceof Blob) && !(mediaFile instanceof File);
       const fileExt = isRecorded ? 'webm' : (mediaFile as File).name.split('.').pop();
-      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+      const timestamp = Date.now();
+      const fileName = `${session.user.id}-${timestamp}.${fileExt}`;
       const filePath = `posts/${fileName}`;
+      
+      // 1. Upload Video
       const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, mediaFile);
       if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+      const { data: { publicUrl: videoUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+
+      // 2. Generate and Upload Thumbnail
+      let thumbnailUrl = null;
+      try {
+        const thumbBlob = await generateThumbnail(mediaFile);
+        const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
+        const thumbFilePath = `thumbnails/${thumbFileName}`;
+        const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
+        if (!thumbUploadError) {
+          const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
+          thumbnailUrl = tUrl;
+        }
+      } catch (thumbErr) {
+        console.error("Erro ao gerar thumbnail:", thumbErr);
+      }
+
+      // 3. Insert Post
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
-        media_url: publicUrl,
+        media_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
         media_type: 'video',
         sound_id: selectedSound ? selectedSound.id : null,
         views: 0,
         created_at: new Date().toISOString()
       });
+      
       if (insertError) throw insertError;
       setTimeout(() => onCreated(), 500);
     } catch (err: any) {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, User } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface PostCardProps {
@@ -10,6 +10,7 @@ interface PostCardProps {
   onNavigateToSound: (post: Post) => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  onRequireAuth?: () => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -18,7 +19,7 @@ type EnhancedComment = Comment & {
   profiles?: any;
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNavigateToSound, isMuted, onToggleMute }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNavigateToSound, isMuted, onToggleMute, onRequireAuth }) => {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [commentsCount, setCommentsCount] = useState(0);
@@ -123,7 +124,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
   const toggleCommentLike = async (commentId: number, currentlyLiked: boolean) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Entra na conta para curtir mamo!');
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
 
     setComments(prev => prev.map(c => {
       if (c.id === commentId) {
@@ -170,7 +174,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const toggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Entra na conta para curtir!');
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
 
     if (liked) {
       await supabase.from('reactions').delete().eq('post_id', post.id).eq('user_id', session.user.id);
@@ -185,7 +192,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Entra na conta para seguir!');
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
     if (isOwnPost) return;
 
     const { error } = await supabase.from('follows').insert({
@@ -205,7 +215,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     e.preventDefault();
     if (!newComment.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Faz login mamo!');
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
 
     const { error } = await supabase.from('comments').insert({
       post_id: post.id,

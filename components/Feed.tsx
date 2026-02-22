@@ -7,6 +7,7 @@ import PostCard from './PostCard';
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
   onNavigateToSound: (post: Post) => void;
+  onRequireAuth?: () => void;
   initialPostId?: string | null;
 }
 
@@ -25,7 +26,7 @@ const PostSkeleton = () => (
   </div>
 );
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -108,6 +109,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, ini
             onNavigateToSound={onNavigateToSound}
             isMuted={isMuted}
             onToggleMute={toggleMute}
+            onRequireAuth={onRequireAuth}
           />
         </div>
       ))}

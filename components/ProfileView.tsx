@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin } from 'lucide-react';
@@ -29,10 +29,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     username: '',
     name: '',
     bio: '',
-    avatar_url: ''
+    avatar_url: '',
+    cover_url: ''
   });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAll();
@@ -58,7 +62,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         username: data.username || '',
         name: data.name || '',
         bio: data.bio || '',
-        avatar_url: data.avatar_url || ''
+        avatar_url: data.avatar_url || '',
+        cover_url: data.cover_url || ''
       });
     }
   };
@@ -163,8 +168,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   };
 
   const handleLogout = async () => {
-    if (!confirm('Queres mesmo sair da banda?')) return;
-
+    setShowLogoutModal(false);
     try {
       await supabase.auth.signOut();
     } catch (error) {
@@ -218,6 +222,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           name: editForm.name,
           bio: editForm.bio,
           avatar_url: editForm.avatar_url,
+          cover_url: editForm.cover_url,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -230,6 +235,59 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       setEditError(err.message || 'Erro ao atualizar o mambo do perfil.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleCoverClick = () => {
+    coverInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setEditError('A foto é muito pesada! Máximo 2MB.');
+      return;
+    }
+
+    setSaving(true);
+    setEditError(null);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const folder = type === 'avatar' ? 'avatars' : 'capa';
+      const filePath = `${folder}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        if (uploadError.message.includes('bucket not found')) {
+          throw new Error('O servidor de fotos não está configurado. Usa uma URL por agora.');
+        }
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
+
+      if (type === 'avatar') {
+        setEditForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      } else {
+        setEditForm(prev => ({ ...prev, cover_url: data.publicUrl }));
+      }
+    } catch (err: any) {
+      setEditError(err.message || 'Erro ao carregar a foto.');
+    } finally {
+      setSaving(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -265,7 +323,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           )}
           {isOwnProfile && (
-            <button onClick={handleLogout} className="text-zinc-400 hover:text-red-600 transition-all p-1">
+            <button onClick={() => setShowLogoutModal(true)} className="text-zinc-400 hover:text-red-600 transition-all p-1">
               <LogOut size={20}/>
             </button>
           )}
@@ -276,7 +334,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       </header>
 
       {/* Banner */}
-      <div className="w-full h-32 bg-gradient-to-r from-zinc-800 to-zinc-900 relative"></div>
+      <div className="w-full h-32 bg-zinc-900 relative overflow-hidden">
+        {profile.cover_url ? (
+          <img src={profile.cover_url} className="w-full h-full object-cover" alt="" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-zinc-800 to-zinc-900" />
+        )}
+      </div>
 
       {/* Profile Info Section (Estilo X) */}
       <div className="px-4 pb-4">
@@ -417,6 +481,42 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         )}
       </div>
 
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowLogoutModal(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-800 w-full max-w-xs rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col items-center text-center gap-6">
+              <div className="w-16 h-16 rounded-full bg-red-600/10 flex items-center justify-center text-red-600">
+                <LogOut size={32} />
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-lg font-black uppercase tracking-widest text-white">Sair da Banda?</h3>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                  Vais deixar a vibe de Angola por agora? Podes voltar quando quiseres!
+                </p>
+              </div>
+
+              <div className="w-full space-y-3 pt-2">
+                <button 
+                  onClick={handleLogout}
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 shadow-lg shadow-red-600/20"
+                >
+                  Sim, Sair Agora
+                </button>
+                <button 
+                  onClick={() => setShowLogoutModal(false)}
+                  className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
+                >
+                  Ficar na Banda
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Profile Drawer */}
       {isEditing && (
         <div className="fixed inset-0 z-[60] flex flex-col justify-end">
@@ -441,8 +541,45 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </div>
 
             <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
+              {/* Cover Photo Section */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Foto de Capa</label>
+                <input 
+                  type="file"
+                  ref={coverInputRef}
+                  onChange={(e) => handleFileChange(e, 'cover')}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <div 
+                  onClick={handleCoverClick}
+                  className="relative w-full h-32 rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden cursor-pointer group"
+                >
+                  {editForm.cover_url ? (
+                    <img src={editForm.cover_url} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-900/50">
+                      <Plus className="text-zinc-700" size={24} />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="text-white" size={24} />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col items-center gap-4">
-                <div className="relative group cursor-pointer">
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => handleFileChange(e, 'avatar')}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <div 
+                  className="relative group cursor-pointer"
+                  onClick={handleAvatarClick}
+                >
                   <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-zinc-800">
                     <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
                       {editForm.avatar_url ? (
@@ -455,14 +592,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="text-white" size={24} />
                   </div>
+                  {saving && (
+                    <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                      <Loader2 className="text-white animate-spin" size={24} />
+                    </div>
+                  )}
                 </div>
-                <input 
-                  type="text" 
-                  value={editForm.avatar_url}
-                  onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})}
-                  placeholder="URL da Foto (HTTP...)"
-                  className="w-full max-w-xs bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-center focus:ring-1 focus:ring-red-600 outline-none transition-all text-zinc-400"
-                />
+                <div className="flex flex-col items-center gap-1">
+                  <button 
+                    type="button"
+                    onClick={handleAvatarClick}
+                    className="text-[10px] font-black uppercase text-red-600 tracking-widest hover:text-red-500 transition-colors"
+                  >
+                    Mudar Foto
+                  </button>
+                  <input 
+                    type="text" 
+                    value={editForm.avatar_url}
+                    onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})}
+                    placeholder="Ou cola uma URL aqui..."
+                    className="w-full max-w-xs bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-[9px] text-center focus:ring-1 focus:ring-red-600 outline-none transition-all text-zinc-500"
+                  />
+                </div>
               </div>
 
               <div className="space-y-6">

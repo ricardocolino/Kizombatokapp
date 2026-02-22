@@ -145,7 +145,7 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case Tab.HOME:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onNavigateToSound={handleNavigateToSound} initialPostId={targetPostId} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onNavigateToSound={handleNavigateToSound} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} />;
       case Tab.DISCOVER:
         return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.CREATE:
@@ -163,7 +163,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white relative">
+    <div className="flex flex-col h-[100dvh] bg-black text-white relative">
       <main className="flex-1 overflow-hidden">
         {renderContent()}
       </main>
@@ -187,7 +187,7 @@ const App: React.FC = () => {
           onClick={() => setActiveTab(Tab.CREATE)}
           className="flex flex-col items-center group"
         >
-          <div className="w-12 h-9 bg-gradient-to-r from-red-600 to-yellow-500 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] group-active:scale-90 transition-transform">
+          <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">
             <PlusSquare size={22} />
           </div>
         </button>

@@ -21,7 +21,6 @@ const Auth: React.FC = () => {
         id: userId,
         username: finalUsername,
         name: finalUsername,
-        updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
 
     if (profileError) {
