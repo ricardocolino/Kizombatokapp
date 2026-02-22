@@ -2,63 +2,64 @@ workflows:
   android-build:
     name: Android Build
     environment:
-      node: latest  # Se você precisa de Node para algo específico
-      java: 17      # Use a versão do Java compatível com seu projeto
+      java: 17
     cache:
       cache_paths:
         - ~/.gradle/caches
         - ~/.m2/repository
     scripts:
-      - name: Verificar versão do Java
-        script: |
-          echo "=== VERIFICANDO VERSÃO DO JAVA ==="
-          java -version
-          echo "JAVA_HOME: $JAVA_HOME"
-      
       - name: Verificar estrutura do projeto
         script: |
-          echo "=== ESTRUTURA DO PROJETO ==="
+          echo "=== DIAGNÓSTICO DO PROJETO ==="
+          echo "Diretório atual: $(pwd)"
+          echo "\n=== LISTANDO ARQUIVOS NA RAIZ ==="
           ls -la
-          echo "=== DIRETÓRIO ANDROID ==="
+          
+          echo "\n=== PROCURANDO ARQUIVOS GRADLE ==="
+          find . -name "build.gradle" -type f | head -10
+          find . -name "gradlew" -type f | head -5
+          
+          echo "\n=== VERIFICANDO PASTAS COMUNS ==="
+          if [ -d "app" ]; then
+            echo "\nConteúdo da pasta app:"
+            ls -la app/
+          fi
+          
           if [ -d "android" ]; then
-            cd android
-            ls -la
-            cd ..
-          else
-            echo "Diretório android não encontrado na raiz"
+            echo "\nConteúdo da pasta android:"
+            ls -la android/
           fi
       
-      - name: Compilar Android
+      - name: Compilar APK
         script: |
-          echo "=== COMPILANDO PROJETO ANDROID ==="
+          echo "=== COMPILANDO APK ==="
           
-          # Verificar se estamos no diretório correto
-          # Se seu projeto Android está na raiz
           if [ -f "gradlew" ]; then
             echo "Encontrado gradlew na raiz"
             chmod +x gradlew
             ./gradlew assembleRelease
-          # Se está em uma subpasta android
           elif [ -d "android" ] && [ -f "android/gradlew" ]; then
+            echo "Encontrado gradlew na pasta android"
             cd android
             chmod +x gradlew
             ./gradlew assembleRelease
             cd ..
-          # Se está em uma subpasta app
           elif [ -d "app" ] && [ -f "gradlew" ]; then
             echo "Encontrado gradlew na raiz com pasta app"
             chmod +x gradlew
             ./gradlew assembleRelease
           else
-            echo "Arquivo gradlew não encontrado. Procurando em subdiretórios..."
-            find . -name "gradlew" -type f
+            echo "ERRO: Não foi possível encontrar o projeto Android"
+            exit 1
           fi
       
       - name: Listar APKs gerados
         script: |
           echo "=== APKs GERADOS ==="
-          find . -name "*.apk" -type f | xargs ls -la
+          find . -name "*.apk" -type f | while read apk; do
+            ls -la "$apk"
+          done
     artifacts:
-      - app/build/outputs/**/*.apk
-      - android/app/build/outputs/**/*.apk
-      - **/*.apk
+      - "app/build/outputs/**/*.apk"
+      - "android/app/build/outputs/**/*.apk"
+      - "**/*.apk"
