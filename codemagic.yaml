@@ -27,11 +27,11 @@ workflows:
       - name: Build Android APK
         script: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          # Usar o gradle do sistema para evitar erro de jar corrompido no wrapper
+          gradle assembleDebug
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
     publishing:
       email:
         recipients:
-          - 200ricardocolino@gmail.com
+          - your-email@example.com
