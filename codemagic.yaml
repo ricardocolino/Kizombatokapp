@@ -1,0 +1,16 @@
+workflows:
+  android-build:
+    name: Android Build
+    environment:
+      node: latest
+    scripts:
+      - npm install
+      - npm install @capacitor/core @capacitor/cli
+      - npx cap init KizombaTok com.kizombatok.app --web-dir=dist
+      - npm run build
+      - npx cap add android
+      - npx cap copy
+      - cd android
+      - ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.apk
