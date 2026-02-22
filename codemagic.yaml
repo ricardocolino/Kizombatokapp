@@ -24,4 +24,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - 200ricardocolino.com
+          - 200ricardocolino@gmail.com
