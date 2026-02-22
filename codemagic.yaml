@@ -7,7 +7,9 @@ workflows:
       - npm install
       - npm install @capacitor/core @capacitor/cli @capacitor/android
       - npm run build
-      - npx cap sync android
+      - npx cap init KizombaTok com.kizombatok.app --web-dir=dist --yes
+      - npx cap add android
+      - npx cap copy
       - cd android
       - ./gradlew assembleRelease
     artifacts:
