@@ -163,7 +163,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black text-white relative">
+    <div className="flex flex-col h-screen bg-black text-white relative">
       <main className="flex-1 overflow-hidden">
         {renderContent()}
       </main>
