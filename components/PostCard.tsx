@@ -309,7 +309,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             muted={videoMuted}
             playsInline
             autoPlay
-            preload="auto"
+            preload="metadata"
             crossOrigin="anonymous"
             onError={() => setVideoError(true)}
             poster={post.thumbnail_url || undefined}
@@ -326,7 +326,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       </div>
 
       {/* Sidebar Controls */}
-      <div className="absolute right-3 bottom-6 flex flex-col gap-5 items-center z-30">
+      <div className="absolute right-3 bottom-10 flex flex-col gap-5 items-center z-30">
         <div className="relative mb-2">
           <div 
             onClick={() => onNavigateToProfile(post.user_id)}
@@ -387,7 +387,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       </div>
 
       {/* Caption Area */}
-      <div className="absolute left-0 bottom-0 w-full p-5 pb-6 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
+      <div className="absolute left-0 bottom-0 w-full p-5 pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
         <h3 className="font-black text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
           <span 
             onClick={() => onNavigateToProfile(post.user_id)}

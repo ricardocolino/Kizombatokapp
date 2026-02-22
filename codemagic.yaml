@@ -1,29 +1,26 @@
 workflows:
-  android-build:
+  android-workflow:
     name: Android Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
     environment:
       node: latest
-      java: 17
+      groups:
+        - google_play # Optional: for publishing
     scripts:
-      - name: Build Android
+      - name: Install dependencies
+        script: npm install
+      - name: Build web app
+        script: npm run build
+      - name: Sync Capacitor
+        script: npx cap sync android
+      - name: Build Android APK
         script: |
-          echo "=== INICIANDO BUILD ==="
-          
-          # Instalar dependências
-          npm install
-          npm install @capacitor/core @capacitor/android
-          
-          # Build do web app
-          npm run build
-          
-          # Configurar Capacitor
-          npx cap init KizombaTok com.kizombatok.app
-          npx cap add android
-          npx cap copy
-          
-          # Compilar APK
           cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug
     artifacts:
-      - "android/app/build/outputs/**/*.apk"
+      - android/app/build/outputs/apk/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com

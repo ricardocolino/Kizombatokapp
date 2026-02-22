@@ -1,0 +1,6 @@
+{
+	"appId": "com.kizombatok.angolavibe",
+	"appName": "KizombaTok",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}
