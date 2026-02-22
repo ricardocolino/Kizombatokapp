@@ -3,6 +3,8 @@ workflows:
     name: Android Build
     environment:
       node: latest
+      android_signing:
+        - keystore_reference
     scripts:
       - npm install
       - npm install @capacitor/core @capacitor/cli @capacitor/android
@@ -19,6 +21,6 @@ workflows:
       - npx cap add android
       - npx cap copy
       - cd android
-      - ./gradlew assembleRelease
+      - gradle assembleRelease
     artifacts:
       - android/app/build/outputs/**/*.apk
