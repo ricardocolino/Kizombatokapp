@@ -1,32 +1,15 @@
 workflows:
   android-build:
     name: Android Build
-    max_build_duration: 60
-    instance_type: mac_mini_m1
     environment:
-      node: 18
-      # Remova a linha 'android: latest' - não é válida
-      vars:
-        ANDROID_HOME: /Users/builder/Library/Android/sdk
-        PATH: $ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$PATH
-      groups:
-        - google_play
+      node: latest
     scripts:
-      - name: Install dependencies
-        script: npm install
-      - name: Build web app
-        script: npm run build
-      - name: Sync Capacitor
-        script: npx cap sync android
-      - name: Fix gradlew permissions
-        script: chmod +x android/gradlew
-      - name: Build Android APK
-        script: |
-          cd android
-          ./gradlew assembleDebug
+      - npm install
+      - npm install @capacitor/android
+      - npm run build
+      - npx cap add android
+      - npx cap copy
+      - cd android
+      - ./gradlew assembleRelease
     artifacts:
-      - android/app/build/outputs/apk/**/*.apk
-    publishing:
-      email:
-        recipients:
-          - 200ricardocolino@gmail.com
+      - android/app/build/outputs/**/*.apk
