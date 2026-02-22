@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       node: 18
-      android: latest
+      # Remova a linha 'android: latest' - não é válida
       vars:
         ANDROID_HOME: /Users/builder/Library/Android/sdk
         PATH: $ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$PATH
