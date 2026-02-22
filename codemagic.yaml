@@ -36,4 +36,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@example.com # Altera para o teu e-mail nas definições do Codemagic
+          - 200ricardocolino@gmail.com # Altera para o teu e-mail nas definições do Codemagic
