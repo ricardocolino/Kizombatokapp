@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, User } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, User, Eye, Flag, Download, Link, Instagram, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface PostCardProps {
@@ -27,37 +27,96 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const [isOwnPost, setIsOwnPost] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const mediaUrls = useMemo(() => {
+    try {
+      const parsed = JSON.parse(post.media_url);
+      return Array.isArray(parsed) ? parsed : [post.media_url];
+    } catch {
+      return [post.media_url];
+    }
+  }, [post.media_url]);
   const [showComments, setShowComments] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [comments, setComments] = useState<EnhancedComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
   const [originalPost, setOriginalPost] = useState<Post | null>(null);
   const [originalProfile, setOriginalProfile] = useState<Profile | null>(null);
+  const [viewCounted, setViewCounted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem(`viewed_${post.id}`);
+    }
+    return false;
+  });
+  const [currentViews, setCurrentViews] = useState(post.views || 0);
+  const [followingList, setFollowingList] = useState<Profile[]>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchMetadata();
-    if (post.sound_id) {
-      fetchOriginalPost();
+  const handlePause = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-    
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) handlePlay();
-          else handlePause();
-        });
-      },
-      { threshold: 0.6 }
-    );
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsPlaying(false);
+  };
 
-    if (videoRef.current) observerRef.current.observe(videoRef.current);
-    return () => observerRef.current?.disconnect();
-  }, [post.id, videoError]);
+  const incrementView = async () => {
+    if (viewCounted) return;
+    
+    if (localStorage.getItem(`viewed_${post.id}`)) {
+      setViewCounted(true);
+      return;
+    }
+
+    try {
+      await supabase.rpc('increment_post_views', { target_post_id: post.id });
+      localStorage.setItem(`viewed_${post.id}`, 'true');
+      setViewCounted(true);
+      setCurrentViews(prev => prev + 1);
+    } catch (e) {
+      console.error("Erro ao incrementar views:", e);
+    }
+  };
+
+  const handlePlay = () => {
+    let playPromise: Promise<void> | null = null;
+
+    if (post.media_type === 'video' && videoRef.current && !videoError) {
+      playPromise = videoRef.current.play();
+    }
+
+    if (post.sound_id && audioRef.current) {
+      const audioPromise = audioRef.current.play();
+      if (!playPromise) playPromise = audioPromise;
+    } else if (post.media_type === 'image' && !playPromise) {
+      // For images without sound, we still want to mark as playing for view count
+      setIsPlaying(true);
+      if (!viewCounted) incrementView();
+      return;
+    }
+
+    if (playPromise) {
+      playPromise.then(() => {
+        setIsPlaying(true);
+        if (!viewCounted) {
+          incrementView();
+        }
+      }).catch((err) => {
+        console.error("Playback failed:", err);
+        setIsPlaying(false);
+      });
+    }
+  };
 
   const fetchOriginalPost = async () => {
     try {
@@ -98,11 +157,42 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           .eq('following_id', post.user_id)
           .maybeSingle();
         setIsFollowing(!!followData);
+
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id, profiles:following_id(*)')
+          .eq('follower_id', session.user.id);
+        
+        if (follows) {
+          setFollowingList(follows.map((f: any) => f.profiles) as Profile[]);
+        }
       }
     } catch (e) {
       console.error("Erro ao carregar metadados:", e);
     }
   };
+
+  useEffect(() => {
+    setTimeout(() => {
+      fetchMetadata();
+      if (post.sound_id) {
+        fetchOriginalPost();
+      }
+    }, 0);
+    
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) handlePlay();
+          else handlePause();
+        });
+      },
+      { threshold: 0.6 }
+    );
+
+    if (containerRef.current) observerRef.current.observe(containerRef.current);
+    return () => observerRef.current?.disconnect();
+  }, [post.id, videoError, post.sound_id]);
 
   const fetchComments = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -152,23 +242,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       ...prev,
       [parentId]: !prev[parentId]
     }));
-  };
-
-  const handlePlay = () => {
-    if (videoRef.current && !videoError && post.media_url) {
-      videoRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(() => {
-        setIsPlaying(false);
-      });
-    }
-  };
-
-  const handlePause = () => {
-    if (videoRef.current) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
   };
 
   const toggleLike = async (e: React.MouseEvent) => {
@@ -235,6 +308,92 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     }
   };
 
+  const handleShareToUser = async (targetUserId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
+
+    const shareMessage = `Olha este mambo: ${window.location.origin}/post/${post.id}`;
+    
+    const { error } = await supabase.from('messages').insert({
+      sender_id: session.user.id,
+      receiver_id: targetUserId,
+      content: shareMessage
+    });
+
+    if (!error) {
+      alert('Mambo partilhado com sucesso!');
+    }
+  };
+
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/post/${post.id}`;
+    navigator.clipboard.writeText(link);
+    alert('Link copiado para a área de transferência!');
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(post.media_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kizombatok_${post.id}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      alert('Erro ao descarregar o vídeo. Tenta novamente.');
+    }
+  };
+
+  const handleReport = async () => {
+    const reason = prompt('Por que queres denunciar este vídeo?');
+    if (!reason) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
+
+    const { error } = await supabase.from('reports').insert({
+      post_id: post.id,
+      user_id: session.user.id,
+      reason: reason
+    });
+
+    if (!error) {
+      alert('Denúncia enviada. A nossa equipa irá analisar o mambo.');
+    } else {
+      alert('Denúncia enviada com sucesso.');
+    }
+  };
+
+  const handleSocialShare = (platform: string) => {
+    const url = encodeURIComponent(`${window.location.origin}/post/${post.id}`);
+    const text = encodeURIComponent(`Olha este mambo no KizombaTok!`);
+    let shareUrl = '';
+
+    switch (platform) {
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${text}%20${url}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+        break;
+    }
+
+    if (shareUrl) window.open(shareUrl, '_blank');
+  };
+
   const renderCommentItem = (c: EnhancedComment, isReply: boolean = false) => {
     const isPostAuthor = c.user_id === post.user_id;
     return (
@@ -252,7 +411,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           {c.profiles?.avatar_url ? (
             <img src={c.profiles.avatar_url} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center font-black text-zinc-500 uppercase text-[10px]">{c.profiles?.username?.[0]}</div>
+            <div className="w-full h-full flex items-center justify-center font-black text-zinc-500 uppercase text-[10px]">{c.profiles?.name?.[0] || c.profiles?.username?.[0]}</div>
           )}
         </div>
 
@@ -262,7 +421,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
               onClick={() => onNavigateToProfile(c.user_id)}
               className="text-[12px] font-black text-zinc-400 cursor-pointer hover:text-white transition-colors flex items-center gap-1"
             >
-              @{c.profiles?.username}
+              {c.profiles?.name || `@${c.profiles?.username}`}
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
             </span>
             {isPostAuthor && <span className="text-[8px] bg-red-600/20 text-red-500 font-black px-1.5 py-0.5 rounded uppercase border border-red-500/20">Autor</span>}
@@ -298,9 +457,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
   const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
 
-  // Determine actual audio muting
-  const videoMuted = isMuted;
-
   // Music avatar logic - use the original sound owner profile if sound_id exists
   const musicProfile = originalProfile || post.profiles;
 
@@ -310,7 +466,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   };
 
   return (
-    <div className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
+    <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
+      {/* Audio for external sounds or images */}
+      {originalPost?.media_url && (
+        <audio 
+          ref={audioRef} 
+          src={originalPost.media_url} 
+          loop 
+          muted={isMuted}
+        />
+      )}
+
       {/* Video Content */}
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
         {post.media_type === 'video' ? (
@@ -319,7 +485,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             src={post.media_url}
             className="w-full h-full object-cover"
             loop
-            muted={videoMuted}
+            muted={!!post.sound_id || isMuted}
             playsInline
             autoPlay
             preload="metadata"
@@ -328,7 +494,44 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             poster={post.thumbnail_url || undefined}
           />
         ) : (
-          <img src={post.media_url} className="w-full h-full object-cover" alt="" crossOrigin="anonymous" />
+          <div className="w-full h-full relative group/carousel">
+            <img 
+              src={mediaUrls[currentImageIndex]} 
+              className="w-full h-full object-cover transition-opacity duration-300" 
+              alt="" 
+              crossOrigin="anonymous" 
+            />
+            
+            {mediaUrls.length > 1 && (
+              <>
+                {/* Carousel Indicators */}
+                <div className="absolute top-4 left-0 w-full flex justify-center gap-1.5 z-30 px-4">
+                  {mediaUrls.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-1 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Navigation Areas (Invisible but clickable) */}
+                <div 
+                  className="absolute inset-y-0 left-0 w-1/2 z-20 cursor-pointer" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
+                  }}
+                />
+                <div 
+                  className="absolute inset-y-0 right-0 w-1/2 z-20 cursor-pointer" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
+                  }}
+                />
+              </>
+            )}
+          </div>
         )}
         
         {!isPlaying && post.media_type === 'video' && (
@@ -339,22 +542,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       </div>
 
       {/* Sidebar Controls */}
-      <div className="absolute right-3 bottom-10 flex flex-col gap-5 items-center z-30">
-        <div className="relative mb-2">
+      <div className="absolute right-2 sm:right-3 bottom-20 sm:bottom-10 flex flex-col gap-3 sm:gap-5 items-center z-30">
+        <div className="relative mb-1 sm:mb-2">
           <div 
             onClick={() => onNavigateToProfile(post.user_id)}
-            className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
           >
              {post.profiles?.avatar_url ? (
                <img src={post.profiles.avatar_url} className="w-full h-full object-cover" />
              ) : (
-               <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-sm">{post.profiles?.username?.[0]}</div>
+               <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
              )}
           </div>
           {!isFollowing && !isOwnPost && (
             <button 
               onClick={handleFollow}
-              className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
+              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
             >
               +
             </button>
@@ -362,64 +565,71 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         </div>
 
         <button onClick={toggleLike} className="flex flex-col items-center group">
-          <div className="p-2 transition-transform group-active:scale-125">
-            <Heart size={34} className={`drop-shadow-xl transition-all ${liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
+            <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
           </div>
-          <span className="text-[12px] font-black text-white drop-shadow-md tracking-tighter">{likesCount}</span>
+          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{likesCount}</span>
         </button>
 
-        <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center">
-          <div className="p-2">
-            <MessageCircle size={34} className="text-white drop-shadow-xl" />
+        <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
+          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+            <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
           </div>
-          <span className="text-[12px] font-black text-white drop-shadow-md tracking-tighter">{commentsCount}</span>
+          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{commentsCount}</span>
         </button>
 
-        <button className="flex flex-col items-center">
-          <div className="p-2">
-            <Share2 size={34} className="text-white drop-shadow-xl" />
+        <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
+          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+            <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
           </div>
-          <span className="text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
+          <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
         </button>
+
+        <div className="flex flex-col items-center opacity-80">
+          <div className="p-1.5 sm:p-2">
+            <Eye size={24} className="sm:w-[28px] sm:h-[28px] text-white drop-shadow-xl" />
+          </div>
+          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{currentViews}</span>
+        </div>
 
         {/* Spinning Music Avatar */}
-        <div className="relative mt-2 p-1.5 cursor-pointer" onClick={handleSoundClick}>
-           <div className="w-12 h-12 rounded-full bg-zinc-950 border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl animate-[spin_4s_linear_infinite]">
+        <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
+           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl animate-[spin_4s_linear_infinite]">
               {musicProfile?.avatar_url ? (
                 <img src={musicProfile.avatar_url} className="w-[60%] h-[60%] rounded-full object-cover border border-zinc-800" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                  <Music2 size={20} className="text-zinc-600" />
+                  <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
                 </div>
               )}
            </div>
            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-             <div className="w-1 h-1 bg-zinc-800 rounded-full shadow-inner" />
+             <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-zinc-800 rounded-full shadow-inner" />
            </div>
         </div>
       </div>
 
       {/* Caption Area */}
-      <div className="absolute left-0 bottom-0 w-full p-5 pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
-        <h3 className="font-black text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
+      <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
+        <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
           <span 
             onClick={() => onNavigateToProfile(post.user_id)}
             className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
           >
-            @{post.profiles?.username}
-            <CheckCircle2 size={18} className="text-blue-500 fill-blue-500/10" />
+            {post.profiles?.name || `@${post.profiles?.username}`}
+            <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
           </span>
         </h3>
-        <p className="text-sm text-zinc-100 line-clamp-2 mt-1.5 pointer-events-auto drop-shadow-md max-w-[80%] leading-snug">
+        <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
           {post.content}
         </p>
         <div 
           onClick={handleSoundClick}
-          className="flex items-center gap-2 mt-4 bg-white/10 backdrop-blur-xl w-fit px-4 py-1.5 rounded-full border border-white/20 pointer-events-auto group cursor-pointer hover:bg-white/20 transition-all"
+          className="flex items-center gap-2 mt-3 sm:mt-4 bg-white/10 backdrop-blur-xl w-fit px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/20 pointer-events-auto group cursor-pointer hover:bg-white/20 transition-all"
         >
-          <Music2 size={12} className="text-white animate-pulse" />
-          <span className="text-[10px] text-white font-black uppercase tracking-widest overflow-hidden whitespace-nowrap max-w-[150px]">
-            Som Original - {musicProfile?.username}
+          <Music2 size={10} className="sm:w-[12px] sm:h-[12px] text-white animate-pulse" />
+          <span className="text-[9px] sm:text-[10px] text-white font-black uppercase tracking-widest overflow-hidden whitespace-nowrap max-w-[120px] sm:max-w-[150px]">
+            Som Original - {musicProfile?.name || musicProfile?.username}
           </span>
         </div>
       </div>
@@ -513,11 +723,93 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         </div>
       )}
 
+      {/* Share Drawer */}
+      {showShare && (
+        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => setShowShare(false)} />
+          <div className="relative bg-zinc-950 rounded-t-[40px] p-6 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm font-black text-white uppercase tracking-widest">Partilhar Mambo</span>
+              <button onClick={() => setShowShare(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
+            </div>
+
+            {/* Share to Following */}
+            <div className="mb-8">
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Enviar para amigos</p>
+              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                {followingList.map(friend => (
+                  <button 
+                    key={friend.id}
+                    onClick={() => handleShareToUser(friend.id)}
+                    className="flex flex-col items-center gap-2 shrink-0 group"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden group-active:scale-90 transition-transform">
+                      {friend.avatar_url ? (
+                        <img src={friend.avatar_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black uppercase text-xs">{friend.name?.[0] || friend.username?.[0]}</div>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-zinc-400 font-medium truncate w-14 text-center">{friend.name || friend.username}</span>
+                  </button>
+                ))}
+                {followingList.length === 0 && (
+                  <p className="text-[10px] text-zinc-600 italic">Segue alguém para partilhares mambos diretamente!</p>
+                )}
+              </div>
+            </div>
+
+            {/* Social Share Options */}
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              <button onClick={() => handleSocialShare('whatsapp')} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-green-600/20 rounded-2xl flex items-center justify-center text-green-500 group-active:scale-90 transition-transform">
+                  <MessageSquare size={24} />
+                </div>
+                <span className="text-[9px] font-black text-zinc-500 uppercase">WhatsApp</span>
+              </button>
+              <button onClick={() => handleSocialShare('facebook')} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500 group-active:scale-90 transition-transform">
+                  <Facebook size={24} />
+                </div>
+                <span className="text-[9px] font-black text-zinc-500 uppercase">Facebook</span>
+              </button>
+              <button onClick={() => handleSocialShare('twitter')} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-sky-500/20 rounded-2xl flex items-center justify-center text-sky-400 group-active:scale-90 transition-transform">
+                  <Twitter size={24} />
+                </div>
+                <span className="text-[9px] font-black text-zinc-500 uppercase">Twitter</span>
+              </button>
+              <button onClick={() => handleCopyLink()} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 bg-zinc-800 rounded-2xl flex items-center justify-center text-white group-active:scale-90 transition-transform">
+                  <Link size={24} />
+                </div>
+                <span className="text-[9px] font-black text-zinc-500 uppercase">Copiar</span>
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button 
+                onClick={handleDownload}
+                className="flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 py-4 rounded-2xl text-white transition-colors"
+              >
+                <Download size={20} />
+                <span className="text-xs font-black uppercase tracking-widest">Descarregar</span>
+              </button>
+              <button 
+                onClick={handleReport}
+                className="flex items-center justify-center gap-3 bg-red-600/10 hover:bg-red-600/20 py-4 rounded-2xl text-red-500 transition-colors border border-red-600/20"
+              >
+                <Flag size={20} />
+                <span className="text-xs font-black uppercase tracking-widest">Denunciar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Header Overlays */}
-      <div className="absolute top-0 left-0 w-full p-5 pt-12 flex justify-between items-start bg-gradient-to-b from-black/70 to-transparent z-30 pointer-events-none">
-        <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter drop-shadow-2xl pointer-events-auto">
-          Kizomba<span className="text-red-600">Tok</span>
-        </h2>
+      <div className="absolute top-0 left-0 w-full p-5 pt-12 flex justify-end items-start bg-gradient-to-b from-black/70 to-transparent z-30 pointer-events-none">
         {post.media_type === 'video' && (
           <button onClick={onToggleMute} className="p-3 bg-black/30 backdrop-blur-2xl rounded-2xl text-white border border-white/10 pointer-events-auto hover:bg-black/50 transition-colors">
             {isMuted ? <VolumeX size={20}/> : <Volume2 size={20}/>}

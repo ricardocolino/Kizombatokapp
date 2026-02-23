@@ -30,18 +30,74 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
+  const [user, setUser] = useState<any>(null);
+  const [displayLimit, setDisplayLimit] = useState(5);
+  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     fetchPosts();
-  }, [initialPostId]);
+    setDisplayLimit(5); // Reset limit when feed type or initial post changes
+  }, [initialPostId, feedType, user]);
+
+  // Intersection Observer for Infinite Scroll
+  useEffect(() => {
+    if (loading || displayLimit >= posts.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // Carregar mais cedo para evitar o "atraso" percebido
+          setDisplayLimit(prev => Math.min(prev + 5, posts.length));
+        }
+      },
+      { 
+        threshold: 0,
+        rootMargin: '100% 0px' // Gatilha quando o sentinel estiver a 1 tela de distância
+      }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, displayLimit, posts.length]);
 
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('posts')
         .select(`*, profiles (*)`)
         .order('created_at', { ascending: false });
+
+      if (feedType === 'following' && user) {
+        // Buscar IDs de quem o utilizador segue
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
+        
+        const followingIds = follows?.map(f => f.following_id) || [];
+        if (followingIds.length > 0) {
+          query = query.in('user_id', followingIds);
+        } else {
+          // Se não segue ninguém, retorna vazio ou sugere algo
+          setPosts([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -70,7 +126,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         }
       }
 
-      setPosts(sortedPosts);
+      // Lógica de Aleatoriedade: Manter os primeiros 5 (ou o inicial) e baralhar o resto
+      const firstFive = sortedPosts.slice(0, 5);
+      const remaining = sortedPosts.slice(5);
+      
+      // Fisher-Yates shuffle para o resto
+      for (let i = remaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+      }
+
+      setPosts([...firstFive, ...remaining]);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -100,19 +166,46 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   }
 
   return (
-    <div className="feed-container h-full w-full bg-black">
-      {posts.map((post) => (
-        <div key={post.id} className="feed-item relative">
-          <PostCard 
-            post={post} 
-            onNavigateToProfile={onNavigateToProfile} 
-            onNavigateToSound={onNavigateToSound}
-            isMuted={isMuted}
-            onToggleMute={toggleMute}
-            onRequireAuth={onRequireAuth}
-          />
-        </div>
-      ))}
+    <div className="h-full w-full bg-black relative overflow-hidden">
+      {/* Feed Tabs */}
+      <div className="absolute top-8 sm:top-12 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
+        <button 
+          onClick={() => setFeedType('following')}
+          className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
+        >
+          A seguir
+          {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+        </button>
+        <button 
+          onClick={() => setFeedType('for_you')}
+          className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-110' : 'text-white/60'}`}
+        >
+          Para ti
+          {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+        </button>
+      </div>
+
+      <div className="feed-container h-full w-full">
+        {posts.slice(0, displayLimit).map((post) => (
+          <div key={post.id} className="feed-item relative">
+            <PostCard 
+              post={post} 
+              onNavigateToProfile={onNavigateToProfile} 
+              onNavigateToSound={onNavigateToSound}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              onRequireAuth={onRequireAuth}
+            />
+          </div>
+        ))}
+        
+        {/* Sentinel invisível para carregar mais sem interromper o scroll */}
+        {displayLimit < posts.length && (
+          <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center bg-black">
+            <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

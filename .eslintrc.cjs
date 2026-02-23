@@ -1,15 +1,19 @@
 const globals = require("globals");
 const pluginJs = require("@eslint/js");
 const tseslint = require("@typescript-eslint/eslint-plugin");
-const pluginReactConfig = require("eslint-plugin-react/configs/recommended.js");
+const tsParser = require("@typescript-eslint/parser");
+const pluginReact = require("eslint-plugin-react");
 const pluginReactHooks = require("eslint-plugin-react-hooks");
 const reactRefresh = require("eslint-plugin-react-refresh");
 
 module.exports = [
   {
+    ignores: ["android/**", "dist/**", "node_modules/**"]
+  },
+  {
     files: ["**/*.{js,mjs,cjs,ts,tsx}"],
     languageOptions: {
-      parser: tseslint.parser,
+      parser: tsParser,
       parserOptions: {
         ecmaFeatures: {
           jsx: true
@@ -23,19 +27,17 @@ module.exports = [
       }
     },
     plugins: {
-      "@typescript-eslint": tseslint.plugin,
-      react: pluginReactHooks,
+      "@typescript-eslint": tseslint,
+      react: pluginReact,
+      "react-hooks": pluginReactHooks,
       "react-refresh": reactRefresh
     },
     rules: {
       ...pluginJs.configs.recommended.rules,
       ...tseslint.configs.recommended.rules,
-      ...pluginReactConfig.rules,
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true }
-      ],
-      "react/react-in-jsx-scope": "off" // Not needed for React 17+
+      ...pluginReact.configs.recommended.rules,
+      ...pluginReactHooks.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off"
     },
     settings: {
       react: {

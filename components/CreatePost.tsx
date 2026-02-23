@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Camera, Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Circle, StopCircle, RefreshCw, Zap, Sliders, Timer, FlipVertical as Flip, ChevronDown, Volume2, Search, Bookmark, Play } from 'lucide-react';
+import { Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
 
 interface CreatePostProps {
@@ -11,9 +11,9 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) => {
   const [content, setContent] = useState('');
-  const [mediaFile, setMediaFile] = useState<File | Blob | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   
   // Sound Selection State
@@ -32,6 +32,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [mode, setMode] = useState<'video' | 'photo'>('video');
+  const [textOverlay, setTextOverlay] = useState('');
+  const [showTextEditor, setShowTextEditor] = useState(false);
+  const [filter, setFilter] = useState('none');
+  const [showFilterPicker, setShowFilterPicker] = useState(false);
+
+  const filters = [
+    { name: 'Nenhum', value: 'none' },
+    { name: 'P&B', value: 'grayscale(100%)' },
+    { name: 'Sépia', value: 'sepia(100%)' },
+    { name: 'Vibrante', value: 'saturate(200%)' },
+    { name: 'Quente', value: 'sepia(30%) saturate(150%) hue-rotate(-10deg)' },
+    { name: 'Frio', value: 'saturate(80%) hue-rotate(180deg) brightness(1.1)' },
+    { name: 'Inverter', value: 'invert(100%)' },
+    { name: 'Blur', value: 'blur(2px)' },
+  ];
 
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -63,12 +79,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       clearTimeout(initTimer);
       stopCamera();
       stopPreviewAudio();
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      previewUrls.forEach(url => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+      });
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [facingMode, useOriginalAudio]);
+  }, [facingMode, useOriginalAudio, previewUrls]);
 
   useEffect(() => {
     if (showCamera && stream && videoPreviewRef.current) {
@@ -122,8 +138,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const constraints = {
         video: { 
           facingMode: { ideal: facingMode }, 
-          width: { ideal: 720 }, 
-          height: { ideal: 1280 }
+          width: { ideal: 1080 }, 
+          height: { ideal: 1920 },
+          aspectRatio: { ideal: 9/16 }
         },
         audio: useOriginalAudio
       };
@@ -132,14 +149,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setStream(newStream);
       
       if (typeof window !== 'undefined') {
-        (window as any).localStream = newStream;
+        (window as { localStream?: MediaStream }).localStream = newStream;
       }
       
       setShowCamera(true);
       setError(null);
       setIsStarting(false);
       return newStream;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Erro ao iniciar câmera:", err);
       try {
         const basicStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: useOriginalAudio });
@@ -148,7 +165,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         setError(null);
         setIsStarting(false);
         return basicStream;
-      } catch (f) {
+      } catch (f: unknown) {
+        console.error("Erro ao iniciar câmera básica:", f);
         setError('Câmera indisponível. Tenta girar ou verifica se o navegador tem permissão.');
         setShowCamera(false);
         setIsStarting(false);
@@ -163,7 +181,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
 
     if (typeof window !== 'undefined') {
-      (window as any).localStream = null;
+      (window as { localStream?: MediaStream | null }).localStream = null;
     }
     
     if (videoPreviewRef.current) {
@@ -191,7 +209,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     try {
       const newFlashState = !isFlashOn;
       await videoTrack.applyConstraints({
-        advanced: [{ torch: newFlashState } as any]
+        advanced: [{ torch: newFlashState } as Record<string, boolean>]
       });
       setIsFlashOn(newFlashState);
     } catch (err) {
@@ -229,7 +247,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
     if (selectedSound && !useOriginalAudio) {
       try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioContextRef.current = new AudioContextClass();
         const ctx = audioContextRef.current;
         const dest = ctx.createMediaStreamDestination();
         
@@ -247,7 +266,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         ]);
 
         await audio.play();
-      } catch (e) {
+      } catch (e: unknown) {
         console.error("Erro mixagem:", e);
       }
     }
@@ -255,7 +274,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     try {
       const recorder = new MediaRecorder(combinedStream, { 
         mimeType: 'video/webm;codecs=vp8,opus',
-        videoBitsPerSecond: 1500000 
+        videoBitsPerSecond: 5000000 
       });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
@@ -263,8 +282,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       };
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        setMediaFile(blob);
-        setPreviewUrl(URL.createObjectURL(blob));
+        setMediaFiles([blob]);
+        setPreviewUrls([URL.createObjectURL(blob)]);
         stopCamera();
       };
       recorder.start();
@@ -279,7 +298,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           return prev + 1;
         });
       }, 1000);
-    } catch (e) {
+    } catch (err: unknown) {
+      console.error("Erro ao iniciar gravador:", err);
       setError("Erro ao iniciar gravador.");
       setIsRecording(false);
     }
@@ -305,11 +325,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setMediaFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const selectedFiles = files.slice(0, 5);
+      const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+      
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      
+      setMediaFiles(selectedFiles);
+      setPreviewUrls(newPreviewUrls);
       setError(null);
     }
   };
@@ -332,7 +356,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else reject(new Error('Failed to generate thumbnail'));
-        }, 'image/jpeg', 0.7);
+        }, 'image/jpeg', 0.9);
         URL.revokeObjectURL(video.src);
       };
       video.onerror = (e) => {
@@ -343,46 +367,104 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     });
   };
 
+  const takePhoto = async () => {
+    if (!videoPreviewRef.current || !stream) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoPreviewRef.current.videoWidth;
+    canvas.height = videoPreviewRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Apply filter to canvas
+    ctx.filter = filter;
+    
+    // Mirror if using front camera
+    if (facingMode === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(videoPreviewRef.current, 0, 0, canvas.width, canvas.height);
+
+    // Apply text overlay to canvas
+    if (textOverlay) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for text
+      ctx.font = 'bold 80px Inter, sans-serif';
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 10;
+      ctx.fillText(textOverlay, canvas.width / 2, canvas.height / 2);
+    }
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        if (mediaFiles.length >= 5) {
+          setError("Limite de 5 fotos atingido.");
+          return;
+        }
+        const newMediaFiles = [...mediaFiles, blob];
+        const newPreviewUrls = [...previewUrls, URL.createObjectURL(blob)];
+        setMediaFiles(newMediaFiles);
+        setPreviewUrls(newPreviewUrls);
+        // Don't stop camera yet, allow more photos
+      }
+    }, 'image/jpeg', 0.95);
+  };
+
   const handleUpload = async () => {
-    if (!mediaFile) return;
+    if (mediaFiles.length === 0) return;
     setUploading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada.');
       
-      const isRecorded = (mediaFile instanceof Blob) && !(mediaFile instanceof File);
-      const fileExt = isRecorded ? 'webm' : (mediaFile as File).name.split('.').pop();
+      const isPhoto = mediaFiles[0].type.startsWith('image/');
+      const uploadedUrls: string[] = [];
       const timestamp = Date.now();
-      const fileName = `${session.user.id}-${timestamp}.${fileExt}`;
-      const filePath = `posts/${fileName}`;
-      
-      // 1. Upload Video
-      const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, mediaFile);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl: videoUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
 
-      // 2. Generate and Upload Thumbnail
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const file = mediaFiles[i];
+        const isRecorded = (file instanceof Blob) && !(file instanceof File);
+        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'webm' : (file as File).name.split('.').pop());
+        const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
+        const filePath = `posts/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl: mediaUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+        uploadedUrls.push(mediaUrl);
+      }
+
+      const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
+
+      // 2. Generate and Upload Thumbnail (only for video)
       let thumbnailUrl = null;
-      try {
-        const thumbBlob = await generateThumbnail(mediaFile);
-        const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
-        const thumbFilePath = `thumbnails/${thumbFileName}`;
-        const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
-        if (!thumbUploadError) {
-          const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
-          thumbnailUrl = tUrl;
+      if (!isPhoto) {
+        try {
+          const thumbBlob = await generateThumbnail(mediaFiles[0]);
+          const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
+          const thumbFilePath = `thumbnails/${thumbFileName}`;
+          const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
+          if (!thumbUploadError) {
+            const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
+            thumbnailUrl = tUrl;
+          }
+        } catch (thumbErr) {
+          console.error("Erro ao gerar thumbnail:", thumbErr);
         }
-      } catch (thumbErr) {
-        console.error("Erro ao gerar thumbnail:", thumbErr);
+      } else {
+        thumbnailUrl = uploadedUrls[0]; // Use first photo as thumbnail
       }
 
       // 3. Insert Post
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
-        media_url: videoUrl,
+        media_url: mediaUrl,
         thumbnail_url: thumbnailUrl,
-        media_type: 'video',
+        media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
         views: 0,
         created_at: new Date().toISOString()
@@ -390,17 +472,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       
       if (insertError) throw insertError;
       setTimeout(() => onCreated(), 500);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao publicar.');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Erro ao publicar.');
     } finally {
       setUploading(false);
     }
   };
 
   const cancelSelection = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setMediaFile(null);
-    setPreviewUrl(null);
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
+    setMediaFiles([]);
+    setPreviewUrls([]);
     setError(null);
     startCamera();
   };
@@ -419,10 +501,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       )}
 
       <div className="flex-1 relative">
-        {previewUrl ? (
+        {previewUrls.length > 0 ? (
           <div className="h-full w-full flex flex-col bg-black">
             <div className="relative h-[320px] shrink-0 m-4 mb-2 bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800">
-              <video src={previewUrl} className="w-full h-full object-cover" autoPlay loop playsInline />
+              {mediaFiles[0]?.type.startsWith('image/') ? (
+                <div className="w-full h-full relative">
+                  <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
+                  {previewUrls.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
+                      {previewUrls.length} Fotos
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <video src={previewUrls[0]} className="w-full h-full object-cover" autoPlay loop playsInline />
+              )}
               <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
                 <X size={20} />
               </button>
@@ -454,7 +547,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               muted 
               playsInline 
               className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
+              style={{ filter: filter }}
             />
+
+            {textOverlay && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
+                  {textOverlay}
+                </span>
+              </div>
+            )}
             
             <div className="absolute top-8 left-0 w-full flex justify-center z-50">
                <button 
@@ -622,48 +724,157 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 </div>
                 <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>Flash</span>
               </button>
+              <button 
+                onClick={() => setShowTextEditor(true)}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Type size={22}/></div>
+                <span className="text-[8px] font-black uppercase text-white shadow-sm">Texto</span>
+              </button>
+              <button 
+                onClick={() => setShowFilterPicker(true)}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={22}/></div>
+                <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
+              </button>
             </div>
+
+            {showTextEditor && (
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
+                <textarea
+                  autoFocus
+                  value={textOverlay}
+                  onChange={(e) => setTextOverlay(e.target.value)}
+                  placeholder="Escreve o teu texto..."
+                  className="w-full bg-transparent text-white text-4xl font-black text-center outline-none resize-none h-40 placeholder:text-white/20"
+                />
+                <div className="flex gap-4 mt-8">
+                  <button 
+                    onClick={() => { setTextOverlay(''); setShowTextEditor(false); }}
+                    className="px-8 py-3 bg-zinc-800 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
+                  >
+                    Limpar
+                  </button>
+                  <button 
+                    onClick={() => setShowTextEditor(false)}
+                    className="px-8 py-3 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
+                  >
+                    Concluído
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showFilterPicker && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
+                <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
+                    <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4 pb-8">
+                    {filters.map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => { setFilter(f.value); setShowFilterPicker(false); }}
+                        className="flex flex-col items-center gap-2 group"
+                      >
+                        <div className={`w-14 h-14 rounded-2xl border-2 transition-all ${filter === f.value ? 'border-red-600 bg-red-600/20' : 'border-zinc-800 bg-zinc-900'}`} style={{ filter: f.value }}>
+                          <div className="w-full h-full flex items-center justify-center text-white/40"><Wand2 size={20} /></div>
+                        </div>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${filter === f.value ? 'text-red-500' : 'text-zinc-500'}`}>{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
 
-            <div className="absolute bottom-36 left-0 w-full flex justify-center gap-3 z-40 pointer-events-auto">
-              <button 
-                onClick={() => setMaxDuration(15)}
-                disabled={isRecording}
-                className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 15 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
-              >
-                15s
-              </button>
-              <button 
-                onClick={() => setMaxDuration(60)}
-                disabled={isRecording}
-                className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 60 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
-              >
-                60s
-              </button>
+            <div className="absolute bottom-32 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
+              <div className="flex gap-4 border-r border-white/10 pr-6">
+                <button 
+                  onClick={() => setMode('video')}
+                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'video' ? 'text-white' : 'text-white/40'}`}
+                >
+                  Vídeo
+                </button>
+                <button 
+                  onClick={() => setMode('photo')}
+                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'photo' ? 'text-white' : 'text-white/40'}`}
+                >
+                  Foto
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                {mode === 'video' ? (
+                  <>
+                    <button 
+                      onClick={() => setMaxDuration(15)}
+                      disabled={isRecording}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 15 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
+                    >
+                      15s
+                    </button>
+                    <button 
+                      onClick={() => setMaxDuration(60)}
+                      disabled={isRecording}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 60 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
+                    >
+                      60s
+                    </button>
+                  </>
+                ) : (
+                  <div className="px-6 py-1.5 bg-white/10 text-white/40 rounded-full text-[9px] font-black uppercase tracking-widest border border-white/10">
+                    Modo Foto
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-40">
                <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
                  <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
-                   <Upload size={24} />
+                   <ImageIcon size={24} />
                  </div>
                  <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                 <input type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
+                 <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
                </label>
                
-               <button onClick={isRecording ? stopRecording : initiateRecording} disabled={isStarting} className="relative flex items-center justify-center disabled:opacity-50">
+               <button 
+                onClick={mode === 'video' ? (isRecording ? stopRecording : initiateRecording) : takePhoto} 
+                disabled={isStarting} 
+                className="relative flex items-center justify-center disabled:opacity-50"
+               >
                  <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
                  </div>
                  {isRecording && <div className="absolute -inset-3 rounded-full border-2 border-red-600 animate-ping opacity-30" />}
+                 {mode === 'photo' && (
+                   <div className="absolute flex items-center justify-center">
+                     <Camera size={24} className="text-black" />
+                     {mediaFiles.length > 0 && (
+                       <div className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
+                         {mediaFiles.length}
+                       </div>
+                     )}
+                   </div>
+                 )}
                </button>
 
                <button 
-                onClick={isRecording ? stopRecording : () => {}} 
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${recordingSeconds > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+                onClick={isRecording ? stopRecording : () => {
+                  if (mediaFiles.length > 0) {
+                    stopCamera();
+                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
+                  }
+                }} 
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
                >
                  <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
                  <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>

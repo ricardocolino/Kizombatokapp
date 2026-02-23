@@ -82,7 +82,9 @@ const App: React.FC = () => {
     fetchNotificationsCount();
 
     if (activeTab === Tab.INBOX) {
-      setUnreadCount(0);
+      setTimeout(() => {
+        if (isMounted) setUnreadCount(0);
+      }, 0);
       supabase
         .from('messages')
         .update({ read: true })
@@ -98,15 +100,15 @@ const App: React.FC = () => {
     if (activeTab !== Tab.CREATE) {
       const cleanupHardware = async () => {
         try {
-          if (typeof window !== 'undefined' && (window as any).localStream) {
-            const stream = (window as any).localStream as MediaStream;
-            stream.getTracks().forEach(track => {
-              track.stop();
-              track.enabled = false;
-            });
-            (window as any).localStream = null;
-          }
-        } catch (e) {}
+    if (typeof window !== 'undefined' && (window as { localStream?: MediaStream }).localStream) {
+      const stream = (window as { localStream?: MediaStream }).localStream as MediaStream;
+      stream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+      (window as { localStream?: MediaStream | null }).localStream = null;
+    }
+      } catch (e: unknown) {}
       };
       cleanupHardware();
     }
