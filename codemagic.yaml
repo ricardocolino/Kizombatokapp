@@ -8,6 +8,7 @@ workflows:
       java: 21
       groups:
         - google_play
+
     triggering:
       events:
         - push
@@ -15,26 +16,32 @@ workflows:
         - pattern: '*'
           include: true
           source: true
+
     scripts:
       - name: Install dependencies
         script: |
           npm install
+
       - name: Build web app
         script: |
           npm run build
-      - name: Generate Assets
+
+      - name: Generate Capacitor Assets
         script: |
-          npm run generate-assets
+          npx @capacitor/assets generate --android
+
       - name: Sync Capacitor
         script: |
           npx cap sync android
+
       - name: Build Android APK
         script: |
           cd android
-          # Usar o gradle do sistema para evitar erro de jar corrompido no wrapper
-          gradle assembleDebug
+          ./gradlew assembleDebug
+
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
+
     publishing:
       email:
         recipients:
