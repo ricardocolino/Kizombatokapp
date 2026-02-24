@@ -173,8 +173,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white relative">
-      <main className="flex-1 overflow-hidden">
+    <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+      <main className={`flex-1 overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
         {renderContent()}
       </main>
 

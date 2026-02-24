@@ -56,43 +56,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
 
-  // Novo useEffect para gerir a limpeza do stream de forma segura
-  useEffect(() => {
-    if (showCamera && Capacitor.isNativePlatform()) {
-      document.body.style.backgroundColor = 'transparent';
-      const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = 'transparent';
-    } else {
-      document.body.style.backgroundColor = '';
-      const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = '';
-    }
-    return () => {
-      document.body.style.backgroundColor = '';
-      const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = '';
-    };
-  }, [showCamera]);
-
-  useEffect(() => {
-    // Timer para iniciar a câmera após o componente montar e limpar resíduos
-    const initTimer = setTimeout(() => {
-      startCamera();
-    }, 400); 
-    
-    fetchRandomSounds();
-    
-    return () => {
-      clearTimeout(initTimer);
-      stopCamera();
-      stopPreviewAudio();
-      previewUrls.forEach(url => {
-        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-      });
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [facingMode, startCamera, previewUrls]);
-
   const fetchRandomSounds = async () => {
     try {
       const { data } = await supabase
@@ -166,6 +129,40 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setShowCamera(false);
     setIsFlashOn(false);
   };
+
+  // Novo useEffect para gerir a limpeza do stream de forma segura
+  useEffect(() => {
+    if (showCamera && Capacitor.isNativePlatform()) {
+      document.body.style.backgroundColor = 'transparent';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = 'transparent';
+    } else {
+      document.body.style.backgroundColor = '';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = '';
+    }
+    return () => {
+      document.body.style.backgroundColor = '';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = '';
+    };
+  }, [showCamera]);
+
+  useEffect(() => {
+    // Timer para iniciar a câmera após o componente montar e limpar resíduos
+    const initTimer = setTimeout(() => {
+      startCamera();
+    }, 400); 
+    
+    fetchRandomSounds();
+    
+    return () => {
+      clearTimeout(initTimer);
+      stopCamera();
+      stopPreviewAudio();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [facingMode, startCamera]);
 
   const toggleCamera = async () => {
     if (isRecording) return;
@@ -435,7 +432,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   return (
-    <div className="h-full w-full bg-black flex flex-col relative overflow-hidden">
+    <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -486,7 +483,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                </button>
             </div>
           </div>
-        ) : showCamera ? (
+        ) : (
           <div id="cameraPreview" className="h-full w-full relative bg-transparent">
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
@@ -830,30 +827,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
                  <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
                </button>
-            </div>
-          </div>
-        ) : (
-          <div className="h-full w-full flex flex-col items-center justify-center p-8 gap-12 bg-zinc-950">
-             <div className="text-center">
-                <h2 className="text-4xl font-black italic text-white uppercase tracking-tighter">Câmera Off</h2>
-                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mt-3">Carrega o teu mambo da galeria</p>
              </div>
-             {isStarting ? (
-               <div className="flex flex-col items-center gap-4">
-                  <Loader2 size={48} className="text-red-600 animate-spin" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">A preparar sensores...</span>
-               </div>
-             ) : (
-               <label className="flex flex-col items-center gap-4 group cursor-pointer active:scale-95 transition-transform">
-                  <div className="w-28 h-28 rounded-3xl bg-red-600/5 border-2 border-red-600/30 flex items-center justify-center text-red-600 group-hover:bg-red-600 group-hover:text-white transition-all shadow-2xl">
-                    <Upload size={48} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Escolher Ficheiro</span>
-                  <input type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
-               </label>
-             )}
-             <button onClick={() => startCamera()} disabled={isStarting} className="text-[9px] font-black text-white/40 uppercase border-b border-white/10 pb-1 hover:text-white transition-colors disabled:opacity-30">Tentar novamente</button>
-             <button onClick={() => onCreated()} className="absolute top-8 right-8 text-zinc-700 hover:text-white transition-colors"><X size={32} /></button>
           </div>
         )}
       </div>
