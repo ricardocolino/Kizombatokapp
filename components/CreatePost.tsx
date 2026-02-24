@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
@@ -31,6 +31,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showCamera, setShowCamera] = useState(false);
   const [maxDuration, setMaxDuration] = useState(15); 
   const [facingMode, setFacingMode] = useState<'user' | 'rear'>('user');
+  const facingModeRef = useRef(facingMode);
+  
+  useEffect(() => {
+    facingModeRef.current = facingMode;
+  }, [facingMode]);
+
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [mode, setMode] = useState<'video' | 'photo'>('video');
@@ -90,35 +96,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     previewAudioRef.current = audio;
   };
 
-  const startCamera = React.useCallback(async () => {
-    if (isStarting) return;
-    setIsStarting(true);
-    if (!Capacitor.isNativePlatform()) {
-      setShowCamera(true);
-      setIsStarting(false);
-      return;
-    }
-    
-    try {
-      await CameraPreview.start({
-        parent: 'cameraPreview',
-        position: facingMode,
-        toBack: true,
-        className: 'cameraPreview',
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-      setShowCamera(true);
-      setError(null);
-    } catch (err: unknown) {
-      console.error("Erro ao iniciar câmera nativa:", err);
-      setError('Câmera nativa indisponível.');
-    } finally {
-      setIsStarting(false);
-    }
-  }, [facingMode, isStarting]);
+  const isStartingRef = useRef(false);
 
-  const stopCamera = async () => {
+  const stopCamera = React.useCallback(async () => {
     if (Capacitor.isNativePlatform()) {
       try {
         await CameraPreview.stop();
@@ -128,31 +108,70 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
     setShowCamera(false);
     setIsFlashOn(false);
-  };
+  }, []);
 
-  // Novo useEffect para gerir a limpeza do stream de forma segura
-  useEffect(() => {
-    if (showCamera && Capacitor.isNativePlatform()) {
-      document.body.style.backgroundColor = 'transparent';
-      const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = 'transparent';
-    } else {
-      document.body.style.backgroundColor = '';
-      const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = '';
+  const startCamera = React.useCallback(async () => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+    setIsStarting(true);
+    
+    if (!Capacitor.isNativePlatform()) {
+      setShowCamera(true);
+      setIsStarting(false);
+      isStartingRef.current = false;
+      return;
     }
-    return () => {
-      document.body.style.backgroundColor = '';
+    
+    try {
+      // Ensure any previous instance is stopped
+      try { await CameraPreview.stop(); } catch { /* ignore */ }
+      
+      await CameraPreview.start({
+        parent: 'cameraPreview',
+        position: facingModeRef.current,
+        toBack: true,
+        className: 'cameraPreview',
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+      setShowCamera(true);
+      setError(null);
+    } catch (err: unknown) {
+      console.error("Erro ao iniciar câmera nativa:", err);
+    } finally {
+      setIsStarting(false);
+      isStartingRef.current = false;
+    }
+  }, []);
+
+  // Gerir a transparência do fundo de forma robusta
+  useEffect(() => {
+    const isPreview = previewUrls.length > 0;
+    
+    const setTransparency = (transparent: boolean) => {
+      const color = transparent ? 'transparent' : '';
+      document.documentElement.style.backgroundColor = color;
+      document.body.style.backgroundColor = color;
       const root = document.getElementById('root');
-      if (root) root.style.backgroundColor = '';
+      if (root) root.style.backgroundColor = color;
     };
-  }, [showCamera]);
+
+    if (!isPreview && Capacitor.isNativePlatform()) {
+      setTransparency(true);
+    } else {
+      setTransparency(false);
+    }
+    
+    return () => {
+      setTransparency(false);
+    };
+  }, [previewUrls.length]);
 
   useEffect(() => {
-    // Timer para iniciar a câmera após o componente montar e limpar resíduos
+    // Timer para iniciar a câmera após o componente montar
     const initTimer = setTimeout(() => {
       startCamera();
-    }, 400); 
+    }, 500); 
     
     fetchRandomSounds();
     
@@ -162,7 +181,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       stopPreviewAudio();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [facingMode, startCamera]);
+  }, [startCamera, stopCamera]);
 
   const toggleCamera = async () => {
     if (isRecording) return;

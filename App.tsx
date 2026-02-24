@@ -97,18 +97,40 @@ const App: React.FC = () => {
   }, [user, activeTab]);
 
   useEffect(() => {
+    const setTransparency = (transparent: boolean) => {
+      const color = transparent ? 'transparent' : '';
+      document.documentElement.style.backgroundColor = color;
+      document.body.style.backgroundColor = color;
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = color;
+    };
+
+    if (activeTab === Tab.CREATE) {
+      setTransparency(true);
+    } else {
+      setTransparency(false);
+    }
+
+    return () => {
+      // No cleanup here to avoid flickering, CreatePost handles its own cleanup
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
     if (activeTab !== Tab.CREATE) {
       const cleanupHardware = async () => {
         try {
-    if (typeof window !== 'undefined' && (window as { localStream?: MediaStream }).localStream) {
-      const stream = (window as { localStream?: MediaStream }).localStream as MediaStream;
-      stream.getTracks().forEach(track => {
-        track.stop();
-        track.enabled = false;
-      });
-      (window as { localStream?: MediaStream | null }).localStream = null;
-    }
-      } catch (e: unknown) {}
+          if (typeof window !== 'undefined' && (window as { localStream?: MediaStream }).localStream) {
+            const stream = (window as { localStream?: MediaStream }).localStream as MediaStream;
+            stream.getTracks().forEach(track => {
+              track.stop();
+              track.enabled = false;
+            });
+            (window as { localStream?: MediaStream | null }).localStream = null;
+          }
+        } catch {
+          /* ignore */
+        }
       };
       cleanupHardware();
     }
