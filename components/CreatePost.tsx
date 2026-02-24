@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -56,6 +58,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const timerRef = useRef<number | null>(null);
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const nativeVideoInputRef = useRef<HTMLInputElement>(null);
 
   // Novo useEffect para gerir a limpeza do stream de forma segura
   useEffect(() => {
@@ -115,7 +118,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     stopPreviewAudio();
     const audio = new Audio(url);
     audio.crossOrigin = "anonymous";
-    audio.play().catch(e => console.error("Erro ao tocar preview:", e));
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => {
+        if (e.name !== 'AbortError') {
+          console.error("Erro ao tocar preview:", e);
+        }
+      });
+    }
     previewAudioRef.current = audio;
   };
 
@@ -137,9 +147,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       const constraints = {
         video: { 
-          facingMode: { ideal: facingMode }, 
-          width: { ideal: 1080 }, 
-          height: { ideal: 1920 },
+          facingMode: { ideal: facingMode },
           aspectRatio: { ideal: 9/16 }
         },
         audio: useOriginalAudio
@@ -219,7 +227,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
+  const handleNativeVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMediaFiles([file]);
+      setPreviewUrls([URL.createObjectURL(file)]);
+      stopCamera();
+    }
+  };
+
   const initiateRecording = () => {
+    if (Capacitor.isNativePlatform()) {
+      nativeVideoInputRef.current?.click();
+      return;
+    }
     if (isRecording || countdown !== null || isStarting) return;
     stopPreviewAudio(); 
     let count = 3;
@@ -248,7 +269,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     if (selectedSound && !useOriginalAudio) {
       try {
         const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioContextRef.current = new AudioContextClass();
+        audioContextRef.current = new AudioContextClass({ latencyHint: 'interactive' });
         const ctx = audioContextRef.current;
         const dest = ctx.createMediaStreamDestination();
         
@@ -272,9 +293,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
 
     try {
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus') 
+        ? 'video/webm;codecs=h264,opus' 
+        : 'video/webm;codecs=vp8,opus';
+
       const recorder = new MediaRecorder(combinedStream, { 
-        mimeType: 'video/webm;codecs=vp8,opus',
-        videoBitsPerSecond: 5000000 
+        mimeType,
+        videoBitsPerSecond: 2500000 
       });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
@@ -368,6 +393,35 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const takePhoto = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri,
+          source: CameraSource.Camera
+        });
+        
+        if (image.webPath) {
+          const response = await fetch(image.webPath);
+          const blob = await response.blob();
+          
+          if (mediaFiles.length >= 5) {
+            setError("Limite de 5 fotos atingido.");
+            return;
+          }
+          
+          const newMediaFiles = [...mediaFiles, blob];
+          const newPreviewUrls = [...previewUrls, image.webPath];
+          setMediaFiles(newMediaFiles);
+          setPreviewUrls(newPreviewUrls);
+        }
+      } catch (err) {
+        console.error("Erro ao tirar foto nativa:", err);
+      }
+      return;
+    }
+
     if (!videoPreviewRef.current || !stream) return;
 
     const canvas = document.createElement('canvas');
@@ -636,7 +690,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
                     {availableSounds.map(sound => (
                       <div key={sound.id} className="relative">
-                        <button 
+                        <div 
                           onClick={() => { 
                             if (selectedSound?.id === sound.id) {
                               stopPreviewAudio();
@@ -647,7 +701,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                               playSoundPreview(sound.media_url);
                             }
                           }}
-                          className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
+                          className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
                         >
                            <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                               {sound.profiles?.avatar_url ? (
@@ -687,12 +741,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                              </button>
                            ) : (
                              <div className="flex gap-4">
-                               <button className="text-zinc-600 hover:text-white transition-colors">
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   // Add bookmark logic if needed
+                                 }}
+                                 className="text-zinc-600 hover:text-white transition-colors"
+                               >
                                   <Bookmark size={20} />
                                </button>
                              </div>
                            )}
-                        </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -838,6 +898,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             </div>
 
             <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-40">
+               <input 
+                 ref={nativeVideoInputRef}
+                 type="file" 
+                 accept="video/*" 
+                 capture="camcorder" 
+                 className="hidden" 
+                 onChange={handleNativeVideoChange} 
+               />
                <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
                  <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
                    <ImageIcon size={24} />
@@ -854,7 +922,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
                     <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
                  </div>
-                 {isRecording && <div className="absolute -inset-3 rounded-full border-2 border-red-600 animate-ping opacity-30" />}
                  {mode === 'photo' && (
                    <div className="absolute flex items-center justify-center">
                      <Camera size={24} className="text-black" />
