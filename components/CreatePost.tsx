@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
-import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { CameraPreview } from '@capacitor-community/camera-preview';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -27,10 +28,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [maxDuration, setMaxDuration] = useState(15); 
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [facingMode, setFacingMode] = useState<'user' | 'rear'>('user');
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [mode, setMode] = useState<'video' | 'photo'>('video');
@@ -50,9 +50,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     { name: 'Blur', value: 'blur(2px)' },
   ];
 
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -61,16 +58,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
   // Novo useEffect para gerir a limpeza do stream de forma segura
   useEffect(() => {
+    if (showCamera && Capacitor.isNativePlatform()) {
+      document.body.style.backgroundColor = 'transparent';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = 'transparent';
+    } else {
+      document.body.style.backgroundColor = '';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = '';
+    }
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      document.body.style.backgroundColor = '';
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = '';
     };
-  }, [stream]);
+  }, [showCamera]);
 
   useEffect(() => {
     // Timer para iniciar a câmera após o componente montar e limpar resíduos
-    // Delay de 400ms para garantir que o SO liberou qualquer lock anterior
     const initTimer = setTimeout(() => {
       startCamera();
     }, 400); 
@@ -86,13 +91,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       });
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [facingMode, useOriginalAudio, previewUrls]);
-
-  useEffect(() => {
-    if (showCamera && stream && videoPreviewRef.current) {
-      videoPreviewRef.current.srcObject = stream;
-    }
-  }, [showCamera, stream]);
+  }, [facingMode, startCamera, previewUrls]);
 
   const fetchRandomSounds = async () => {
     try {
@@ -128,101 +127,69 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     previewAudioRef.current = audio;
   };
 
-  const startCamera = async (): Promise<MediaStream | null> => {
-    if (isStarting) return null;
+  const startCamera = React.useCallback(async () => {
+    if (isStarting) return;
     setIsStarting(true);
-    
-    // Limpeza profunda antes de tentar acessar o sensor
-    stopCamera();
-    setIsFlashOn(false);
-    
-    // Delay crucial para evitar "Câmera indisponível" em alternância rápida
-    await new Promise(r => setTimeout(r, 300));
+    if (!Capacitor.isNativePlatform()) {
+      setShowCamera(true);
+      setIsStarting(false);
+      return;
+    }
     
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('O teu navegador ou WebView não suporta acesso à câmera. Se estás no Android, verifica as permissões do App.');
-      }
-
-      const constraints = {
-        video: { 
-          facingMode: { ideal: facingMode },
-          aspectRatio: { ideal: 9/16 }
-        },
-        audio: useOriginalAudio
-      };
-      
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(newStream);
-      
-      if (typeof window !== 'undefined') {
-        (window as { localStream?: MediaStream }).localStream = newStream;
-      }
-      
+      await CameraPreview.start({
+        parent: 'cameraPreview',
+        position: facingMode,
+        toBack: true,
+        className: 'cameraPreview',
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
       setShowCamera(true);
       setError(null);
-      setIsStarting(false);
-      return newStream;
     } catch (err: unknown) {
-      console.error("Erro ao iniciar câmera:", err);
+      console.error("Erro ao iniciar câmera nativa:", err);
+      setError('Câmera nativa indisponível.');
+    } finally {
+      setIsStarting(false);
+    }
+  }, [facingMode, isStarting]);
+
+  const stopCamera = async () => {
+    if (Capacitor.isNativePlatform()) {
       try {
-        const basicStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: useOriginalAudio });
-        setStream(basicStream);
-        setShowCamera(true);
-        setError(null);
-        setIsStarting(false);
-        return basicStream;
-      } catch (f: unknown) {
-        console.error("Erro ao iniciar câmera básica:", f);
-        setError('Câmera indisponível. Tenta girar ou verifica se o navegador tem permissão.');
-        setShowCamera(false);
-        setIsStarting(false);
-        return null;
+        await CameraPreview.stop();
+      } catch (e) {
+        console.error("Erro ao parar câmera nativa:", e);
       }
     }
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      setStream(null);
-    }
-
-    if (typeof window !== 'undefined') {
-      (window as { localStream?: MediaStream | null }).localStream = null;
-    }
-    
-    if (videoPreviewRef.current) {
-      videoPreviewRef.current.pause();
-      videoPreviewRef.current.srcObject = null;
-      videoPreviewRef.current.load(); 
-    }
-    
     setShowCamera(false);
     setIsFlashOn(false);
   };
 
-  const toggleCamera = () => {
-    if (isRecording || isStarting) return;
-    setError(null);
-    // Alterna o estado, o useEffect cuidará de reiniciar a câmera com facingMode atual
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  const toggleCamera = async () => {
+    if (isRecording) return;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CameraPreview.flip();
+        setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+      } catch (e) {
+        console.error("Erro ao girar câmera:", e);
+      }
+    } else {
+      setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+    }
   };
 
   const toggleFlash = async () => {
-    if (!stream) return;
-    const videoTrack = stream.getVideoTracks()[0];
-    if (!videoTrack) return;
-
-    try {
-      const newFlashState = !isFlashOn;
-      await videoTrack.applyConstraints({
-        advanced: [{ torch: newFlashState } as Record<string, boolean>]
-      });
-      setIsFlashOn(newFlashState);
-    } catch (err) {
-      console.error("Flash não suportado:", err);
-      setError("Flash não suportado neste sensor.");
-      setTimeout(() => setError(null), 3000);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const newFlashState = isFlashOn ? 'off' : 'on';
+        await CameraPreview.setFlashMode({ flashMode: newFlashState });
+        setIsFlashOn(!isFlashOn);
+      } catch (err) {
+        console.error("Flash não suportado:", err);
+      }
     }
   };
 
@@ -235,12 +202,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
-  const initiateRecording = () => {
-    if (Capacitor.isNativePlatform()) {
-      nativeVideoInputRef.current?.click();
-      return;
-    }
-    if (isRecording || countdown !== null || isStarting) return;
+  const initiateRecording = async () => {
+    if (isRecording || countdown !== null) return;
     stopPreviewAudio(); 
     let count = 3;
     setCountdown(count);
@@ -249,90 +212,55 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       if (count === 0) {
         clearInterval(countInterval);
         setCountdown(null);
-        if (stream) {
-          startActualRecording(stream);
-        } else {
-          const activeStream = await startCamera();
-          if (activeStream) startActualRecording(activeStream);
-        }
+        startActualRecording();
       } else {
         setCountdown(count);
       }
     }, 1000);
   };
 
-  const startActualRecording = async (activeStream: MediaStream) => {
+  const startActualRecording = async () => {
     chunksRef.current = [];
-    let combinedStream = activeStream;
-
-    if (selectedSound && !useOriginalAudio) {
+    
+    if (Capacitor.isNativePlatform()) {
       try {
-        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioContextRef.current = new AudioContextClass({ latencyHint: 'interactive' });
-        const ctx = audioContextRef.current;
-        const dest = ctx.createMediaStreamDestination();
-        
-        const audio = new Audio(selectedSound.media_url);
-        audio.crossOrigin = "anonymous";
-        playbackAudioRef.current = audio;
-        
-        const playbackSource = ctx.createMediaElementSource(audio);
-        playbackSource.connect(dest);
-        playbackSource.connect(ctx.destination);
+        if (selectedSound && !useOriginalAudio) {
+          const audio = new Audio(selectedSound.media_url);
+          audio.crossOrigin = "anonymous";
+          playbackAudioRef.current = audio;
+          await audio.play();
+        }
 
-        combinedStream = new MediaStream([
-          ...activeStream.getVideoTracks(),
-          ...dest.stream.getAudioTracks()
-        ]);
-
-        await audio.play();
-      } catch (e: unknown) {
-        console.error("Erro mixagem:", e);
-      }
-    }
-
-    try {
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus') 
-        ? 'video/webm;codecs=h264,opus' 
-        : 'video/webm;codecs=vp8,opus';
-
-      const recorder = new MediaRecorder(combinedStream, { 
-        mimeType,
-        videoBitsPerSecond: 2500000 
-      });
-      mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        setMediaFiles([blob]);
-        setPreviewUrls([URL.createObjectURL(blob)]);
-        stopCamera();
-      };
-      recorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(prev => {
-          if (prev >= maxDuration - 1) { 
-            stopRecording();
-            return maxDuration;
-          }
-          return prev + 1;
+        await CameraPreview.startRecordVideo({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          position: facingMode,
         });
-      }, 1000);
-    } catch (err: unknown) {
-      console.error("Erro ao iniciar gravador:", err);
-      setError("Erro ao iniciar gravador.");
-      setIsRecording(false);
+        
+        setIsRecording(true);
+        setRecordingSeconds(0);
+        timerRef.current = window.setInterval(() => {
+          setRecordingSeconds(prev => {
+            if (prev >= maxDuration - 1) { 
+              stopRecording();
+              return maxDuration;
+            }
+            return prev + 1;
+          });
+        }, 1000);
+      } catch (err) {
+        console.error("Erro ao iniciar gravação nativa:", err);
+        setError("Erro ao iniciar gravação.");
+      }
+      return;
     }
+
+    // Fallback for non-native (WebRTC already removed, but keeping structure)
+    setError("Gravação não suportada nesta plataforma.");
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const stopRecording = async () => {
+    if (isRecording) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -341,10 +269,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         playbackAudioRef.current.pause();
         playbackAudioRef.current = null;
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const result = await CameraPreview.stopRecordVideo();
+          if (result.videoFilePath) {
+            const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
+            const blob = await response.blob();
+            setMediaFiles([blob]);
+            setPreviewUrls([URL.createObjectURL(blob)]);
+            stopCamera();
+          }
+        } catch (e) {
+          console.error("Erro ao parar gravação nativa:", e);
+        }
       }
+      setIsRecording(false);
     }
   };
 
@@ -394,15 +334,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const takePhoto = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
-        const image = await CapCamera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.Uri,
-          source: CameraSource.Camera
+        const result = await CameraPreview.capture({
+          quality: 90
         });
         
-        if (image.webPath) {
-          const response = await fetch(image.webPath);
+        if (result.value) {
+          const response = await fetch(`data:image/jpeg;base64,${result.value}`);
           const blob = await response.blob();
           
           if (mediaFiles.length >= 5) {
@@ -411,7 +348,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           }
           
           const newMediaFiles = [...mediaFiles, blob];
-          const newPreviewUrls = [...previewUrls, image.webPath];
+          const newPreviewUrls = [...previewUrls, URL.createObjectURL(blob)];
           setMediaFiles(newMediaFiles);
           setPreviewUrls(newPreviewUrls);
         }
@@ -420,50 +357,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       return;
     }
-
-    if (!videoPreviewRef.current || !stream) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoPreviewRef.current.videoWidth;
-    canvas.height = videoPreviewRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Apply filter to canvas
-    ctx.filter = filter;
-    
-    // Mirror if using front camera
-    if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
-
-    ctx.drawImage(videoPreviewRef.current, 0, 0, canvas.width, canvas.height);
-
-    // Apply text overlay to canvas
-    if (textOverlay) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for text
-      ctx.font = 'bold 80px Inter, sans-serif';
-      ctx.fillStyle = 'white';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = 'black';
-      ctx.shadowBlur = 10;
-      ctx.fillText(textOverlay, canvas.width / 2, canvas.height / 2);
-    }
-
-    canvas.toBlob((blob) => {
-      if (blob) {
-        if (mediaFiles.length >= 5) {
-          setError("Limite de 5 fotos atingido.");
-          return;
-        }
-        const newMediaFiles = [...mediaFiles, blob];
-        const newPreviewUrls = [...previewUrls, URL.createObjectURL(blob)];
-        setMediaFiles(newMediaFiles);
-        setPreviewUrls(newPreviewUrls);
-        // Don't stop camera yet, allow more photos
-      }
-    }, 'image/jpeg', 0.95);
+    setError("Foto não suportada nesta plataforma.");
   };
 
   const handleUpload = async () => {
@@ -593,16 +487,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             </div>
           </div>
         ) : showCamera ? (
-          <div className="h-full w-full relative">
-            <video 
-              ref={videoPreviewRef} 
-              autoPlay 
-              muted 
-              playsInline 
-              className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} 
-              style={{ filter: filter }}
-            />
-
+          <div id="cameraPreview" className="h-full w-full relative bg-transparent">
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                 <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
@@ -985,4 +870,3 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 };
 
 export default CreatePost;
- 
