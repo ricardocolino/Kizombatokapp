@@ -188,7 +188,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     if (Capacitor.isNativePlatform()) {
       try {
         await CameraPreview.flip();
-        setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+        setFacingMode(prev => {
+          const nextMode = prev === 'user' ? 'rear' : 'user';
+          if (nextMode === 'user' && isFlashOn) {
+            setIsFlashOn(false);
+          }
+          return nextMode;
+        });
       } catch (e) {
         console.error("Erro ao girar câmera:", e);
       }
@@ -198,6 +204,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const toggleFlash = async () => {
+    if (facingMode === 'user') return; // Ignora se for a câmera de frente
+    
     if (Capacitor.isNativePlatform()) {
       try {
         const newFlashState = isFlashOn ? 'off' : 'on';
@@ -256,13 +264,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => {
-            if (prev >= maxDuration - 1) { 
-              stopRecording();
-              return maxDuration;
-            }
-            return prev + 1;
-          });
+          setRecordingSeconds(prev => prev + 1);
         }, 1000);
       } catch (err) {
         console.error("Erro ao iniciar gravação nativa:", err);
@@ -275,8 +277,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setError("Gravação não suportada nesta plataforma.");
   };
 
-  const stopRecording = async () => {
-    if (isRecording) {
+  const isRecordingRef = useRef(false);
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  const stopRecording = React.useCallback(async () => {
+    if (isRecordingRef.current) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -302,7 +309,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  };
+  }, [stopCamera]);
+
+  // Auto-stop recording when max duration is reached
+  useEffect(() => {
+    if (isRecording && recordingSeconds >= maxDuration) {
+      stopRecording();
+    }
+  }, [recordingSeconds, isRecording, maxDuration, stopRecording]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -332,6 +346,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
+        if (ctx && filter !== 'none') {
+          ctx.filter = filter;
+        }
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
@@ -429,6 +446,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         thumbnail_url: thumbnailUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
+        text_overlay: textOverlay || null,
+        filter: filter !== 'none' ? filter : null,
         views: 0,
         created_at: new Date().toISOString()
       });
@@ -468,7 +487,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           <div className="h-full w-full flex flex-col bg-black">
             <div className="relative h-[320px] shrink-0 m-4 mb-2 bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800">
               {mediaFiles[0]?.type.startsWith('image/') ? (
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative" style={{ filter: filter !== 'none' ? filter : undefined }}>
                   <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
                   {previewUrls.length > 1 && (
                     <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
@@ -477,8 +496,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   )}
                 </div>
               ) : (
-                <video src={previewUrls[0]} className="w-full h-full object-cover" autoPlay loop playsInline />
+                <video src={previewUrls[0]} className="w-full h-full object-cover" autoPlay loop playsInline style={{ filter: filter !== 'none' ? filter : undefined }} />
               )}
+              
+              {textOverlay && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <span className="text-white text-xl font-black text-center px-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] break-words max-w-full">
+                    {textOverlay}
+                  </span>
+                </div>
+              )}
+
               <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
                 <X size={20} />
               </button>
@@ -504,6 +532,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           </div>
         ) : (
           <div id="cameraPreview" className="h-full w-full relative bg-transparent">
+            {/* Filter Overlay for Live Camera */}
+            {filter !== 'none' && (
+              <div 
+                className="absolute inset-0 pointer-events-none z-10" 
+                style={{ backdropFilter: filter, WebkitBackdropFilter: filter }} 
+              />
+            )}
+            
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                 <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
@@ -677,7 +713,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </button>
               <button 
                 onClick={toggleFlash}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                disabled={facingMode === 'user'}
+                className={`flex flex-col items-center gap-1 group active:scale-90 transition-transform ${facingMode === 'user' ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
               >
                 <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${isFlashOn ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
                   <Zap size={22} fill={isFlashOn ? "currentColor" : "none"} />

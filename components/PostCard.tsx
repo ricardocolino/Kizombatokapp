@@ -59,6 +59,28 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchStartRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartRef.current === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStartRef.current - touchEnd;
+
+    if (Math.abs(diff) > 50) { // Threshold for swipe
+      if (diff > 0) {
+        // Swipe left -> next image
+        setCurrentImageIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
+      } else {
+        // Swipe right -> previous image
+        setCurrentImageIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
+      }
+    }
+    touchStartRef.current = null;
+  };
 
   const handlePause = () => {
     if (videoRef.current) {
@@ -96,6 +118,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     }
 
     if (post.sound_id && audioRef.current) {
+      // Sync audio time with video time before playing
+      if (videoRef.current) {
+        audioRef.current.currentTime = videoRef.current.currentTime;
+      }
       const audioPromise = audioRef.current.play();
       if (!playPromise) playPromise = audioPromise;
     } else if (post.media_type === 'image' && !playPromise) {
@@ -484,6 +510,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             ref={videoRef}
             src={post.media_url}
             className="w-full h-full object-cover"
+            style={{ filter: post.filter || undefined }}
             loop
             muted={!!post.sound_id || isMuted}
             playsInline
@@ -492,12 +519,41 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             crossOrigin="anonymous"
             onError={() => setVideoError(true)}
             poster={post.thumbnail_url || undefined}
+            onPlay={() => {
+              if (post.sound_id && audioRef.current) {
+                audioRef.current.currentTime = videoRef.current?.currentTime || 0;
+                audioRef.current.play().catch(() => {});
+              }
+            }}
+            onPause={() => {
+              if (post.sound_id && audioRef.current) {
+                audioRef.current.pause();
+              }
+            }}
+            onSeeking={() => {
+              if (post.sound_id && audioRef.current && videoRef.current) {
+                audioRef.current.currentTime = videoRef.current.currentTime;
+              }
+            }}
+            onTimeUpdate={() => {
+              if (post.sound_id && audioRef.current && videoRef.current) {
+                // Sync if they drift by more than 0.2 seconds
+                if (Math.abs(audioRef.current.currentTime - videoRef.current.currentTime) > 0.2) {
+                  audioRef.current.currentTime = videoRef.current.currentTime;
+                }
+              }
+            }}
           />
         ) : (
-          <div className="w-full h-full relative group/carousel">
+          <div 
+            className="w-full h-full relative group/carousel"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             <img 
               src={mediaUrls[currentImageIndex]} 
               className="w-full h-full object-cover transition-opacity duration-300" 
+              style={{ filter: post.filter || undefined }}
               alt="" 
               crossOrigin="anonymous" 
             />
@@ -513,24 +569,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
                     />
                   ))}
                 </div>
-
-                {/* Navigation Areas (Invisible but clickable) */}
-                <div 
-                  className="absolute inset-y-0 left-0 w-1/2 z-20 cursor-pointer" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentImageIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
-                  }}
-                />
-                <div 
-                  className="absolute inset-y-0 right-0 w-1/2 z-20 cursor-pointer" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentImageIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
-                  }}
-                />
               </>
             )}
+          </div>
+        )}
+
+        {/* Text Overlay */}
+        {post.text_overlay && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <span className="text-white text-3xl sm:text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
+              {post.text_overlay}
+            </span>
           </div>
         )}
         

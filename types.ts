@@ -18,6 +18,8 @@ export interface Post {
   views: number;
   thumbnail_url: string | null;
   sound_id: string | null;
+  text_overlay: string | null;
+  filter: string | null;
   created_at: string;
   profiles?: Profile;
   _count?: {
