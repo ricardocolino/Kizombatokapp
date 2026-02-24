@@ -160,7 +160,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           x: Math.round(rect.x),
           y: Math.round(rect.y),
         });
-        
+         
         setShowCamera(true);
         setCameraReady(true);
         setError(null);
@@ -580,7 +580,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             </div>
           </div>
         ) : (
-          <div className="h-full w-full relative bg-black">
+         <div className="h-full w-full relative bg-transparent">
             {/* Camera preview container - Z-INDEX 0 (FUNDO) */}
             <div 
               ref={cameraPreviewRef}
