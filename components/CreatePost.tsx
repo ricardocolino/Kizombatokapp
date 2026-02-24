@@ -116,6 +116,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setIsStarting(true);
     
     if (!Capacitor.isNativePlatform()) {
+      try {
+        // Trigger browser permission prompt for both
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (e) {
+        console.warn("Erro ao pedir permissões no browser:", e);
+      }
       setShowCamera(true);
       setIsStarting(false);
       isStartingRef.current = false;
@@ -126,6 +133,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Ensure any previous instance is stopped
       try { await CameraPreview.stop(); } catch { /* ignore */ }
       
+      // Request permissions explicitly for both camera and microphone
+      // This is important for video recording to work with audio
+      try {
+        // On native, we also want to ensure microphone is requested
+        // getUserMedia often triggers the native prompt for both if called
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+        
+        const status = await CameraPreview.requestPermissions();
+        if (status.camera !== 'granted') {
+          setError("Precisamos de acesso à câmara para funcionar.");
+          return;
+        }
+      } catch (e) {
+        console.warn("Erro ao pedir permissões nativas:", e);
+      }
+
       await CameraPreview.start({
         parent: 'cameraPreview',
         position: facingModeRef.current,
