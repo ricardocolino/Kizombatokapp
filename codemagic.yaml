@@ -9,6 +9,8 @@ workflows:
       java: 21
       groups:
         - google_play
+      vars:
+        NODE_OPTIONS: --max_old_space_size=4096
 
     triggering:
       events:
@@ -19,29 +21,52 @@ workflows:
           source: true
 
     scripts:
-      - name: Install dependencies
+      - name: Clean install dependencies
         script: |
+          # Limpar cache e reinstalar
+          rm -rf node_modules package-lock.json
+          npm cache clean --force
           npm install
 
-      - name: Build web app
+      - name: Install Capacitor plugins
         script: |
+          # Instalar plugins necessários
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
+          npm install @capacitor-community/camera-preview@latest
+          npm install @capacitor/camera @capacitor/filesystem
+
+      - name: Sync Capacitor with native projects
+        script: |
+          # Sincronizar com Android
+          npx cap sync android
+
+      - name: Build web app with Vite
+        script: |
+          # Configurar Vite para ignorar plugins nativos no build
+          echo 'export default defineConfig({ build: { rollupOptions: { external: ["@capacitor-community/camera-preview", "@capacitor/camera", "@capacitor/filesystem", "@capacitor/core"] } }, optimizeDeps: { exclude: ["@capacitor-community/camera-preview", "@capacitor/camera", "@capacitor/filesystem", "@capacitor/core"] } })' > vite.config.temp.js
+          
+          # Fazer o build
           npm run build
 
       - name: Generate Capacitor Assets
         script: |
-          npx @capacitor/assets generate --android
+          # Gerar ícones e splash screens
+          npx @capacitor/assets generate --android --iconSource resources/icon.png --splashSource resources/splash.png || true
 
-      - name: Sync Capacitor
+      - name: Final Capacitor Sync
         script: |
+          # Sincronizar novamente após build
           npx cap sync android
 
       - name: Build Android APK
         script: |
           cd android
-          gradle assembleDebug
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
+      - android/app/build/outputs/bundle/**/*.aab
 
     publishing:
       email:
