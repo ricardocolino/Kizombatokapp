@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
@@ -24,7 +23,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showSoundPicker, setShowSoundPicker] = useState(false);
   const [useOriginalAudio, setUseOriginalAudio] = useState(!preSelectedSound);
 
-  // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
+  // Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -44,6 +43,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+  // Add camera ready state
+  const [cameraReady, setCameraReady] = useState(false);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -61,6 +62,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
+  // Add ref for camera preview container
+  const cameraPreviewRef = useRef<HTMLDivElement>(null);
 
   const fetchRandomSounds = async () => {
     try {
@@ -108,6 +111,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
     setShowCamera(false);
     setIsFlashOn(false);
+    setCameraReady(false);
   }, []);
 
   const startCamera = React.useCallback(async () => {
@@ -117,7 +121,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     if (!Capacitor.isNativePlatform()) {
       try {
-        // Trigger browser permission prompt for both
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
       } catch (e) {
@@ -126,18 +129,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setShowCamera(true);
       setIsStarting(false);
       isStartingRef.current = false;
+      setCameraReady(true);
       return;
     }
     
     try {
-      // Ensure any previous instance is stopped
       try { await CameraPreview.stop(); } catch { /* ignore */ }
       
-      // Request permissions explicitly for both camera and microphone
-      // This is important for video recording to work with audio
       try {
-        // On native, we also want to ensure microphone is requested
-        // getUserMedia often triggers the native prompt for both if called
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
         
@@ -150,30 +149,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         console.warn("Erro ao pedir permissões nativas:", e);
       }
 
-      await CameraPreview.start({
-        parent: 'cameraPreview',
-        position: facingModeRef.current,
-        toBack: false,
-        className: 'cameraPreview',
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-
-// DEPOIS (CORRETO):
-await CameraPreview.start({
-  parent: 'cameraPreview',
-  position: facingModeRef.current,
-  toBack: false,
-  className: 'cameraPreview',
-  width: Math.round(rect.width),
-  height: Math.round(rect.height),
-  x: Math.round(rect.x), // <-- Posição X necessária
-  y: Math.round(rect.y), // <-- Posição Y necessária
-});
-
-
-      setShowCamera(true);
-      setError(null);
+      // Ensure the parent element exists and has dimensions
+      if (cameraPreviewRef.current) {
+        const rect = cameraPreviewRef.current.getBoundingClientRect();
+        
+        await CameraPreview.start({
+          parent: 'cameraPreview',
+          position: facingModeRef.current,
+          toBack: false, // Change to false to ensure it's visible
+          className: 'cameraPreview',
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+        });
+        
+        setShowCamera(true);
+        setCameraReady(true);
+        setError(null);
+      }
     } catch (err: unknown) {
       console.error("Erro ao iniciar câmera nativa:", err);
     } finally {
@@ -206,7 +200,6 @@ await CameraPreview.start({
   }, [previewUrls.length]);
 
   useEffect(() => {
-    // Timer para iniciar a câmera após o componente montar
     const initTimer = setTimeout(() => {
       startCamera();
     }, 500); 
@@ -220,6 +213,26 @@ await CameraPreview.start({
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [startCamera, stopCamera]);
+
+  // Add resize handler to update camera preview dimensions
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !showCamera || !cameraReady) return;
+
+    const handleResize = () => {
+      if (cameraPreviewRef.current) {
+        const rect = cameraPreviewRef.current.getBoundingClientRect();
+        CameraPreview.updateDimensions({
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+        }).catch(console.error);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [showCamera, cameraReady]);
 
   const toggleCamera = async () => {
     if (isRecording) return;
@@ -318,7 +331,6 @@ await CameraPreview.start({
       return;
     }
 
-    // Fallback for non-native (WebRTC already removed, but keeping structure)
     setError("Gravação não suportada nesta plataforma.");
   };
 
@@ -384,7 +396,7 @@ await CameraPreview.start({
       video.muted = true;
       video.playsInline = true;
       video.onloadedmetadata = () => {
-        video.currentTime = 0.5; // Capture at 0.5 seconds
+        video.currentTime = 0.5;
       };
       video.onseeked = () => {
         const canvas = document.createElement('canvas');
@@ -464,7 +476,6 @@ await CameraPreview.start({
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
 
-      // 2. Generate and Upload Thumbnail (only for video)
       let thumbnailUrl = null;
       if (!isPhoto) {
         try {
@@ -480,10 +491,9 @@ await CameraPreview.start({
           console.error("Erro ao gerar thumbnail:", thumbErr);
         }
       } else {
-        thumbnailUrl = uploadedUrls[0]; // Use first photo as thumbnail
+        thumbnailUrl = uploadedUrls[0];
       }
 
-      // 3. Insert Post
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
@@ -577,15 +587,24 @@ await CameraPreview.start({
           </div>
         ) : (
           <div className="h-full w-full relative bg-black">
+            {/* Camera preview container - ensure it has dimensions */}
             <div 
+              ref={cameraPreviewRef}
               id="cameraPreview" 
-              className="h-full w-full relative bg-transparent" 
+              className="absolute inset-0 w-full h-full bg-transparent" 
               style={{ 
                 filter: filter !== 'none' ? filter : undefined,
                 backdropFilter: filter !== 'none' ? filter : undefined,
                 WebkitBackdropFilter: filter !== 'none' ? filter : undefined
               }}
             />
+            
+            {/* Show loading indicator while camera is starting */}
+            {isStarting && !cameraReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+                <Loader2 size={40} className="text-white animate-spin" />
+              </div>
+            )}
             
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
@@ -922,7 +941,6 @@ await CameraPreview.start({
                 onClick={isRecording ? stopRecording : () => {
                   if (mediaFiles.length > 0) {
                     stopCamera();
-                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
                   }
                 }} 
                 className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
