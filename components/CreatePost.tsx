@@ -43,7 +43,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
-  // Add camera ready state
   const [cameraReady, setCameraReady] = useState(false);
 
   const filters = [
@@ -62,7 +61,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
-  // Add ref for camera preview container
   const cameraPreviewRef = useRef<HTMLDivElement>(null);
 
   const fetchRandomSounds = async () => {
@@ -149,14 +147,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         console.warn("Erro ao pedir permissões nativas:", e);
       }
 
-      // Ensure the parent element exists and has dimensions
       if (cameraPreviewRef.current) {
         const rect = cameraPreviewRef.current.getBoundingClientRect();
         
         await CameraPreview.start({
           parent: 'cameraPreview',
           position: facingModeRef.current,
-          toBack: false, // Change to false to ensure it's visible
+          toBack: false,
           className: 'cameraPreview',
           width: Math.round(rect.width),
           height: Math.round(rect.height),
@@ -176,7 +173,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   }, []);
 
-  // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
     const isPreview = previewUrls.length > 0;
     
@@ -214,7 +210,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     };
   }, [startCamera, stopCamera]);
 
-  // Add resize handler to update camera preview dimensions
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !showCamera || !cameraReady) return;
 
@@ -368,7 +363,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   }, [stopCamera]);
 
-  // Auto-stop recording when max duration is reached
   useEffect(() => {
     if (isRecording && recordingSeconds >= maxDuration) {
       stopRecording();
@@ -527,7 +521,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
-        <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
+        <div className="absolute top-0 left-0 w-full z-[60] px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
               <div 
                 className="h-full bg-yellow-400 transition-all duration-1000 linear" 
@@ -587,11 +581,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           </div>
         ) : (
           <div className="h-full w-full relative bg-black">
-            {/* Camera preview container - ensure it has dimensions */}
+            {/* Camera preview container - Z-INDEX 0 (FUNDO) */}
             <div 
               ref={cameraPreviewRef}
               id="cameraPreview" 
-              className="absolute inset-0 w-full h-full bg-transparent" 
+              className="absolute inset-0 w-full h-full bg-transparent z-0" 
               style={{ 
                 filter: filter !== 'none' ? filter : undefined,
                 backdropFilter: filter !== 'none' ? filter : undefined,
@@ -599,13 +593,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               }}
             />
             
-            {/* Show loading indicator while camera is starting */}
+            {/* Loading indicator - Z-INDEX 20 */}
             {isStarting && !cameraReady && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
                 <Loader2 size={40} className="text-white animate-spin" />
               </div>
             )}
             
+            {/* Text overlay - Z-INDEX 30 */}
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                 <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
@@ -614,7 +609,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
             
-            <div className="absolute top-8 left-0 w-full flex justify-center z-50">
+            {/* Sound selector button - Z-INDEX 100 */}
+            <div className="absolute top-8 left-0 w-full flex justify-center z-[100]">
                <button 
                  onClick={() => {
                    if (!showSoundPicker) stopPreviewAudio();
@@ -630,8 +626,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                </button>
             </div>
 
+            {/* Sound picker modal - Z-INDEX 200 */}
             {showSoundPicker && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-end">
                 <div className="w-full h-[92%] bg-zinc-950 rounded-t-[32px] flex flex-col overflow-hidden animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-zinc-800">
                   {/* Header Seletor */}
                   <div className="relative px-6 py-5 flex items-center justify-center border-b border-zinc-900">
@@ -762,13 +759,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
+            {/* Countdown - Z-INDEX 150 */}
             {countdown !== null && (
-              <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
+              <div className="absolute inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-md">
                  <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">{countdown}</span>
               </div>
             )}
 
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-40">
+            {/* Side buttons - Z-INDEX 100 */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-[100]">
               <button 
                 onClick={toggleCamera} 
                 disabled={isStarting}
@@ -803,8 +802,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </button>
             </div>
 
+            {/* Text editor modal - Z-INDEX 200 */}
             {showTextEditor && (
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-8">
                 <textarea
                   autoFocus
                   value={textOverlay}
@@ -829,8 +829,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
+            {/* Filter picker modal - Z-INDEX 200 */}
             {showFilterPicker && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-end">
                 <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
@@ -854,11 +855,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
+            {/* Close button - Z-INDEX 100 */}
+            <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-[100] hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
 
-            <div className="absolute bottom-32 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
+            {/* Video/Photo mode and duration controls - Z-INDEX 100 */}
+            <div className="absolute bottom-32 left-0 w-full flex items-center justify-center gap-6 z-[100] pointer-events-auto">
               <div className="flex gap-4 border-r border-white/10 pr-6">
                 <button 
                   onClick={() => setMode('video')}
@@ -900,7 +903,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             </div>
 
-            <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-40">
+            {/* Main buttons (Gallery, Record, Ready) - Z-INDEX 100 */}
+            <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-[100]">
                <input 
                  ref={nativeVideoInputRef}
                  type="file" 
@@ -953,8 +957,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         )}
       </div>
 
+      {/* Error toast - Z-INDEX 200 */}
       {error && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/90 backdrop-blur-xl border border-red-600/30 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-[0_10px_40px_rgba(220,38,38,0.2)] flex items-center gap-3 animate-bounce">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[200] bg-zinc-950/90 backdrop-blur-xl border border-red-600/30 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-[0_10px_40px_rgba(220,38,38,0.2)] flex items-center gap-3 animate-bounce">
            <AlertCircle size={18} className="text-red-600" />
            <span className="max-w-[200px] text-center">{error}</span>
            <button onClick={() => setError(null)} className="ml-2 text-zinc-600 hover:text-white"><X size={16}/></button>
