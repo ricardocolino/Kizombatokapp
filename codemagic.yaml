@@ -1,4 +1,4 @@
- workflows:
+  workflows:
   android-capacitor:
     name: Android Capacitor Build
     max_build_duration: 60
@@ -21,7 +21,7 @@
     scripts:
       - name: Install dependencies
         script: |
-          npm ci
+          npm install
 
       - name: Build web app
         script: |
@@ -29,7 +29,7 @@
 
       - name: Generate Capacitor Assets
         script: |
-          npx capacitor-assets generate --android
+          npx @capacitor/assets generate --android
 
       - name: Sync Capacitor
         script: |
@@ -38,9 +38,7 @@
       - name: Build Android APK
         script: |
           cd android
-          chmod +x gradlew
-          ./gradlew clean
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug
 
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
