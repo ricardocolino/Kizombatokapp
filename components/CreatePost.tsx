@@ -204,15 +204,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const toggleFlash = async () => {
-    if (facingMode === 'user') return; // Ignora se for a câmera de frente
+    if (facingMode === 'user') return; 
     
     if (Capacitor.isNativePlatform()) {
       try {
-        const newFlashState = isFlashOn ? 'off' : 'on';
+        const newFlashState = isFlashOn ? 'off' : 'torch';
         await CameraPreview.setFlashMode({ flashMode: newFlashState });
         setIsFlashOn(!isFlashOn);
       } catch (err) {
-        console.error("Flash não suportado:", err);
+        console.error("Erro ao mudar flash para torch, tentando on:", err);
+        try {
+          const newFlashState = isFlashOn ? 'off' : 'on';
+          await CameraPreview.setFlashMode({ flashMode: newFlashState });
+          setIsFlashOn(!isFlashOn);
+        } catch (err2) {
+          console.error("Flash não suportado:", err2);
+        }
       }
     }
   };
@@ -531,14 +538,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             </div>
           </div>
         ) : (
-          <div id="cameraPreview" className="h-full w-full relative bg-transparent">
-            {/* Filter Overlay for Live Camera */}
-            {filter !== 'none' && (
-              <div 
-                className="absolute inset-0 pointer-events-none z-10" 
-                style={{ backdropFilter: filter, WebkitBackdropFilter: filter }} 
-              />
-            )}
+          <div className="h-full w-full relative bg-black">
+            <div 
+              id="cameraPreview" 
+              className="h-full w-full relative bg-transparent" 
+              style={{ 
+                filter: filter !== 'none' ? filter : undefined,
+                backdropFilter: filter !== 'none' ? filter : undefined,
+                WebkitBackdropFilter: filter !== 'none' ? filter : undefined
+              }}
+            />
             
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
