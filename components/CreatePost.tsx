@@ -153,11 +153,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       await CameraPreview.start({
         parent: 'cameraPreview',
         position: facingModeRef.current,
-        toBack: true,
+        toBack: false,
         className: 'cameraPreview',
         width: window.innerWidth,
         height: window.innerHeight,
       });
+
+// DEPOIS (CORRETO):
+await CameraPreview.start({
+  parent: 'cameraPreview',
+  position: facingModeRef.current,
+  toBack: false,
+  className: 'cameraPreview',
+  width: Math.round(rect.width),
+  height: Math.round(rect.height),
+  x: Math.round(rect.x), // <-- Posição X necessária
+  y: Math.round(rect.y), // <-- Posição Y necessária
+});
+
+
       setShowCamera(true);
       setError(null);
     } catch (err: unknown) {
