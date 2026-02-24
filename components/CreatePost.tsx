@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { Video, X, Upload, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
-import { Camera as CapCamera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
+import { CameraPreview, CameraPreviewOptions, CameraPreviewPictureOptions } from '@capacitor-community/camera-preview';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
 interface CreatePostProps {
@@ -30,7 +30,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [maxDuration, setMaxDuration] = useState(15);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [facingMode, setFacingMode] = useState<'front' | 'rear'>('front');
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [mode, setMode] = useState<'video' | 'photo'>('video');
   const [textOverlay, setTextOverlay] = useState('');
@@ -39,6 +39,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showFilterPicker, setShowFilterPicker] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+
+  const timerRef = useRef<number | null>(null);
+  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const videoPreviewRef = useRef<HTMLDivElement>(null);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -49,17 +55,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     { name: 'Frio', value: 'saturate(80%) hue-rotate(180deg) brightness(1.1)' },
   ];
 
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
-  const timerRef = useRef<number | null>(null);
-  const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaChunksRef = useRef<Blob[]>([]);
-
   useEffect(() => {
     fetchRandomSounds();
     
     return () => {
       stopPreviewAudio();
+      if (isCameraActive) {
+        stopCamera();
+      }
       previewUrls.forEach(url => {
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
       });
@@ -98,38 +101,37 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     previewAudioRef.current = audio;
   };
 
-  const startNativeCamera = async () => {
+  const startCamera = async () => {
     setIsStarting(true);
     setError(null);
 
     try {
-      // Verificar permissões primeiro
-      const permissionStatus = await CapCamera.checkPermissions();
+      // Configurar o preview da câmera [citation:1]
+      const cameraPreviewOptions: CameraPreviewOptions = {
+        position: facingMode, // 'front' ou 'rear'
+        parent: 'camera-preview-container', // ID do elemento container
+        className: 'camera-preview',
+        width: window.innerWidth,
+        height: window.innerHeight,
+        toBack: false,
+        disableAudio: false, // Habilitar áudio para vídeo
+        enableZoom: true, // Habilitar zoom por pinça
+        enableHighResolution: true, // Máxima resolução possível
+      };
+
+      await CameraPreview.start(cameraPreviewOptions);
       
-      if (permissionStatus.camera !== 'granted' || permissionStatus.photos !== 'granted') {
-        const requestStatus = await CapCamera.requestPermissions();
-        if (requestStatus.camera !== 'granted' || requestStatus.photos !== 'granted') {
-          throw new Error('Permissões de câmera necessárias');
+      // Se o flash estava ligado, tenta ativar
+      if (isFlashOn) {
+        try {
+          // Nota: Flash só funciona em dispositivos que suportam
+          await CameraPreview.setFlashMode(isFlashOn ? 'torch' : 'off');
+        } catch (e) {
+          console.log("Flash não suportado");
         }
       }
 
-      // Para vídeo, vamos usar uma abordagem diferente
-      if (mode === 'video') {
-        // Iniciar preview com câmera nativa (usando arquivo temporário)
-        const videoFile = await CapCamera.pickImages({
-          limit: 1
-        });
-        
-        // Por enquanto, para vídeo, vamos abrir a galeria
-        // Nota: O Capacitor Camera plugin não suporta gravação de vídeo diretamente
-        // Precisamos usar @capacitor-community/camera-preview para preview ao vivo
-        console.log("Modo vídeo - usar galeria");
-        setIsCameraActive(true);
-      } else {
-        // Para foto, podemos usar diretamente
-        setIsCameraActive(true);
-      }
-      
+      setIsCameraActive(true);
     } catch (err: any) {
       console.error("Erro ao iniciar câmera:", err);
       setError(err.message || 'Erro ao aceder à câmera');
@@ -138,34 +140,42 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
+  const stopCamera = async () => {
+    try {
+      await CameraPreview.stop();
+    } catch (err) {
+      console.error("Erro ao parar câmera:", err);
+    }
+    setIsCameraActive(false);
+    setIsRecording(false);
+  };
+
   const takePhoto = async () => {
     try {
-      const image = await CapCamera.getPhoto({
+      // Configurar opções da foto [citation:1]
+      const options: CameraPreviewPictureOptions = {
         quality: 95,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera,
-        direction: facingMode === 'user' ? CameraDirection.Front : CameraDirection.Rear,
-        saveToGallery: false
-      });
+        width: 0, // 0 = usar resolução máxima
+        height: 0,
+      };
 
-      if (image.webPath) {
-        // Aplicar filtro (simulado - em produção usaria Canvas)
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-
-        // Criar preview com filtro aplicado via CSS
-        const filteredPreview = image.webPath;
-        
-        setCapturedPhotos(prev => [...prev, filteredPreview]);
-        
-        // Converter para File/Blob para upload
-        const fileName = `photo_${Date.now()}.jpg`;
-        const file = new File([blob], fileName, { type: 'image/jpeg' });
-        
-        setMediaFiles(prev => [...prev, file]);
-        setPreviewUrls(prev => [...prev, filteredPreview]);
-      }
+      const result = await CameraPreview.capture(options);
+      
+      // Converter base64 para blob
+      const base64Data = result.value;
+      const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(res => res.blob());
+      
+      // Criar preview URL
+      const previewUrl = URL.createObjectURL(blob);
+      
+      setCapturedPhotos(prev => [...prev, previewUrl]);
+      
+      // Converter para File para upload
+      const fileName = `photo_${Date.now()}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+      
+      setMediaFiles(prev => [...prev, file]);
+      setPreviewUrls(prev => [...prev, previewUrl]);
     } catch (err) {
       console.error("Erro ao tirar foto:", err);
       setError('Erro ao capturar foto');
@@ -173,6 +183,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const startVideoRecording = async () => {
+    // Iniciar contagem regressiva
     setCountdown(3);
     const countInterval = setInterval(async () => {
       setCountdown(prev => {
@@ -192,6 +203,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setIsRecording(true);
       setRecordingSeconds(0);
 
+      // Iniciar gravação de vídeo [citation:1]
+      await CameraPreview.startRecordVideo({
+        storeToFile: true, // Salvar como arquivo
+      });
+
       // Timer para controlar duração
       timerRef.current = window.setInterval(() => {
         setRecordingSeconds(prev => {
@@ -202,15 +218,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           return prev + 1;
         });
       }, 1000);
-
-      // Iniciar gravação com câmera nativa
-      // Nota: O plugin padrão não suporta gravação contínua
-      // Para gravação de vídeo real, precisamos de um plugin como @capacitor-community/media ou gravar em chunks
-      console.log("Iniciando gravação de vídeo...");
-      
-      // Solução temporária: usar a câmera para tirar várias fotos (simulação)
-      // Em produção, implementar com plugin de gravação real
-      
     } catch (err) {
       console.error("Erro ao gravar vídeo:", err);
       setError('Erro ao gravar vídeo');
@@ -218,26 +225,65 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
-  const stopVideoRecording = () => {
-    setIsRecording(false);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+  const stopVideoRecording = async () => {
+    try {
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      // Parar gravação e obter o arquivo de vídeo [citation:1]
+      const result = await CameraPreview.stopRecordVideo();
+      
+      if (result && result.videoFilePath) {
+        setVideoPath(result.videoFilePath);
+        
+        // Ler o arquivo e converter para blob
+        const fileResult = await Filesystem.readFile({
+          path: result.videoFilePath,
+          directory: Directory.Data,
+        });
+
+        // Converter base64 para blob
+        const base64Data = fileResult.data as string;
+        const blob = await fetch(`data:video/mp4;base64,${base64Data}`).then(res => res.blob());
+        
+        // Criar preview URL
+        const previewUrl = URL.createObjectURL(blob);
+        
+        setMediaFiles([blob]);
+        setPreviewUrls([previewUrl]);
+        
+        // Parar a câmera
+        await stopCamera();
+      }
+    } catch (err) {
+      console.error("Erro ao parar gravação:", err);
+      setError('Erro ao finalizar gravação');
     }
-
-    // Simular fim da gravação
-    // Aqui você teria o blob do vídeo gravado
-    alert('Gravação concluída! (Implementar com plugin de vídeo)');
   };
 
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-    // A direção será aplicada na próxima captura
+  const toggleCamera = async () => {
+    try {
+      // O plugin não tem método flip direto, precisamos reiniciar [citation:2]
+      await CameraPreview.flip();
+      setFacingMode(prev => prev === 'front' ? 'rear' : 'front');
+    } catch (err) {
+      console.error("Erro ao trocar câmera:", err);
+    }
   };
 
-  const toggleFlash = () => {
-    setIsFlashOn(!isFlashOn);
-    // Nota: Flash só funciona em dispositivos com suporte
+  const toggleFlash = async () => {
+    try {
+      const newFlashState = !isFlashOn;
+      await CameraPreview.setFlashMode(newFlashState ? 'torch' : 'off');
+      setIsFlashOn(newFlashState);
+    } catch (err) {
+      console.error("Flash não suportado:", err);
+      setError("Flash não suportado neste dispositivo");
+      setTimeout(() => setError(null), 3000);
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,7 +297,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setMediaFiles(selectedFiles);
       setPreviewUrls(newPreviewUrls);
       setError(null);
-      setIsCameraActive(false);
+      
+      if (isCameraActive) {
+        await stopCamera();
+      }
     }
   };
 
@@ -341,6 +390,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       });
       
       if (insertError) throw insertError;
+      
+      // Limpar recursos
+      if (isCameraActive) {
+        await stopCamera();
+      }
+      
       setTimeout(() => onCreated(), 500);
     } catch (err: unknown) {
       setError((err as Error).message || 'Erro ao publicar.');
@@ -354,8 +409,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setMediaFiles([]);
     setPreviewUrls([]);
     setCapturedPhotos([]);
+    setVideoPath(null);
     setError(null);
-    setIsCameraActive(false);
   };
 
   const openGallery = () => {
@@ -367,11 +422,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     input.click();
   };
 
-  // Renderização da UI (mantém praticamente igual, só remove dependências de stream)
   return (
     <div className="h-full w-full bg-black flex flex-col relative overflow-hidden">
+      {/* Container para o preview da câmera - essencial para o plugin [citation:1] */}
+      <div id="camera-preview-container" className="absolute inset-0 z-0" />
+
       {/* Barra de progresso de gravação */}
-      {(isRecording || (isCameraActive && recordingSeconds > 0)) && (
+      {isRecording && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
           <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
             <div 
@@ -382,7 +439,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         </div>
       )}
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative z-10">
         {previewUrls.length > 0 ? (
           // Preview após captura
           <div className="h-full w-full flex flex-col bg-black">
@@ -444,19 +501,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             </div>
           </div>
         ) : isCameraActive ? (
-          // Interface da câmera (estilizada como TikTok)
-          <div className="h-full w-full relative bg-black">
-            {/* Simular preview da câmera - em produção, usar CameraPreview */}
-            <div className="w-full h-full bg-gradient-to-br from-zinc-900 to-black flex items-center justify-center">
-              <div className="text-center">
-                <Camera size={80} className="text-zinc-800 mx-auto mb-4" />
-                <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">
-                  Preview da Câmera<br/>
-                  (Modo {mode === 'video' ? 'Vídeo' : 'Foto'})
-                </p>
-              </div>
-            </div>
-
+          // Interface da câmera (os controles ficam sobre o preview)
+          <>
             {/* Overlay de texto */}
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
@@ -721,7 +767,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             {/* Botão fechar */}
             <button 
               onClick={() => {
-                setIsCameraActive(false);
+                stopCamera();
                 onCreated();
               }} 
               className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all"
@@ -813,7 +859,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
               </button>
             </div>
-          </div>
+          </>
         ) : (
           // Tela inicial (câmera desligada)
           <div className="h-full w-full flex flex-col items-center justify-center p-8 gap-12 bg-zinc-950">
@@ -834,7 +880,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             ) : (
               <div className="flex flex-col gap-6 w-full max-w-[280px]">
                 <button 
-                  onClick={startNativeCamera}
+                  onClick={startCamera}
                   className="w-full py-5 bg-red-600 rounded-2xl font-black uppercase text-[12px] tracking-[0.2em] text-white shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
                   <Camera size={20} />
@@ -856,7 +902,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             )}
 
             <button 
-              onClick={() => startNativeCamera()} 
+              onClick={() => startCamera()} 
               disabled={isStarting} 
               className="text-[9px] font-black text-white/40 uppercase border-b border-white/10 pb-1 hover:text-white transition-colors disabled:opacity-30"
             >
