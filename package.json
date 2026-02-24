@@ -20,7 +20,6 @@
     "@capacitor/core": "^8.1.0",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
-    "@capacitor-community/camera-preview": "^6.0.0",
     "@supabase/supabase-js": "^2.95.3",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
