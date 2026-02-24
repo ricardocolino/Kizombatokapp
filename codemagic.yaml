@@ -1,49 +1,66 @@
-workflows:
-  android-capacitor:
-    name: Android Capacitor Build
-    max_build_duration: 60
-    instance_type: mac_mini_m1
+android-capacitor:
+  name: Android Capacitor Build
+  max_build_duration: 60
+  instance_type: mac_mini_m1
 
-    environment:
-      node: latest
-      java: 21
-      groups:
-        - google_play
+  environment:
+    node: latest
+    java: 21
+    groups:
+      - google_play
 
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
-          source: true
+  triggering:
+    events:
+      - push
+    branch_patterns:
+      - pattern: '*'
+        include: true
+        source: true
 
-    scripts:
-      - name: Install dependencies
-        script: |
-          npm install
+  scripts:
+    - name: Clean install dependencies
+      script: |
+        rm -rf node_modules package-lock.json
+        npm install
 
-      - name: Build web app
-        script: |
-          npm run build
+    - name: Install Capacitor Camera Preview plugin
+      script: |
+        npm install @capacitor-community/camera-preview
+        npx cap sync
 
-      - name: Generate Capacitor Assets
-        script: |
-          npx @capacitor/assets generate --android
+    - name: Build web app
+      script: |
+        npm run build
 
-      - name: Sync Capacitor
-        script: |
-          npx cap sync android
+    - name: Generate Capacitor Assets
+      script: |
+        npx @capacitor/assets generate --android
 
-      - name: Build Android APK
-        script: |
-          cd android
-          gradle assembleDebug
+    - name: Sync Capacitor with native projects
+      script: |
+        npx cap sync android
 
-    artifacts:
-      - android/app/build/outputs/apk/**/*.apk
+    - name: Clean Android project
+      script: |
+        cd android
+        ./gradlew clean
 
-    publishing:
-      email:
-        recipients:
-          - your-email@example.com
+    - name: Build Android APK
+      script: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug --stacktrace
+
+    - name: Build Android App Bundle (AAB) - Release
+      script: |
+        cd android
+        ./gradlew bundleRelease --stacktrace
+
+  artifacts:
+    - android/app/build/outputs/apk/**/*.apk
+    - android/app/build/outputs/bundle/**/*.aab
+
+  publishing:
+    email:
+      recipients:
+        - your-email@example.com
