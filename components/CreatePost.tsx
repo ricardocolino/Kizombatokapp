@@ -365,81 +365,117 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   }, [stopCamera, selectedSound, useOriginalAudio]);
 
   const mergeAudioVideo = async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(videoBlob);
-      video.muted = true;
-      video.playsInline = true;
-      video.style.position = 'fixed';
-      video.style.top = '-9999px';
-      video.style.left = '-9999px';
-      document.body.appendChild(video);
-      
-      const audio = new Audio(audioUrl);
-      audio.crossOrigin = "anonymous";
-      
-      video.onloadedmetadata = () => {
-        // Use a canvas to ensure we can capture the stream properly
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error("Não foi possível criar contexto do canvas"));
-          return;
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoBlob);
+    video.muted = true;
+    video.playsInline = true;
+    video.style.position = 'fixed';
+    video.style.top = '-9999px';
+    video.style.left = '-9999px';
+    document.body.appendChild(video);
+
+    const audio = new Audio(audioUrl);
+    audio.crossOrigin = "anonymous";
+
+    video.onloadedmetadata = () => {
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        reject(new Error("Erro ao criar contexto canvas"));
+        return;
+      }
+
+      // 🔥 DETECTA ORIENTAÇÃO AUTOMÁTICA
+      let rotation = 0;
+
+      if (height > width) {
+        // Se altura for maior que largura em vídeo landscape,
+        // normalmente significa rotação incorreta
+        rotation = 90;
+      }
+
+      if (rotation === 90 || rotation === 270) {
+        canvas.width = height;
+        canvas.height = width;
+      } else {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const stream = canvas.captureStream(30);
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(audio);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      stream.addTrack(audioTrack);
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('video/mp4')
+          ? 'video/mp4'
+          : 'video/webm'
+      });
+
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+
+      recorder.onstop = () => {
+        const mergedBlob = new Blob(chunks, { type: recorder.mimeType });
+        document.body.removeChild(video);
+        audioCtx.close();
+        resolve(mergedBlob);
+      };
+
+      let animationFrame: number;
+
+      const draw = () => {
+        if (video.paused || video.ended) return;
+
+        ctx.save();
+
+        if (rotation === 90) {
+          ctx.translate(canvas.width, 0);
+          ctx.rotate(Math.PI / 2);
+        } else if (rotation === 180) {
+          ctx.translate(canvas.width, canvas.height);
+          ctx.rotate(Math.PI);
+        } else if (rotation === 270) {
+          ctx.translate(0, canvas.height);
+          ctx.rotate(-Math.PI / 2);
         }
 
-        const stream = canvas.captureStream(30);
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const source = audioCtx.createMediaElementSource(audio);
-        const dest = audioCtx.createMediaStreamDestination();
-        source.connect(dest);
-        
-        // Add audio track to the stream
-        const audioTrack = dest.stream.getAudioTracks()[0];
-        stream.addTrack(audioTrack);
-        
-        const recorder = new MediaRecorder(stream, { 
-          mimeType: MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm' 
-        });
-        
-        const chunks: Blob[] = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => {
-          const mergedBlob = new Blob(chunks, { type: recorder.mimeType });
-          document.body.removeChild(video);
-          audioCtx.close();
-          resolve(mergedBlob);
-        };
-        
-        let animationFrame: number;
-        const draw = () => {
-          if (video.paused || video.ended) return;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          setProcessingProgress((video.currentTime / video.duration) * 100);
-          animationFrame = requestAnimationFrame(draw);
-        };
+        ctx.drawImage(video, 0, 0, width, height);
+        ctx.restore();
 
-        video.play();
-        audio.play();
-        recorder.start();
-        draw();
-        
-        video.onended = () => {
-          recorder.stop();
-          audio.pause();
-          cancelAnimationFrame(animationFrame);
-        };
+        setProcessingProgress((video.currentTime / video.duration) * 100);
+        animationFrame = requestAnimationFrame(draw);
       };
-      
-      video.onerror = (e) => {
-        document.body.removeChild(video);
-        reject(e);
-      };
-    });
-  };
 
+      video.play();
+      audio.play();
+      recorder.start();
+      draw();
+
+      video.onended = () => {
+        recorder.stop();
+        audio.pause();
+        cancelAnimationFrame(animationFrame);
+      };
+    };
+
+    video.onerror = (e) => {
+      document.body.removeChild(video);
+      reject(e);
+    };
+  });
+};
   // Auto-stop recording when max duration is reached
   useEffect(() => {
     if (isRecording && recordingSeconds >= maxDuration) {
