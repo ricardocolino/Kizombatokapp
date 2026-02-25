@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
@@ -41,6 +40,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [isStarting, setIsStarting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
   const [mode, setMode] = useState<'video' | 'photo'>('video');
   const [textOverlay, setTextOverlay] = useState('');
   const [showTextEditor, setShowTextEditor] = useState(false);
@@ -63,6 +63,94 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
+
+  const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.src = URL.createObjectURL(videoBlob);
+      video.muted = true;
+      video.playsInline = true;
+      video.style.position = 'fixed';
+      video.style.top = '-9999px';
+      video.style.left = '-9999px';
+      document.body.appendChild(video);
+      
+      const audio = new Audio(audioUrl);
+      audio.crossOrigin = "anonymous";
+      
+      video.onloadedmetadata = () => {
+        // Use a canvas to ensure we can capture the stream properly
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error("Não foi possível criar contexto do canvas"));
+          return;
+        }
+
+        const stream = canvas.captureStream(30);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(audio);
+        const dest = audioCtx.createMediaStreamDestination();
+        source.connect(dest);
+        
+        // Add audio track to the stream
+        const audioTrack = dest.stream.getAudioTracks()[0];
+        stream.addTrack(audioTrack);
+        
+        const recorder = new MediaRecorder(stream, { 
+          mimeType: MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm' 
+        });
+        
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = () => {
+          const mergedBlob = new Blob(chunks, { type: recorder.mimeType });
+          document.body.removeChild(video);
+          audioCtx.close();
+          resolve(mergedBlob);
+        };
+        
+        let animationFrame: number;
+        const draw = () => {
+          if (video.paused || video.ended) return;
+          
+          ctx.save();
+          // Fix upside down rear camera if needed
+          if (recordedFacingMode === 'rear') {
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(Math.PI);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+          }
+          
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          
+          setProcessingProgress((video.currentTime / video.duration) * 100);
+          animationFrame = requestAnimationFrame(draw);
+        };
+
+        video.play();
+        audio.play();
+        recorder.start();
+        draw();
+        
+        video.onended = () => {
+          recorder.stop();
+          audio.pause();
+          cancelAnimationFrame(animationFrame);
+        };
+      };
+      
+      video.onerror = (e) => {
+        document.body.removeChild(video);
+        reject(e);
+      };
+    });
+  }, [recordedFacingMode]);
 
   const fetchRandomSounds = async () => {
     try {
@@ -159,7 +247,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         className: 'cameraPreview',
         width: window.innerWidth,
         height: window.innerHeight,
-        rotateWhenOrientationChanged: true,
       });
       setShowCamera(true);
       setError(null);
@@ -290,6 +377,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           await audio.play();
         }
 
+        setRecordedFacingMode(facingMode);
+
         await CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
@@ -363,101 +452,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, selectedSound, useOriginalAudio]);
+  }, [stopCamera, selectedSound, useOriginalAudio, mergeAudioVideo]);
 
-  const mergeAudioVideo = async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(videoBlob);
-    video.muted = true;
-    video.playsInline = true;
-    video.style.position = 'fixed';
-    video.style.top = '-9999px';
-    video.style.left = '-9999px';
-    document.body.appendChild(video);
-
-    const audio = new Audio(audioUrl);
-    audio.crossOrigin = "anonymous";
-
-    video.onloadedmetadata = () => {
-      let width = video.videoWidth;
-      let height = video.videoHeight;
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        reject(new Error("Erro ao criar contexto canvas"));
-        return;
-      }
-
-
-
-      const stream = canvas.captureStream(30);
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioCtx.createMediaElementSource(audio);
-      const dest = audioCtx.createMediaStreamDestination();
-      source.connect(dest);
-
-      const audioTrack = dest.stream.getAudioTracks()[0];
-      stream.addTrack(audioTrack);
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('video/mp4')
-          ? 'video/mp4'
-          : 'video/webm'
-      });
-
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-
-      recorder.onstop = () => {
-        const mergedBlob = new Blob(chunks, { type: recorder.mimeType });
-        document.body.removeChild(video);
-        audioCtx.close();
-        resolve(mergedBlob);
-      };
-
-      let animationFrame: number;
-
-      const draw = () => {
-        if (video.paused || video.ended) return;
-
-        canvas.width = width;
-canvas.height = height;
-
-const draw = () => {
-  if (video.paused || video.ended) return;
-
-  ctx.drawImage(video, 0, 0, width, height);
-
-  setProcessingProgress((video.currentTime / video.duration) * 100);
-  animationFrame = requestAnimationFrame(draw);
-};
-
-        setProcessingProgress((video.currentTime / video.duration) * 100);
-        animationFrame = requestAnimationFrame(draw);
-      };
-
-      video.play();
-      audio.play();
-      recorder.start();
-      draw();
-
-      video.onended = () => {
-        recorder.stop();
-        audio.pause();
-        cancelAnimationFrame(animationFrame);
-      };
-    };
-
-    video.onerror = (e) => {
-      document.body.removeChild(video);
-      reject(e);
-    };
-  });
-};
   // Auto-stop recording when max duration is reached
   useEffect(() => {
     if (isRecording && recordingSeconds >= maxDuration) {
@@ -649,7 +645,7 @@ const draw = () => {
               ) : (
                 <video 
                   src={previewUrls[0]} 
-                  className="w-full h-full object-cover" 
+                  className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
                   autoPlay 
                   loop 
                   playsInline 
