@@ -220,6 +220,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     return () => observerRef.current?.disconnect();
   }, [post.id, videoError, post.sound_id]);
 
+  useEffect(() => {
+    if (isPlaying && originalPost?.media_url && audioRef.current) {
+      if (videoRef.current) {
+        audioRef.current.currentTime = videoRef.current.currentTime % (audioRef.current.duration || 1);
+      }
+      audioRef.current.play().catch(() => {});
+    }
+  }, [originalPost?.media_url, isPlaying]);
+
   const fetchComments = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     const { data } = await supabase.from('comments').select('*, profiles(*)').eq('post_id', post.id).order('created_at', { ascending: false });
@@ -537,9 +546,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             }}
             onTimeUpdate={() => {
               if (post.sound_id && audioRef.current && videoRef.current) {
-                // Sync if they drift by more than 0.2 seconds
-                if (Math.abs(audioRef.current.currentTime - videoRef.current.currentTime) > 0.2) {
-                  audioRef.current.currentTime = videoRef.current.currentTime;
+                const video = videoRef.current;
+                const audio = audioRef.current;
+
+                // Ensure audio is playing if video is playing and not muted
+                if (!video.paused && audio.paused && isPlaying && !isMuted) {
+                  audio.play().catch(() => {});
+                } else if (video.paused && !audio.paused) {
+                  audio.pause();
+                }
+
+                // Sync if they drift by more than 0.3 seconds
+                if (audio.duration) {
+                  const targetTime = video.currentTime % audio.duration;
+                  if (Math.abs(audio.currentTime - targetTime) > 0.3) {
+                    audio.currentTime = targetTime;
+                  }
                 }
               }
             }}
