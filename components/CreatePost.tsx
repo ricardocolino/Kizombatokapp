@@ -390,22 +390,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         return;
       }
 
-      // 🔥 DETECTA ORIENTAÇÃO AUTOMÁTICA
-      let rotation = 0;
 
-      if (height > width) {
-        // Se altura for maior que largura em vídeo landscape,
-        // normalmente significa rotação incorreta
-        rotation = 90;
-      }
-
-      if (rotation === 90 || rotation === 270) {
-        canvas.width = height;
-        canvas.height = width;
-      } else {
-        canvas.width = width;
-        canvas.height = height;
-      }
 
       const stream = canvas.captureStream(30);
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -438,21 +423,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const draw = () => {
         if (video.paused || video.ended) return;
 
-        ctx.save();
+        canvas.width = width;
+canvas.height = height;
 
-        if (rotation === 90) {
-          ctx.translate(canvas.width, 0);
-          ctx.rotate(Math.PI / 2);
-        } else if (rotation === 180) {
-          ctx.translate(canvas.width, canvas.height);
-          ctx.rotate(Math.PI);
-        } else if (rotation === 270) {
-          ctx.translate(0, canvas.height);
-          ctx.rotate(-Math.PI / 2);
-        }
+const draw = () => {
+  if (video.paused || video.ended) return;
 
-        ctx.drawImage(video, 0, 0, width, height);
-        ctx.restore();
+  ctx.drawImage(video, 0, 0, width, height);
+
+  setProcessingProgress((video.currentTime / video.duration) * 100);
+  animationFrame = requestAnimationFrame(draw);
+};
 
         setProcessingProgress((video.currentTime / video.duration) * 100);
         animationFrame = requestAnimationFrame(draw);
