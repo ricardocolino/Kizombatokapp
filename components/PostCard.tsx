@@ -508,7 +508,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           ref={audioRef} 
           src={originalPost.media_url} 
           loop 
-          muted={isMuted}
+          muted={!!post.sound_id || isMuted}
         />
       )}
 
@@ -521,7 +521,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             className="w-full h-full object-cover"
             style={{ filter: post.filter || undefined }}
             loop
-            muted={!!post.sound_id || isMuted}
+            muted={isMuted}
             playsInline
             autoPlay
             preload="metadata"

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Mic, MicOff } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
@@ -41,6 +41,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [isStarting, setIsStarting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [mixWithOriginalAudio, setMixWithOriginalAudio] = useState(false);
   const [mode, setMode] = useState<'video' | 'photo'>('video');
   const [textOverlay, setTextOverlay] = useState('');
   const [showTextEditor, setShowTextEditor] = useState(false);
@@ -339,7 +340,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               setProcessingProgress(0);
               
               try {
-                const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url);
+                const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url, mixWithOriginalAudio);
                 setMediaFiles([mergedBlob]);
                 setPreviewUrls([URL.createObjectURL(mergedBlob)]);
               } catch (err) {
@@ -362,13 +363,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, selectedSound, useOriginalAudio]);
+  }, [stopCamera, selectedSound, useOriginalAudio, mixWithOriginalAudio]);
 
-  const mergeAudioVideo = async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
+  const mergeAudioVideo = async (videoBlob: Blob, audioUrl: string, mixWithOriginal: boolean): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.src = URL.createObjectURL(videoBlob);
-      video.muted = true;
+      video.muted = true; // Always mute for processing
       video.playsInline = true;
       video.style.position = 'fixed';
       video.style.top = '-9999px';
@@ -377,8 +378,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       
       const audio = new Audio(audioUrl);
       audio.crossOrigin = "anonymous";
+      audio.muted = true; // Mute so user doesn't hear it during background processing
       
       video.onloadedmetadata = () => {
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+          reject(new Error("Dimensões do vídeo inválidas"));
+          return;
+        }
         // Use a canvas to ensure we can capture the stream properly
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -392,9 +398,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
         const stream = canvas.captureStream(30);
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const source = audioCtx.createMediaElementSource(audio);
+        
+        const musicSource = audioCtx.createMediaElementSource(audio);
         const dest = audioCtx.createMediaStreamDestination();
-        source.connect(dest);
+        
+        if (mixWithOriginal) {
+          const videoSource = audioCtx.createMediaElementSource(video);
+          
+          const musicGain = audioCtx.createGain();
+          const videoGain = audioCtx.createGain();
+          
+          musicGain.gain.value = 1.0;
+          videoGain.gain.value = 0.8; // Original audio slightly lower
+          
+          musicSource.connect(musicGain);
+          videoSource.connect(videoGain);
+          
+          musicGain.connect(dest);
+          videoGain.connect(dest);
+        } else {
+          musicSource.connect(dest);
+        }
         
         // Add audio track to the stream
         const audioTrack = dest.stream.getAudioTracks()[0];
@@ -602,6 +626,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     startCamera();
   };
 
+  const isRecordedVideo = mediaFiles[0] && !(mediaFiles[0] instanceof File) && !mediaFiles[0].type.startsWith('image/');
+
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
@@ -635,10 +661,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   autoPlay 
                   loop 
                   playsInline 
-                  muted={!!selectedSound && !useOriginalAudio}
+                  muted={isRecordedVideo ? false : (!!selectedSound && !useOriginalAudio)}
                   style={{ filter: filter !== 'none' ? filter : undefined }} 
                   onPlay={(e) => {
-                    if (selectedSound && !useOriginalAudio) {
+                    if (selectedSound && !useOriginalAudio && !isRecordedVideo) {
                       const video = e.currentTarget;
                       if (playbackAudioRef.current) {
                         playbackAudioRef.current.currentTime = video.currentTime;
@@ -654,10 +680,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                     }
                   }}
                   onPause={() => {
-                    if (playbackAudioRef.current) playbackAudioRef.current.pause();
+                    if (playbackAudioRef.current && !isRecordedVideo) playbackAudioRef.current.pause();
                   }}
                   onTimeUpdate={(e) => {
-                    if (selectedSound && !useOriginalAudio && playbackAudioRef.current) {
+                    if (selectedSound && !useOriginalAudio && playbackAudioRef.current && !isRecordedVideo) {
                       const video = e.currentTarget;
                       const audio = playbackAudioRef.current;
                       if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
@@ -943,6 +969,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={22}/></div>
                 <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
               </button>
+              {selectedSound && !useOriginalAudio && (
+                <button 
+                  onClick={() => setMixWithOriginalAudio(!mixWithOriginalAudio)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${mixWithOriginalAudio ? 'bg-yellow-500 border-yellow-400 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
+                    {mixWithOriginalAudio ? <Mic size={22} /> : <MicOff size={22} />}
+                  </div>
+                  <span className={`text-[8px] font-black uppercase shadow-sm ${mixWithOriginalAudio ? 'text-yellow-500' : 'text-white'}`}>
+                    {mixWithOriginalAudio ? 'Mix On' : 'Mix Off'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {showTextEditor && (
