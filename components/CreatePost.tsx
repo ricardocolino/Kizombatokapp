@@ -159,6 +159,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         className: 'cameraPreview',
         width: window.innerWidth,
         height: window.innerHeight,
+        rotateWhenOrientationChanged: true,
       });
       setShowCamera(true);
       setError(null);
