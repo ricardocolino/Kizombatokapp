@@ -132,8 +132,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         // Mix original video audio with music
         args.push('-filter_complex', '[0:a][1:a]amix=inputs=2:duration=shortest', '-c:a', 'aac');
       } else {
-        // Only music
-        args.push('-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest');
+        // Only music - NO RE-ENCODE (Preserve quality)
+        args.push('-map', '0:v:0', '-map', '1:a:0', '-c:a', 'copy', '-shortest');
       }
 
       args.push('output.mp4');
