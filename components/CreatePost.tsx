@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Mic, MicOff } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
@@ -48,6 +48,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+  const [showMicOptionModal, setShowMicOptionModal] = useState(false);
+  const [micEnabledDuringDub, setMicEnabledDuringDub] = useState(false);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -95,8 +97,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     if (!ffmpeg) {
       console.warn("FFmpeg não carregou, usando fallback de qualidade reduzida...");
-      // Fallback to a simpler method if FFmpeg fails (e.g. the old canvas one but improved)
-      // For now, let's just return the original video to avoid crashing
       return videoBlob;
     }
 
@@ -110,30 +110,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       
       setProcessingProgress(40);
       
-      // Build command
-      // -i input_video.mp4: input video
-      // -i input_audio.mp3: input audio
-      // -c:v copy: copy video stream (no quality loss)
-      // -c:a aac: encode audio to aac
-      // -map 0:v:0: take video from first input
-      // -map 1:a:0: take audio from second input
-      // -shortest: finish when the shortest input ends
-      
       const args = [
         '-i', 'input_video.mp4',
         '-i', 'input_audio.mp3'
       ];
 
-      // Se for câmera traseira e estiver invertido, precisamos rotacionar
-      // Nota: 'copy' não funciona com filtros, então se rotacionar, perdemos um pouco de tempo/qualidade
-      // mas é melhor que o canvas.
+      // Video filters (rotation)
+      const vFilters: string[] = [];
       if (recordedFacingMode === 'rear') {
-        args.push('-vf', 'transpose=2,transpose=2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
+        vFilters.push('transpose=2,transpose=2');
+      }
+
+      if (vFilters.length > 0) {
+        args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
       } else {
         args.push('-c:v', 'copy');
       }
 
-      args.push('-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', 'output.mp4');
+      // Audio handling
+      if (micEnabledDuringDub) {
+        // Mix original video audio with music
+        args.push('-filter_complex', '[0:a][1:a]amix=inputs=2:duration=shortest', '-c:a', 'aac');
+      } else {
+        // Only music
+        args.push('-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest');
+      }
+
+      args.push('output.mp4');
 
       ffmpeg.on('progress', ({ progress }) => {
         setProcessingProgress(40 + (progress * 50));
@@ -156,7 +159,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     } finally {
       setProcessingProgress(100);
     }
-  }, [recordedFacingMode]);
+  }, [recordedFacingMode, micEnabledDuringDub]);
 
   const fetchRandomSounds = async () => {
     try {
@@ -355,6 +358,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
   const initiateRecording = async () => {
     if (isRecording || countdown !== null) return;
+    
+    // Se estiver dublando, perguntar sobre o microfone
+    if (selectedSound && !useOriginalAudio) {
+      setShowMicOptionModal(true);
+      return;
+    }
+    
+    startCountdown();
+  };
+
+  const startCountdown = () => {
     stopPreviewAudio(); 
     let count = 3;
     setCountdown(count);
@@ -882,6 +896,49 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showMicOptionModal && (
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-xl z-[150] flex items-center justify-center p-6">
+                <div className="w-full max-w-sm bg-zinc-950 rounded-[40px] p-8 border border-zinc-800 shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-[zoomIn_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
+                  <div className="w-20 h-20 bg-red-600/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-600/20">
+                    <Mic size={32} className="text-red-600" />
+                  </div>
+                  <h3 className="text-xl font-black text-white text-center uppercase tracking-tighter mb-2">Opções de Áudio</h3>
+                  <p className="text-zinc-400 text-xs text-center mb-8 px-4">Desejas gravar a tua voz junto com a música ou apenas a música?</p>
+                  
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={() => {
+                        setMicEnabledDuringDub(true);
+                        setShowMicOptionModal(false);
+                        startCountdown();
+                      }}
+                      className="w-full py-4 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"
+                    >
+                      <Mic size={16} />
+                      Microfone Ligado
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setMicEnabledDuringDub(false);
+                        setShowMicOptionModal(false);
+                        startCountdown();
+                      }}
+                      className="w-full py-4 bg-zinc-900 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 border border-zinc-800 active:scale-95 transition-all"
+                    >
+                      <MicOff size={16} />
+                      Apenas Música
+                    </button>
+                    <button 
+                      onClick={() => setShowMicOptionModal(false)}
+                      className="w-full py-3 text-zinc-500 font-black uppercase text-[9px] tracking-widest mt-2"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               </div>
