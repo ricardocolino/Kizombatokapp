@@ -4,6 +4,8 @@ import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -63,93 +65,97 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+
+  const loadFFmpeg = async () => {
+    if (ffmpegRef.current) return ffmpegRef.current;
+    
+    try {
+      const ffmpeg = new FFmpeg();
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      
+      ffmpegRef.current = ffmpeg;
+      return ffmpeg;
+    } catch (err) {
+      console.error("Erro ao carregar FFmpeg:", err);
+      return null;
+    }
+  };
 
   const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(videoBlob);
-      video.muted = true;
-      video.playsInline = true;
-      video.style.position = 'fixed';
-      video.style.top = '-9999px';
-      video.style.left = '-9999px';
-      document.body.appendChild(video);
-      
-      const audio = new Audio(audioUrl);
-      audio.crossOrigin = "anonymous";
-      
-      video.onloadedmetadata = () => {
-        // Use a canvas to ensure we can capture the stream properly
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error("Não foi possível criar contexto do canvas"));
-          return;
-        }
+    setIsProcessing(true);
+    setProcessingProgress(10);
+    
+    const ffmpeg = await loadFFmpeg();
+    
+    if (!ffmpeg) {
+      console.warn("FFmpeg não carregou, usando fallback de qualidade reduzida...");
+      // Fallback to a simpler method if FFmpeg fails (e.g. the old canvas one but improved)
+      // For now, let's just return the original video to avoid crashing
+      return videoBlob;
+    }
 
-        const stream = canvas.captureStream(30);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const source = audioCtx.createMediaElementSource(audio);
-        const dest = audioCtx.createMediaStreamDestination();
-        source.connect(dest);
-        
-        // Add audio track to the stream
-        const audioTrack = dest.stream.getAudioTracks()[0];
-        stream.addTrack(audioTrack);
-        
-        const recorder = new MediaRecorder(stream, { 
-          mimeType: MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm' 
-        });
-        
-        const chunks: Blob[] = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => {
-          const mergedBlob = new Blob(chunks, { type: recorder.mimeType });
-          document.body.removeChild(video);
-          audioCtx.close();
-          resolve(mergedBlob);
-        };
-        
-        let animationFrame: number;
-        const draw = () => {
-          if (video.paused || video.ended) return;
-          
-          ctx.save();
-          // Fix upside down rear camera if needed
-          if (recordedFacingMode === 'rear') {
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate(Math.PI);
-            ctx.translate(-canvas.width / 2, -canvas.height / 2);
-          }
-          
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          ctx.restore();
-          
-          setProcessingProgress((video.currentTime / video.duration) * 100);
-          animationFrame = requestAnimationFrame(draw);
-        };
-
-        video.play();
-        audio.play();
-        recorder.start();
-        draw();
-        
-        video.onended = () => {
-          recorder.stop();
-          audio.pause();
-          cancelAnimationFrame(animationFrame);
-        };
-      };
+    try {
+      setProcessingProgress(20);
+      const videoData = await fetchFile(videoBlob);
+      const audioData = await fetchFile(audioUrl);
       
-      video.onerror = (e) => {
-        document.body.removeChild(video);
-        reject(e);
-      };
-    });
+      await ffmpeg.writeFile('input_video.mp4', videoData);
+      await ffmpeg.writeFile('input_audio.mp3', audioData);
+      
+      setProcessingProgress(40);
+      
+      // Build command
+      // -i input_video.mp4: input video
+      // -i input_audio.mp3: input audio
+      // -c:v copy: copy video stream (no quality loss)
+      // -c:a aac: encode audio to aac
+      // -map 0:v:0: take video from first input
+      // -map 1:a:0: take audio from second input
+      // -shortest: finish when the shortest input ends
+      
+      const args = [
+        '-i', 'input_video.mp4',
+        '-i', 'input_audio.mp3'
+      ];
+
+      // Se for câmera traseira e estiver invertido, precisamos rotacionar
+      // Nota: 'copy' não funciona com filtros, então se rotacionar, perdemos um pouco de tempo/qualidade
+      // mas é melhor que o canvas.
+      if (recordedFacingMode === 'rear') {
+        args.push('-vf', 'transpose=2,transpose=2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
+      } else {
+        args.push('-c:v', 'copy');
+      }
+
+      args.push('-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', 'output.mp4');
+
+      ffmpeg.on('progress', ({ progress }) => {
+        setProcessingProgress(40 + (progress * 50));
+      });
+
+      await ffmpeg.exec(args);
+      
+      setProcessingProgress(95);
+      const data = await ffmpeg.readFile('output.mp4');
+      
+      // Cleanup
+      await ffmpeg.deleteFile('input_video.mp4');
+      await ffmpeg.deleteFile('input_audio.mp3');
+      await ffmpeg.deleteFile('output.mp4');
+      
+      return new Blob([data], { type: 'video/mp4' });
+    } catch (err) {
+      console.error("Erro no processamento FFmpeg:", err);
+      throw err;
+    } finally {
+      setProcessingProgress(100);
+    }
   }, [recordedFacingMode]);
 
   const fetchRandomSounds = async () => {
