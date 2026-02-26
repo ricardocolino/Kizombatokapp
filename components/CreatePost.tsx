@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Mic, MicOff } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Headphones } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
@@ -25,7 +25,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showSoundPicker, setShowSoundPicker] = useState(false);
   const [useOriginalAudio, setUseOriginalAudio] = useState(!preSelectedSound);
 
-  // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
+  // Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -48,8 +48,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
-  const [showMicOptionModal, setShowMicOptionModal] = useState(false);
-  const [micEnabledDuringDub, setMicEnabledDuringDub] = useState(false);
+
+  // NOVO: Guardar referência da música para merge pós-gravação
+  const [selectedSoundForMerge, setSelectedSoundForMerge] = useState<Post | null>(null);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -62,7 +63,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     { name: 'Blur', value: 'blur(2px)' },
   ];
 
-  const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -89,67 +89,48 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
-  const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
+  // NOVO: Merge OTIMIZADO (pós-gravação, com qualidade máxima)
+  const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioBlob: Blob): Promise<Blob> => {
     setIsProcessing(true);
     setProcessingProgress(10);
     
     const ffmpeg = await loadFFmpeg();
     
     if (!ffmpeg) {
-      console.warn("FFmpeg não carregou, usando fallback de qualidade reduzida...");
-      return videoBlob;
+      throw new Error("FFmpeg não carregou");
     }
 
     try {
       setProcessingProgress(20);
-      const videoData = await fetchFile(videoBlob);
-      const audioData = await fetchFile(audioUrl);
       
-      await ffmpeg.writeFile('input_video.mp4', videoData);
-      await ffmpeg.writeFile('input_audio.mp3', audioData);
+      // Escrever arquivos
+      await ffmpeg.writeFile('video.mp4', await fetchFile(videoBlob));
+      await ffmpeg.writeFile('audio.mp3', await fetchFile(audioBlob));
       
       setProcessingProgress(40);
       
+      // Comando base: pegar vídeo do primeiro, áudio do segundo
       const args = [
-        '-i', 'input_video.mp4',
-        '-i', 'input_audio.mp3'
+        '-i', 'video.mp4',
+        '-i', 'audio.mp3',
+        '-map', '0:v:0',
+        '-map', '1:a:0'
       ];
 
-      // Video filters (rotation)
-      const vFilters: string[] = [];
+      // Aplicar rotação se necessário (câmera traseira)
       if (recordedFacingMode === 'rear') {
-        vFilters.push('transpose=2,transpose=2');
-      }
-
-      // Audio handling
-      if (micEnabledDuringDub) {
-        if (vFilters.length > 0) {
-          args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
-        } else {
-          args.push('-c:v', 'copy');
-        }
-        // Mix original video audio with music
-        args.push('-filter_complex', '[0:a][1:a]amix=inputs=2:duration=shortest', '-c:a', 'aac');
+        // Para manter qualidade, usamos libx264 com CRF baixo
+        args.push('-vf', 'transpose=2,transpose=2');
+        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18');
       } else {
-        // Apenas música - remover totalmente o áudio original
-        args.push(
-          '-map', '0:v:0',     // Apenas vídeo
-          '-map', '1:a:0'      // Apenas áudio da música
-        );
-
-        if (vFilters.length > 0) {
-          args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
-        } else {
-          args.push('-c:v', 'copy');
-        }
-
-        args.push(
-          '-c:a', 'copy',      // NÃO re-encode áudio (mantém qualidade original)
-          '-shortest'
-        );
+        args.push('-c:v', 'copy'); // SEM perda para vídeo normal
       }
 
-      args.push('output.mp4');
+      // Áudio: COPIAR (qualidade original)
+      args.push('-c:a', 'copy');
+      
+      // Duração: usar a do vídeo
+      args.push('-shortest', 'output.mp4');
 
       ffmpeg.on('progress', ({ progress }) => {
         setProcessingProgress(40 + (progress * 50));
@@ -160,19 +141,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setProcessingProgress(95);
       const data = await ffmpeg.readFile('output.mp4');
       
-      // Cleanup
-      await ffmpeg.deleteFile('input_video.mp4');
-      await ffmpeg.deleteFile('input_audio.mp3');
+      // Limpeza
+      await ffmpeg.deleteFile('video.mp4');
+      await ffmpeg.deleteFile('audio.mp3');
       await ffmpeg.deleteFile('output.mp4');
       
       return new Blob([data], { type: 'video/mp4' });
     } catch (err) {
-      console.error("Erro no processamento FFmpeg:", err);
+      console.error("Erro FFmpeg:", err);
       throw err;
     } finally {
+      setIsProcessing(false);
       setProcessingProgress(100);
     }
-  }, [recordedFacingMode, micEnabledDuringDub]);
+  }, [recordedFacingMode]);
 
   const fetchRandomSounds = async () => {
     try {
@@ -197,14 +179,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     stopPreviewAudio();
     const audio = new Audio(url);
     audio.crossOrigin = "anonymous";
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(e => {
-        if (e.name !== 'AbortError') {
-          console.error("Erro ao tocar preview:", e);
-        }
-      });
-    }
+    audio.play().catch(e => {
+      if (e.name !== 'AbortError') {
+        console.error("Erro ao tocar preview:", e);
+      }
+    });
     previewAudioRef.current = audio;
   };
 
@@ -229,7 +208,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     if (!Capacitor.isNativePlatform()) {
       try {
-        // Trigger browser permission prompt for both
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
       } catch (e) {
@@ -242,14 +220,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
     
     try {
-      // Ensure any previous instance is stopped
       try { await CameraPreview.stop(); } catch { /* ignore */ }
       
-      // Request permissions explicitly for both camera and microphone
-      // This is important for video recording to work with audio
       try {
-        // On native, we also want to ensure microphone is requested
-        // getUserMedia often triggers the native prompt for both if called
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
         
@@ -280,7 +253,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   }, []);
 
-  // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
     const isPreview = previewUrls.length > 0;
     
@@ -304,7 +276,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   }, [previewUrls.length]);
 
   useEffect(() => {
-    // Timer para iniciar a câmera após o componente montar
     const initTimer = setTimeout(() => {
       startCamera();
     }, 500); 
@@ -316,6 +287,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       stopCamera();
       stopPreviewAudio();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        playbackAudioRef.current = null;
+      }
     };
   }, [startCamera, stopCamera]);
 
@@ -348,7 +323,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         await CameraPreview.setFlashMode({ flashMode: newFlashState });
         setIsFlashOn(!isFlashOn);
       } catch (err) {
-        console.error("Erro ao mudar flash para torch, tentando on:", err);
+        console.error("Erro ao mudar flash:", err);
         try {
           const newFlashState = isFlashOn ? 'off' : 'on';
           await CameraPreview.setFlashMode({ flashMode: newFlashState });
@@ -372,10 +347,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const initiateRecording = async () => {
     if (isRecording || countdown !== null) return;
     
-    // Se estiver dublando, perguntar sobre o microfone
+    // Guardar música selecionada para merge pós-gravação
     if (selectedSound && !useOriginalAudio) {
-      setShowMicOptionModal(true);
-      return;
+      setSelectedSoundForMerge(selectedSound);
+    } else {
+      setSelectedSoundForMerge(null);
     }
     
     startCountdown();
@@ -398,25 +374,31 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const startActualRecording = async () => {
-    chunksRef.current = [];
-    
     if (Capacitor.isNativePlatform()) {
       try {
+        // Se tiver música selecionada, TOCA para o usuário ouvir (dublagem)
         if (selectedSound && !useOriginalAudio) {
           const audio = new Audio(selectedSound.media_url);
           audio.crossOrigin = "anonymous";
           audio.volume = 1.0;
-          playbackAudioRef.current = audio;
+          audio.loop = false;
+          
+          // IMPORTANTE: Tocar música APENAS para o usuário ouvir
+          // NÃO é gravada porque o microfone está desligado
           await audio.play();
+          playbackAudioRef.current = audio;
         }
 
         setRecordedFacingMode(facingMode);
+
+        // GRAVAR SEMPRE SEM ÁUDIO quando tem música selecionada
+        const shouldDisableAudio = selectedSound && !useOriginalAudio ? true : false;
 
         await CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: !micEnabledDuringDub
+          disableAudio: shouldDisableAudio, // TRUE = microfone desligado
         });
         
         setIsRecording(true);
@@ -431,7 +413,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       return;
     }
 
-    // Fallback for non-native (WebRTC already removed, but keeping structure)
     setError("Gravação não suportada nesta plataforma.");
   };
 
@@ -446,6 +427,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      
+      // Parar música que estava a tocar para o usuário
       if (playbackAudioRef.current) {
         playbackAudioRef.current.pause();
         playbackAudioRef.current = null;
@@ -456,25 +439,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           const result = await CameraPreview.stopRecordVideo();
           if (result.videoFilePath) {
             const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
-            const videoBlob = await response.blob();
+            const videoBlob = await response.blob(); // Vídeo SEM ÁUDIO (se tiver música)
             
-            if (selectedSound && !useOriginalAudio) {
+            // Se tinha música selecionada, fazer merge PÓS-GRAVAÇÃO
+            if (selectedSoundForMerge && !useOriginalAudio) {
               setIsProcessing(true);
               setProcessingProgress(0);
               
               try {
-                const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url);
+                // Buscar ÁUDIO ORIGINAL do Supabase (qualidade máxima)
+                const audioResponse = await fetch(selectedSoundForMerge.media_url);
+                const audioBlob = await audioResponse.blob();
+                
+                // Merge em PÓS-PRODUÇÃO com qualidade máxima
+                const mergedBlob = await mergeAudioVideo(videoBlob, audioBlob);
                 setMediaFiles([mergedBlob]);
                 setPreviewUrls([URL.createObjectURL(mergedBlob)]);
               } catch (err) {
                 console.error("Erro ao processar dublagem:", err);
-                // Fallback to original video if merging fails
+                setError("Erro ao processar áudio. Tenta novamente.");
+                // Fallback: vídeo sem áudio
                 setMediaFiles([videoBlob]);
                 setPreviewUrls([URL.createObjectURL(videoBlob)]);
               } finally {
                 setIsProcessing(false);
               }
             } else {
+              // Vídeo com áudio original (microfone ligado)
               setMediaFiles([videoBlob]);
               setPreviewUrls([URL.createObjectURL(videoBlob)]);
             }
@@ -486,7 +477,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, selectedSound, useOriginalAudio, mergeAudioVideo]);
+  }, [stopCamera, useOriginalAudio, selectedSoundForMerge, mergeAudioVideo]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -516,7 +507,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       video.muted = true;
       video.playsInline = true;
       video.onloadedmetadata = () => {
-        video.currentTime = 0.5; // Capture at 0.5 seconds
+        video.currentTime = 0.5;
       };
       video.onseeked = () => {
         const canvas = document.createElement('canvas');
@@ -583,8 +574,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       for (let i = 0; i < mediaFiles.length; i++) {
         const file = mediaFiles[i];
-        const isRecorded = (file instanceof Blob) && !(file instanceof File);
-        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'webm' : (file as File).name.split('.').pop());
+        const fileExt = isPhoto ? 'jpg' : 'mp4'; // FORÇAR MP4 para vídeos processados
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
         const filePath = `posts/${fileName}`;
         
@@ -596,7 +586,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
 
-      // 2. Generate and Upload Thumbnail (only for video)
+      // Generate and Upload Thumbnail
       let thumbnailUrl = null;
       if (!isPhoto) {
         try {
@@ -612,10 +602,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           console.error("Erro ao gerar thumbnail:", thumbErr);
         }
       } else {
-        thumbnailUrl = uploadedUrls[0]; // Use first photo as thumbnail
+        thumbnailUrl = uploadedUrls[0];
       }
 
-      // 3. Insert Post
+      // Insert Post
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
@@ -683,36 +673,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   autoPlay 
                   loop 
                   playsInline 
-                  muted={!!selectedSound && !useOriginalAudio}
-                  style={{ filter: filter !== 'none' ? filter : undefined }} 
-                  onPlay={(e) => {
-                    if (selectedSound && !useOriginalAudio) {
-                      const video = e.currentTarget;
-                      if (playbackAudioRef.current) {
-                        playbackAudioRef.current.currentTime = video.currentTime;
-                        playbackAudioRef.current.play().catch(() => {});
-                      } else {
-                        const audio = new Audio(selectedSound.media_url);
-                        audio.crossOrigin = "anonymous";
-                        audio.loop = true;
-                        audio.currentTime = video.currentTime;
-                        playbackAudioRef.current = audio;
-                        audio.play().catch(() => {});
-                      }
-                    }
-                  }}
-                  onPause={() => {
-                    if (playbackAudioRef.current) playbackAudioRef.current.pause();
-                  }}
-                  onTimeUpdate={(e) => {
-                    if (selectedSound && !useOriginalAudio && playbackAudioRef.current) {
-                      const video = e.currentTarget;
-                      const audio = playbackAudioRef.current;
-                      if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
-                        audio.currentTime = video.currentTime;
-                      }
-                    }
-                  }}
+                  controls={false}
+                  style={{ filter: filter !== 'none' ? filter : undefined }}
                 />
               )}
               
@@ -764,6 +726,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
                   {textOverlay}
                 </span>
+              </div>
+            )}
+            
+            {/* Dica para usar fones de ouvido quando tem música selecionada */}
+            {selectedSound && !useOriginalAudio && (
+              <div className="absolute top-20 left-0 w-full flex justify-center z-50">
+                <div className="bg-black/60 backdrop-blur-xl px-6 py-3 rounded-full border border-yellow-500/30">
+                  <p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Headphones size={14} />
+                    USA FONES PARA MELHOR DUBLAGEM!
+                  </p>
+                </div>
               </div>
             )}
             
@@ -915,48 +889,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            {showMicOptionModal && (
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-xl z-[150] flex items-center justify-center p-6">
-                <div className="w-full max-w-sm bg-zinc-950 rounded-[40px] p-8 border border-zinc-800 shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-[zoomIn_0.3s_cubic-bezier(0.2,0.8,0.2,1)]">
-                  <div className="w-20 h-20 bg-red-600/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-600/20">
-                    <Mic size={32} className="text-red-600" />
-                  </div>
-                  <h3 className="text-xl font-black text-white text-center uppercase tracking-tighter mb-2">Opções de Áudio</h3>
-                  <p className="text-zinc-400 text-xs text-center mb-8 px-4">Desejas gravar a tua voz junto com a música ou apenas a música?</p>
-                  
-                  <div className="flex flex-col gap-3">
-                    <button 
-                      onClick={() => {
-                        setMicEnabledDuringDub(true);
-                        setShowMicOptionModal(false);
-                        startCountdown();
-                      }}
-                      className="w-full py-4 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"
-                    >
-                      <Mic size={16} />
-                      Microfone Ligado
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setMicEnabledDuringDub(false);
-                        setShowMicOptionModal(false);
-                        startCountdown();
-                      }}
-                      className="w-full py-4 bg-zinc-900 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 border border-zinc-800 active:scale-95 transition-all"
-                    >
-                      <MicOff size={16} />
-                      Apenas Música
-                    </button>
-                    <button 
-                      onClick={() => setShowMicOptionModal(false)}
-                      className="w-full py-3 text-zinc-500 font-black uppercase text-[9px] tracking-widest mt-2"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* REMOVIDO: Modal de opções de microfone (agora desnecessário) */}
 
             {isProcessing && (
               <div className="absolute inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center">
@@ -988,7 +921,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   </div>
                 </div>
                 <h3 className="text-white text-xl font-black uppercase tracking-tighter mb-2">A Processar Dublagem</h3>
-                <p className="text-zinc-400 text-xs font-medium max-w-[240px]">Estamos a misturar a música com o teu vídeo para garantir a melhor qualidade...</p>
+                <p className="text-zinc-400 text-xs font-medium max-w-[240px]">Estamos a juntar a música original com o teu vídeo para qualidade perfeita...</p>
                 <div className="mt-8 px-4 py-2 bg-white/5 rounded-full border border-white/10">
                   <span className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">{Math.round(processingProgress)}%</span>
                 </div>
@@ -1174,7 +1107,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 onClick={isRecording ? stopRecording : () => {
                   if (mediaFiles.length > 0) {
                     stopCamera();
-                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
                   }
                 }} 
                 className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
