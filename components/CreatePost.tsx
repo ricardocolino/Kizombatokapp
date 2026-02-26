@@ -121,19 +121,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         vFilters.push('transpose=2,transpose=2');
       }
 
-      if (vFilters.length > 0) {
-        args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
-      } else {
-        args.push('-c:v', 'copy');
-      }
-
       // Audio handling
       if (micEnabledDuringDub) {
+        if (vFilters.length > 0) {
+          args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
+        } else {
+          args.push('-c:v', 'copy');
+        }
         // Mix original video audio with music
         args.push('-filter_complex', '[0:a][1:a]amix=inputs=2:duration=shortest', '-c:a', 'aac');
       } else {
-        // Only music - NO RE-ENCODE (Preserve quality)
-        args.push('-map', '0:v:0', '-map', '1:a:0', '-c:a', 'copy', '-shortest');
+        // Apenas música - remover totalmente o áudio original
+        args.push(
+          '-map', '0:v:0',     // Apenas vídeo
+          '-map', '1:a:0'      // Apenas áudio da música
+        );
+
+        if (vFilters.length > 0) {
+          args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
+        } else {
+          args.push('-c:v', 'copy');
+        }
+
+        args.push(
+          '-c:a', 'aac',       // Converter áudio para garantir compatibilidade
+          '-b:a', '192k',      // Boa qualidade
+          '-shortest'
+        );
       }
 
       args.push('output.mp4');
@@ -403,6 +417,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
+          disableAudio: !micEnabledDuringDub
         });
         
         setIsRecording(true);
