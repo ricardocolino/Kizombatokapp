@@ -144,8 +144,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         }
 
         args.push(
-          '-c:a', 'aac',       // Converter áudio para garantir compatibilidade
-          '-b:a', '192k',      // Boa qualidade
+          '-c:a', 'copy',      // NÃO re-encode áudio (mantém qualidade original)
           '-shortest'
         );
       }
