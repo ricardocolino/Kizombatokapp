@@ -3,13 +3,11 @@ workflows:
     name: Android Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m1
-
     environment:
       node: latest
       java: 21
       groups:
         - google_play
-
     triggering:
       events:
         - push
@@ -17,37 +15,27 @@ workflows:
         - pattern: '*'
           include: true
           source: true
-
     scripts:
       - name: Install dependencies
         script: |
           npm install
-
       - name: Build web app
         script: |
           npm run build
-
-      - name: Generate Capacitor Assets
+      - name: Generate Assets
         script: |
-          npx @capacitor/assets generate --android
-
+          npm run generate-assets
       - name: Sync Capacitor
         script: |
           npx cap sync android
-
       - name: Build Android APK
         script: |
           cd android
+          # Usar o gradle do sistema para evitar erro de jar corrompido no wrapper
           gradle assembleDebug
-
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
-
     publishing:
       email:
         recipients:
           - your-email@example.com
-
-
-
-
