@@ -72,7 +72,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     try {
       const ffmpeg = new FFmpeg();
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      // Usando a versão single-thread (st) para maior compatibilidade com dispositivos móveis
+      const baseURL = 'https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd';
       
       await ffmpeg.load({
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -85,6 +86,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       console.error("Erro ao carregar FFmpeg:", err);
       return null;
     }
+  };
+
+  const mergeAudioVideoNative = async (videoPath: string, audioPath: string): Promise<string> => {
+    // Detecta se o plugin nativo está disponível no window (padrão Capacitor/Cordova)
+    const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
+    
+    if (!NativeFFmpeg) {
+      throw new Error("Plugin nativo FFmpegKit não encontrado.");
+    }
+
+    const outputPath = `${videoPath.replace(".mp4", "")}_final.mp4`;
+
+    // Comando otimizado para dublagem: remove áudio original e insere a música
+    const command = `-i "${videoPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -y "${outputPath}"`;
+
+    console.log("Executando FFmpegKit nativo...");
+    await NativeFFmpeg.execute(command);
+    return outputPath;
   };
 
   const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
@@ -459,11 +478,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               setProcessingProgress(0);
               
               try {
-                const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url);
-                setMediaFiles([mergedBlob]);
-                setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                // 1. Tenta usar FFmpegKit nativo (Plugin Capacitor/Cordova)
+                console.log("Tentando processamento nativo...");
+                const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
+                
+                if (NativeFFmpeg) {
+                  const outputPath = await mergeAudioVideoNative(result.videoFilePath, selectedSound.media_url);
+                  const response = await fetch(Capacitor.convertFileSrc(outputPath));
+                  const mergedBlob = await response.blob();
+                  setMediaFiles([mergedBlob]);
+                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                } else {
+                  // 2. Fallback para WASM se o plugin nativo não estiver presente
+                  console.log("Plugin nativo não detectado, usando motor WASM...");
+                  const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
+                  const videoBlob = await response.blob();
+                  const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url);
+                  setMediaFiles([mergedBlob]);
+                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                }
               } catch (err) {
-                console.error("Erro ao processar dublagem:", err);
+                console.error("Erro no processamento de dublagem:", err);
                 setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
               } finally {
                 setIsProcessing(false);
