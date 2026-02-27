@@ -27,6 +27,7 @@ android {
 repositories {
     google()
     mavenCentral()
+    maven { url 'https://maven.google.com' }
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
@@ -42,8 +43,7 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
-    implementation 'com.arthenica:ffmpeg-kit-full-gpl:5.1.LTS'
-    
+    implementation 'com.arthenica:ffmpeg-kit-full-gpl:6.0'
 }
 
 apply from: 'capacitor.build.gradle'
