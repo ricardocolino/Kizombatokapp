@@ -465,7 +465,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               } catch (err) {
                 console.error("Erro ao processar dublagem:", err);
                 setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
-                // No fallback to noisy video - better to show error
               } finally {
                 setIsProcessing(false);
               }
