@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
@@ -44,6 +44,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(15);
+  const [showTrimEditor, setShowTrimEditor] = useState(false);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -343,6 +346,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             const videoBlob = await response.blob();
             setMediaFiles([videoBlob]);
             setPreviewUrls([URL.createObjectURL(videoBlob)]);
+            setTrimStart(0);
+            setTrimEnd(recordingSeconds);
             stopCamera();
           }
         } catch (e) {
@@ -351,7 +356,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera]);
+  }, [stopCamera, recordingSeconds]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -370,6 +375,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       
       setMediaFiles(selectedFiles);
       setPreviewUrls(newPreviewUrls);
+      setTrimStart(0);
+      setTrimEnd(15);
       setError(null);
     }
   };
@@ -570,8 +577,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                     if (playbackAudioRef.current) playbackAudioRef.current.pause();
                   }}
                   onTimeUpdate={(e) => {
+                    const video = e.currentTarget;
+                    if (video.currentTime < trimStart) {
+                      video.currentTime = trimStart;
+                    }
+                    if (video.currentTime > trimEnd) {
+                      video.currentTime = trimStart;
+                    }
+
                     if (selectedSound && !useOriginalAudio && playbackAudioRef.current) {
-                      const video = e.currentTarget;
                       const audio = playbackAudioRef.current;
                       if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
                         audio.currentTime = video.currentTime;
@@ -592,6 +606,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
                 <X size={20} />
               </button>
+
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
+                <button 
+                  onClick={() => setShowSoundPicker(true)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Music2 size={20}/></div>
+                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Som</span>
+                </button>
+
+                {!mediaFiles[0]?.type.startsWith('image/') && (
+                  <button 
+                    onClick={() => setShowTrimEditor(true)}
+                    className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                  >
+                    <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Scissors size={20}/></div>
+                    <span className="text-[8px] font-black uppercase text-white shadow-sm">Recortar</span>
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="p-6 pt-2 bg-black flex flex-col gap-4 overflow-y-auto">
@@ -647,138 +681,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  <ChevronDown size={14} className="text-white" />
                </button>
             </div>
-
-            {showSoundPicker && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end">
-                <div className="w-full h-[92%] bg-zinc-950 rounded-t-[32px] flex flex-col overflow-hidden animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-zinc-800">
-                  {/* Header Seletor */}
-                  <div className="relative px-6 py-5 flex items-center justify-center border-b border-zinc-900">
-                    <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white">Sons</h3>
-                    <button 
-                      onClick={() => { stopPreviewAudio(); setShowSoundPicker(false); }}
-                      className="absolute right-6 p-2 bg-zinc-900 rounded-full text-zinc-400 hover:text-white"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  {/* Busca Estilo TikTok */}
-                  <div className="p-4 px-6">
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                      <input 
-                        type="text" 
-                        placeholder="Pesquisar sons..."
-                        className="w-full bg-zinc-900 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-red-600/50 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tabs Estilo TikTok */}
-                  <div className="flex px-6 gap-6 overflow-x-auto no-scrollbar border-b border-zinc-900 mb-2">
-                    {['Descobrir', 'Favoritos', 'Vibe Angola', 'Tendências'].map((tab, i) => (
-                      <button 
-                        key={tab} 
-                        className={`py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-2 ${i === 0 ? 'text-white border-red-600' : 'text-zinc-600 border-transparent'}`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Lista de Músicas */}
-                  <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-10">
-                    {/* Opção Áudio Original */}
-                    <button 
-                      onClick={() => { 
-                        stopPreviewAudio();
-                        setUseOriginalAudio(true); 
-                        setSelectedSound(null); 
-                        setShowSoundPicker(false); 
-                      }}
-                      className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all ${useOriginalAudio ? 'opacity-100' : 'opacity-60'}`}
-                    >
-                       <div className="w-14 h-14 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 shrink-0 border border-zinc-800">
-                        <Video size={24}/>
-                       </div>
-                       <div className="flex-1 text-left">
-                          <p className="text-[12px] font-black text-white uppercase tracking-tight">Áudio Original</p>
-                          <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5">Som ambiente do vídeo</p>
-                       </div>
-                       {useOriginalAudio && <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={12}/></div>}
-                    </button>
-
-                    {availableSounds.map(sound => (
-                      <div key={sound.id} className="relative">
-                        <div 
-                          onClick={() => { 
-                            if (selectedSound?.id === sound.id) {
-                              stopPreviewAudio();
-                              setSelectedSound(null);
-                            } else {
-                              setSelectedSound(sound); 
-                              setUseOriginalAudio(false); 
-                              playSoundPreview(sound.media_url);
-                            }
-                          }}
-                          className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
-                        >
-                           <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-                              {sound.profiles?.avatar_url ? (
-                                <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
-                              )}
-                              {selectedSound?.id === sound.id && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                  <div className="flex gap-1 items-end h-4">
-                                    <div className="w-1 bg-red-600 animate-[progress_0.6s_ease-in-out_infinite] h-full" />
-                                    <div className="w-1 bg-red-600 animate-[progress_0.8s_ease-in-out_infinite] h-2/3" />
-                                    <div className="w-1 bg-red-600 animate-[progress_0.7s_ease-in-out_infinite] h-5/6" />
-                                  </div>
-                                </div>
-                              )}
-                           </div>
-                           <div className="flex-1 text-left overflow-hidden">
-                              <p className="text-[12px] font-black text-white uppercase tracking-tight truncate">
-                                {sound.content || 'Sem Título'}
-                              </p>
-                              <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5 truncate">
-                                {sound.profiles?.username || 'Anónimo'} • 00:15
-                              </p>
-                           </div>
-                           
-                           {selectedSound?.id === sound.id ? (
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 stopPreviewAudio();
-                                 setShowSoundPicker(false);
-                               }}
-                               className="bg-red-600 text-white text-[9px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg shadow-red-600/20 active:scale-95 transition-all animate-[bounce_1s_infinite]"
-                             >
-                               Usar
-                             </button>
-                           ) : (
-                             <div className="flex gap-4">
-                               <button 
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   // Add bookmark logic if needed
-                                 }}
-                                 className="text-zinc-600 hover:text-white transition-colors"
-                               >
-                                  <Bookmark size={20} />
-                               </button>
-                             </div>
-                           )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
@@ -977,6 +879,186 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
            <AlertCircle size={18} className="text-red-600" />
            <span className="max-w-[200px] text-center">{error}</span>
            <button onClick={() => setError(null)} className="ml-2 text-zinc-600 hover:text-white"><X size={16}/></button>
+        </div>
+      )}
+
+      {showTrimEditor && (
+        <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-[120] flex flex-col items-center justify-center p-8">
+          <h3 className="text-white font-black uppercase tracking-widest mb-8">Recortar Vídeo</h3>
+          
+          <div className="w-full max-w-xs bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+            <div className="flex justify-between text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">
+              <span>Início: {trimStart.toFixed(1)}s</span>
+              <span>Fim: {trimEnd.toFixed(1)}s</span>
+            </div>
+            
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ponto de Início</label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={trimEnd - 0.5} 
+                  step="0.1"
+                  value={trimStart}
+                  onChange={(e) => setTrimStart(parseFloat(e.target.value))}
+                  className="w-full accent-red-600"
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ponto de Fim</label>
+                <input 
+                  type="range" 
+                  min={trimStart + 0.5} 
+                  max={maxDuration} 
+                  step="0.1"
+                  value={trimEnd}
+                  onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
+                  className="w-full accent-red-600"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => setShowTrimEditor(false)}
+            className="mt-10 px-12 py-4 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all"
+          >
+            Concluído
+          </button>
+        </div>
+      )}
+
+      {showSoundPicker && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end">
+          <div className="w-full h-[92%] bg-zinc-950 rounded-t-[32px] flex flex-col overflow-hidden animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-zinc-800">
+            {/* Header Seletor */}
+            <div className="relative px-6 py-5 flex items-center justify-center border-b border-zinc-900">
+              <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white">Sons</h3>
+              <button 
+                onClick={() => { stopPreviewAudio(); setShowSoundPicker(false); }}
+                className="absolute right-6 p-2 bg-zinc-900 rounded-full text-zinc-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Busca Estilo TikTok */}
+            <div className="p-4 px-6">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar sons..."
+                  className="w-full bg-zinc-900 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-red-600/50 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Tabs Estilo TikTok */}
+            <div className="flex px-6 gap-6 overflow-x-auto no-scrollbar border-b border-zinc-900 mb-2">
+              {['Descobrir', 'Favoritos', 'Vibe Angola', 'Tendências'].map((tab, i) => (
+                <button 
+                  key={tab} 
+                  className={`py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-2 ${i === 0 ? 'text-white border-red-600' : 'text-zinc-600 border-transparent'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Lista de Músicas */}
+            <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-10">
+              {/* Opção Áudio Original */}
+              <button 
+                onClick={() => { 
+                  stopPreviewAudio();
+                  setUseOriginalAudio(true); 
+                  setSelectedSound(null); 
+                  setShowSoundPicker(false); 
+                }}
+                className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all ${useOriginalAudio ? 'opacity-100' : 'opacity-60'}`}
+              >
+                 <div className="w-14 h-14 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 shrink-0 border border-zinc-800">
+                  <Video size={24}/>
+                 </div>
+                 <div className="flex-1 text-left">
+                    <p className="text-[12px] font-black text-white uppercase tracking-tight">Áudio Original</p>
+                    <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5">Som ambiente do vídeo</p>
+                 </div>
+                 {useOriginalAudio && <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={12}/></div>}
+              </button>
+
+              {availableSounds.map(sound => (
+                <div key={sound.id} className="relative">
+                  <div 
+                    onClick={() => { 
+                      if (selectedSound?.id === sound.id) {
+                        stopPreviewAudio();
+                        setSelectedSound(null);
+                      } else {
+                        setSelectedSound(sound); 
+                        setUseOriginalAudio(false); 
+                        playSoundPreview(sound.media_url);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
+                  >
+                     <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                        {sound.profiles?.avatar_url ? (
+                          <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
+                        )}
+                        {selectedSound?.id === sound.id && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <div className="flex gap-1 items-end h-4">
+                              <div className="w-1 bg-red-600 animate-[progress_0.6s_ease-in-out_infinite] h-full" />
+                              <div className="w-1 bg-red-600 animate-[progress_0.8s_ease-in-out_infinite] h-2/3" />
+                              <div className="w-1 bg-red-600 animate-[progress_0.7s_ease-in-out_infinite] h-5/6" />
+                            </div>
+                          </div>
+                        )}
+                     </div>
+                     <div className="flex-1 text-left overflow-hidden">
+                        <p className="text-[12px] font-black text-white uppercase tracking-tight truncate">
+                          {sound.content || 'Sem Título'}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5 truncate">
+                          {sound.profiles?.username || 'Anónimo'} • 00:15
+                        </p>
+                     </div>
+                     
+                     {selectedSound?.id === sound.id ? (
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           stopPreviewAudio();
+                           setShowSoundPicker(false);
+                         }}
+                         className="bg-red-600 text-white text-[9px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg shadow-red-600/20 active:scale-95 transition-all animate-[bounce_1s_infinite]"
+                       >
+                         Usar
+                       </button>
+                     ) : (
+                       <div className="flex gap-4">
+                         <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             // Add bookmark logic if needed
+                           }}
+                           className="text-zinc-600 hover:text-white transition-colors"
+                         >
+                            <Bookmark size={20} />
+                         </button>
+                       </div>
+                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
