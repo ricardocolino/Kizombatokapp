@@ -132,7 +132,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
 
       args.push(
-        '-c:a', 'copy',      // NÃO re-encode áudio (mantém qualidade máxima original)
+        '-c:a', 'aac',       // AAC para compatibilidade total
+        '-b:a', '192k',      // Alta qualidade
         '-shortest'
       );
 
@@ -392,11 +393,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
         setRecordedFacingMode(facingMode);
 
+        const isDubbing = !!selectedSound && !useOriginalAudio;
+        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+
         await CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: !!selectedSound && !useOriginalAudio
+          disableAudio: isDubbing
         });
         
         setIsRecording(true);
