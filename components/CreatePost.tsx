@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, ImageIcon, Camera } from 'lucide-react';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -18,19 +16,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-
+  
   // Sound Selection State
   const [availableSounds, setAvailableSounds] = useState<Post[]>([]);
   const [selectedSound, setSelectedSound] = useState<Post | null>(preSelectedSound || null);
   const [showSoundPicker, setShowSoundPicker] = useState(false);
   const [useOriginalAudio, setUseOriginalAudio] = useState(!preSelectedSound);
 
-  // Recording State
+  // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showCamera, setShowCamera] = useState(false);
-  const [maxDuration, setMaxDuration] = useState(15);
+  const [maxDuration, setMaxDuration] = useState(15); 
   const [facingMode, setFacingMode] = useState<'user' | 'rear'>('user');
   const facingModeRef = useRef(facingMode);
   
@@ -60,143 +58,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     { name: 'Blur', value: 'blur(2px)' },
   ];
 
+  const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
-  const ffmpegRef = useRef<FFmpeg | null>(null);
 
-  // ==================== FFMPEG LOADING ====================
-  const loadFFmpeg = async () => {
-    if (ffmpegRef.current) return ffmpegRef.current;
-    
-    try {
-      const ffmpeg = new FFmpeg();
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-      
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      
-      ffmpegRef.current = ffmpeg;
-      return ffmpeg;
-    } catch (err) {
-      console.error("Erro ao carregar FFmpeg:", err);
-      return null;
-    }
-  };
-
-  // ==================== AUDIO PROCESSING (SIMPLIFICADO) ====================
-  // Função SIMPLIFICADA: apenas adiciona música ao vídeo (sem áudio original)
-  const addMusicToVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
-    setIsProcessing(true);
-    setProcessingProgress(10);
-    
-    const ffmpeg = await loadFFmpeg();
-    if (!ffmpeg) {
-      throw new Error("Não foi possível carregar o processador de vídeo.");
-    }
-
-    try {
-      setProcessingProgress(15);
-      
-      // Carregar música
-      console.log("🎵 Carregando música...");
-      const audioResponse = await fetch(audioUrl);
-      if (!audioResponse.ok) throw new Error("Não foi possível carregar a música.");
-      
-      const audioBlob = await audioResponse.blob();
-      setProcessingProgress(25);
-      
-      // Preparar arquivos
-      const videoData = await fetchFile(videoBlob);
-      const audioData = await fetchFile(audioBlob);
-      
-      await ffmpeg.writeFile('video_sem_audio.mp4', videoData);
-      await ffmpeg.writeFile('musica.mp3', audioData);
-      setProcessingProgress(40);
-
-      // Comando SIMPLES: pegar vídeo + adicionar música
-      // -i video_sem_audio.mp4 (vídeo gravado sem áudio)
-      // -i musica.mp3 (música escolhida)
-      // -map 0:v:0 (pega vídeo do primeiro arquivo)
-      // -map 1:a:0 (pega áudio do segundo arquivo)
-      // -c:v copy (copia vídeo sem recompressão - MAIS RÁPIDO)
-      // -c:a aac (converte áudio para AAC)
-      // -shortest (duração do mais curto - vídeo ou música)
-      
-      const args = [
-        '-i', 'video_sem_audio.mp4',
-        '-i', 'musica.mp3',
-        '-map', '0:v:0',
-        '-map', '1:a:0',
-        '-c:v', 'copy',  // COPIA o vídeo (super rápido)
-        '-c:a', 'aac',    // codifica áudio
-        '-b:a', '192k',    // qualidade alta
-        '-shortest',
-        '-y',
-        'video_final.mp4'
-      ];
-
-      // Aplicar rotação se necessário (câmera traseira)
-      if (recordedFacingMode === 'rear') {
-        // Remove -c:v copy porque precisa reencodificar para rotacionar
-        args.splice(args.indexOf('-c:v'), 2); // remove '-c:v', 'copy'
-        args.push('-vf', 'transpose=2,transpose=2', '-c:v', 'libx264', '-preset', 'ultrafast');
-      }
-
-      console.log("🎬 Executando FFmpeg:", args.join(' '));
-      
-      ffmpeg.on('progress', ({ progress }) => {
-        setProcessingProgress(40 + (progress * 50));
-      });
-
-      await ffmpeg.exec(args);
-      
-      setProcessingProgress(95);
-      const data = await ffmpeg.readFile('video_final.mp4');
-      
-      // Limpeza
-      try {
-        await ffmpeg.deleteFile('video_sem_audio.mp4');
-        await ffmpeg.deleteFile('musica.mp3');
-        await ffmpeg.deleteFile('video_final.mp4');
-      } catch (e) {
-        console.warn("Erro ao limpar ficheiros:", e);
-      }
-      
-      console.log("✅ Vídeo processado com sucesso!");
-      return new Blob([data], { type: 'video/mp4' });
-      
-    } catch (err) {
-      console.error("❌ Erro no processamento:", err);
-      throw err;
-    } finally {
-      setProcessingProgress(100);
-      setIsProcessing(false);
-    }
-  }, [recordedFacingMode]);
-
-  // ==================== PROCESSAMENTO NATIVO ====================
-  const addMusicToVideoNative = async (videoPath: string, audioPath: string): Promise<string> => {
+  const mergeAudioVideoNative = async (videoPath: string, audioPath: string): Promise<string> => {
+    // Detecta se o plugin nativo está disponível no window (padrão Capacitor/Cordova)
     const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
     
     if (!NativeFFmpeg) {
-      throw new Error("Plugin nativo não encontrado.");
+      throw new Error("Plugin nativo FFmpegKit não encontrado.");
     }
 
     const outputPath = `${videoPath.replace(".mp4", "")}_final.mp4`;
-    
-    // Comando nativo SIMPLES
+
+    // Comando otimizado para dublagem: remove áudio original e insere a música
     const command = `-i "${videoPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -y "${outputPath}"`;
-    
-    console.log("📱 Executando FFmpegKit nativo:", command);
+
+    console.log("Executando FFmpegKit nativo...");
     await NativeFFmpeg.execute(command);
     return outputPath;
   };
 
-  // ==================== BUSCAR SONS ====================
   const fetchRandomSounds = async () => {
     try {
       const { data } = await supabase
@@ -209,7 +94,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
   };
 
-  // ==================== CONTROLE DE ÁUDIO ====================
   const stopPreviewAudio = () => {
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
@@ -221,15 +105,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     stopPreviewAudio();
     const audio = new Audio(url);
     audio.crossOrigin = "anonymous";
-    audio.play().catch(e => {
-      if (e.name !== 'AbortError') {
-        console.error("Erro ao tocar preview:", e);
-      }
-    });
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => {
+        if (e.name !== 'AbortError') {
+          console.error("Erro ao tocar preview:", e);
+        }
+      });
+    }
     previewAudioRef.current = audio;
   };
 
-  // ==================== CONTROLE DE CÂMERA ====================
+  const isStartingRef = useRef(false);
+
   const stopCamera = React.useCallback(async () => {
     if (Capacitor.isNativePlatform()) {
       try {
@@ -243,22 +131,45 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   }, []);
 
   const startCamera = React.useCallback(async () => {
-    if (isStarting) return;
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
     setIsStarting(true);
-
+    
     if (!Capacitor.isNativePlatform()) {
+      try {
+        // Trigger browser permission prompt for both
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (e) {
+        console.warn("Erro ao pedir permissões no browser:", e);
+      }
       setShowCamera(true);
       setIsStarting(false);
+      isStartingRef.current = false;
       return;
     }
-
+    
     try {
-      await CameraPreview.stop();
+      // Ensure any previous instance is stopped
+      try { await CameraPreview.stop(); } catch { /* ignore */ }
       
-      // Pedir permissões
-      await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-        .then(stream => stream.getTracks().forEach(track => track.stop()));
-      
+      // Request permissions explicitly for both camera and microphone
+      // This is important for video recording to work with audio
+      try {
+        // On native, we also want to ensure microphone is requested
+        // getUserMedia often triggers the native prompt for both if called
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+        
+        const status = await CameraPreview.requestPermissions();
+        if (status.camera !== 'granted') {
+          setError("Precisamos de acesso à câmara para funcionar.");
+          return;
+        }
+      } catch (e) {
+        console.warn("Erro ao pedir permissões nativas:", e);
+      }
+
       await CameraPreview.start({
         parent: 'cameraPreview',
         position: facingModeRef.current,
@@ -267,29 +178,120 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         width: window.innerWidth,
         height: window.innerHeight,
       });
-      
       setShowCamera(true);
       setError(null);
-    } catch (err) {
-      console.error("Erro ao iniciar câmera:", err);
-      setError("Erro ao iniciar câmera");
+    } catch (err: unknown) {
+      console.error("Erro ao iniciar câmera nativa:", err);
     } finally {
       setIsStarting(false);
+      isStartingRef.current = false;
     }
   }, []);
 
-  // ==================== GRAVAÇÃO ====================
+  // Gerir a transparência do fundo de forma robusta
+  useEffect(() => {
+    const isPreview = previewUrls.length > 0;
+    
+    const setTransparency = (transparent: boolean) => {
+      const color = transparent ? 'transparent' : '';
+      document.documentElement.style.backgroundColor = color;
+      document.body.style.backgroundColor = color;
+      const root = document.getElementById('root');
+      if (root) root.style.backgroundColor = color;
+    };
+
+    if (!isPreview && Capacitor.isNativePlatform()) {
+      setTransparency(true);
+    } else {
+      setTransparency(false);
+    }
+    
+    return () => {
+      setTransparency(false);
+    };
+  }, [previewUrls.length]);
+
+  useEffect(() => {
+    // Timer para iniciar a câmera após o componente montar
+    const initTimer = setTimeout(() => {
+      startCamera();
+    }, 500); 
+    
+    fetchRandomSounds();
+    
+    return () => {
+      clearTimeout(initTimer);
+      stopCamera();
+      stopPreviewAudio();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startCamera, stopCamera]);
+
+  const toggleCamera = async () => {
+    if (isRecording) return;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CameraPreview.flip();
+        setFacingMode(prev => {
+          const nextMode = prev === 'user' ? 'rear' : 'user';
+          if (nextMode === 'user' && isFlashOn) {
+            setIsFlashOn(false);
+          }
+          return nextMode;
+        });
+      } catch (e) {
+        console.error("Erro ao girar câmera:", e);
+      }
+    } else {
+      setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+    }
+  };
+
+  const toggleFlash = async () => {
+    if (facingMode === 'user') return; 
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const newFlashState = isFlashOn ? 'off' : 'torch';
+        await CameraPreview.setFlashMode({ flashMode: newFlashState });
+        setIsFlashOn(!isFlashOn);
+      } catch (err) {
+        console.error("Erro ao mudar flash para torch, tentando on:", err);
+        try {
+          const newFlashState = isFlashOn ? 'off' : 'on';
+          await CameraPreview.setFlashMode({ flashMode: newFlashState });
+          setIsFlashOn(!isFlashOn);
+        } catch (err2) {
+          console.error("Flash não suportado:", err2);
+        }
+      }
+    }
+  };
+
+  const handleNativeVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMediaFiles([file]);
+      setPreviewUrls([URL.createObjectURL(file)]);
+      stopCamera();
+    }
+  };
+
+  const initiateRecording = async () => {
+    if (isRecording || countdown !== null) return;
+    startCountdown();
+  };
+
   const startCountdown = () => {
-    stopPreviewAudio();
+    stopPreviewAudio(); 
     let count = 3;
     setCountdown(count);
-    
     const countInterval = setInterval(async () => {
       count -= 1;
       if (count === 0) {
         clearInterval(countInterval);
         setCountdown(null);
-        await startActualRecording();
+        startActualRecording();
       } else {
         setCountdown(count);
       }
@@ -297,9 +299,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const startActualRecording = async () => {
+    chunksRef.current = [];
+    
     if (Capacitor.isNativePlatform()) {
       try {
-        // Se tiver música selecionada, começar a tocar
         if (selectedSound && !useOriginalAudio) {
           const audio = new Audio(selectedSound.media_url);
           audio.crossOrigin = "anonymous";
@@ -310,27 +313,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
         setRecordedFacingMode(facingMode);
 
-        // IMPORTANTE: Gravar SEM ÁUDIO (disableAudio: true)
-        console.log("🎥 Iniciando gravação SEM ÁUDIO...");
+        const isDubbing = !!selectedSound && !useOriginalAudio;
+        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+
         await CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: true  // SEMPRE true - vídeo sem áudio
+          disableAudio: isDubbing
         });
-
+        
         setIsRecording(true);
         setRecordingSeconds(0);
-
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
         }, 1000);
-
       } catch (err) {
-        console.error("Erro ao iniciar gravação:", err);
+        console.error("Erro ao iniciar gravação nativa:", err);
         setError("Erro ao iniciar gravação.");
       }
+      return;
     }
+
+    // Fallback for non-native (WebRTC already removed, but keeping structure)
+    setError("Gravação não suportada nesta plataforma.");
   };
 
   const isRecordingRef = useRef(false);
@@ -344,7 +350,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-
       if (playbackAudioRef.current) {
         playbackAudioRef.current.pause();
         playbackAudioRef.current = null;
@@ -352,115 +357,112 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       if (Capacitor.isNativePlatform()) {
         try {
-          console.log("⏹️ Parando gravação...");
           const result = await CameraPreview.stopRecordVideo();
-
           if (result.videoFilePath) {
-            console.log("📹 Víogo gravado:", result.videoFilePath);
-
-            // Se tiver música selecionada, adicionar ao vídeo
             if (selectedSound && !useOriginalAudio) {
               setIsProcessing(true);
               setProcessingProgress(0);
-
+              
               try {
-                // Tentar processamento nativo primeiro
+                // Tenta usar FFmpegKit nativo (Plugin Capacitor/Cordova)
+                console.log("Tentando processamento nativo...");
                 const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
-
+                
                 if (NativeFFmpeg) {
-                  console.log("📱 Usando processamento nativo...");
-                  const outputPath = await addMusicToVideoNative(result.videoFilePath, selectedSound.media_url);
+                  const outputPath = await mergeAudioVideoNative(result.videoFilePath, selectedSound.media_url);
                   const response = await fetch(Capacitor.convertFileSrc(outputPath));
-                  const finalBlob = await response.blob();
-                  setMediaFiles([finalBlob]);
-                  setPreviewUrls([URL.createObjectURL(finalBlob)]);
+                  const mergedBlob = await response.blob();
+                  setMediaFiles([mergedBlob]);
+                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
                 } else {
-                  // Fallback para WASM
-                  console.log("🌐 Usando processamento WASM...");
+                  console.warn("Plugin nativo não detectado.");
                   const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
                   const videoBlob = await response.blob();
-                  const finalBlob = await addMusicToVideo(videoBlob, selectedSound.media_url);
-                  setMediaFiles([finalBlob]);
-                  setPreviewUrls([URL.createObjectURL(finalBlob)]);
+                  setMediaFiles([videoBlob]);
+                  setPreviewUrls([URL.createObjectURL(videoBlob)]);
                 }
               } catch (err) {
-                console.error("❌ Erro ao adicionar música:", err);
-                setError("Erro ao processar vídeo com música. Tenta novamente.");
-                
-                // Fallback: mostrar vídeo sem música
-                const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
-                const videoBlob = await response.blob();
-                setMediaFiles([videoBlob]);
-                setPreviewUrls([URL.createObjectURL(videoBlob)]);
+                console.error("Erro no processamento de dublagem:", err);
+                setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
               } finally {
                 setIsProcessing(false);
               }
             } else {
-              // Vídeo sem música
-              console.log("🎥 Vídeo sem música");
               const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
               const videoBlob = await response.blob();
               setMediaFiles([videoBlob]);
               setPreviewUrls([URL.createObjectURL(videoBlob)]);
             }
-
             stopCamera();
           }
         } catch (e) {
-          console.error("Erro ao parar gravação:", e);
+          console.error("Erro ao parar gravação nativa:", e);
         }
       }
-
       setIsRecording(false);
     }
   }, [stopCamera, selectedSound, useOriginalAudio]);
 
-  // Auto-stop recording
+  // Auto-stop recording when max duration is reached
   useEffect(() => {
     if (isRecording && recordingSeconds >= maxDuration) {
       stopRecording();
     }
   }, [recordingSeconds, isRecording, maxDuration, stopRecording]);
 
-  // ==================== INICIAR GRAVAÇÃO ====================
-  const initiateRecording = async () => {
-    if (isRecording || countdown !== null) return;
-    startCountdown();
-  };
-
-  // ==================== CONTROLES DA CÂMERA ====================
-  const toggleCamera = async () => {
-    if (isRecording) return;
-    
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await CameraPreview.flip();
-        setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
-      } catch (e) {
-        console.error("Erro ao girar câmera:", e);
-      }
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const selectedFiles = files.slice(0, 5);
+      const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+      
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      
+      setMediaFiles(selectedFiles);
+      setPreviewUrls(newPreviewUrls);
+      setError(null);
     }
   };
 
-  const toggleFlash = async () => {
-    if (facingMode === 'user') return;
-    
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const newFlashState = isFlashOn ? 'off' : 'torch';
-        await CameraPreview.setFlashMode({ flashMode: newFlashState });
-        setIsFlashOn(!isFlashOn);
-      } catch (err) {
-        console.error("Flash não suportado:", err);
-      }
-    }
+  const generateThumbnail = (file: File | Blob): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      video.onloadedmetadata = () => {
+        video.currentTime = 0.5; // Capture at 0.5 seconds
+      };
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx && filter !== 'none') {
+          ctx.filter = filter;
+        }
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to generate thumbnail'));
+        }, 'image/jpeg', 0.9);
+        URL.revokeObjectURL(video.src);
+      };
+      video.onerror = (e) => {
+        URL.revokeObjectURL(video.src);
+        reject(e);
+      };
+      video.src = URL.createObjectURL(file);
+    });
   };
 
-  // ==================== FOTO ====================
   const takePhoto = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
-        const result = await CameraPreview.capture({ quality: 90 });
+        const result = await CameraPreview.capture({
+          quality: 90
+        });
+        
         if (result.value) {
           const response = await fetch(`data:image/jpeg;base64,${result.value}`);
           const blob = await response.blob();
@@ -470,104 +472,66 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             return;
           }
           
-          setMediaFiles(prev => [...prev, blob]);
-          setPreviewUrls(prev => [...prev, URL.createObjectURL(blob)]);
+          const newMediaFiles = [...mediaFiles, blob];
+          const newPreviewUrls = [...previewUrls, URL.createObjectURL(blob)];
+          setMediaFiles(newMediaFiles);
+          setPreviewUrls(newPreviewUrls);
         }
       } catch (err) {
-        console.error("Erro ao tirar foto:", err);
+        console.error("Erro ao tirar foto nativa:", err);
       }
+      return;
     }
-  };
-
-  // ==================== UPLOAD ====================
-  const generateThumbnail = (file: File | Blob): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.muted = true;
-      video.playsInline = true;
-      
-      video.onloadedmetadata = () => {
-        video.currentTime = 0.5;
-      };
-      
-      video.onseeked = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Failed to generate thumbnail'));
-        }, 'image/jpeg', 0.9);
-        
-        URL.revokeObjectURL(video.src);
-      };
-      
-      video.onerror = (e) => {
-        URL.revokeObjectURL(video.src);
-        reject(e);
-      };
-      
-      video.src = URL.createObjectURL(file);
-    });
+    setError("Foto não suportada nesta plataforma.");
   };
 
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
-    
     setUploading(true);
-    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada.');
-
+      
       const isPhoto = mediaFiles[0].type.startsWith('image/');
       const uploadedUrls: string[] = [];
       const timestamp = Date.now();
 
-      // Upload files
       for (let i = 0; i < mediaFiles.length; i++) {
         const file = mediaFiles[i];
-        const fileExt = isPhoto ? 'jpg' : 'mp4';
+        const isRecorded = (file instanceof Blob) && !(file instanceof File);
+        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'webm' : (file as File).name.split('.').pop());
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
         const filePath = `posts/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('posts')
-          .upload(filePath, file);
-
+        
+        const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, file);
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('posts')
-          .getPublicUrl(filePath);
-
-        uploadedUrls.push(publicUrl);
+        const { data: { publicUrl: mediaUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+        uploadedUrls.push(mediaUrl);
       }
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
 
-      // Generate thumbnail for video
+      // 2. Generate and Upload Thumbnail (only for video)
       let thumbnailUrl = null;
       if (!isPhoto) {
         try {
           const thumbBlob = await generateThumbnail(mediaFiles[0]);
           const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
           const thumbFilePath = `thumbnails/${thumbFileName}`;
-          
-          await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
-          const { data: { publicUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
-          thumbnailUrl = publicUrl;
+          const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
+          if (!thumbUploadError) {
+            const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
+            thumbnailUrl = tUrl;
+          }
         } catch (thumbErr) {
           console.error("Erro ao gerar thumbnail:", thumbErr);
         }
+      } else {
+        thumbnailUrl = uploadedUrls[0]; // Use first photo as thumbnail
       }
 
-      // Create post
-      const { error: insertError } = await supabase.from('posts').insert({
+      // 3. Insert Post
+      const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
         media_url: mediaUrl,
@@ -579,9 +543,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         views: 0,
         created_at: new Date().toISOString()
       });
-
+      
       if (insertError) throw insertError;
-
       setTimeout(() => onCreated(), 500);
     } catch (err: unknown) {
       setError((err as Error).message || 'Erro ao publicar.');
@@ -602,40 +565,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     startCamera();
   };
 
-  // ==================== INIT ====================
-  useEffect(() => {
-    const initTimer = setTimeout(() => {
-      startCamera();
-    }, 500);
-
-    fetchRandomSounds();
-
-    return () => {
-      clearTimeout(initTimer);
-      stopCamera();
-      stopPreviewAudio();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [startCamera, stopCamera]);
-
-  // ==================== RENDER ====================
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
-      {/* Timer de gravação */}
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
-          <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-yellow-400 transition-all duration-1000 linear"
-              style={{ width: `${(recordingSeconds / maxDuration) * 100}%` }}
-            />
-          </div>
+           <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
+              <div 
+                className="h-full bg-yellow-400 transition-all duration-1000 linear" 
+                style={{ width: `${(recordingSeconds / maxDuration) * 100}%` }}
+              />
+           </div>
         </div>
       )}
 
       <div className="flex-1 relative">
         {previewUrls.length > 0 ? (
-          // ========== MODO PREVIEW ==========
           <div className="h-full w-full flex flex-col bg-black">
             <div className="relative h-[320px] shrink-0 m-4 mb-2 bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800">
               {mediaFiles[0]?.type.startsWith('image/') ? (
@@ -650,15 +594,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               ) : (
                 <video 
                   src={previewUrls[0]} 
-                  className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`}
+                  className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
                   autoPlay 
                   loop 
                   playsInline 
                   muted={!!selectedSound && !useOriginalAudio}
-                  style={{ filter: filter !== 'none' ? filter : undefined }}
+                  style={{ filter: filter !== 'none' ? filter : undefined }} 
+                  onPlay={(e) => {
+                    if (selectedSound && !useOriginalAudio) {
+                      const video = e.currentTarget;
+                      if (playbackAudioRef.current) {
+                        playbackAudioRef.current.currentTime = video.currentTime;
+                        playbackAudioRef.current.play().catch(() => {});
+                      } else {
+                        const audio = new Audio(selectedSound.media_url);
+                        audio.crossOrigin = "anonymous";
+                        audio.loop = true;
+                        audio.currentTime = video.currentTime;
+                        playbackAudioRef.current = audio;
+                        audio.play().catch(() => {});
+                      }
+                    }
+                  }}
+                  onPause={() => {
+                    if (playbackAudioRef.current) playbackAudioRef.current.pause();
+                  }}
+                  onTimeUpdate={(e) => {
+                    if (selectedSound && !useOriginalAudio && playbackAudioRef.current) {
+                      const video = e.currentTarget;
+                      const audio = playbackAudioRef.current;
+                      if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
+                        audio.currentTime = video.currentTime;
+                      }
+                    }
+                  }}
                 />
               )}
-
+              
               {textOverlay && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                   <span className="text-white text-xl font-black text-center px-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] break-words max-w-full">
@@ -667,55 +639,41 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 </div>
               )}
 
-              <button 
-                onClick={cancelSelection} 
-                className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90"
-              >
+              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
                 <X size={20} />
               </button>
             </div>
-
+            
             <div className="p-6 pt-2 bg-black flex flex-col gap-4 overflow-y-auto">
-              <div className="relative">
-                <textarea 
-                  value={content}
-                  onChange={(e) => setContent(e.target.value.slice(0, 200))}
-                  placeholder="Escreve uma legenda para o teu mambo..."
-                  className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-red-600/50 transition-all h-24 resize-none"
-                />
-                <div className="absolute bottom-3 right-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
-                  {content.length}/200
-                </div>
-              </div>
-
-              <button 
-                onClick={handleUpload} 
-                disabled={uploading}
-                className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${
-                  uploading 
-                    ? 'bg-zinc-800 border-zinc-700 text-zinc-500' 
-                    : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'
-                }`}
-              >
-                {uploading ? (
-                  <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></>
-                ) : (
-                  <><CheckCircle2 size={16} /><span>Publicar Agora</span></>
-                )}
-              </button>
+               <div className="relative">
+                 <textarea 
+                   value={content}
+                   onChange={(e) => setContent(e.target.value.slice(0, 200))}
+                   placeholder="Escreve uma legenda para o teu mambo..."
+                   className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-red-600/50 transition-all h-24 resize-none"
+                 />
+                 <div className="absolute bottom-3 right-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
+                   {content.length}/200
+                 </div>
+               </div>
+               
+               <button onClick={handleUpload} disabled={uploading} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${uploading ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>
+                 {uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>Publicar Agora</span></>}
+               </button>
             </div>
           </div>
         ) : (
-          // ========== MODO CÂMERA ==========
           <div className="h-full w-full relative bg-transparent">
             <div 
               id="cameraPreview" 
-              className="h-full w-full relative bg-transparent"
+              className="h-full w-full relative bg-transparent" 
               style={{ 
                 filter: filter !== 'none' ? filter : undefined,
-              }} 
+                backdropFilter: filter !== 'none' ? filter : undefined,
+                WebkitBackdropFilter: filter !== 'none' ? filter : undefined
+              }}
             />
-
+            
             {textOverlay && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                 <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
@@ -723,44 +681,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 </span>
               </div>
             )}
-
-            {/* Botão Selecionar Música */}
+            
             <div className="absolute top-8 left-0 w-full flex justify-center z-50">
-              <button 
-                onClick={() => {
-                  if (!showSoundPicker) stopPreviewAudio();
-                  setShowSoundPicker(!showSoundPicker);
-                }}
-                className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-all active:scale-95 shadow-2xl"
-              >
-                <Music2 size={14} className="text-white" />
-                <span className="text-[10px] font-black uppercase text-white tracking-widest truncate max-w-[120px]">
-                  {selectedSound && !useOriginalAudio 
-                    ? (selectedSound.content || `@${selectedSound.profiles?.username}`) 
-                    : 'Escolher Som'}
-                </span>
-                <ChevronDown size={14} className="text-white" />
-              </button>
+               <button 
+                 onClick={() => {
+                   if (!showSoundPicker) stopPreviewAudio();
+                   setShowSoundPicker(!showSoundPicker);
+                 }}
+                 className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-all active:scale-95 shadow-2xl"
+               >
+                 <Music2 size={14} className="text-white" />
+                 <span className="text-[10px] font-black uppercase text-white tracking-widest truncate max-w-[120px]">
+                   {selectedSound && !useOriginalAudio ? (selectedSound.content || `@${selectedSound.profiles?.username}`) : 'Escolher Som'}
+                 </span>
+                 <ChevronDown size={14} className="text-white" />
+               </button>
             </div>
 
-            {/* Sound Picker Modal */}
             {showSoundPicker && (
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end">
                 <div className="w-full h-[92%] bg-zinc-950 rounded-t-[32px] flex flex-col overflow-hidden animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-zinc-800">
-                  
+                  {/* Header Seletor */}
                   <div className="relative px-6 py-5 flex items-center justify-center border-b border-zinc-900">
                     <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white">Sons</h3>
                     <button 
-                      onClick={() => {
-                        stopPreviewAudio();
-                        setShowSoundPicker(false);
-                      }} 
+                      onClick={() => { stopPreviewAudio(); setShowSoundPicker(false); }}
                       className="absolute right-6 p-2 bg-zinc-900 rounded-full text-zinc-400 hover:text-white"
                     >
                       <X size={20} />
                     </button>
                   </div>
 
+                  {/* Busca Estilo TikTok */}
                   <div className="p-4 px-6">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
@@ -772,90 +724,104 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                     </div>
                   </div>
 
+                  {/* Tabs Estilo TikTok */}
+                  <div className="flex px-6 gap-6 overflow-x-auto no-scrollbar border-b border-zinc-900 mb-2">
+                    {['Descobrir', 'Favoritos', 'Vibe Angola', 'Tendências'].map((tab, i) => (
+                      <button 
+                        key={tab} 
+                        className={`py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-b-2 ${i === 0 ? 'text-white border-red-600' : 'text-zinc-600 border-transparent'}`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Lista de Músicas */}
                   <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-10">
                     {/* Opção Áudio Original */}
                     <button 
-                      onClick={() => {
+                      onClick={() => { 
                         stopPreviewAudio();
-                        setUseOriginalAudio(true);
-                        setSelectedSound(null);
-                        setShowSoundPicker(false);
+                        setUseOriginalAudio(true); 
+                        setSelectedSound(null); 
+                        setShowSoundPicker(false); 
                       }}
                       className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all ${useOriginalAudio ? 'opacity-100' : 'opacity-60'}`}
                     >
-                      <div className="w-14 h-14 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 shrink-0 border border-zinc-800">
+                       <div className="w-14 h-14 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 shrink-0 border border-zinc-800">
                         <Video size={24}/>
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-[12px] font-black text-white uppercase tracking-tight">Áudio Original</p>
-                        <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5">Som ambiente do vídeo</p>
-                      </div>
-                      {useOriginalAudio && <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={12}/></div>}
+                       </div>
+                       <div className="flex-1 text-left">
+                          <p className="text-[12px] font-black text-white uppercase tracking-tight">Áudio Original</p>
+                          <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5">Som ambiente do vídeo</p>
+                       </div>
+                       {useOriginalAudio && <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={12}/></div>}
                     </button>
 
                     {availableSounds.map(sound => (
                       <div key={sound.id} className="relative">
                         <div 
-                          onClick={() => {
+                          onClick={() => { 
                             if (selectedSound?.id === sound.id) {
                               stopPreviewAudio();
                               setSelectedSound(null);
                             } else {
-                              setSelectedSound(sound);
-                              setUseOriginalAudio(false);
+                              setSelectedSound(sound); 
+                              setUseOriginalAudio(false); 
                               playSoundPreview(sound.media_url);
                             }
                           }}
                           className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
                         >
-                          <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-                            {sound.profiles?.avatar_url ? (
-                              <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
-                            )}
-                            {selectedSound?.id === sound.id && (
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <div className="flex gap-1 items-end h-4">
-                                  <div className="w-1 bg-red-600 animate-[progress_0.6s_ease-in-out_infinite] h-full" />
-                                  <div className="w-1 bg-red-600 animate-[progress_0.8s_ease-in-out_infinite] h-2/3" />
-                                  <div className="w-1 bg-red-600 animate-[progress_0.7s_ease-in-out_infinite] h-5/6" />
+                           <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                              {sound.profiles?.avatar_url ? (
+                                <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
+                              )}
+                              {selectedSound?.id === sound.id && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                  <div className="flex gap-1 items-end h-4">
+                                    <div className="w-1 bg-red-600 animate-[progress_0.6s_ease-in-out_infinite] h-full" />
+                                    <div className="w-1 bg-red-600 animate-[progress_0.8s_ease-in-out_infinite] h-2/3" />
+                                    <div className="w-1 bg-red-600 animate-[progress_0.7s_ease-in-out_infinite] h-5/6" />
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 text-left overflow-hidden">
-                            <p className="text-[12px] font-black text-white uppercase tracking-tight truncate">
-                              {sound.content || 'Sem Título'}
-                            </p>
-                            <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5 truncate">
-                              {sound.profiles?.username || 'Anónimo'} • 00:15
-                            </p>
-                          </div>
-                          
-                          {selectedSound?.id === sound.id ? (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                stopPreviewAudio();
-                                setShowSoundPicker(false);
-                              }}
-                              className="bg-red-600 text-white text-[9px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg shadow-red-600/20 active:scale-95 transition-all animate-[bounce_1s_infinite]"
-                            >
-                              Usar
-                            </button>
-                          ) : (
-                            <div className="flex gap-4">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }} 
-                                className="text-zinc-600 hover:text-white transition-colors"
-                              >
-                                <Bookmark size={20} />
-                              </button>
-                            </div>
-                          )}
+                              )}
+                           </div>
+                           <div className="flex-1 text-left overflow-hidden">
+                              <p className="text-[12px] font-black text-white uppercase tracking-tight truncate">
+                                {sound.content || 'Sem Título'}
+                              </p>
+                              <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5 truncate">
+                                {sound.profiles?.username || 'Anónimo'} • 00:15
+                              </p>
+                           </div>
+                           
+                           {selectedSound?.id === sound.id ? (
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 stopPreviewAudio();
+                                 setShowSoundPicker(false);
+                               }}
+                               className="bg-red-600 text-white text-[9px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg shadow-red-600/20 active:scale-95 transition-all animate-[bounce_1s_infinite]"
+                             >
+                               Usar
+                             </button>
+                           ) : (
+                             <div className="flex gap-4">
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   // Add bookmark logic if needed
+                                 }}
+                                 className="text-zinc-600 hover:text-white transition-colors"
+                               >
+                                  <Bookmark size={20} />
+                               </button>
+                             </div>
+                           )}
                         </div>
                       </div>
                     ))}
@@ -864,103 +830,88 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            {/* Modal de Processamento */}
             {isProcessing && (
               <div className="absolute inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center">
                 <div className="relative w-32 h-32 mb-8">
                   <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="64" cy="64" r="60" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-white/10" />
-                    <circle 
-                      cx="64" cy="64" r="60" 
-                      stroke="currentColor" 
-                      strokeWidth="8" 
-                      fill="transparent" 
-                      strokeDasharray={377} 
-                      strokeDashoffset={377 - (377 * processingProgress) / 100} 
-                      className="text-yellow-500 transition-all duration-300" 
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="60"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      className="text-white/10"
+                    />
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="60"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={377}
+                      strokeDashoffset={377 - (377 * processingProgress) / 100}
+                      className="text-yellow-500 transition-all duration-300"
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Music2 size={40} className="text-yellow-500 animate-pulse" />
                   </div>
                 </div>
-                <h3 className="text-white text-xl font-black uppercase tracking-tighter mb-2">A Adicionar Música</h3>
-                <p className="text-zinc-400 text-xs font-medium max-w-[240px]">
-                  Estamos a adicionar a música ao teu vídeo...
-                </p>
+                <h3 className="text-white text-xl font-black uppercase tracking-tighter mb-2">A Processar Dublagem</h3>
+                <p className="text-zinc-400 text-xs font-medium max-w-[240px]">Estamos a misturar a música com o teu vídeo para garantir a melhor qualidade...</p>
                 <div className="mt-8 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                  <span className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">
-                    {Math.round(processingProgress)}%
-                  </span>
+                  <span className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">{Math.round(processingProgress)}%</span>
                 </div>
               </div>
             )}
 
-            {/* Countdown */}
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
-                <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">
-                  {countdown}
-                </span>
+                 <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">{countdown}</span>
               </div>
             )}
 
-            {/* Botões laterais */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-40">
               <button 
                 onClick={toggleCamera} 
                 disabled={isStarting}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform disabled:opacity-50"
               >
-                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10">
-                  <Flip size={22}/>
-                </div>
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Flip size={22}/></div>
                 <span className="text-[8px] font-black uppercase text-white shadow-sm">Girar</span>
               </button>
-
               <button 
-                onClick={toggleFlash} 
+                onClick={toggleFlash}
                 disabled={facingMode === 'user'}
                 className={`flex flex-col items-center gap-1 group active:scale-90 transition-transform ${facingMode === 'user' ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
               >
-                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${
-                  isFlashOn 
-                    ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' 
-                    : 'bg-black/30 border-white/10 text-white'
-                }`}>
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${isFlashOn ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
                   <Zap size={22} fill={isFlashOn ? "currentColor" : "none"} />
                 </div>
-                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>
-                  Flash
-                </span>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>Flash</span>
               </button>
-
               <button 
-                onClick={() => setShowTextEditor(true)} 
+                onClick={() => setShowTextEditor(true)}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10">
-                  <Type size={22}/>
-                </div>
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Type size={22}/></div>
                 <span className="text-[8px] font-black uppercase text-white shadow-sm">Texto</span>
               </button>
-
               <button 
-                onClick={() => setShowFilterPicker(true)} 
+                onClick={() => setShowFilterPicker(true)}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10">
-                  <Wand2 size={22}/>
-                </div>
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={22}/></div>
                 <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
               </button>
             </div>
 
-            {/* Text Editor Modal */}
             {showTextEditor && (
               <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
-                <textarea 
-                  autoFocus 
+                <textarea
+                  autoFocus
                   value={textOverlay}
                   onChange={(e) => setTextOverlay(e.target.value)}
                   placeholder="Escreve o teu texto..."
@@ -968,16 +919,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 />
                 <div className="flex gap-4 mt-8">
                   <button 
-                    onClick={() => {
-                      setTextOverlay('');
-                      setShowTextEditor(false);
-                    }} 
+                    onClick={() => { setTextOverlay(''); setShowTextEditor(false); }}
                     className="px-8 py-3 bg-zinc-800 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
                   >
                     Limpar
                   </button>
                   <button 
-                    onClick={() => setShowTextEditor(false)} 
+                    onClick={() => setShowTextEditor(false)}
                     className="px-8 py-3 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
                   >
                     Concluído
@@ -986,43 +934,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            {/* Filter Picker Modal */}
             {showFilterPicker && (
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
                 <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
-                    <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white">
-                      <X size={24} />
-                    </button>
+                    <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
                   </div>
                   <div className="grid grid-cols-4 gap-4 pb-8">
                     {filters.map((f) => (
-                      <button 
-                        key={f.value} 
-                        onClick={() => {
-                          setFilter(f.value);
-                          setShowFilterPicker(false);
-                        }} 
+                      <button
+                        key={f.value}
+                        onClick={() => { setFilter(f.value); setShowFilterPicker(false); }}
                         className="flex flex-col items-center gap-2 group"
                       >
-                        <div 
-                          className={`w-14 h-14 rounded-2xl border-2 transition-all ${
-                            filter === f.value 
-                              ? 'border-red-600 bg-red-600/20' 
-                              : 'border-zinc-800 bg-zinc-900'
-                          }`}
-                          style={{ filter: f.value }}
-                        >
-                          <div className="w-full h-full flex items-center justify-center text-white/40">
-                            <Wand2 size={20} />
-                          </div>
+                        <div className={`w-14 h-14 rounded-2xl border-2 transition-all ${filter === f.value ? 'border-red-600 bg-red-600/20' : 'border-zinc-800 bg-zinc-900'}`} style={{ filter: f.value }}>
+                          <div className="w-full h-full flex items-center justify-center text-white/40"><Wand2 size={20} /></div>
                         </div>
-                        <span className={`text-[8px] font-black uppercase tracking-widest ${
-                          filter === f.value ? 'text-red-500' : 'text-zinc-500'
-                        }`}>
-                          {f.name}
-                        </span>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${filter === f.value ? 'text-red-500' : 'text-zinc-500'}`}>{f.name}</span>
                       </button>
                     ))}
                   </div>
@@ -1030,29 +959,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            <button 
-              onClick={() => onCreated()} 
-              className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all"
-            >
+            <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
 
-            {/* Botões inferiores */}
             <div className="absolute bottom-32 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
               <div className="flex gap-4 border-r border-white/10 pr-6">
                 <button 
-                  onClick={() => setMode('video')} 
-                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${
-                    mode === 'video' ? 'text-white' : 'text-white/40'
-                  }`}
+                  onClick={() => setMode('video')}
+                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'video' ? 'text-white' : 'text-white/40'}`}
                 >
                   Vídeo
                 </button>
                 <button 
-                  onClick={() => setMode('photo')} 
-                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${
-                    mode === 'photo' ? 'text-white' : 'text-white/40'
-                  }`}
+                  onClick={() => setMode('photo')}
+                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'photo' ? 'text-white' : 'text-white/40'}`}
                 >
                   Foto
                 </button>
@@ -1062,24 +983,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 {mode === 'video' ? (
                   <>
                     <button 
-                      onClick={() => setMaxDuration(15)} 
+                      onClick={() => setMaxDuration(15)}
                       disabled={isRecording}
-                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${
-                        maxDuration === 15 
-                          ? 'bg-white text-black scale-110' 
-                          : 'bg-black/40 text-white/60 border border-white/10'
-                      }`}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 15 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
                     >
                       15s
                     </button>
                     <button 
-                      onClick={() => setMaxDuration(60)} 
+                      onClick={() => setMaxDuration(60)}
                       disabled={isRecording}
-                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${
-                        maxDuration === 60 
-                          ? 'bg-white text-black scale-110' 
-                          : 'bg-black/40 text-white/60 border border-white/10'
-                      }`}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 60 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
                     >
                       60s
                     </button>
@@ -1092,81 +1005,65 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             </div>
 
-            {/* Botão de gravação/captura */}
             <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-40">
-              <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
-                <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
-                  <ImageIcon size={24} />
-                </div>
-                <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept={mode === 'video' ? 'video/*' : 'image/*'} 
-                  multiple={mode === 'photo'} 
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length > 0) {
-                      setMediaFiles(files);
-                      setPreviewUrls(files.map(f => URL.createObjectURL(f)));
-                      stopCamera();
-                    }
-                  }} 
-                />
-              </label>
-
-              <button 
+               <input 
+                 ref={nativeVideoInputRef}
+                 type="file" 
+                 accept="video/*" 
+                 capture="camcorder" 
+                 className="hidden" 
+                 onChange={handleNativeVideoChange} 
+               />
+               <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
+                 <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
+                   <ImageIcon size={24} />
+                 </div>
+                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
+                 <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
+               </label>
+               
+               <button 
                 onClick={mode === 'video' ? (isRecording ? stopRecording : initiateRecording) : takePhoto} 
-                disabled={isStarting}
+                disabled={isStarting} 
                 className="relative flex items-center justify-center disabled:opacity-50"
-              >
-                <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                  <div className={`transition-all duration-300 ${
-                    isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'
-                  } ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
-                </div>
-                {mode === 'photo' && (
-                  <div className="absolute flex items-center justify-center">
-                    <Camera size={24} className="text-black" />
-                    {mediaFiles.length > 0 && (
-                      <div className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
-                        {mediaFiles.length}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </button>
+               >
+                 <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                 </div>
+                 {mode === 'photo' && (
+                   <div className="absolute flex items-center justify-center">
+                     <Camera size={24} className="text-black" />
+                     {mediaFiles.length > 0 && (
+                       <div className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
+                         {mediaFiles.length}
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </button>
 
-              <button 
+               <button 
                 onClick={isRecording ? stopRecording : () => {
                   if (mediaFiles.length > 0) {
                     stopCamera();
+                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
                   }
                 }} 
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                  (recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) 
-                    ? 'opacity-100 translate-y-0' 
-                    : 'opacity-0 translate-y-4 pointer-events-none'
-                }`}
-              >
-                <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90">
-                  <CheckCircle2 size={26} />
-                </div>
-                <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
-              </button>
-            </div>
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+               >
+                 <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
+                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
+               </button>
+             </div>
           </div>
         )}
       </div>
 
-      {/* Mensagem de erro */}
       {error && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/90 backdrop-blur-xl border border-red-600/30 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-[0_10px_40px_rgba(220,38,38,0.2)] flex items-center gap-3 animate-bounce">
-          <AlertCircle size={18} className="text-red-600" />
-          <span className="max-w-[200px] text-center">{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 text-zinc-600 hover:text-white">
-            <X size={16}/>
-          </button>
+           <AlertCircle size={18} className="text-red-600" />
+           <span className="max-w-[200px] text-center">{error}</span>
+           <button onClick={() => setError(null)} className="ml-2 text-zinc-600 hover:text-white"><X size={16}/></button>
         </div>
       )}
     </div>
