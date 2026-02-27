@@ -38,8 +38,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(0);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
   const [mode, setMode] = useState<'video' | 'photo'>('video');
   const [textOverlay, setTextOverlay] = useState('');
@@ -63,24 +61,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
-
-  const mergeAudioVideoNative = async (videoPath: string, audioPath: string): Promise<string> => {
-    // Detecta se o plugin nativo está disponível no window (padrão Capacitor/Cordova)
-    const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
-    
-    if (!NativeFFmpeg) {
-      throw new Error("Plugin nativo FFmpegKit não encontrado.");
-    }
-
-    const outputPath = `${videoPath.replace(".mp4", "")}_final.mp4`;
-
-    // Comando otimizado para dublagem: remove áudio original e insere a música
-    const command = `-i "${videoPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -y "${outputPath}"`;
-
-    console.log("Executando FFmpegKit nativo...");
-    await NativeFFmpeg.execute(command);
-    return outputPath;
-  };
 
   const fetchRandomSounds = async () => {
     try {
@@ -359,40 +339,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         try {
           const result = await CameraPreview.stopRecordVideo();
           if (result.videoFilePath) {
-            if (selectedSound && !useOriginalAudio) {
-              setIsProcessing(true);
-              setProcessingProgress(0);
-              
-              try {
-                // Tenta usar FFmpegKit nativo (Plugin Capacitor/Cordova)
-                console.log("Tentando processamento nativo...");
-                const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
-                
-                if (NativeFFmpeg) {
-                  const outputPath = await mergeAudioVideoNative(result.videoFilePath, selectedSound.media_url);
-                  const response = await fetch(Capacitor.convertFileSrc(outputPath));
-                  const mergedBlob = await response.blob();
-                  setMediaFiles([mergedBlob]);
-                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
-                } else {
-                  console.warn("Plugin nativo não detectado.");
-                  const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
-                  const videoBlob = await response.blob();
-                  setMediaFiles([videoBlob]);
-                  setPreviewUrls([URL.createObjectURL(videoBlob)]);
-                }
-              } catch (err) {
-                console.error("Erro no processamento de dublagem:", err);
-                setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
-              } finally {
-                setIsProcessing(false);
-              }
-            } else {
-              const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
-              const videoBlob = await response.blob();
-              setMediaFiles([videoBlob]);
-              setPreviewUrls([URL.createObjectURL(videoBlob)]);
-            }
+            const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
+            const videoBlob = await response.blob();
+            setMediaFiles([videoBlob]);
+            setPreviewUrls([URL.createObjectURL(videoBlob)]);
             stopCamera();
           }
         } catch (e) {
@@ -401,7 +351,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, selectedSound, useOriginalAudio]);
+  }, [stopCamera]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -826,43 +776,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                       </div>
                     ))}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {isProcessing && (
-              <div className="absolute inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center">
-                <div className="relative w-32 h-32 mb-8">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="60"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      className="text-white/10"
-                    />
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="60"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={377}
-                      strokeDashoffset={377 - (377 * processingProgress) / 100}
-                      className="text-yellow-500 transition-all duration-300"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Music2 size={40} className="text-yellow-500 animate-pulse" />
-                  </div>
-                </div>
-                <h3 className="text-white text-xl font-black uppercase tracking-tighter mb-2">A Processar Dublagem</h3>
-                <p className="text-zinc-400 text-xs font-medium max-w-[240px]">Estamos a misturar a música com o teu vídeo para garantir a melhor qualidade...</p>
-                <div className="mt-8 px-4 py-2 bg-white/5 rounded-full border border-white/10">
-                  <span className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">{Math.round(processingProgress)}%</span>
                 </div>
               </div>
             )}
