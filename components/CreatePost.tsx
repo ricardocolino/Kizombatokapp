@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera } from 'lucide-react';
 import { Post } from '../types';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-
-const FFmpegPlugin = registerPlugin<any>('FFmpegPlugin');
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -65,19 +65,133 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+
+  const loadFFmpeg = async () => {
+    if (ffmpegRef.current) return ffmpegRef.current;
+    
+    try {
+      const ffmpeg = new FFmpeg();
+      // Usando a versão single-thread (st) para maior compatibilidade com dispositivos móveis
+      const baseURL = 'https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/umd';
+      
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      
+      ffmpegRef.current = ffmpeg;
+      return ffmpeg;
+    } catch (err) {
+      console.error("Erro ao carregar FFmpeg:", err);
+      return null;
+    }
+  };
 
   const mergeAudioVideoNative = async (videoPath: string, audioPath: string): Promise<string> => {
+    // Detecta se o plugin nativo está disponível no window (padrão Capacitor/Cordova)
+    const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
+    
+    if (!NativeFFmpeg) {
+      throw new Error("Plugin nativo FFmpegKit não encontrado.");
+    }
+
     const outputPath = `${videoPath.replace(".mp4", "")}_final.mp4`;
-    
-    console.log("Executando FFmpegPlugin nativo...");
-    await FFmpegPlugin.merge({
-      video: videoPath,
-      audio: audioPath,
-      output: outputPath
-    });
-    
+
+    // Comando otimizado para dublagem: remove áudio original e insere a música
+    const command = `-i "${videoPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -y "${outputPath}"`;
+
+    console.log("Executando FFmpegKit nativo...");
+    await NativeFFmpeg.execute(command);
     return outputPath;
   };
+
+  const mergeAudioVideo = React.useCallback(async (videoBlob: Blob, audioUrl: string): Promise<Blob> => {
+    setIsProcessing(true);
+    setProcessingProgress(10);
+    
+    const ffmpeg = await loadFFmpeg();
+    
+    if (!ffmpeg) {
+      throw new Error("Não foi possível carregar o motor de processamento de vídeo.");
+    }
+
+    try {
+      setProcessingProgress(15);
+      
+      // Fetch audio file manually to avoid CORS/fetch issues in FFmpeg
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) throw new Error("Não foi possível carregar o ficheiro de áudio.");
+      const audioBlob = await audioResponse.blob();
+
+      setProcessingProgress(25);
+      const videoData = await fetchFile(videoBlob);
+      const audioData = await fetchFile(audioBlob);
+      
+      await ffmpeg.writeFile('input_video.mp4', videoData);
+      await ffmpeg.writeFile('input_audio.mp3', audioData);
+      
+      setProcessingProgress(40);
+      
+      const args = [
+        '-i', 'input_video.mp4',
+        '-i', 'input_audio.mp3'
+      ];
+
+      // Video filters (rotation)
+      const vFilters: string[] = [];
+      if (recordedFacingMode === 'rear') {
+        vFilters.push('transpose=2,transpose=2');
+      }
+
+      // Apenas música - remover totalmente o áudio original (Estilo TikTok/Instagram)
+      // Usamos -map 0:v:0 para pegar apenas o vídeo do primeiro input
+      // Usamos -map 1:a:0 para pegar apenas o áudio do segundo input
+      args.push(
+        '-map', '0:v:0',
+        '-map', '1:a:0'
+      );
+
+      if (vFilters.length > 0) {
+        args.push('-vf', vFilters.join(','), '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23');
+      } else {
+        args.push('-c:v', 'copy');
+      }
+
+      args.push(
+        '-c:a', 'aac',       // AAC para compatibilidade total
+        '-b:a', '192k',      // Alta qualidade
+        '-shortest',
+        '-y',                // Overwrite output
+        'output.mp4'
+      );
+
+      ffmpeg.on('progress', ({ progress }) => {
+        setProcessingProgress(40 + (progress * 50));
+      });
+
+      await ffmpeg.exec(args);
+      
+      setProcessingProgress(95);
+      const data = await ffmpeg.readFile('output.mp4');
+      
+      // Cleanup
+      try {
+        await ffmpeg.deleteFile('input_video.mp4');
+        await ffmpeg.deleteFile('input_audio.mp3');
+        await ffmpeg.deleteFile('output.mp4');
+      } catch (e) {
+        console.warn("Erro ao limpar ficheiros temporários:", e);
+      }
+      
+      return new Blob([data], { type: 'video/mp4' });
+    } catch (err) {
+      console.error("Erro no processamento FFmpeg:", err);
+      throw err;
+    } finally {
+      setProcessingProgress(100);
+    }
+  }, [recordedFacingMode]);
 
   const fetchRandomSounds = async () => {
     try {
@@ -361,16 +475,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               setProcessingProgress(0);
               
               try {
-                console.log("Iniciando processamento nativo com FFmpegPlugin...");
-                const outputPath = await mergeAudioVideoNative(result.videoFilePath, selectedSound.media_url);
+                // 1. Tenta usar FFmpegKit nativo (Plugin Capacitor/Cordova)
+                console.log("Tentando processamento nativo...");
+                const NativeFFmpeg = (window as any).FFmpegKit || (window as any).ffmpegkit;
                 
-                const response = await fetch(Capacitor.convertFileSrc(outputPath));
-                const mergedBlob = await response.blob();
-                
-                setMediaFiles([mergedBlob]);
-                setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                if (NativeFFmpeg) {
+                  const outputPath = await mergeAudioVideoNative(result.videoFilePath, selectedSound.media_url);
+                  const response = await fetch(Capacitor.convertFileSrc(outputPath));
+                  const mergedBlob = await response.blob();
+                  setMediaFiles([mergedBlob]);
+                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                } else {
+                  // 2. Fallback para WASM se o plugin nativo não estiver presente
+                  console.log("Plugin nativo não detectado, usando motor WASM...");
+                  const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
+                  const videoBlob = await response.blob();
+                  const mergedBlob = await mergeAudioVideo(videoBlob, selectedSound.media_url);
+                  setMediaFiles([mergedBlob]);
+                  setPreviewUrls([URL.createObjectURL(mergedBlob)]);
+                }
               } catch (err) {
-                console.error("Erro no processamento de dublagem nativa:", err);
+                console.error("Erro no processamento de dublagem:", err);
                 setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
               } finally {
                 setIsProcessing(false);
@@ -389,7 +514,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, selectedSound, useOriginalAudio]);
+  }, [stopCamera, selectedSound, useOriginalAudio, mergeAudioVideo]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
