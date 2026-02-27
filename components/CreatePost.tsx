@@ -94,14 +94,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     const ffmpeg = await loadFFmpeg();
     
     if (!ffmpeg) {
-      console.warn("FFmpeg não carregou, usando fallback de qualidade reduzida...");
-      return videoBlob;
+      throw new Error("Não foi possível carregar o motor de processamento de vídeo.");
     }
 
     try {
-      setProcessingProgress(20);
+      setProcessingProgress(15);
+      
+      // Fetch audio file manually to avoid CORS/fetch issues in FFmpeg
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) throw new Error("Não foi possível carregar o ficheiro de áudio.");
+      const audioBlob = await audioResponse.blob();
+
+      setProcessingProgress(25);
       const videoData = await fetchFile(videoBlob);
-      const audioData = await fetchFile(audioUrl);
+      const audioData = await fetchFile(audioBlob);
       
       await ffmpeg.writeFile('input_video.mp4', videoData);
       await ffmpeg.writeFile('input_audio.mp3', audioData);
@@ -120,9 +126,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
 
       // Apenas música - remover totalmente o áudio original (Estilo TikTok/Instagram)
+      // Usamos -map 0:v:0 para pegar apenas o vídeo do primeiro input
+      // Usamos -map 1:a:0 para pegar apenas o áudio do segundo input
       args.push(
-        '-map', '0:v:0',     // Apenas vídeo
-        '-map', '1:a:0'      // Apenas áudio da música
+        '-map', '0:v:0',
+        '-map', '1:a:0'
       );
 
       if (vFilters.length > 0) {
@@ -134,10 +142,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       args.push(
         '-c:a', 'aac',       // AAC para compatibilidade total
         '-b:a', '192k',      // Alta qualidade
-        '-shortest'
+        '-shortest',
+        '-y',                // Overwrite output
+        'output.mp4'
       );
-
-      args.push('output.mp4');
 
       ffmpeg.on('progress', ({ progress }) => {
         setProcessingProgress(40 + (progress * 50));
@@ -149,9 +157,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const data = await ffmpeg.readFile('output.mp4');
       
       // Cleanup
-      await ffmpeg.deleteFile('input_video.mp4');
-      await ffmpeg.deleteFile('input_audio.mp3');
-      await ffmpeg.deleteFile('output.mp4');
+      try {
+        await ffmpeg.deleteFile('input_video.mp4');
+        await ffmpeg.deleteFile('input_audio.mp3');
+        await ffmpeg.deleteFile('output.mp4');
+      } catch (e) {
+        console.warn("Erro ao limpar ficheiros temporários:", e);
+      }
       
       return new Blob([data], { type: 'video/mp4' });
     } catch (err) {
@@ -452,9 +464,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                 setPreviewUrls([URL.createObjectURL(mergedBlob)]);
               } catch (err) {
                 console.error("Erro ao processar dublagem:", err);
-                // Fallback to original video if merging fails
-                setMediaFiles([videoBlob]);
-                setPreviewUrls([URL.createObjectURL(videoBlob)]);
+                setError("Erro ao processar o vídeo com a música. Por favor, tenta novamente.");
+                // No fallback to noisy video - better to show error
               } finally {
                 setIsProcessing(false);
               }
