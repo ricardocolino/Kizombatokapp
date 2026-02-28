@@ -1,4 +1,4 @@
-    import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import * as lamejs from 'lamejs';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
@@ -110,16 +110,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const hasDubbingAudio = !!selectedSound && !useOriginalAudio && (selectedSound.audio_url || selectedSound.media_url);
       const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
 
-      const args: string[] = [];
-
-      // Trim de entrada (mais eficiente antes de processar)
-      if (hasTrim) {
-        args.push('-ss', String(trimStart), '-to', String(trimEnd));
+      // Se não há nada para processar, devolve o blob original
+      if (!vfFilter && !hasDubbingAudio && !hasTrim) {
+        await ffmpeg.deleteFile('input.mp4');
+        return videoBlob;
       }
 
+      const args: string[] = [];
+
+      // -ss e -to ANTES de -i para seek rápido (input seeking)
       args.push('-i', 'input.mp4');
 
-      // Áudio externo para dubbing
+if (hasTrim) {
+  args.push('-ss', String(trimStart));
+  args.push('-to', String(trimEnd));
+}
+      // Áudio externo para dubbing — segundo input
       if (hasDubbingAudio) {
         const audioUrl = selectedSound!.audio_url || selectedSound!.media_url;
         const audioData = await fetchFile(audioUrl);
@@ -127,34 +133,65 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         args.push('-i', 'dubbing.mp3');
       }
 
-      // Filtros de vídeo
-      if (vfFilter) {
-        args.push('-vf', vfFilter);
+      // Mapeamento explícito de streams
+      args.push('-map', '0:v:0');
+      if (hasDubbingAudio) {
+        args.push('-map', '1:a:0');
       } else {
-        args.push('-c:v', 'libx264', '-preset', 'fast');
+        // Tenta mapear áudio original; ignora se não existir
+        args.push('-map', '0:a:0?');
       }
 
-      // Mapear streams
+      // Codec de vídeo:
+      // Se há filtro → tem de re-encodar com libx264
+      // Se não há filtro → copia o stream original (evita artefactos)
+      if (vfFilter || hasDubbingAudio || hasTrim) {
+  args.push('-c:v', 'libx264');
+  args.push('-preset', 'ultrafast');
+  args.push('-crf', '23');
+  args.push('-pix_fmt', 'yuv420p');
+} else {
+  args.push('-c:v', 'copy');
+}
+      // Codec de áudio
       if (hasDubbingAudio) {
-        args.push('-map', '0:v', '-map', '1:a');
-        args.push('-c:a', 'aac', '-shortest');
+        args.push('-c:a', 'aac');
+        args.push('-b:a', '128k');
+        args.push('-shortest'); // corta quando o mais curto (vídeo ou áudio) termina
+      } else if (vfFilter) {
+        // Re-encoding de vídeo → re-encode áudio também para garantir sync
+        args.push('-c:a', 'aac');
+        args.push('-b:a', '128k');
       } else {
         args.push('-c:a', 'copy');
       }
 
-      args.push('-movflags', '+faststart', 'output.mp4');
+      args.push('-movflags', '+faststart');
+      args.push('-y'); // sobrescreve sem perguntar
+      args.push('output.mp4');
 
+      console.log('[FFmpeg] Comando:', args.join(' '));
       await ffmpeg.exec(args);
 
       const outputData = await ffmpeg.readFile('output.mp4');
+
+      // Verificar que o output não está vazio
+      if (!outputData || (outputData as Uint8Array).byteLength < 1000) {
+        throw new Error('FFmpeg produziu um ficheiro inválido — usando vídeo original como fallback.');
+      }
+
       const outputBlob = new Blob([outputData], { type: 'video/mp4' });
 
       // Limpar ficheiros do FS virtual
-      await ffmpeg.deleteFile('input.mp4');
-      await ffmpeg.deleteFile('output.mp4');
-      if (hasDubbingAudio) await ffmpeg.deleteFile('dubbing.mp3');
+      try { await ffmpeg.deleteFile('input.mp4'); } catch { /* ignore */ }
+      try { await ffmpeg.deleteFile('output.mp4'); } catch { /* ignore */ }
+      if (hasDubbingAudio) { try { await ffmpeg.deleteFile('dubbing.mp3'); } catch { /* ignore */ } }
 
       return outputBlob;
+    } catch (err) {
+      console.error('[FFmpeg] Erro no processamento:', err);
+      // Fallback: devolve o vídeo original sem processar
+      return videoBlob;
     } finally {
       setProcessingVideo(false);
     }
@@ -1244,4 +1281,3 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 };
 
 export default CreatePost;
-      
