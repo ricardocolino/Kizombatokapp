@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '../types';
-import { ArrowLeft, Play, Music2, Share2, Grid, Bookmark, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Music2, Share2, Grid, Bookmark, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface SoundDetailProps {
@@ -14,12 +14,10 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [useCount, setUseCount] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    fetchRelatedPosts();
-  }, [post.id]);
-
-  const fetchRelatedPosts = async () => {
+  const fetchRelatedPosts = React.useCallback(async () => {
     try {
       // Buscar posts onde o sound_id é igual ao ID do post atual
       const { data, count } = await supabase
@@ -35,6 +33,30 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
     } finally {
       setLoading(false);
     }
+  }, [post.id]);
+
+  useEffect(() => {
+    fetchRelatedPosts();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [post.id, fetchRelatedPosts]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(post.audio_url || post.media_url);
+      audioRef.current.onended = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(console.error);
+    }
+    setIsPlaying(!isPlaying);
   };
 
   return (
@@ -52,8 +74,8 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
 
       {/* Sound Info Section */}
       <div className="p-6 flex flex-col items-center gap-6">
-        <div className="relative group">
-          <div className="w-40 h-40 bg-zinc-950 rounded-full border-[10px] border-zinc-900 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.2)] animate-[spin_8s_linear_infinite]">
+        <div className="relative group cursor-pointer" onClick={togglePlay}>
+          <div className={`w-40 h-40 bg-zinc-950 rounded-full border-[10px] border-zinc-900 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.2)] ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`}>
              {post.profiles?.avatar_url ? (
                <img src={post.profiles.avatar_url} className="w-[65%] h-[65%] rounded-full object-cover border-2 border-zinc-800" />
              ) : (
@@ -62,8 +84,10 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
                </div>
              )}
           </div>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-2 h-2 bg-zinc-800 rounded-full" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 shadow-2xl">
+              {isPlaying ? <Pause size={24} fill="white" /> : <Play size={24} fill="white" className="ml-1" />}
+            </div>
           </div>
         </div>
 

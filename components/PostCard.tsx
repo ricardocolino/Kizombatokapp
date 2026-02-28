@@ -218,16 +218,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
     return () => observerRef.current?.disconnect();
-  }, [post.id, videoError, post.sound_id]);
+  }, [post.id, videoError, post.sound_id, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
 
   useEffect(() => {
-    if (isPlaying && originalPost?.media_url && audioRef.current) {
+    if (isPlaying && (post.audio_url || originalPost?.audio_url || originalPost?.media_url) && audioRef.current) {
       if (videoRef.current) {
         audioRef.current.currentTime = videoRef.current.currentTime % (audioRef.current.duration || 1);
       }
       audioRef.current.play().catch(() => {});
     }
-  }, [originalPost?.media_url, isPlaying]);
+  }, [post.audio_url, originalPost?.audio_url, originalPost?.media_url, isPlaying]);
 
   const fetchComments = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -503,12 +503,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
       {/* Audio for external sounds or images */}
-      {originalPost?.media_url && (
+      {(post.audio_url || originalPost?.audio_url || originalPost?.media_url) && (
         <audio 
           ref={audioRef} 
-          src={originalPost.media_url} 
+          src={post.audio_url || originalPost?.audio_url || originalPost?.media_url} 
           loop 
-          muted={!!post.sound_id || isMuted}
+          muted={isMuted}
         />
       )}
 
@@ -521,7 +521,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             className="w-full h-full object-cover"
             style={{ filter: post.filter || undefined }}
             loop
-            muted={isMuted}
+            muted={isMuted || !!post.audio_url || !!post.sound_id}
             playsInline
             autoPlay
             preload="metadata"
@@ -529,23 +529,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             onError={() => setVideoError(true)}
             poster={post.thumbnail_url || undefined}
             onPlay={() => {
-              if (post.sound_id && audioRef.current) {
+              if ((post.audio_url || post.sound_id) && audioRef.current) {
                 audioRef.current.currentTime = videoRef.current?.currentTime || 0;
                 audioRef.current.play().catch(() => {});
               }
             }}
             onPause={() => {
-              if (post.sound_id && audioRef.current) {
+              if ((post.audio_url || post.sound_id) && audioRef.current) {
                 audioRef.current.pause();
               }
             }}
             onSeeking={() => {
-              if (post.sound_id && audioRef.current && videoRef.current) {
+              if ((post.audio_url || post.sound_id) && audioRef.current && videoRef.current) {
                 audioRef.current.currentTime = videoRef.current.currentTime;
               }
             }}
             onTimeUpdate={() => {
-              if (post.sound_id && audioRef.current && videoRef.current) {
+              if ((post.audio_url || post.sound_id) && audioRef.current && videoRef.current) {
                 const video = videoRef.current;
                 const audio = audioRef.current;
 

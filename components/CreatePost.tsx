@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import * as lamejs from 'lamejs';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
@@ -287,7 +288,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     if (Capacitor.isNativePlatform()) {
       try {
         if (selectedSound && !useOriginalAudio) {
-          const audio = new Audio(selectedSound.media_url);
+          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
           audio.crossOrigin = "anonymous";
           audio.volume = 1.0;
           playbackAudioRef.current = audio;
@@ -467,6 +468,69 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       }
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
+      
+      // 1.5 Extract and Upload Audio as MP3 (only for video)
+      let audioUrl = null;
+      if (!isPhoto) {
+        try {
+          const videoBlob = mediaFiles[0];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const arrayBuffer = await videoBlob.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          const channels = audioBuffer.numberOfChannels;
+          const sampleRate = audioBuffer.sampleRate;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mp3encoder = new (lamejs as any).Mp3Encoder(channels, sampleRate, 128);
+          const mp3Data = [];
+          
+          const sampleBlockSize = 1152;
+          const left = audioBuffer.getChannelData(0);
+          const right = channels > 1 ? audioBuffer.getChannelData(1) : null;
+          
+          for (let i = 0; i < left.length; i += sampleBlockSize) {
+            const leftChunk = left.subarray(i, i + sampleBlockSize);
+            const leftInt16 = new Int16Array(leftChunk.length);
+            for (let j = 0; j < leftChunk.length; j++) {
+              leftInt16[j] = leftChunk[j] < 0 ? leftChunk[j] * 0x8000 : leftChunk[j] * 0x7FFF;
+            }
+            
+            let mp3buf;
+            if (right) {
+              const rightChunk = right.subarray(i, i + sampleBlockSize);
+              const rightInt16 = new Int16Array(rightChunk.length);
+              for (let j = 0; j < rightChunk.length; j++) {
+                rightInt16[j] = rightChunk[j] < 0 ? rightChunk[j] * 0x8000 : rightChunk[j] * 0x7FFF;
+              }
+              mp3buf = mp3encoder.encodeBuffer(leftInt16, rightInt16);
+            } else {
+              mp3buf = mp3encoder.encodeBuffer(leftInt16);
+            }
+            
+            if (mp3buf.length > 0) {
+              mp3Data.push(mp3buf);
+            }
+          }
+          
+          const mp3buf = mp3encoder.flush();
+          if (mp3buf.length > 0) {
+            mp3Data.push(mp3buf);
+          }
+          
+          const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+          const audioFileName = `${session.user.id}-${timestamp}.mp3`;
+          const audioFilePath = `audio/${audioFileName}`;
+          
+          const { error: audioUploadError } = await supabase.storage.from('posts').upload(audioFilePath, mp3Blob);
+          if (!audioUploadError) {
+            const { data: { publicUrl: aUrl } } = supabase.storage.from('posts').getPublicUrl(audioFilePath);
+            audioUrl = aUrl;
+          }
+        } catch (audioErr) {
+          console.error("Erro ao extrair/converter áudio:", audioErr);
+        }
+      }
 
       // 2. Generate and Upload Thumbnail (only for video)
       let thumbnailUrl = null;
@@ -493,6 +557,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         content: content,
         media_url: mediaUrl,
         thumbnail_url: thumbnailUrl,
+        audio_url: audioUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
         text_overlay: textOverlay || null,
@@ -564,7 +629,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                         playbackAudioRef.current.currentTime = video.currentTime;
                         playbackAudioRef.current.play().catch(() => {});
                       } else {
-                        const audio = new Audio(selectedSound.media_url);
+                        const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
                         audio.crossOrigin = "anonymous";
                         audio.loop = true;
                         audio.currentTime = video.currentTime;
@@ -1000,7 +1065,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                       } else {
                         setSelectedSound(sound); 
                         setUseOriginalAudio(false); 
-                        playSoundPreview(sound.media_url);
+                        playSoundPreview(sound.audio_url || sound.media_url);
                       }
                     }}
                     className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
