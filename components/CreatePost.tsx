@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+    import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import * as lamejs from 'lamejs';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
 import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
@@ -65,6 +67,98 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
+  const [processingVideo, setProcessingVideo] = useState(false);
+
+  // Mapeia filtros CSS para filtros FFmpeg reais
+  const cssFilterToFFmpeg = (cssFilter: string): string | null => {
+    if (!cssFilter || cssFilter === 'none') return null;
+    if (cssFilter === 'grayscale(100%)') return 'hue=s=0';
+    if (cssFilter === 'sepia(100%)') return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131';
+    if (cssFilter === 'saturate(200%)') return 'eq=saturation=2';
+    if (cssFilter === 'invert(100%)') return 'negate';
+    if (cssFilter.includes('blur(2px)')) return 'boxblur=2:2';
+    if (cssFilter.includes('sepia(30%)')) return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=saturation=1.5';
+    if (cssFilter.includes('hue-rotate(180deg)')) return 'hue=h=180,eq=saturation=0.8:brightness=1.1';
+    return null;
+  };
+
+  const loadFFmpeg = async (): Promise<FFmpeg> => {
+    if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
+    const ffmpeg = new FFmpeg();
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    ffmpegRef.current = ffmpeg;
+    setFfmpegLoaded(true);
+    return ffmpeg;
+  };
+
+  // Processa o vídeo com FFmpeg: aplica filtro real, mescla áudio externo e respeita o trim
+  const processVideoWithFFmpeg = async (videoBlob: Blob): Promise<Blob> => {
+    setProcessingVideo(true);
+    try {
+      const ffmpeg = await loadFFmpeg();
+
+      const videoData = await fetchFile(videoBlob);
+      await ffmpeg.writeFile('input.mp4', videoData);
+
+      const vfFilter = cssFilterToFFmpeg(filter);
+      const hasDubbingAudio = !!selectedSound && !useOriginalAudio && (selectedSound.audio_url || selectedSound.media_url);
+      const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
+
+      const args: string[] = [];
+
+      // Trim de entrada (mais eficiente antes de processar)
+      if (hasTrim) {
+        args.push('-ss', String(trimStart), '-to', String(trimEnd));
+      }
+
+      args.push('-i', 'input.mp4');
+
+      // Áudio externo para dubbing
+      if (hasDubbingAudio) {
+        const audioUrl = selectedSound!.audio_url || selectedSound!.media_url;
+        const audioData = await fetchFile(audioUrl);
+        await ffmpeg.writeFile('dubbing.mp3', audioData);
+        args.push('-i', 'dubbing.mp3');
+      }
+
+      // Filtros de vídeo
+      if (vfFilter) {
+        args.push('-vf', vfFilter);
+      } else {
+        args.push('-c:v', 'libx264', '-preset', 'fast');
+      }
+
+      // Mapear streams
+      if (hasDubbingAudio) {
+        args.push('-map', '0:v', '-map', '1:a');
+        args.push('-c:a', 'aac', '-shortest');
+      } else {
+        args.push('-c:a', 'copy');
+      }
+
+      args.push('-movflags', '+faststart', 'output.mp4');
+
+      await ffmpeg.exec(args);
+
+      const outputData = await ffmpeg.readFile('output.mp4');
+      const outputBlob = new Blob([outputData], { type: 'video/mp4' });
+
+      // Limpar ficheiros do FS virtual
+      await ffmpeg.deleteFile('input.mp4');
+      await ffmpeg.deleteFile('output.mp4');
+      if (hasDubbingAudio) await ffmpeg.deleteFile('dubbing.mp3');
+
+      return outputBlob;
+    } finally {
+      setProcessingVideo(false);
+    }
+  };
 
   const fetchRandomSounds = async () => {
     try {
@@ -454,10 +548,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const uploadedUrls: string[] = [];
       const timestamp = Date.now();
 
-      for (let i = 0; i < mediaFiles.length; i++) {
-        const file = mediaFiles[i];
+      // Processar vídeo com FFmpeg (filtro + áudio dubbing + trim)
+      let filesToUpload = [...mediaFiles];
+      if (!isPhoto) {
+        try {
+          const processedBlob = await processVideoWithFFmpeg(mediaFiles[0]);
+          filesToUpload = [processedBlob, ...mediaFiles.slice(1)];
+        } catch (ffmpegErr) {
+          console.error('Erro no FFmpeg, usando vídeo original:', ffmpegErr);
+          // Continua com o vídeo original em caso de falha
+        }
+      }
+
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
         const isRecorded = (file instanceof Blob) && !(file instanceof File);
-        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'webm' : (file as File).name.split('.').pop());
+        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'mp4' : (file as File).name.split('.').pop());
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
         const filePath = `posts/${fileName}`;
         
@@ -469,11 +575,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
       
-      // 1.5 Extract and Upload Audio as MP3 (only for video)
+      // Extrair e fazer upload do áudio como MP3 (só para vídeo)
+      // Se houve dubbing, o áudio já está embutido no vídeo processado pelo FFmpeg
       let audioUrl = null;
-      if (!isPhoto) {
+      const isDubbing = !!selectedSound && !useOriginalAudio;
+      if (!isPhoto && !isDubbing) {
         try {
-          const videoBlob = mediaFiles[0];
+          const videoBlob = filesToUpload[0];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
           const arrayBuffer = await videoBlob.arrayBuffer();
@@ -528,15 +636,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             audioUrl = aUrl;
           }
         } catch (audioErr) {
-          console.error("Erro ao extrair/converter áudio:", audioErr);
+          console.error('Erro ao extrair/converter áudio:', audioErr);
         }
+      } else if (!isPhoto && isDubbing && selectedSound) {
+        // Em modo dubbing, o áudio do som selecionado já foi embutido pelo FFmpeg
+        // Guardamos a referência ao audio_url do sound original para o feed saber qual som foi usado
+        audioUrl = selectedSound.audio_url || selectedSound.media_url;
       }
 
-      // 2. Generate and Upload Thumbnail (only for video)
+      // Gerar e fazer upload da thumbnail (só para vídeo)
       let thumbnailUrl = null;
       if (!isPhoto) {
         try {
-          const thumbBlob = await generateThumbnail(mediaFiles[0]);
+          const thumbBlob = await generateThumbnail(filesToUpload[0]);
           const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
           const thumbFilePath = `thumbnails/${thumbFileName}`;
           const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
@@ -545,13 +657,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             thumbnailUrl = tUrl;
           }
         } catch (thumbErr) {
-          console.error("Erro ao gerar thumbnail:", thumbErr);
+          console.error('Erro ao gerar thumbnail:', thumbErr);
         }
       } else {
-        thumbnailUrl = uploadedUrls[0]; // Use first photo as thumbnail
+        thumbnailUrl = uploadedUrls[0];
       }
 
-      // 3. Insert Post
+      // Inserir post na BD
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
         content: content,
@@ -560,8 +672,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         audio_url: audioUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
+        // Filtro já aplicado no vídeo pelo FFmpeg — guardamos null para o feed não re-aplicar via CSS
         text_overlay: textOverlay || null,
-        filter: filter !== 'none' ? filter : null,
+        filter: null,
         views: 0,
         created_at: new Date().toISOString()
       });
@@ -706,8 +819,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  </div>
                </div>
                
-               <button onClick={handleUpload} disabled={uploading} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${uploading ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>
-                 {uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>Publicar Agora</span></>}
+               <button onClick={handleUpload} disabled={uploading || processingVideo} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>
+                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>Publicar Agora</span></>}
                </button>
             </div>
           </div>
@@ -1131,3 +1244,4 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 };
 
 export default CreatePost;
+      
