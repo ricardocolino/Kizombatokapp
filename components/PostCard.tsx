@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, User, Eye, Flag, Download, Link, Instagram, Facebook, Twitter, MessageSquare } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Eye, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface PostCardProps {
@@ -82,7 +82,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     touchStartRef.current = null;
   };
 
-  const handlePause = () => {
+  const handlePause = React.useCallback(() => {
     if (videoRef.current) {
       videoRef.current.pause();
     }
@@ -90,9 +90,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       audioRef.current.pause();
     }
     setIsPlaying(false);
-  };
+  }, []);
 
-  const incrementView = async () => {
+  const incrementView = React.useCallback(async () => {
     if (viewCounted) return;
     
     if (localStorage.getItem(`viewed_${post.id}`)) {
@@ -108,16 +108,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
     }
-  };
+  }, [post.id, viewCounted]);
 
-  const handlePlay = () => {
+  const handlePlay = React.useCallback(() => {
     let playPromise: Promise<void> | null = null;
 
     if (post.media_type === 'video' && videoRef.current && !videoError) {
       playPromise = videoRef.current.play();
     }
 
-    if (post.sound_id && audioRef.current) {
+    const hasAudio = !!post.audio_url || (post.media_type === 'image' && !!post.sound_id);
+    if (hasAudio && audioRef.current) {
       // Sync audio time with video time before playing
       if (videoRef.current) {
         audioRef.current.currentTime = videoRef.current.currentTime;
@@ -142,9 +143,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         setIsPlaying(false);
       });
     }
-  };
+  }, [post.media_type, post.sound_id, post.audio_url, videoError, viewCounted, incrementView]);
 
-  const fetchOriginalPost = async () => {
+  const fetchOriginalPost = React.useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('posts')
@@ -161,9 +162,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     } catch (e) {
       console.error("Erro ao carregar post original do som:", e);
     }
-  };
+  }, [post.sound_id]);
 
-  const fetchMetadata = async () => {
+  const fetchMetadata = React.useCallback(async () => {
     try {
       const { count: reactionCount } = await supabase.from('reactions').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
       const { count: commentCount } = await supabase.from('comments').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
@@ -196,7 +197,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     } catch (e) {
       console.error("Erro ao carregar metadados:", e);
     }
-  };
+  }, [post.id, post.user_id]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -221,13 +222,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   }, [post.id, videoError, post.sound_id, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
 
   useEffect(() => {
-    if (isPlaying && (post.audio_url || originalPost?.audio_url || originalPost?.media_url) && audioRef.current) {
+    const currentAudioSource = post.audio_url || (post.media_type === 'image' ? (originalPost?.audio_url || originalPost?.media_url) : null);
+    if (isPlaying && currentAudioSource && audioRef.current) {
       if (videoRef.current) {
         audioRef.current.currentTime = videoRef.current.currentTime % (audioRef.current.duration || 1);
       }
       audioRef.current.play().catch(() => {});
     }
-  }, [post.audio_url, originalPost?.audio_url, originalPost?.media_url, isPlaying]);
+  }, [post.audio_url, post.media_type, originalPost?.audio_url, originalPost?.media_url, isPlaying]);
 
   const fetchComments = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -381,7 +383,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (e) {
+    } catch {
       alert('Erro ao descarregar o vídeo. Tenta novamente.');
     }
   };
@@ -503,7 +505,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
       {/* Audio for external sounds or images */}
-      {(post.audio_url || originalPost?.audio_url || originalPost?.media_url) && (
+      {(post.audio_url || (post.media_type === 'image' && (originalPost?.audio_url || originalPost?.media_url))) && (
         <audio 
           ref={audioRef} 
           src={post.audio_url || originalPost?.audio_url || originalPost?.media_url} 
@@ -521,7 +523,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             className="w-full h-full object-cover"
             style={{ filter: post.filter || undefined }}
             loop
-            muted={isMuted || !!post.audio_url || !!post.sound_id}
+            muted={isMuted || !!post.audio_url}
             playsInline
             autoPlay
             preload="metadata"
@@ -529,23 +531,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             onError={() => setVideoError(true)}
             poster={post.thumbnail_url || undefined}
             onPlay={() => {
-              if ((post.audio_url || post.sound_id) && audioRef.current) {
+              if (post.audio_url && audioRef.current) {
                 audioRef.current.currentTime = videoRef.current?.currentTime || 0;
                 audioRef.current.play().catch(() => {});
               }
             }}
             onPause={() => {
-              if ((post.audio_url || post.sound_id) && audioRef.current) {
+              if (post.audio_url && audioRef.current) {
                 audioRef.current.pause();
               }
             }}
             onSeeking={() => {
-              if ((post.audio_url || post.sound_id) && audioRef.current && videoRef.current) {
+              if (post.audio_url && audioRef.current && videoRef.current) {
                 audioRef.current.currentTime = videoRef.current.currentTime;
               }
             }}
             onTimeUpdate={() => {
-              if ((post.audio_url || post.sound_id) && audioRef.current && videoRef.current) {
+              if (post.audio_url && audioRef.current && videoRef.current) {
                 const video = videoRef.current;
                 const audio = audioRef.current;
 
