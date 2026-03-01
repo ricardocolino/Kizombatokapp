@@ -234,16 +234,20 @@ if (hasTrim) {
   const isStartingRef = useRef(false);
 
   const stopCamera = React.useCallback(async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await CameraPreview.stop();
-      } catch (e) {
-        console.error("Erro ao parar câmera nativa:", e);
+  if (Capacitor.isNativePlatform() && showCamera) {
+    try {
+      // Somente parar se estiver gravando ou câmera aberta
+      if (isRecording) {
+        await stopRecording();
       }
+      await CameraPreview.stop();
+    } catch (e) {
+      console.error("Erro ao parar câmera nativa:", e);
     }
-    setShowCamera(false);
-    setIsFlashOn(false);
-  }, []);
+  }
+  setShowCamera(false);
+  setIsFlashOn(false);
+}, [isRecording, showCamera, stopRecording]);
 
   const startCamera = React.useCallback(async () => {
     if (isStartingRef.current) return;
@@ -327,24 +331,26 @@ if (hasTrim) {
   }, [previewUrls.length]);
 
   useEffect(() => {
-    const initTimer = setTimeout(() => {
-      startCamera();
-    }, 500); 
-    
-    fetchRandomSounds();
-    
-    return () => {
-      clearTimeout(initTimer);
-      stopCamera();
-      stopPreviewAudio();
-      if (timerRef.current) clearInterval(timerRef.current);
-      // ✅ Para o áudio de dubbing ao sair do ecrã
-      if (playbackAudioRef.current) {
-        playbackAudioRef.current.pause();
-        playbackAudioRef.current = null;
-      }
-    };
-  }, [startCamera, stopCamera]);
+  const initTimer = setTimeout(() => {
+    startCamera();
+  }, 500); 
+
+  fetchRandomSounds();
+  
+  return () => {
+    clearTimeout(initTimer);
+    stopPreviewAudio();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (playbackAudioRef.current) {
+      playbackAudioRef.current.pause();
+      playbackAudioRef.current = null;
+    }
+    // ✅ Força parada segura da câmera ao desmontar
+    if (Capacitor.isNativePlatform() && showCamera) {
+      CameraPreview.stop().catch(() => {});
+    }
+  };
+}, [startCamera, showCamera]);
   
   
   const toggleCamera = async () => {
@@ -421,39 +427,47 @@ if (hasTrim) {
   const startActualRecording = async () => {
     chunksRef.current = [];
     
-    if (Capacitor.isNativePlatform()) {
-      try {
-        if (selectedSound && !useOriginalAudio) {
-          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.crossOrigin = "anonymous";
-          audio.volume = 1.0;
-          playbackAudioRef.current = audio;
-          await audio.play();
-        }
+  // Substitua o bloco acima por este
+if (Capacitor.isNativePlatform()) {
+  try {
+    setRecordedFacingMode(facingMode);
 
-        setRecordedFacingMode(facingMode);
+    const isDubbing = !!selectedSound && !useOriginalAudio;
+    let audio: HTMLAudioElement | null = null;
 
-        const isDubbing = !!selectedSound && !useOriginalAudio;
-        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
-
-        await CameraPreview.startRecordVideo({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          position: facingMode,
-          disableAudio: isDubbing
-        });
-        
-        setIsRecording(true);
-        setRecordingSeconds(0);
-        timerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => prev + 1);
-        }, 1000);
-      } catch (err) {
-        console.error("Erro ao iniciar gravação nativa:", err);
-        setError("Erro ao iniciar gravação.");
-      }
-      return;
+    // Cria o áudio mas NÃO toca ainda
+    if (isDubbing) {
+      audio = new Audio(selectedSound!.audio_url || selectedSound!.media_url);
+      audio.crossOrigin = "anonymous";
+      audio.volume = 1.0;
+      audio.loop = true; // opcional, repetir se necessário
+      playbackAudioRef.current = audio;
     }
+
+    // Inicia a gravação
+    await CameraPreview.startRecordVideo({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      position: facingMode,
+      disableAudio: isDubbing
+    });
+
+    setIsRecording(true);
+    setRecordingSeconds(0);
+    timerRef.current = window.setInterval(() => setRecordingSeconds(prev => prev + 1), 1000);
+
+    // Só agora toca o áudio
+    if (isDubbing && audio) {
+      audio.currentTime = 0;
+      await audio.play();
+    }
+
+  } catch (err) {
+    console.error("Erro ao iniciar gravação nativa:", err);
+    setError("Erro ao iniciar gravação.");
+  }
+  return;
+}
 
     // Fallback for non-native (WebRTC already removed, but keeping structure)
     setError("Gravação não suportada nesta plataforma.");
@@ -823,9 +837,38 @@ if (hasTrim) {
                 </div>
               )}
 
-              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
-                <X size={20} />
-              </button>
+            <button
+  onClick={async () => {
+    // Para áudio de playback
+    if (playbackAudioRef.current) {
+      playbackAudioRef.current.pause();
+      playbackAudioRef.current = null;
+    }
+
+    // Revoke URLs
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
+    setMediaFiles([]);
+    setPreviewUrls([]);
+    setError(null);
+
+    // Para a câmera com segurança
+    if (Capacitor.isNativePlatform() && showCamera) {
+      try {
+        if (isRecording) await stopRecording();
+        await CameraPreview.stop();
+      } catch (e) {
+        console.error("Erro ao parar câmera no cancel:", e);
+      }
+    }
+    setShowCamera(false);
+    setIsFlashOn(false);
+
+    startCamera(); // opcional: reinicia câmera frontal
+  }}
+  className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90"
+>
+  <X size={20} />
+</button>
 
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
                 <button 
