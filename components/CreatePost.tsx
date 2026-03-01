@@ -414,46 +414,62 @@ if (hasTrim) {
   };
 
   const startActualRecording = async () => {
-    chunksRef.current = [];
-    
-    if (Capacitor.isNativePlatform()) {
-      try {
-        if (selectedSound && !useOriginalAudio) {
-          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.crossOrigin = "anonymous";
-          audio.volume = 1.0;
-          playbackAudioRef.current = audio;
-          await audio.play();
-        }
+  chunksRef.current = [];
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      setRecordedFacingMode(facingMode);
 
-        setRecordedFacingMode(facingMode);
+      const isDubbing = !!selectedSound && !useOriginalAudio;
+      console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
 
-        const isDubbing = !!selectedSound && !useOriginalAudio;
-        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
-
-        await CameraPreview.startRecordVideo({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          position: facingMode,
-          disableAudio: isDubbing
-        });
+      // PRIMEIRO: Inicia a gravação
+      await CameraPreview.startRecordVideo({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        position: facingMode,
+        disableAudio: isDubbing
+      });
+      
+      // SEGUNDO: DEPOIS que a gravação começou, inicia a música
+      if (isDubbing) {
+        const audio = new Audio(selectedSound!.audio_url || selectedSound!.media_url);
+        audio.crossOrigin = "anonymous";
+        audio.volume = 1.0;
+        playbackAudioRef.current = audio;
         
-        setIsRecording(true);
-        setRecordingSeconds(0);
-        timerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => prev + 1);
-        }, 1000);
-      } catch (err) {
-        console.error("Erro ao iniciar gravação nativa:", err);
-        setError("Erro ao iniciar gravação.");
+        // Pequeno delay para garantir que a gravação realmente começou
+        setTimeout(async () => {
+          try {
+            await audio.play();
+            console.log("Música iniciada após gravação começar");
+          } catch (err) {
+            console.error("Erro ao iniciar música:", err);
+          }
+        }, 100); // 100ms de delay para segurança
       }
-      return;
+      
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = window.setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Erro ao iniciar gravação nativa:", err);
+      setError("Erro ao iniciar gravação.");
+      
+      // Se erro, para a música se tiver começado
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        playbackAudioRef.current = null;
+      }
     }
+    return;
+  }
 
-    // Fallback for non-native (WebRTC already removed, but keeping structure)
-    setError("Gravação não suportada nesta plataforma.");
-  };
-
+  // Fallback for non-native (WebRTC already removed, but keeping structure)
+  setError("Gravação não suportada nesta plataforma.");
+};
   const isRecordingRef = useRef(false);
   useEffect(() => {
     isRecordingRef.current = isRecording;
