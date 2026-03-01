@@ -726,16 +726,21 @@ if (hasTrim) {
   };
 
   const cancelSelection = () => {
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      playbackAudioRef.current = null;
-    }
-    previewUrls.forEach(url => URL.revokeObjectURL(url));
-    setMediaFiles([]);
-    setPreviewUrls([]);
-    setError(null);
-    startCamera();
-  };
+  if (playbackAudioRef.current) {
+    playbackAudioRef.current.pause();
+    playbackAudioRef.current = null;
+  }
+  previewUrls.forEach(url => URL.revokeObjectURL(url));
+  setMediaFiles([]);
+  setPreviewUrls([]);
+  setError(null);
+  
+  // Resetar para câmera frontal e desligar flash
+  setFacingMode('user');
+  setIsFlashOn(false); // <-- Adicionar esta linha se quiser garantir flash desligado
+  
+  startCamera();
+};
 
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
