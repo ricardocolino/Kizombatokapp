@@ -131,12 +131,7 @@ if (hasTrim) {
         const audioData = await fetchFile(audioUrl);
         await ffmpeg.writeFile('dubbing.mp3', audioData);
         args.push('-i', 'dubbing.mp3');
-        
-         // APLICAR DELAY DE 100ms NO ÁUDIO
-  args.push('-af', 'adelay=100s|100s'); // Delay de 100ms em ambos os canais (estéreo)
-  
-  
-      }
+         }
 
       // Mapeamento explícito de streams
       args.push('-map', '0:v:0');
@@ -443,15 +438,12 @@ if (hasTrim) {
         audio.volume = 1.0;
         playbackAudioRef.current = audio;
         
-        // Pequeno delay para garantir que a gravação realmente começou
-        setTimeout(async () => {
-          try {
-            await audio.play();
-            console.log("Música iniciada após gravação começar");
-          } catch (err) {
-            console.error("Erro ao iniciar música:", err);
-          }
-        }, 100); // 100ms de delay para segurança
+try {
+  await audio.play();
+  console.log("Música iniciada após gravação começar");
+} catch (err) {
+  console.error("Erro ao iniciar música:", err);
+}
       }
       
       setIsRecording(true);
