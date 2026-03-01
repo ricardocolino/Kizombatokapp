@@ -131,7 +131,7 @@ if (hasTrim) {
         const audioData = await fetchFile(audioUrl);
         await ffmpeg.writeFile('dubbing.mp3', audioData);
         args.push('-i', 'dubbing.mp3');
-         }
+      }
 
       // Mapeamento explícito de streams
       args.push('-map', '0:v:0');
@@ -414,59 +414,46 @@ if (hasTrim) {
   };
 
   const startActualRecording = async () => {
-  chunksRef.current = [];
-  
-  if (Capacitor.isNativePlatform()) {
-    try {
-      setRecordedFacingMode(facingMode);
+    chunksRef.current = [];
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (selectedSound && !useOriginalAudio) {
+          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
+          audio.crossOrigin = "anonymous";
+          audio.volume = 1.0;
+          playbackAudioRef.current = audio;
+          await audio.play();
+        }
 
-      const isDubbing = !!selectedSound && !useOriginalAudio;
-      console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+        setRecordedFacingMode(facingMode);
 
-      // PRIMEIRO: Inicia a gravação
-      await CameraPreview.startRecordVideo({
-        width: window.innerWidth,
-        height: window.innerHeight,
-        position: facingMode,
-        disableAudio: isDubbing
-      });
-      
-      // SEGUNDO: DEPOIS que a gravação começou, inicia a música
-      if (isDubbing) {
-        const audio = new Audio(selectedSound!.audio_url || selectedSound!.media_url);
-        audio.crossOrigin = "anonymous";
-        audio.volume = 1.0;
-        playbackAudioRef.current = audio;
+        const isDubbing = !!selectedSound && !useOriginalAudio;
+        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+
+        await CameraPreview.startRecordVideo({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          position: facingMode,
+          disableAudio: isDubbing
+        });
         
-try {
-  await audio.play();
-  console.log("Música iniciada após gravação começar");
-} catch (err) {
-  console.error("Erro ao iniciar música:", err);
-}
+        setIsRecording(true);
+        setRecordingSeconds(0);
+        timerRef.current = window.setInterval(() => {
+          setRecordingSeconds(prev => prev + 1);
+        }, 1000);
+      } catch (err) {
+        console.error("Erro ao iniciar gravação nativa:", err);
+        setError("Erro ao iniciar gravação.");
       }
-      
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(prev => prev + 1);
-      }, 1000);
-    } catch (err) {
-      console.error("Erro ao iniciar gravação nativa:", err);
-      setError("Erro ao iniciar gravação.");
-      
-      // Se erro, para a música se tiver começado
-      if (playbackAudioRef.current) {
-        playbackAudioRef.current.pause();
-        playbackAudioRef.current = null;
-      }
+      return;
     }
-    return;
-  }
 
-  // Fallback for non-native (WebRTC already removed, but keeping structure)
-  setError("Gravação não suportada nesta plataforma.");
-};
+    // Fallback for non-native (WebRTC already removed, but keeping structure)
+    setError("Gravação não suportada nesta plataforma.");
+  };
+
   const isRecordingRef = useRef(false);
   useEffect(() => {
     isRecordingRef.current = isRecording;
@@ -739,22 +726,19 @@ try {
   };
 
   const cancelSelection = () => {
-  if (playbackAudioRef.current) {
-    playbackAudioRef.current.pause();
-    playbackAudioRef.current = null;
-  }
-  previewUrls.forEach(url => URL.revokeObjectURL(url));
-  setMediaFiles([]);
-  setPreviewUrls([]);
-  setError(null);
+    if (playbackAudioRef.current) {
+      playbackAudioRef.current.pause();
+      playbackAudioRef.current = null;
+    }
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
+    setMediaFiles([]);
+    setPreviewUrls([]);
+    setError(null);
+    setFacingMode('user');
+    startCamera();
+  }; 
   
-  // Resetar para câmera frontal e desligar flash
-  setFacingMode('user');
-  setIsFlashOn(false); // <-- Adicionar esta linha se quiser garantir flash desligado
   
-  startCamera();
-};
-
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
