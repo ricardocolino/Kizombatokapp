@@ -16,7 +16,7 @@ interface PostCardProps {
 type EnhancedComment = Comment & { 
   likes_count: number; 
   liked_by_me: boolean;
-  profiles?: Profile;
+  profiles?: any;
 };
 
 const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNavigateToSound, isMuted, onToggleMute, onRequireAuth }) => {
@@ -27,7 +27,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const [isOwnPost, setIsOwnPost] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  const mediaUrls = useMemo(() => {
+    try {
+      const parsed = JSON.parse(post.media_url);
+      return Array.isArray(parsed) ? parsed : [post.media_url];
+    } catch {
+      return [post.media_url];
+    }
+  }, [post.media_url]);
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [comments, setComments] = useState<EnhancedComment[]>([]);
@@ -46,13 +55,39 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const [followingList, setFollowingList] = useState<Profile[]>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchStartRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartRef.current === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStartRef.current - touchEnd;
+
+    if (Math.abs(diff) > 50) { // Threshold for swipe
+      if (diff > 0) {
+        // Swipe left -> next image
+        setCurrentImageIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
+      } else {
+        // Swipe right -> previous image
+        setCurrentImageIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
+      }
+    }
+    touchStartRef.current = null;
+  };
 
   const handlePause = React.useCallback(() => {
     if (videoRef.current) {
       videoRef.current.pause();
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
     setIsPlaying(false);
   }, []);
@@ -78,8 +113,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const handlePlay = React.useCallback(() => {
     let playPromise: Promise<void> | null = null;
 
-    if (videoRef.current && !videoError) {
+    if (post.media_type === 'video' && videoRef.current && !videoError) {
       playPromise = videoRef.current.play();
+    } else if (post.media_type === 'image' && audioRef.current) {
+      playPromise = audioRef.current.play();
+    } else if (post.media_type === 'image' && !playPromise) {
+      // For images without sound, we still want to mark as playing for view count
+      setIsPlaying(true);
+      if (!viewCounted) incrementView();
+      return;
     }
 
     if (playPromise) {
@@ -93,7 +135,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         setIsPlaying(false);
       });
     }
-  }, [videoError, viewCounted, incrementView]);
+  }, [post.media_type, videoError, viewCounted, incrementView]);
 
   const fetchOriginalPost = React.useCallback(async () => {
     try {
@@ -141,7 +183,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           .eq('follower_id', session.user.id);
         
         if (follows) {
-          setFollowingList(follows.map((f: { profiles: Profile }) => f.profiles));
+          setFollowingList(follows.map((f: any) => f.profiles) as Profile[]);
         }
       }
     } catch (e) {
@@ -169,7 +211,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
     return () => observerRef.current?.disconnect();
-  }, [post.id, post.sound_id, videoError, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
+  }, [post.id, videoError, post.sound_id, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
+
+  useEffect(() => {
+    const isImageWithAudio = post.media_type === 'image' && (post.audio_url || originalPost?.audio_url || originalPost?.media_url);
+    if (isPlaying && isImageWithAudio && audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [post.audio_url, post.media_type, originalPost?.audio_url, originalPost?.media_url, isPlaying]);
 
   const fetchComments = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -444,22 +493,62 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
+      {/* Audio only for image posts with sound */}
+      {post.media_type === 'image' && (post.audio_url || originalPost?.audio_url || originalPost?.media_url) && (
+        <audio 
+          ref={audioRef} 
+          src={post.audio_url || originalPost?.audio_url || originalPost?.media_url} 
+          loop 
+          muted={isMuted}
+        />
+      )}
+
       {/* Video Content */}
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
-        <video
-          ref={videoRef}
-          src={post.media_url}
-          className="w-full h-full object-cover"
-          style={{ filter: post.filter || undefined }}
-          loop
-          muted={isMuted}
-          playsInline
-          autoPlay
-          preload="metadata"
-          crossOrigin="anonymous"
-          onError={() => setVideoError(true)}
-          poster={post.thumbnail_url || undefined}
-        />
+        {post.media_type === 'video' ? (
+          <video
+            ref={videoRef}
+            src={post.media_url}
+            className="w-full h-full object-cover"
+            style={{ filter: post.filter || undefined }}
+            loop
+            muted={isMuted}
+            playsInline
+            autoPlay
+            preload="metadata"
+            crossOrigin="anonymous"
+            onError={() => setVideoError(true)}
+            poster={post.thumbnail_url || undefined}
+          />
+        ) : (
+          <div 
+            className="w-full h-full relative group/carousel"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <img 
+              src={mediaUrls[currentImageIndex]} 
+              className="w-full h-full object-cover transition-opacity duration-300" 
+              style={{ filter: post.filter || undefined }}
+              alt="" 
+              crossOrigin="anonymous" 
+            />
+            
+            {mediaUrls.length > 1 && (
+              <>
+                {/* Carousel Indicators */}
+                <div className="absolute top-4 left-0 w-full flex justify-center gap-1.5 z-30 px-4">
+                  {mediaUrls.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-1 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-6' : 'bg-white/40 w-2'}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Text Overlay */}
         {post.text_overlay && (
@@ -470,7 +559,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           </div>
         )}
         
-        {!isPlaying && (
+        {!isPlaying && post.media_type === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
             <Play size={64} className="text-white opacity-60" fill="white" />
           </div>
@@ -744,10 +833,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         </div>
       )}
 
+      {/* Top Header Overlays */}
       <div className="absolute top-0 left-0 w-full p-5 pt-12 flex justify-end items-start bg-gradient-to-b from-black/70 to-transparent z-30 pointer-events-none">
-        <button onClick={onToggleMute} className="p-3 bg-black/30 backdrop-blur-2xl rounded-2xl text-white border border-white/10 pointer-events-auto hover:bg-black/50 transition-colors">
-          {isMuted ? <VolumeX size={20}/> : <Volume2 size={20}/>}
-        </button>
+        {post.media_type === 'video' && (
+          <button onClick={onToggleMute} className="p-3 bg-black/30 backdrop-blur-2xl rounded-2xl text-white border border-white/10 pointer-events-auto hover:bg-black/50 transition-colors">
+            {isMuted ? <VolumeX size={20}/> : <Volume2 size={20}/>}
+          </button>
+        )}
       </div>
     </div>
   );
