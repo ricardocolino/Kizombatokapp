@@ -131,6 +131,11 @@ if (hasTrim) {
         const audioData = await fetchFile(audioUrl);
         await ffmpeg.writeFile('dubbing.mp3', audioData);
         args.push('-i', 'dubbing.mp3');
+        
+         // APLICAR DELAY DE 100ms NO ÁUDIO
+  args.push('-af', 'adelay=100s|100s'); // Delay de 100ms em ambos os canais (estéreo)
+  
+  
       }
 
       // Mapeamento explícito de streams
