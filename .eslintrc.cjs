@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const globals = require("globals");
 const pluginJs = require("@eslint/js");
 const tseslint = require("@typescript-eslint/eslint-plugin");

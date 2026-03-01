@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { Grid, Lock, Bookmark, MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Heart, Calendar, MapPin } from 'lucide-react';
+import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
@@ -38,23 +38,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadAll();
-  }, [userId]);
-
-  useEffect(() => {
-    if (activeTab === 'liked') {
-      fetchLikedPosts();
-    }
-  }, [activeTab]);
-
-  const loadAll = async () => {
-    setLoading(true);
-    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus()]);
-    setLoading(false);
-  };
-
-  const fetchProfile = async () => {
+  const fetchProfile = React.useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     setProfile(data);
     if (data) {
@@ -66,9 +50,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         cover_url: data.cover_url || ''
       });
     }
-  };
+  }, [userId]);
 
-  const checkFollowStatus = async () => {
+  const checkFollowStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || isOwnProfile) return;
 
@@ -80,9 +64,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       .maybeSingle();
 
     setIsFollowing(!!data);
-  };
+  }, [userId, isOwnProfile]);
 
-  const fetchUserPosts = async (page = 0) => {
+  const fetchUserPosts = React.useCallback(async (page = 0) => {
     if (page === 0) {
       setPostsPage(0);
       setHasMorePosts(true);
@@ -110,9 +94,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
     
     if (page !== 0) setLoadingMore(false);
-  };
+  }, [userId]);
 
-  const fetchLikedPosts = async () => {
+  const fetchLikedPosts = React.useCallback(async () => {
     setTabLoading(true);
     try {
       const { data, error } = await supabase
@@ -131,9 +115,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     } finally {
       setTabLoading(false);
     }
-  };
+  }, [userId]);
 
-  const fetchStats = async () => {
+  const fetchStats = React.useCallback(async () => {
     const { count: followers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId);
     const { count: following } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
     
@@ -154,7 +138,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       following: following || 0, 
       likes: totalLikes 
     });
-  };
+  }, [userId]);
+
+  const loadAll = React.useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus()]);
+    setLoading(false);
+  }, [fetchProfile, fetchUserPosts, fetchStats, checkFollowStatus]);
+
+  useEffect(() => {
+    loadAll();
+  }, [userId, loadAll]);
+
+  useEffect(() => {
+    if (activeTab === 'liked') {
+      fetchLikedPosts();
+    }
+  }, [activeTab, fetchLikedPosts]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (activeTab !== 'posts' || !hasMorePosts || loadingMore) return;
@@ -231,8 +231,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
       await fetchProfile();
       setIsEditing(false);
-    } catch (err: any) {
-      setEditError(err.message || 'Erro ao atualizar o mambo do perfil.');
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Erro ao atualizar o mambo do perfil.');
     } finally {
       setSaving(false);
     }
@@ -283,8 +283,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       } else {
         setEditForm(prev => ({ ...prev, cover_url: data.publicUrl }));
       }
-    } catch (err: any) {
-      setEditError(err.message || 'Erro ao carregar a foto.');
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Erro ao carregar a foto.');
     } finally {
       setSaving(false);
       if (e.target) e.target.value = '';
@@ -426,7 +426,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'saved')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
             <span className={`text-[11px] font-black uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}`}>

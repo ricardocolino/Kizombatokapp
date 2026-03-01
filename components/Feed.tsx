@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Post } from '../types';
 import PostCard from './PostCard';
@@ -31,7 +32,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [displayLimit, setDisplayLimit] = useState(5);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
@@ -41,36 +42,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     });
   }, []);
 
-  useEffect(() => {
-    fetchPosts();
-    setDisplayLimit(5); // Reset limit when feed type or initial post changes
-  }, [initialPostId, feedType, user]);
-
-  // Intersection Observer for Infinite Scroll
-  useEffect(() => {
-    if (loading || displayLimit >= posts.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // Carregar mais cedo para evitar o "atraso" percebido
-          setDisplayLimit(prev => Math.min(prev + 5, posts.length));
-        }
-      },
-      { 
-        threshold: 0,
-        rootMargin: '100% 0px' // Gatilha quando o sentinel estiver a 1 tela de distância
-      }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [loading, displayLimit, posts.length]);
-
-  const fetchPosts = async () => {
+  const fetchPosts = React.useCallback(async () => {
     try {
       setLoading(true);
       
@@ -142,7 +114,36 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     } finally {
       setTimeout(() => setLoading(false), 800);
     }
-  };
+  }, [feedType, user, initialPostId]);
+
+  useEffect(() => {
+    fetchPosts();
+    setDisplayLimit(5); // Reset limit when feed type or initial post changes
+  }, [initialPostId, feedType, user, fetchPosts]);
+
+  // Intersection Observer for Infinite Scroll
+  useEffect(() => {
+    if (loading || displayLimit >= posts.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // Carregar mais cedo para evitar o "atraso" percebido
+          setDisplayLimit(prev => Math.min(prev + 5, posts.length));
+        }
+      },
+      { 
+        threshold: 0,
+        rootMargin: '100% 0px' // Gatilha quando o sentinel estiver a 1 tela de distância
+      }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, displayLimit, posts.length]);
 
   const toggleMute = () => {
     setIsMuted(!isMuted);

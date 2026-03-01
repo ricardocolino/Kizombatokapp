@@ -67,8 +67,8 @@ const Auth: React.FC = () => {
           await ensureProfileExists(data.user.id, email);
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro na autenticação');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ocorreu um erro na autenticação');
     } finally {
       setLoading(false);
     }

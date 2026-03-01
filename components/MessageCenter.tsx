@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
 import { Search, Heart, UserPlus, MessageSquare, Bell } from 'lucide-react';
 
 interface MessageCenterProps {
-  currentUser: any;
+  currentUser: User | null;
   onNavigateToPost: (postId: string) => void;
   onNavigateToProfile: (userId: string) => void;
 }
@@ -26,11 +27,8 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'Tudo' | 'Likes' | 'Comentários' | 'Seguidores'>('Tudo');
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = React.useCallback(async () => {
+    if (!currentUser) return;
     try {
       setLoading(true);
       // 1. Fetch Follows
@@ -87,7 +85,11 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -135,7 +137,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
           {['Tudo', 'Likes', 'Comentários', 'Seguidores'].map((f) => (
             <button 
               key={f} 
-              onClick={() => setFilter(f as any)}
+              onClick={() => setFilter(f as 'Tudo' | 'Likes' | 'Comentários' | 'Seguidores')}
               className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                 filter === f 
                 ? 'bg-white text-black border-white shadow-lg' 
@@ -195,7 +197,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                   </div>
                   {notif.content && (
                     <p className="text-[11px] text-zinc-500 mt-1.5 italic line-clamp-1 bg-zinc-900/50 p-2 rounded-lg border border-zinc-800/30">
-                      "{notif.content}"
+                      &quot;{notif.content}&quot;
                     </p>
                   )}
                 </div>

@@ -121,10 +121,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // -ss e -to ANTES de -i para seek rápido (input seeking)
       args.push('-i', 'input.mp4');
 
-if (hasTrim) {
-  args.push('-ss', String(trimStart));
-  args.push('-to', String(trimEnd));
-}
+      if (hasTrim) {
+        args.push('-ss', String(trimStart));
+        args.push('-to', String(trimEnd));
+      }
       // Áudio externo para dubbing — segundo input
       if (hasDubbingAudio) {
         const audioUrl = selectedSound!.audio_url || selectedSound!.media_url;
@@ -146,13 +146,13 @@ if (hasTrim) {
       // Se há filtro → tem de re-encodar com libx264
       // Se não há filtro → copia o stream original (evita artefactos)
       if (vfFilter || hasDubbingAudio || hasTrim) {
-  args.push('-c:v', 'libx264');
-  args.push('-preset', 'ultrafast');
-  args.push('-crf', '23');
-  args.push('-pix_fmt', 'yuv420p');
-} else {
-  args.push('-c:v', 'copy');
-}
+        args.push('-c:v', 'libx264');
+        args.push('-preset', 'ultrafast');
+        args.push('-crf', '23');
+        args.push('-pix_fmt', 'yuv420p');
+      } else {
+        args.push('-c:v', 'copy');
+      }
       // Codec de áudio
       if (hasDubbingAudio) {
         args.push('-c:a', 'aac');
@@ -1076,7 +1076,6 @@ if (hasTrim) {
                 onClick={isRecording ? stopRecording : () => {
                   if (mediaFiles.length > 0) {
                     stopCamera();
-                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
                   }
                 }} 
                 className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
@@ -1261,7 +1260,6 @@ if (hasTrim) {
                          <button 
                            onClick={(e) => {
                              e.stopPropagation();
-                             // Add bookmark logic if needed
                            }}
                            className="text-zinc-600 hover:text-white transition-colors"
                          >

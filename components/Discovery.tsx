@@ -269,7 +269,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
       {posts.length === 0 && !loading && (
         <div className="py-20 text-center text-zinc-600 px-10">
-           <p className="text-sm font-bold">Nenhum mambo encontrado para "{searchQuery}".</p>
+           <p className="text-sm font-bold">Nenhum mambo encontrado para &quot;{searchQuery}&quot;.</p>
            <p className="text-[10px] uppercase mt-2 tracking-widest">Tenta outra pesquisa ou explora as tendências!</p>
         </div>
       )}

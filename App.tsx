@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import Feed from './components/Feed';
 import ProfileView from './components/ProfileView';
@@ -9,7 +10,7 @@ import Discovery from './components/Discovery';
 import CreatePost from './components/CreatePost';
 import SoundDetail from './components/SoundDetail';
 import Auth from './components/Auth';
-import { Home, Search, PlusSquare, MessageCircle, User } from 'lucide-react';
+import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
 import { Post } from './types';
 
 export enum Tab {
@@ -23,7 +24,7 @@ export enum Tab {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [selectedSoundPost, setSelectedSoundPost] = useState<Post | null>(null);
@@ -116,7 +117,25 @@ const App: React.FC = () => {
     };
   }, [activeTab]);
 
-  
+  useEffect(() => {
+    if (activeTab !== Tab.CREATE) {
+      const cleanupHardware = async () => {
+        try {
+          if (typeof window !== 'undefined' && (window as { localStream?: MediaStream }).localStream) {
+            const stream = (window as { localStream?: MediaStream }).localStream as MediaStream;
+            stream.getTracks().forEach(track => {
+              track.stop();
+              track.enabled = false;
+            });
+            (window as { localStream?: MediaStream | null }).localStream = null;
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+      cleanupHardware();
+    }
+  }, [activeTab]);
 
   const handleNavigateToProfile = (userId: string) => {
     setViewProfileId(userId);
@@ -166,9 +185,10 @@ const App: React.FC = () => {
         return <CreatePost onCreated={() => { setSelectedSoundPost(null); setActiveTab(Tab.HOME); }} preSelectedSound={selectedSoundPost} />;
       case Tab.INBOX:
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
-      case Tab.PROFILE:
+      case Tab.PROFILE: {
         const targetId = viewProfileId || user?.id;
         return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;
+      }
       case Tab.SOUND_DETAIL:
         return selectedSoundPost ? <SoundDetail post={selectedSoundPost} onBack={() => setActiveTab(Tab.HOME)} onUseSound={handleUseSound} /> : null;
       default:
@@ -223,7 +243,7 @@ const App: React.FC = () => {
           onClick={() => { setViewProfileId(null); setSelectedSoundPost(null); setActiveTab(Tab.PROFILE); }}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600'}`}
         >
-          <User size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
+          <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
           <span className="text-[9px] font-black uppercase tracking-tighter">Perfil</span>
         </button>
       </nav>
