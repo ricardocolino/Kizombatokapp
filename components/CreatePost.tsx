@@ -327,7 +327,6 @@ if (hasTrim) {
   }, [previewUrls.length]);
 
   useEffect(() => {
-    // Timer para iniciar a câmera após o componente montar
     const initTimer = setTimeout(() => {
       startCamera();
     }, 500); 
@@ -339,9 +338,15 @@ if (hasTrim) {
       stopCamera();
       stopPreviewAudio();
       if (timerRef.current) clearInterval(timerRef.current);
+      // ✅ Para o áudio de dubbing ao sair do ecrã
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        playbackAudioRef.current = null;
+      }
     };
   }, [startCamera, stopCamera]);
-
+  
+  
   const toggleCamera = async () => {
     if (isRecording) return;
     if (Capacitor.isNativePlatform()) {
