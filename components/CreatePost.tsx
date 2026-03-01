@@ -351,8 +351,7 @@ if (hasTrim) {
     }
   };
 }, [startCamera, showCamera]);
-  
-  
+
   const toggleCamera = async () => {
     if (isRecording) return;
     if (Capacitor.isNativePlatform()) {
@@ -427,47 +426,39 @@ if (hasTrim) {
   const startActualRecording = async () => {
     chunksRef.current = [];
     
-  // Substitua o bloco acima por este
-if (Capacitor.isNativePlatform()) {
-  try {
-    setRecordedFacingMode(facingMode);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (selectedSound && !useOriginalAudio) {
+          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
+          audio.crossOrigin = "anonymous";
+          audio.volume = 1.0;
+          playbackAudioRef.current = audio;
+          await audio.play();
+        }
 
-    const isDubbing = !!selectedSound && !useOriginalAudio;
-    let audio: HTMLAudioElement | null = null;
+        setRecordedFacingMode(facingMode);
 
-    // Cria o áudio mas NÃO toca ainda
-    if (isDubbing) {
-      audio = new Audio(selectedSound!.audio_url || selectedSound!.media_url);
-      audio.crossOrigin = "anonymous";
-      audio.volume = 1.0;
-      audio.loop = true; // opcional, repetir se necessário
-      playbackAudioRef.current = audio;
+        const isDubbing = !!selectedSound && !useOriginalAudio;
+        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+
+        await CameraPreview.startRecordVideo({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          position: facingMode,
+          disableAudio: isDubbing
+        });
+        
+        setIsRecording(true);
+        setRecordingSeconds(0);
+        timerRef.current = window.setInterval(() => {
+          setRecordingSeconds(prev => prev + 1);
+        }, 1000);
+      } catch (err) {
+        console.error("Erro ao iniciar gravação nativa:", err);
+        setError("Erro ao iniciar gravação.");
+      }
+      return;
     }
-
-    // Inicia a gravação
-    await CameraPreview.startRecordVideo({
-      width: window.innerWidth,
-      height: window.innerHeight,
-      position: facingMode,
-      disableAudio: isDubbing
-    });
-
-    setIsRecording(true);
-    setRecordingSeconds(0);
-    timerRef.current = window.setInterval(() => setRecordingSeconds(prev => prev + 1), 1000);
-
-    // Só agora toca o áudio
-    if (isDubbing && audio) {
-      audio.currentTime = 0;
-      await audio.play();
-    }
-
-  } catch (err) {
-    console.error("Erro ao iniciar gravação nativa:", err);
-    setError("Erro ao iniciar gravação.");
-  }
-  return;
-}
 
     // Fallback for non-native (WebRTC already removed, but keeping structure)
     setError("Gravação não suportada nesta plataforma.");
@@ -837,7 +828,7 @@ if (Capacitor.isNativePlatform()) {
                 </div>
               )}
 
-            <button
+              <button
   onClick={async () => {
     // Para áudio de playback
     if (playbackAudioRef.current) {
