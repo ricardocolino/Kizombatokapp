@@ -234,20 +234,16 @@ if (hasTrim) {
   const isStartingRef = useRef(false);
 
   const stopCamera = React.useCallback(async () => {
-  if (Capacitor.isNativePlatform() && showCamera) {
-    try {
-      // Somente parar se estiver gravando ou câmera aberta
-      if (isRecording) {
-        await stopRecording();
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CameraPreview.stop();
+      } catch (e) {
+        console.error("Erro ao parar câmera nativa:", e);
       }
-      await CameraPreview.stop();
-    } catch (e) {
-      console.error("Erro ao parar câmera nativa:", e);
     }
-  }
-  setShowCamera(false);
-  setIsFlashOn(false);
-}, [isRecording, showCamera, stopRecording]);
+    setShowCamera(false);
+    setIsFlashOn(false);
+  }, []);
 
   const startCamera = React.useCallback(async () => {
     if (isStartingRef.current) return;
@@ -331,26 +327,20 @@ if (hasTrim) {
   }, [previewUrls.length]);
 
   useEffect(() => {
-  const initTimer = setTimeout(() => {
-    startCamera();
-  }, 500); 
-
-  fetchRandomSounds();
-  
-  return () => {
-    clearTimeout(initTimer);
-    stopPreviewAudio();
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      playbackAudioRef.current = null;
-    }
-    // ✅ Força parada segura da câmera ao desmontar
-    if (Capacitor.isNativePlatform() && showCamera) {
-      CameraPreview.stop().catch(() => {});
-    }
-  };
-}, [startCamera, showCamera]);
+    // Timer para iniciar a câmera após o componente montar
+    const initTimer = setTimeout(() => {
+      startCamera();
+    }, 500); 
+    
+    fetchRandomSounds();
+    
+    return () => {
+      clearTimeout(initTimer);
+      stopCamera();
+      stopPreviewAudio();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startCamera, stopCamera]);
 
   const toggleCamera = async () => {
     if (isRecording) return;
@@ -828,38 +818,9 @@ if (hasTrim) {
                 </div>
               )}
 
-              <button
-  onClick={async () => {
-    // Para áudio de playback
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-      playbackAudioRef.current = null;
-    }
-
-    // Revoke URLs
-    previewUrls.forEach(url => URL.revokeObjectURL(url));
-    setMediaFiles([]);
-    setPreviewUrls([]);
-    setError(null);
-
-    // Para a câmera com segurança
-    if (Capacitor.isNativePlatform() && showCamera) {
-      try {
-        if (isRecording) await stopRecording();
-        await CameraPreview.stop();
-      } catch (e) {
-        console.error("Erro ao parar câmera no cancel:", e);
-      }
-    }
-    setShowCamera(false);
-    setIsFlashOn(false);
-
-    startCamera(); // opcional: reinicia câmera frontal
-  }}
-  className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90"
->
-  <X size={20} />
-</button>
+              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
+                <X size={20} />
+              </button>
 
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
                 <button 
