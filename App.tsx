@@ -116,7 +116,25 @@ const App: React.FC = () => {
     };
   }, [activeTab]);
 
-  
+  useEffect(() => {
+    if (activeTab !== Tab.CREATE) {
+      const cleanupHardware = async () => {
+        try {
+          if (typeof window !== 'undefined' && (window as { localStream?: MediaStream }).localStream) {
+            const stream = (window as { localStream?: MediaStream }).localStream as MediaStream;
+            stream.getTracks().forEach(track => {
+              track.stop();
+              track.enabled = false;
+            });
+            (window as { localStream?: MediaStream | null }).localStream = null;
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+      cleanupHardware();
+    }
+  }, [activeTab]);
 
   const handleNavigateToProfile = (userId: string) => {
     setViewProfileId(userId);
