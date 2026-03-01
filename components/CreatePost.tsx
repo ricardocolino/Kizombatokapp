@@ -734,11 +734,9 @@ if (hasTrim) {
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
-    setFacingMode('user');
     startCamera();
-  }; 
-  
-  
+  };
+
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
