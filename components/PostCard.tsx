@@ -115,16 +115,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
     if (post.media_type === 'video' && videoRef.current && !videoError) {
       playPromise = videoRef.current.play();
-    }
-
-    const hasAudio = !!post.audio_url || (post.media_type === 'image' && !!post.sound_id);
-    if (hasAudio && audioRef.current) {
-      // Sync audio time with video time before playing
-      if (videoRef.current) {
-        audioRef.current.currentTime = videoRef.current.currentTime;
-      }
-      const audioPromise = audioRef.current.play();
-      if (!playPromise) playPromise = audioPromise;
+    } else if (post.media_type === 'image' && audioRef.current) {
+      playPromise = audioRef.current.play();
     } else if (post.media_type === 'image' && !playPromise) {
       // For images without sound, we still want to mark as playing for view count
       setIsPlaying(true);
@@ -143,7 +135,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         setIsPlaying(false);
       });
     }
-  }, [post.media_type, post.sound_id, post.audio_url, videoError, viewCounted, incrementView]);
+  }, [post.media_type, videoError, viewCounted, incrementView]);
 
   const fetchOriginalPost = React.useCallback(async () => {
     try {
@@ -222,11 +214,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   }, [post.id, videoError, post.sound_id, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
 
   useEffect(() => {
-    const currentAudioSource = post.audio_url || (post.media_type === 'image' ? (originalPost?.audio_url || originalPost?.media_url) : null);
-    if (isPlaying && currentAudioSource && audioRef.current) {
-      if (videoRef.current) {
-        audioRef.current.currentTime = videoRef.current.currentTime % (audioRef.current.duration || 1);
-      }
+    const isImageWithAudio = post.media_type === 'image' && (post.audio_url || originalPost?.audio_url || originalPost?.media_url);
+    if (isPlaying && isImageWithAudio && audioRef.current) {
       audioRef.current.play().catch(() => {});
     }
   }, [post.audio_url, post.media_type, originalPost?.audio_url, originalPost?.media_url, isPlaying]);
@@ -504,8 +493,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
-      {/* Audio for external sounds or images */}
-      {(post.audio_url || (post.media_type === 'image' && (originalPost?.audio_url || originalPost?.media_url))) && (
+      {/* Audio only for image posts with sound */}
+      {post.media_type === 'image' && (post.audio_url || originalPost?.audio_url || originalPost?.media_url) && (
         <audio 
           ref={audioRef} 
           src={post.audio_url || originalPost?.audio_url || originalPost?.media_url} 
@@ -523,50 +512,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
             className="w-full h-full object-cover"
             style={{ filter: post.filter || undefined }}
             loop
-            muted={isMuted || !!post.audio_url}
+            muted={isMuted}
             playsInline
             autoPlay
             preload="metadata"
             crossOrigin="anonymous"
             onError={() => setVideoError(true)}
             poster={post.thumbnail_url || undefined}
-            onPlay={() => {
-              if (post.audio_url && audioRef.current) {
-                audioRef.current.currentTime = videoRef.current?.currentTime || 0;
-                audioRef.current.play().catch(() => {});
-              }
-            }}
-            onPause={() => {
-              if (post.audio_url && audioRef.current) {
-                audioRef.current.pause();
-              }
-            }}
-            onSeeking={() => {
-              if (post.audio_url && audioRef.current && videoRef.current) {
-                audioRef.current.currentTime = videoRef.current.currentTime;
-              }
-            }}
-            onTimeUpdate={() => {
-              if (post.audio_url && audioRef.current && videoRef.current) {
-                const video = videoRef.current;
-                const audio = audioRef.current;
-
-                // Ensure audio is playing if video is playing and not muted
-                if (!video.paused && audio.paused && isPlaying && !isMuted) {
-                  audio.play().catch(() => {});
-                } else if (video.paused && !audio.paused) {
-                  audio.pause();
-                }
-
-                // Sync if they drift by more than 0.3 seconds
-                if (audio.duration) {
-                  const targetTime = video.currentTime % audio.duration;
-                  if (Math.abs(audio.currentTime - targetTime) > 0.3) {
-                    audio.currentTime = targetTime;
-                  }
-                }
-              }
-            }}
           />
         ) : (
           <div 
