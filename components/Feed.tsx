@@ -4,6 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Post } from '../types';
 import PostCard from './PostCard';
+import { appCache } from '../services/cache';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -46,6 +47,19 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     try {
       setLoading(true);
       
+      // GERAR CHAVE ÚNICA PARA ESTE FEED
+      const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}`;
+      
+      // VERIFICAR CACHE PRIMEIRO
+      const cachedPosts = appCache.get(cacheKey);
+      if (cachedPosts) {
+        console.log('📦 Usando posts do cache');
+        setPosts(cachedPosts);
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 Buscando posts do servidor');
       let query = supabase
         .from('posts')
         .select(`*, profiles (*)`)
@@ -109,6 +123,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       }
 
       setPosts([...firstFive, ...remaining]);
+      
+      // SALVAR NO CACHE
+      appCache.set(cacheKey, [...firstFive, ...remaining]);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {

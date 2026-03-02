@@ -12,6 +12,7 @@ import SoundDetail from './components/SoundDetail';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
 import { Post } from './types';
+import { appCache } from './services/cache';
 
 export enum Tab {
   HOME = 'home',
@@ -50,6 +51,7 @@ const App: React.FC = () => {
 
       // Se o evento for SIGNED_OUT ou a sessão for nula, resetamos para a HOME
       if (_event === 'SIGNED_OUT' || !currentUser) {
+        appCache.clear();
         setActiveTab(Tab.HOME);
         setViewProfileId(null);
         setSelectedSoundPost(null);

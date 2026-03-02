@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
 import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Eye, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { appCache } from '../services/cache';
 
 interface PostCardProps {
   post: Post;
@@ -49,6 +50,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const metadataFetchedRef = useRef(false);
 
   const handlePause = React.useCallback(() => {
     if (videoRef.current) {
@@ -75,26 +77,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     }
   }, [post.id, viewCounted]);
 
-  const handlePlay = React.useCallback(() => {
-    let playPromise: Promise<void> | null = null;
-
-    if (videoRef.current && !videoError) {
-      playPromise = videoRef.current.play();
-    }
-
-    if (playPromise) {
-      playPromise.then(() => {
-        setIsPlaying(true);
-        if (!viewCounted) {
-          incrementView();
-        }
-      }).catch((err) => {
-        console.error("Playback failed:", err);
-        setIsPlaying(false);
-      });
-    }
-  }, [videoError, viewCounted, incrementView]);
-
   const fetchOriginalPost = React.useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -116,16 +98,45 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
   const fetchMetadata = React.useCallback(async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user.id || 'guest';
+      
+      // CRIAR CHAVE ÚNICA PARA ESTE POST
+      const cacheKey = `post_metadata_${post.id}_${userId}`;
+      
+      // VERIFICAR CACHE
+      const cachedData = appCache.get(cacheKey);
+      if (cachedData) {
+        console.log(`📦 Post ${post.id}: usando cache`);
+        setLikesCount(cachedData.likesCount);
+        setCommentsCount(cachedData.commentsCount);
+        setLiked(cachedData.liked);
+        setIsFollowing(cachedData.isFollowing);
+        setIsOwnPost(cachedData.isOwnPost);
+        setFollowingList(cachedData.followingList || []);
+        return;
+      }
+
+      console.log(`🔄 Post ${post.id}: buscando do servidor`);
       const { count: reactionCount } = await supabase.from('reactions').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
       const { count: commentCount } = await supabase.from('comments').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-      setLikesCount(reactionCount || 0);
-      setCommentsCount(commentCount || 0);
+      
+      const newLikesCount = reactionCount || 0;
+      const newCommentsCount = commentCount || 0;
+      let newLiked = false;
+      let newIsFollowing = false;
+      let newIsOwnPost = false;
+      let newFollowingList: Profile[] = [];
 
-      const { data: { session } } = await supabase.auth.getSession();
+      setLikesCount(newLikesCount);
+      setCommentsCount(newCommentsCount);
+
       if (session) {
-        setIsOwnPost(session.user.id === post.user_id);
+        newIsOwnPost = session.user.id === post.user_id;
+        setIsOwnPost(newIsOwnPost);
         const { data: likeData } = await supabase.from('reactions').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle();
-        setLiked(!!likeData);
+        newLiked = !!likeData;
+        setLiked(newLiked);
 
         const { data: followData } = await supabase
           .from('follows')
@@ -133,7 +144,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           .eq('follower_id', session.user.id)
           .eq('following_id', post.user_id)
           .maybeSingle();
-        setIsFollowing(!!followData);
+        newIsFollowing = !!followData;
+        setIsFollowing(newIsFollowing);
 
         const { data: follows } = await supabase
           .from('follows')
@@ -141,22 +153,54 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
           .eq('follower_id', session.user.id);
         
         if (follows) {
-          setFollowingList(follows.map((f: { profiles: Profile }) => f.profiles));
+          newFollowingList = follows.map((f: { profiles: Profile }) => f.profiles);
+          setFollowingList(newFollowingList);
         }
       }
+
+      // SALVAR NO CACHE
+      appCache.set(cacheKey, {
+        likesCount: newLikesCount,
+        commentsCount: newCommentsCount,
+        liked: newLiked,
+        isFollowing: newIsFollowing,
+        isOwnPost: newIsOwnPost,
+        followingList: newFollowingList
+      });
     } catch (e) {
       console.error("Erro ao carregar metadados:", e);
     }
   }, [post.id, post.user_id]);
 
+  const handlePlay = React.useCallback(() => {
+    let playPromise: Promise<void> | null = null;
+
+    if (videoRef.current && !videoError) {
+      playPromise = videoRef.current.play();
+    }
+
+    if (playPromise) {
+      playPromise.then(() => {
+        setIsPlaying(true);
+        if (!viewCounted) {
+          incrementView();
+        }
+        // Lazy Loading Metadata: Só busca após o vídeo começar a tocar
+        if (!metadataFetchedRef.current) {
+          metadataFetchedRef.current = true;
+          fetchMetadata();
+          if (post.sound_id) {
+            fetchOriginalPost();
+          }
+        }
+      }).catch((err) => {
+        console.error("Playback failed:", err);
+        setIsPlaying(false);
+      });
+    }
+  }, [videoError, viewCounted, incrementView, fetchMetadata, fetchOriginalPost, post.sound_id]);
+
   useEffect(() => {
-    setTimeout(() => {
-      fetchMetadata();
-      if (post.sound_id) {
-        fetchOriginalPost();
-      }
-    }, 0);
-    
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -169,9 +213,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
     return () => observerRef.current?.disconnect();
-  }, [post.id, post.sound_id, videoError, fetchMetadata, fetchOriginalPost, handlePlay, handlePause]);
+  }, [handlePlay, handlePause]);
 
   const fetchComments = async () => {
+    const cacheKey = `post_comments_${post.id}`;
+    
+    // VERIFICAR CACHE
+    const cachedComments = appCache.get(cacheKey);
+    if (cachedComments) {
+      console.log(`📦 Comentários do post ${post.id}: usando cache`);
+      setComments(cachedComments);
+      return;
+    }
+
+    console.log(`🔄 Comentários do post ${post.id}: buscando do servidor`);
     const { data: { session } } = await supabase.auth.getSession();
     const { data } = await supabase.from('comments').select('*, profiles(*)').eq('post_id', post.id).order('created_at', { ascending: false });
     
@@ -186,6 +241,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         return { ...c, likes_count: count || 0, liked_by_me: likedByMe };
       }));
       setComments(commentsWithMetadata as EnhancedComment[]);
+      
+      // SALVAR NO CACHE
+      appCache.set(cacheKey, commentsWithMetadata);
     }
   };
 
@@ -228,6 +286,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       onRequireAuth?.();
       return;
     }
+
+    // INVALIDAR CACHE DESTE POST E DO FEED
+    appCache.invalidate(`post_metadata_${post.id}_${session.user.id}`);
+    // Invalida o feed para que as contagens de likes/comentários sejam atualizadas se o usuário voltar
+    // (Nota: isso pode ser agressivo, mas garante consistência)
+    appCache.clear(); // Limpa tudo para garantir que o feed reflita as mudanças
 
     if (liked) {
       await supabase.from('reactions').delete().eq('post_id', post.id).eq('user_id', session.user.id);
@@ -280,6 +344,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     if (!error) {
       setNewComment('');
       setReplyingTo(null);
+      
+      // INVALIDAR COMENTÁRIOS E METADADOS
+      appCache.invalidate(`post_comments_${post.id}`);
+      appCache.invalidate(`post_metadata_${post.id}_${session.user.id}`);
+      appCache.clear(); // Limpa tudo para garantir consistência no feed
+      
       fetchComments();
       setCommentsCount(prev => prev + 1);
     }
