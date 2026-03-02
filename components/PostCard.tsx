@@ -4,14 +4,21 @@ import { Post, Comment, Profile } from '../types';
 import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Eye, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
+import { PostMetadata } from './Feed';
 
 interface PostCardProps {
   post: Post;
+  /** Metadados pré-calculados pelo Feed (likes, comentários, follow, etc.) */
+  metadata?: PostMetadata;
+  /** Lista de utilizadores que o user segue (para o drawer de partilha) */
+  followingList?: Profile[];
   onNavigateToProfile: (userId: string) => void;
   onNavigateToSound: (post: Post) => void;
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
+  /** Callback para atualizar o metadataMap no Feed sem re-fetch */
+  onUpdateMetadata?: (postId: string, patch: Partial<PostMetadata>) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -20,12 +27,17 @@ type EnhancedComment = Comment & {
   profiles?: Profile;
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNavigateToSound, isMuted, onToggleMute, onRequireAuth }) => {
-  const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
-  const [commentsCount, setCommentsCount] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isOwnPost, setIsOwnPost] = useState(false);
+const PostCard: React.FC<PostCardProps> = ({
+  post, metadata, followingList: followingListProp = [],
+  onNavigateToProfile, onNavigateToSound,
+  isMuted, onToggleMute, onRequireAuth, onUpdateMetadata
+}) => {
+  // ── Estado local inicializado a partir dos metadados do Feed ──────────────
+  const [liked, setLiked] = useState(metadata?.liked ?? false);
+  const [likesCount, setLikesCount] = useState(metadata?.likesCount ?? 0);
+  const [commentsCount, setCommentsCount] = useState(metadata?.commentsCount ?? 0);
+  const [isFollowing, setIsFollowing] = useState(metadata?.isFollowing ?? false);
+  const [isOwnPost] = useState(metadata?.isOwnPost ?? false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
@@ -44,13 +56,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     return false;
   });
   const [currentViews, setCurrentViews] = useState(post.views || 0);
-  const [followingList, setFollowingList] = useState<Profile[]>([]);
+  // Lista de quem o utilizador segue vem do Feed, não é buscada aqui
+  const followingList = followingListProp;
+
+  // Sincroniza o estado local quando os metadados do Feed chegam (async)
+  useEffect(() => {
+    if (metadata) {
+      setLiked(metadata.liked);
+      setLikesCount(metadata.likesCount);
+      setCommentsCount(metadata.commentsCount);
+      setIsFollowing(metadata.isFollowing);
+    }
+  }, [metadata]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const metadataFetchedRef = useRef(false);
+  // metadataFetchedRef removido — metadados vêm do Feed via props
 
   const handlePause = React.useCallback(() => {
     if (videoRef.current) {
@@ -96,81 +119,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
     }
   }, [post.sound_id]);
 
-  const fetchMetadata = React.useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user.id || 'guest';
-      
-      // CRIAR CHAVE ÚNICA PARA ESTE POST
-      const cacheKey = `post_metadata_${post.id}_${userId}`;
-      
-      // VERIFICAR CACHE
-      const cachedData = appCache.get(cacheKey);
-      if (cachedData) {
-        console.log(`📦 Post ${post.id}: usando cache`);
-        setLikesCount(cachedData.likesCount);
-        setCommentsCount(cachedData.commentsCount);
-        setLiked(cachedData.liked);
-        setIsFollowing(cachedData.isFollowing);
-        setIsOwnPost(cachedData.isOwnPost);
-        setFollowingList(cachedData.followingList || []);
-        return;
-      }
-
-      console.log(`🔄 Post ${post.id}: buscando do servidor`);
-      const { count: reactionCount } = await supabase.from('reactions').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-      const { count: commentCount } = await supabase.from('comments').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-      
-      const newLikesCount = reactionCount || 0;
-      const newCommentsCount = commentCount || 0;
-      let newLiked = false;
-      let newIsFollowing = false;
-      let newIsOwnPost = false;
-      let newFollowingList: Profile[] = [];
-
-      setLikesCount(newLikesCount);
-      setCommentsCount(newCommentsCount);
-
-      if (session) {
-        newIsOwnPost = session.user.id === post.user_id;
-        setIsOwnPost(newIsOwnPost);
-        const { data: likeData } = await supabase.from('reactions').select('*').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle();
-        newLiked = !!likeData;
-        setLiked(newLiked);
-
-        const { data: followData } = await supabase
-          .from('follows')
-          .select('*')
-          .eq('follower_id', session.user.id)
-          .eq('following_id', post.user_id)
-          .maybeSingle();
-        newIsFollowing = !!followData;
-        setIsFollowing(newIsFollowing);
-
-        const { data: follows } = await supabase
-          .from('follows')
-          .select('following_id, profiles:following_id(*)')
-          .eq('follower_id', session.user.id);
-        
-        if (follows) {
-          newFollowingList = follows.map((f: { profiles: Profile }) => f.profiles);
-          setFollowingList(newFollowingList);
-        }
-      }
-
-      // SALVAR NO CACHE
-      appCache.set(cacheKey, {
-        likesCount: newLikesCount,
-        commentsCount: newCommentsCount,
-        liked: newLiked,
-        isFollowing: newIsFollowing,
-        isOwnPost: newIsOwnPost,
-        followingList: newFollowingList
-      });
-    } catch (e) {
-      console.error("Erro ao carregar metadados:", e);
-    }
-  }, [post.id, post.user_id]);
+  // fetchMetadata removido — metadados chegam via prop `metadata` do Feed
 
   const handlePlay = React.useCallback(() => {
     let playPromise: Promise<void> | null = null;
@@ -185,20 +134,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
         if (!viewCounted) {
           incrementView();
         }
-        // Lazy Loading Metadata: Só busca após o vídeo começar a tocar
-        if (!metadataFetchedRef.current) {
-          metadataFetchedRef.current = true;
-          fetchMetadata();
-          if (post.sound_id) {
-            fetchOriginalPost();
-          }
+        // Buscar post original do som (só uma vez, se existir)
+        if (post.sound_id && !originalPost) {
+          fetchOriginalPost();
         }
       }).catch((err) => {
         console.error("Playback failed:", err);
         setIsPlaying(false);
       });
     }
-  }, [videoError, viewCounted, incrementView, fetchMetadata, fetchOriginalPost, post.sound_id]);
+  }, [videoError, viewCounted, incrementView, fetchOriginalPost, post.sound_id, originalPost]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -287,20 +232,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       return;
     }
 
-    // INVALIDAR CACHE DESTE POST E DO FEED
-    appCache.invalidate(`post_metadata_${post.id}_${session.user.id}`);
-    // Invalida o feed para que as contagens de likes/comentários sejam atualizadas se o usuário voltar
-    // (Nota: isso pode ser agressivo, mas garante consistência)
-    appCache.clear(); // Limpa tudo para garantir que o feed reflita as mudanças
+    const newLiked = !liked;
+    const newCount = newLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
 
-    if (liked) {
+    // Atualizar estado local imediatamente (optimistic update)
+    setLiked(newLiked);
+    setLikesCount(newCount);
+
+    // Propagar para o Feed para manter o mapa atualizado
+    onUpdateMetadata?.(post.id, { liked: newLiked, likesCount: newCount });
+
+    if (!newLiked) {
       await supabase.from('reactions').delete().eq('post_id', post.id).eq('user_id', session.user.id);
-      setLikesCount(prev => Math.max(0, prev - 1));
     } else {
       await supabase.from('reactions').insert({ post_id: post.id, user_id: session.user.id, type: 'like' });
-      setLikesCount(prev => prev + 1);
     }
-    setLiked(!liked);
   };
 
   const handleFollow = async (e: React.MouseEvent) => {
@@ -345,13 +291,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onNavigateToProfile, onNaviga
       setNewComment('');
       setReplyingTo(null);
       
-      // INVALIDAR COMENTÁRIOS E METADADOS
+      // Invalida apenas os comentários deste post
       appCache.invalidate(`post_comments_${post.id}`);
-      appCache.invalidate(`post_metadata_${post.id}_${session.user.id}`);
-      appCache.clear(); // Limpa tudo para garantir consistência no feed
+      
+      // Atualiza contagem localmente e propaga ao Feed
+      const newCount = commentsCount + 1;
+      setCommentsCount(newCount);
+      onUpdateMetadata?.(post.id, { commentsCount: newCount });
       
       fetchComments();
-      setCommentsCount(prev => prev + 1);
     }
   };
 
