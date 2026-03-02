@@ -8,17 +8,15 @@ import { PostMetadata } from './Feed';
 
 interface PostCardProps {
   post: Post;
-  /** Metadados pré-calculados pelo Feed (likes, comentários, follow, etc.) */
-  metadata?: PostMetadata;
-  /** Lista de utilizadores que o user segue (para o drawer de partilha) */
-  followingList?: Profile[];
+  metadata: PostMetadata;
+  followingList: Profile[];
+  originalSoundData?: { post: Post, profile: Profile };
+  onUpdateMetadata: (postId: string, updates: Partial<PostMetadata>) => void;
   onNavigateToProfile: (userId: string) => void;
   onNavigateToSound: (post: Post) => void;
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
-  /** Callback para atualizar o metadataMap no Feed sem re-fetch */
-  onUpdateMetadata?: (postId: string, patch: Partial<PostMetadata>) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -27,17 +25,18 @@ type EnhancedComment = Comment & {
   profiles?: Profile;
 };
 
-const PostCard: React.FC<PostCardProps> = ({
-  post, metadata, followingList: followingListProp = [],
-  onNavigateToProfile, onNavigateToSound,
-  isMuted, onToggleMute, onRequireAuth, onUpdateMetadata
+const PostCard: React.FC<PostCardProps> = ({ 
+  post, 
+  metadata, 
+  followingList, 
+  originalSoundData,
+  onUpdateMetadata,
+  onNavigateToProfile, 
+  onNavigateToSound, 
+  isMuted, 
+  onToggleMute, 
+  onRequireAuth 
 }) => {
-  // ── Estado local inicializado a partir dos metadados do Feed ──────────────
-  const [liked, setLiked] = useState(metadata?.liked ?? false);
-  const [likesCount, setLikesCount] = useState(metadata?.likesCount ?? 0);
-  const [commentsCount, setCommentsCount] = useState(metadata?.commentsCount ?? 0);
-  const [isFollowing, setIsFollowing] = useState(metadata?.isFollowing ?? false);
-  const [isOwnPost] = useState(metadata?.isOwnPost ?? false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
 
@@ -47,8 +46,6 @@ const PostCard: React.FC<PostCardProps> = ({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
-  const [originalPost, setOriginalPost] = useState<Post | null>(null);
-  const [originalProfile, setOriginalProfile] = useState<Profile | null>(null);
   const [viewCounted, setViewCounted] = useState(() => {
     if (typeof window !== 'undefined') {
       return !!localStorage.getItem(`viewed_${post.id}`);
@@ -56,24 +53,11 @@ const PostCard: React.FC<PostCardProps> = ({
     return false;
   });
   const [currentViews, setCurrentViews] = useState(post.views || 0);
-  // Lista de quem o utilizador segue vem do Feed, não é buscada aqui
-  const followingList = followingListProp;
-
-  // Sincroniza o estado local quando os metadados do Feed chegam (async)
-  useEffect(() => {
-    if (metadata) {
-      setLiked(metadata.liked);
-      setLikesCount(metadata.likesCount);
-      setCommentsCount(metadata.commentsCount);
-      setIsFollowing(metadata.isFollowing);
-    }
-  }, [metadata]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // metadataFetchedRef removido — metadados vêm do Feed via props
 
   const handlePause = React.useCallback(() => {
     if (videoRef.current) {
@@ -100,27 +84,6 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   }, [post.id, viewCounted]);
 
-  const fetchOriginalPost = React.useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*, profiles(*)')
-        .eq('id', post.sound_id)
-        .maybeSingle();
-      
-      if (data && !error) {
-        setOriginalPost(data as Post);
-        if (data.profiles) {
-          setOriginalProfile(data.profiles as Profile);
-        }
-      }
-    } catch (e) {
-      console.error("Erro ao carregar post original do som:", e);
-    }
-  }, [post.sound_id]);
-
-  // fetchMetadata removido — metadados chegam via prop `metadata` do Feed
-
   const handlePlay = React.useCallback(() => {
     let playPromise: Promise<void> | null = null;
 
@@ -134,16 +97,12 @@ const PostCard: React.FC<PostCardProps> = ({
         if (!viewCounted) {
           incrementView();
         }
-        // Buscar post original do som (só uma vez, se existir)
-        if (post.sound_id && !originalPost) {
-          fetchOriginalPost();
-        }
       }).catch((err) => {
         console.error("Playback failed:", err);
         setIsPlaying(false);
       });
     }
-  }, [videoError, viewCounted, incrementView, fetchOriginalPost, post.sound_id, originalPost]);
+  }, [videoError, viewCounted, incrementView]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -232,17 +191,16 @@ const PostCard: React.FC<PostCardProps> = ({
       return;
     }
 
-    const newLiked = !liked;
-    const newCount = newLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
+    // Optimistic Update
+    const newLiked = !metadata.liked;
+    const newLikesCount = metadata.likesCount + (newLiked ? 1 : -1);
+    
+    onUpdateMetadata(post.id, { 
+      liked: newLiked, 
+      likesCount: newLikesCount 
+    });
 
-    // Atualizar estado local imediatamente (optimistic update)
-    setLiked(newLiked);
-    setLikesCount(newCount);
-
-    // Propagar para o Feed para manter o mapa atualizado
-    onUpdateMetadata?.(post.id, { liked: newLiked, likesCount: newCount });
-
-    if (!newLiked) {
+    if (metadata.liked) {
       await supabase.from('reactions').delete().eq('post_id', post.id).eq('user_id', session.user.id);
     } else {
       await supabase.from('reactions').insert({ post_id: post.id, user_id: session.user.id, type: 'like' });
@@ -256,14 +214,19 @@ const PostCard: React.FC<PostCardProps> = ({
       onRequireAuth?.();
       return;
     }
-    if (isOwnPost) return;
+    if (metadata.isOwnPost) return;
+
+    // Optimistic Update
+    onUpdateMetadata(post.id, { isFollowing: true });
 
     const { error } = await supabase.from('follows').insert({
       follower_id: session.user.id,
       following_id: post.user_id
     });
 
-    if (!error) setIsFollowing(true);
+    if (error) {
+      onUpdateMetadata(post.id, { isFollowing: false });
+    }
   };
 
   const handleReply = (comment: EnhancedComment) => {
@@ -291,13 +254,13 @@ const PostCard: React.FC<PostCardProps> = ({
       setNewComment('');
       setReplyingTo(null);
       
-      // Invalida apenas os comentários deste post
+      // INVALIDAR COMENTÁRIOS NO CACHE
       appCache.invalidate(`post_comments_${post.id}`);
       
-      // Atualiza contagem localmente e propaga ao Feed
-      const newCount = commentsCount + 1;
-      setCommentsCount(newCount);
-      onUpdateMetadata?.(post.id, { commentsCount: newCount });
+      // Optimistic Update do contador
+      onUpdateMetadata(post.id, { 
+        commentsCount: metadata.commentsCount + 1 
+      });
       
       fetchComments();
     }
@@ -453,11 +416,11 @@ const PostCard: React.FC<PostCardProps> = ({
   const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
 
   // Music avatar logic - use the original sound owner profile if sound_id exists
-  const musicProfile = originalProfile || post.profiles;
+  const musicProfile = originalSoundData?.profile || post.profiles;
 
   // Helper to navigate to the correct sound (original or current)
   const handleSoundClick = () => {
-    onNavigateToSound(originalPost || post);
+    onNavigateToSound(originalSoundData?.post || post);
   };
 
   return (
@@ -508,7 +471,7 @@ const PostCard: React.FC<PostCardProps> = ({
                <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
              )}
           </div>
-          {!isFollowing && !isOwnPost && (
+          {!metadata.isFollowing && !metadata.isOwnPost && (
             <button 
               onClick={handleFollow}
               className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
@@ -520,16 +483,16 @@ const PostCard: React.FC<PostCardProps> = ({
 
         <button onClick={toggleLike} className="flex flex-col items-center group">
           <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-            <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+            <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
           </div>
-          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{likesCount}</span>
+          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
         </button>
 
         <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
           <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
             <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
           </div>
-          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{commentsCount}</span>
+          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
         </button>
 
         <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
@@ -596,7 +559,7 @@ const PostCard: React.FC<PostCardProps> = ({
             <div className="flex items-center justify-between p-5 border-b border-zinc-900/50">
                <div className="flex flex-col">
                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Comentários</span>
-                 <span className="text-sm font-black text-white tracking-tighter">{commentsCount} Mambos</span>
+                 <span className="text-sm font-black text-white tracking-tighter">{metadata.commentsCount} Mambos</span>
                </div>
                <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors"><X size={20}/></button>
             </div>
