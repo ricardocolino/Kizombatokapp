@@ -338,6 +338,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       clearTimeout(initTimer);
       stopCamera();
       stopPreviewAudio();
+      if (playbackAudioRef.current) {
+        playbackAudioRef.current.pause();
+        playbackAudioRef.current = null;
+      }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [startCamera, stopCamera]);
@@ -418,25 +422,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     if (Capacitor.isNativePlatform()) {
       try {
-        if (selectedSound && !useOriginalAudio) {
-          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.crossOrigin = "anonymous";
-          audio.volume = 1.0;
-          playbackAudioRef.current = audio;
-          await audio.play();
-        }
-
         setRecordedFacingMode(facingMode);
-
         const isDubbing = !!selectedSound && !useOriginalAudio;
-        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
-
-        await CameraPreview.startRecordVideo({
+        
+        // Iniciar gravação de vídeo
+        const videoPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
           disableAudio: isDubbing
         });
+
+        // Iniciar áudio de dublagem imediatamente sem travar o vídeo
+        if (isDubbing && selectedSound) {
+          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
+          audio.crossOrigin = "anonymous";
+          audio.volume = 1.0;
+          playbackAudioRef.current = audio;
+          audio.play().catch(err => console.error("Erro ao tocar áudio na gravação:", err));
+        }
+
+        await videoPromise;
         
         setIsRecording(true);
         setRecordingSeconds(0);
@@ -576,6 +582,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
+    
+    // Parar áudio antes de começar o upload
+    if (playbackAudioRef.current) {
+      playbackAudioRef.current.pause();
+    }
+    
     setUploading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -734,6 +746,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
+    
+    // Resetar para câmera frontal e desligar flash
+    setFacingMode('user');
+    setIsFlashOn(false);
+    
     startCamera();
   };
 
