@@ -454,7 +454,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       </div>
 
       {/* Sidebar Controls */}
-      <div className="absolute right-2 sm:right-3 bottom-20 sm:bottom-10 flex flex-col gap-3 sm:gap-5 items-center z-30">
+      <div className="absolute right-2 sm:right-3 bottom-12 sm:bottom-6 flex flex-col gap-3 sm:gap-5 items-center z-30">
         <div className="relative mb-1 sm:mb-2">
           <div 
             onClick={() => onNavigateToProfile(post.user_id)}
@@ -504,19 +504,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{currentViews}</span>
         </div>
 
-        {/* Spinning Music Avatar */}
+        {/* Music Avatar Icon */}
         <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
-           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl animate-[spin_4s_linear_infinite]">
+           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
               {musicProfile?.avatar_url ? (
-                <img src={musicProfile.avatar_url} className="w-[60%] h-[60%] rounded-full object-cover border border-zinc-800" />
+                <img src={musicProfile.avatar_url} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                   <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
                 </div>
               )}
-           </div>
-           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-             <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-zinc-800 rounded-full shadow-inner" />
            </div>
         </div>
       </div>
@@ -535,15 +532,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
           {post.content}
         </p>
-        <div 
-          onClick={handleSoundClick}
-          className="flex items-center gap-2 mt-3 sm:mt-4 bg-white/10 backdrop-blur-xl w-fit px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/20 pointer-events-auto group cursor-pointer hover:bg-white/20 transition-all"
-        >
-          <Music2 size={10} className="sm:w-[12px] sm:h-[12px] text-white animate-pulse" />
-          <span className="text-[9px] sm:text-[10px] text-white font-black uppercase tracking-widest overflow-hidden whitespace-nowrap max-w-[120px] sm:max-w-[150px]">
-            Som Original - {musicProfile?.name || musicProfile?.username}
-          </span>
-        </div>
       </div>
 
       {/* Professional Comments Drawer */}
