@@ -43,7 +43,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
   const [displayLimit, setDisplayLimit] = useState(5);
-  const [page, setPage] = useState(0);
+  const pageRef = React.useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
@@ -152,7 +152,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     try {
       if (!isNextPage) setLoading(true);
       
-      const currentPage = isNextPage ? page + 1 : 0;
+      const currentPage = isNextPage ? pageRef.current + 1 : 0;
+      pageRef.current = currentPage;
       
       // GERAR CHAVE ÚNICA PARA ESTE FEED (Apenas para a primeira página)
       const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}`;
@@ -165,7 +166,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
           setPosts(cachedPosts);
           fetchBatchMetadata(cachedPosts);
           setLoading(false);
-          setPage(0);
           return;
         }
       }
@@ -181,7 +181,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         .range(from, to);
 
       if (feedType === 'following' && user) {
-        // Buscar IDs de quem o utilizador segue
         const { data: follows } = await supabase
           .from('follows')
           .select('following_id')
@@ -191,7 +190,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         if (followingIds.length > 0) {
           query = query.in('user_id', followingIds);
         } else {
-          // Se não segue ninguém, retorna vazio ou sugere algo
           setPosts([]);
           setLoading(false);
           return;
@@ -199,13 +197,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       
       let rawPosts = data || [];
       setHasMore(rawPosts.length === PAGE_SIZE);
 
-      // Lógica para ordenar por "Mais Dublados" (Apenas se for a primeira página ou feed global)
       let sortedPosts = [...rawPosts];
       if (currentPage === 0) {
         const dubbingCounts: Record<string, number> = {};
@@ -222,7 +218,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
 
-        // Se houver um ID inicial vindo da Pesquisa/Explorar, coloca-o no topo
         if (initialPostId) {
           const targetPost = sortedPosts.find(p => p.id === initialPostId);
           if (targetPost) {
@@ -230,10 +225,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
           }
         }
 
-        // Lógica de Aleatoriedade: Manter os primeiros 5 (ou o inicial) e baralhar o resto
         const firstFive = sortedPosts.slice(0, 5);
         const remaining = sortedPosts.slice(5);
-        
         for (let i = remaining.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
@@ -241,23 +234,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         sortedPosts = [...firstFive, ...remaining];
       }
 
-      const finalPosts = isNextPage ? [...posts, ...sortedPosts] : sortedPosts;
-      setPosts(finalPosts);
-      setPage(currentPage);
-      
-      // BUSCAR METADADOS EM LOTE
+      // BUSCAR METADADOS EM LOTE (Apenas para os novos posts)
       fetchBatchMetadata(sortedPosts);
+
+      setPosts(prevPosts => isNextPage ? [...prevPosts, ...sortedPosts] : sortedPosts);
       
-      // SALVAR NO CACHE (Apenas a primeira página para não sobrecarregar)
       if (currentPage === 0) {
-        appCache.set(cacheKey, finalPosts);
+        appCache.set(cacheKey, sortedPosts);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
       if (!isNextPage) setTimeout(() => setLoading(false), 800);
     }
-  }, [feedType, user, initialPostId, fetchBatchMetadata, page, posts]);
+  }, [feedType, user, initialPostId, fetchBatchMetadata]);
 
   useEffect(() => {
     fetchPosts();

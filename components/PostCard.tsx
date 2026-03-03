@@ -1,4 +1,5 @@
 
+/* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
 import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Eye, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
@@ -25,7 +26,7 @@ type EnhancedComment = Comment & {
   profiles?: Profile;
 };
 
-const PostCard: React.FC<PostCardProps> = ({ 
+const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({ 
   post, 
   metadata, 
   followingList, 
@@ -36,8 +37,8 @@ const PostCard: React.FC<PostCardProps> = ({
   isMuted, 
   onToggleMute, 
   onRequireAuth 
-}) => {
-  const [isPlaying, setIsPlaying] = useState(true);
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
@@ -46,12 +47,9 @@ const PostCard: React.FC<PostCardProps> = ({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
-  const [viewCounted, setViewCounted] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !!localStorage.getItem(`viewed_${post.id}`);
-    }
-    return false;
-  });
+  
+  // Usar ref para viewCounted para evitar re-renderizações e re-criação de funções
+  const viewCountedRef = useRef<boolean>(!!(typeof window !== 'undefined' && localStorage.getItem(`viewed_${post.id}`)));
   const [currentViews, setCurrentViews] = useState(post.views || 0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,42 +65,39 @@ const PostCard: React.FC<PostCardProps> = ({
   }, []);
 
   const incrementView = React.useCallback(async () => {
-    if (viewCounted) return;
+    if (viewCountedRef.current) return;
     
     if (localStorage.getItem(`viewed_${post.id}`)) {
-      setViewCounted(true);
+      viewCountedRef.current = true;
       return;
     }
 
     try {
       await supabase.rpc('increment_post_views', { target_post_id: post.id });
       localStorage.setItem(`viewed_${post.id}`, 'true');
-      setViewCounted(true);
+      viewCountedRef.current = true;
       setCurrentViews(prev => prev + 1);
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
     }
-  }, [post.id, viewCounted]);
+  }, [post.id]);
 
   const handlePlay = React.useCallback(() => {
-    let playPromise: Promise<void> | null = null;
-
     if (videoRef.current && !videoError) {
-      playPromise = videoRef.current.play();
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          setIsPlaying(true);
+          if (!viewCountedRef.current) {
+            incrementView();
+          }
+        }).catch((err) => {
+          console.error("Playback failed:", err);
+          setIsPlaying(false);
+        });
+      }
     }
-
-    if (playPromise) {
-      playPromise.then(() => {
-        setIsPlaying(true);
-        if (!viewCounted) {
-          incrementView();
-        }
-      }).catch((err) => {
-        console.error("Playback failed:", err);
-        setIsPlaying(false);
-      });
-    }
-  }, [videoError, viewCounted, incrementView]);
+  }, [videoError, incrementView]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -732,6 +727,6 @@ const PostCard: React.FC<PostCardProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default PostCard;
