@@ -146,10 +146,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Se há filtro → tem de re-encodar com libx264
       // Se não há filtro → copia o stream original (evita artefactos)
       if (vfFilter || hasDubbingAudio || hasTrim) {
+        if (vfFilter) {
+          args.push('-vf', vfFilter);
+        }
         args.push('-c:v', 'libx264');
-        args.push('-preset', 'ultrafast');
-        args.push('-crf', '23');
+        args.push('-preset', 'faster'); // Melhor compressão que ultrafast
+        args.push('-crf', '28'); // Equilíbrio ideal entre peso e qualidade para web
+        args.push('-maxrate', '1.5M'); // Limita o bitrate para evitar "engasgos"
+        args.push('-bufsize', '3M');
         args.push('-pix_fmt', 'yuv420p');
+        args.push('-profile:v', 'baseline', '-level', '3.0'); // Máxima compatibilidade
       } else {
         args.push('-c:v', 'copy');
       }
