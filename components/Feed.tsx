@@ -42,7 +42,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   const [isMuted, setIsMuted] = useState(true);
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
-  const [displayLimit, setDisplayLimit] = useState(5);
+  const [displayLimit, setDisplayLimit] = useState(20);
   const pageRef = React.useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
@@ -68,19 +68,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user.id;
 
-      // 1. Buscar contagens de reações e comentários
-      // Nota: Supabase não permite count agrupado facilmente em uma query sem RPC
-      // Mas podemos buscar as tabelas filtradas e contar no JS para este lote de 50
-      const [reactionsRes, commentsRes] = await Promise.all([
-        supabase.from('reactions').select('post_id').in('post_id', postIds),
-        supabase.from('comments').select('post_id').in('post_id', postIds)
+      // 1. Buscar contagens de reações
+      const [reactionsRes] = await Promise.all([
+        supabase.from('reactions').select('post_id').in('post_id', postIds)
       ]);
 
       const reactionCounts: Record<string, number> = {};
       reactionsRes.data?.forEach(r => reactionCounts[r.post_id] = (reactionCounts[r.post_id] || 0) + 1);
-      
-      const commentCounts: Record<string, number> = {};
-      commentsRes.data?.forEach(c => commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1);
 
       // 2. Dados do utilizador logado (likes e follows)
       let userLikes: Set<string> = new Set();
@@ -128,7 +122,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       postsToFetch.forEach(p => {
         newMetadata[p.id] = {
           likesCount: reactionCounts[p.id] || 0,
-          commentsCount: commentCounts[p.id] || 0,
+          commentsCount: 0, // Não buscar contagem até o utilizador clicar
           liked: userLikes.has(p.id),
           isFollowing: userFollows.has(p.user_id),
           isOwnPost: currentUserId === p.user_id
@@ -251,7 +245,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
 
   useEffect(() => {
     fetchPosts();
-    setDisplayLimit(5); // Reset limit when feed type or initial post changes
+    setDisplayLimit(20); // Reset limit when feed type or initial post changes
   }, [initialPostId, feedType, user, fetchPosts]);
 
   // Intersection Observer for Infinite Scroll
@@ -266,7 +260,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setDisplayLimit(prev => Math.min(prev + 5, posts.length));
+          setDisplayLimit(prev => Math.min(prev + 20, posts.length));
         }
       },
       { 

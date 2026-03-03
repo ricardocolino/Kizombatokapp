@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Eye, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -50,7 +50,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   
   // Usar ref para viewCounted para evitar re-renderizações e re-criação de funções
   const viewCountedRef = useRef<boolean>(!!(typeof window !== 'undefined' && localStorage.getItem(`viewed_${post.id}`)));
-  const [currentViews, setCurrentViews] = useState(post.views || 0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,7 +75,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       await supabase.rpc('increment_post_views', { target_post_id: post.id });
       localStorage.setItem(`viewed_${post.id}`, 'true');
       viewCountedRef.current = true;
-      setCurrentViews(prev => prev + 1);
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
     }
@@ -122,6 +120,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (cachedComments) {
       console.log(`📦 Comentários do post ${post.id}: usando cache`);
       setComments(cachedComments);
+      onUpdateMetadata(post.id, { commentsCount: cachedComments.length });
       return;
     }
 
@@ -140,6 +139,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         return { ...c, likes_count: count || 0, liked_by_me: likedByMe };
       }));
       setComments(commentsWithMetadata as EnhancedComment[]);
+      onUpdateMetadata(post.id, { commentsCount: data.length });
       
       // SALVAR NO CACHE
       appCache.set(cacheKey, commentsWithMetadata);
@@ -496,13 +496,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
           <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
         </button>
-
-        <div className="flex flex-col items-center opacity-80">
-          <div className="p-1.5 sm:p-2">
-            <Eye size={24} className="sm:w-[28px] sm:h-[28px] text-white drop-shadow-xl" />
-          </div>
-          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{currentViews}</span>
-        </div>
 
         {/* Music Avatar Icon */}
         <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
