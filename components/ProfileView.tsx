@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin } from 'lucide-react';
+import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
@@ -13,7 +13,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
-  const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0 });
+  const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [depositAmount, setDepositAmount] = useState(10);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
@@ -121,22 +124,37 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     const { count: followers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId);
     const { count: following } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
     
-    const { data: posts } = await supabase.from('posts').select('id').eq('user_id', userId);
+    const { data: posts } = await supabase.from('posts').select('id, views').eq('user_id', userId);
     let totalLikes = 0;
+    let totalViews = 0;
+    let totalComments = 0;
+
     if (posts && posts.length > 0) {
       const postIds = posts.map(p => p.id);
-      const { count: likes } = await supabase
-        .from('reactions')
-        .select('*', { count: 'exact', head: true })
-        .in('post_id', postIds)
-        .eq('type', 'like');
+      totalViews = posts.reduce((acc, p) => acc + (p.views || 0), 0);
+
+      const [{ count: likes }, { count: comments }] = await Promise.all([
+        supabase
+          .from('reactions')
+          .select('*', { count: 'exact', head: true })
+          .in('post_id', postIds)
+          .eq('type', 'like'),
+        supabase
+          .from('comments')
+          .select('*', { count: 'exact', head: true })
+          .in('post_id', postIds)
+      ]);
+
       totalLikes = likes || 0;
+      totalComments = comments || 0;
     }
 
     setStats({ 
       followers: followers || 0, 
       following: following || 0, 
-      likes: totalLikes 
+      likes: totalLikes,
+      views: totalViews,
+      comments: totalComments
     });
   }, [userId]);
 
@@ -206,6 +224,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         setIsFollowing(true);
         fetchStats();
       }
+    }
+  };
+
+  const handleDeposit = async () => {
+    setSaving(true);
+    try {
+      const newBalance = (profile?.balance || 0) + depositAmount;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      await fetchProfile();
+      setShowDeposit(false);
+    } catch (err) {
+      console.error("Erro no depósito:", err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -315,6 +353,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         <div className="flex gap-4">
           {isOwnProfile && (
             <button 
+              onClick={() => setShowDashboard(true)}
+              className="text-zinc-400 hover:text-red-600 transition-all p-1 flex flex-col items-center"
+            >
+              <BarChart3 size={20} />
+              <span className="text-[8px] font-black uppercase tracking-tighter">Painel</span>
+            </button>
+          )}
+          {isOwnProfile && (
+            <button 
               onClick={() => alert('Para instalares no Android:\n1. Clica nos 3 pontos do navegador\n2. Escolhe "Instalar Aplicação" ou "Adicionar ao Ecrã Principal".')}
               className="text-zinc-400 hover:text-white transition-all p-1 flex items-center gap-1"
             >
@@ -414,6 +461,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <span className="text-sm font-black text-white">{stats.likes}</span>
             <span className="text-xs text-zinc-500">Likes</span>
           </div>
+          <div className="flex gap-1 items-center px-3 py-1 bg-zinc-900/50 rounded-full border border-zinc-800">
+            <Coins size={14} className="text-amber-500" />
+            <span className="text-sm font-black text-white">{profile.balance?.toFixed(1) || '0.0'}</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Kz</span>
+          </div>
         </div>
       </div>
 
@@ -512,6 +564,167 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   Ficar na Banda
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Modal */}
+      {showDashboard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowDashboard(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600">
+                    <BarChart3 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Painel de Controlo</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Teu desempenho na banda</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowDashboard(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 p-6 rounded-[32px] flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                      <Wallet size={24} />
+                    </div>
+                    <div>
+                      <p className="text-[28px] font-black text-white leading-none">{profile.balance?.toFixed(1) || '0.0'} <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Kz</span></p>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Saldo Kizombas</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { setShowDashboard(false); setShowDeposit(true); }}
+                    className="p-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl transition-all active:scale-95"
+                  >
+                    <ArrowUpCircle size={24} />
+                  </button>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                    <Eye size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[24px] font-black text-white leading-none">{stats.views.toLocaleString()}</p>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Visualizações</p>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
+                    <Heart size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[24px] font-black text-white leading-none">{stats.likes.toLocaleString()}</p>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Gostos Totais</p>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                    <MessageCircle size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[24px] font-black text-white leading-none">{stats.comments.toLocaleString()}</p>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Comentários</p>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[24px] font-black text-white leading-none">{stats.followers.toLocaleString()}</p>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Seguidores</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-red-600/5 border border-red-600/10 p-6 rounded-[32px] flex items-center gap-5">
+                <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/20">
+                  <TrendingUp size={24} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[11px] font-black text-white uppercase tracking-widest leading-tight">Vais longe, mambo!</p>
+                  <p className="text-[10px] text-zinc-500 font-medium mt-1">Continua a postar para subires na banda 🇦🇴</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowDashboard(false)}
+                className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
+              >
+                Fechar Painel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deposit Modal */}
+      {showDeposit && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowDeposit(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                    <ArrowUpCircle size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Carregar Kizombas</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Aumenta o teu saldo na banda</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowDeposit(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {[10, 50, 100, 500, 1000, 5000].map(amount => (
+                  <button 
+                    key={amount}
+                    onClick={() => setDepositAmount(amount)}
+                    className={`py-4 rounded-2xl font-black text-xs transition-all border ${
+                      depositAmount === amount 
+                        ? 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20' 
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    {amount} Kz
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex flex-col gap-2">
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total a Pagar</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-black text-white">{(depositAmount * 10).toLocaleString()} Kz</p>
+                  <p className="text-xs font-bold text-zinc-600 uppercase">AOA</p>
+                </div>
+                <p className="text-[9px] text-zinc-700 font-medium mt-2">Simulação de pagamento via Multicaixa Express</p>
+              </div>
+
+              <button 
+                onClick={handleDeposit}
+                disabled={saving}
+                className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Confirmar Depósito
+              </button>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -18,6 +18,7 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
+  onSkip?: () => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -36,13 +37,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onNavigateToSound, 
   isMuted, 
   onToggleMute, 
-  onRequireAuth 
+  onRequireAuth,
+  onSkip
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const skipTimeoutRef = useRef<any>(null);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showGifts, setShowGifts] = useState(false);
+  const [sendingGift, setSendingGift] = useState(false);
   const [comments, setComments] = useState<EnhancedComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
@@ -72,30 +78,59 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
 
     try {
+      // Incrementar views do post
       await supabase.rpc('increment_post_views', { target_post_id: post.id });
+      
+      // Incrementar balanço do autor (Moeda: Kizombas)
+      // Ganhos por view: 0.1 Kz
+      await supabase.rpc('increment_user_balance', { 
+        target_user_id: post.user_id, 
+        amount: 0.1 
+      }).catch(async () => {
+        // Fallback se o RPC não existir: Tentativa de update direto
+        const { data: profile } = await supabase.from('profiles').select('balance').eq('id', post.user_id).single();
+        if (profile) {
+          await supabase.from('profiles')
+            .update({ balance: (profile.balance || 0) + 0.1 })
+            .eq('id', post.user_id);
+        }
+      });
+
       localStorage.setItem(`viewed_${post.id}`, 'true');
       viewCountedRef.current = true;
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
     }
-  }, [post.id]);
+  }, [post.id, post.user_id]);
 
   const handlePlay = React.useCallback(() => {
     if (videoRef.current && !videoError) {
+      // Iniciar timeout de skip se o vídeo demorar a carregar
+      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+      skipTimeoutRef.current = setTimeout(() => {
+        // Se após 6 segundos o vídeo ainda não estiver a tocar (e estivermos a tentar tocar), saltar
+        if (videoRef.current && videoRef.current.paused && onSkip) {
+          console.log(`[PostCard] Vídeo ${post.id} demorou muito a carregar. Saltando...`);
+          onSkip();
+        }
+      }, 6000);
+
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
+          if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
           setIsPlaying(true);
           if (!viewCountedRef.current) {
             incrementView();
           }
         }).catch((err) => {
           console.error("Playback failed:", err);
+          if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
           setIsPlaying(false);
         });
       }
     }
-  }, [videoError, incrementView]);
+  }, [videoError, incrementView, onSkip, post.id]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -111,6 +146,34 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (containerRef.current) observerRef.current.observe(containerRef.current);
     return () => observerRef.current?.disconnect();
   }, [handlePlay, handlePause]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleWaiting = () => {
+      // Se o vídeo começar a carregar (bufferizar) enquanto deveria estar a tocar
+      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+      skipTimeoutRef.current = setTimeout(() => {
+        if (onSkip) onSkip();
+      }, 6000);
+    };
+
+    const handlePlaying = () => {
+      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+    };
+
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('canplay', handlePlaying);
+
+    return () => {
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('canplay', handlePlaying);
+      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+    };
+  }, [onSkip]);
 
   const fetchComments = async () => {
     const cacheKey = `post_comments_${post.id}`;
@@ -347,6 +410,45 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (shareUrl) window.open(shareUrl, '_blank');
   };
 
+  const handleSendGift = async (amount: number) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
+
+    if (session.user.id === post.user_id) {
+      alert('Não podes enviar presentes a ti mesmo, mambo!');
+      return;
+    }
+
+    setSendingGift(true);
+    try {
+      const { error } = await supabase.rpc('send_gift', {
+        sender_id: session.user.id,
+        receiver_id: post.user_id,
+        amount: amount,
+        post_id: post.id
+      });
+
+      if (error) {
+        if (error.message.includes('insufficient balance')) {
+          alert('Não tens Kizombas suficientes! Carrega o teu saldo no perfil.');
+        } else {
+          throw error;
+        }
+      } else {
+        alert(`Enviaste ${amount} Kz para ${post.profiles?.name || post.profiles?.username}! 🔥`);
+        setShowGifts(false);
+      }
+    } catch (err) {
+      console.error("Erro ao enviar presente:", err);
+      alert('Erro ao enviar presente. Tenta novamente.');
+    } finally {
+      setSendingGift(false);
+    }
+  };
+
   const renderCommentItem = (c: EnhancedComment, isReply: boolean = false) => {
     const isPostAuthor = c.user_id === post.user_id;
     return (
@@ -496,6 +598,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
           <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
         </button>
+
+        {!metadata.isOwnPost && (
+          <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+              <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-amber-500 drop-shadow-xl" />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase drop-shadow-md tracking-widest">Presente</span>
+          </button>
+        )}
 
         {/* Music Avatar Icon */}
         <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
@@ -697,6 +808,54 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <span className="text-xs font-black uppercase tracking-widest">Denunciar</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gifts Drawer */}
+      {showGifts && (
+        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
+          <div className="relative bg-zinc-950 rounded-t-[40px] p-8 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
+            <div className="flex items-center justify-between mb-8">
+               <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                   <Gift size={24} />
+                 </div>
+                 <div>
+                   <h3 className="text-sm font-black uppercase tracking-widest text-white">Enviar Presente</h3>
+                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Apoia o criador com Kizombas</p>
+                 </div>
+               </div>
+               <button onClick={() => !sendingGift && setShowGifts(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              {[1, 5, 10, 20, 50, 100].map(amount => (
+                <button 
+                  key={amount}
+                  onClick={() => handleSendGift(amount)}
+                  disabled={sendingGift}
+                  className="flex flex-col items-center gap-3 p-4 bg-zinc-900/50 border border-zinc-800 rounded-3xl hover:border-amber-500/50 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+                    <Coins size={20} />
+                  </div>
+                  <span className="text-xs font-black text-white">{amount} Kz</span>
+                </button>
+              ))}
+            </div>
+
+            {sendingGift && (
+              <div className="flex items-center justify-center py-4 gap-3 text-amber-500">
+                <Loader2 size={20} className="animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-widest">A enviar presente...</span>
+              </div>
+            )}
+
+            <p className="text-[9px] text-zinc-600 text-center uppercase tracking-widest font-bold">
+              O valor será descontado do teu saldo e enviado para o autor.
+            </p>
           </div>
         </div>
       )}

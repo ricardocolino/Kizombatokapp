@@ -280,6 +280,19 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     setIsMuted(!isMuted);
   };
 
+  const handleSkip = React.useCallback((postId: string) => {
+    const container = document.querySelector('.feed-container');
+    if (!container) return;
+
+    const items = Array.from(container.querySelectorAll('.feed-item'));
+    const currentIndex = posts.findIndex(p => p.id === postId);
+    
+    if (currentIndex !== -1 && currentIndex < items.length - 1) {
+      const nextItem = items[currentIndex + 1];
+      nextItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [posts]);
+
   if (loading) {
     return (
       <div className="feed-container h-full w-full bg-black">
@@ -331,6 +344,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
               isMuted={isMuted}
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}
+              onSkip={() => handleSkip(post.id)}
             />
           </div>
         ))}
