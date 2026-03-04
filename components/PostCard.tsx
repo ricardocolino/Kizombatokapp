@@ -18,7 +18,6 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
-  onSkip?: () => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -37,13 +36,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onNavigateToSound, 
   isMuted, 
   onToggleMute, 
-  onRequireAuth,
-  onSkip
+  onRequireAuth
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const skipTimeoutRef = useRef<any>(null);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -105,32 +101,20 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handlePlay = React.useCallback(() => {
     if (videoRef.current && !videoError) {
-      // Iniciar timeout de skip se o vídeo demorar a carregar
-      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
-      skipTimeoutRef.current = setTimeout(() => {
-        // Se após 6 segundos o vídeo ainda não estiver a tocar (e estivermos a tentar tocar), saltar
-        if (videoRef.current && videoRef.current.paused && onSkip) {
-          console.log(`[PostCard] Vídeo ${post.id} demorou muito a carregar. Saltando...`);
-          onSkip();
-        }
-      }, 6000);
-
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
-          if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
           setIsPlaying(true);
           if (!viewCountedRef.current) {
             incrementView();
           }
         }).catch((err) => {
           console.error("Playback failed:", err);
-          if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
           setIsPlaying(false);
         });
       }
     }
-  }, [videoError, incrementView, onSkip, post.id]);
+  }, [videoError, incrementView]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -151,29 +135,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const video = videoRef.current;
     if (!video) return;
 
-    const handleWaiting = () => {
-      // Se o vídeo começar a carregar (bufferizar) enquanto deveria estar a tocar
-      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
-      skipTimeoutRef.current = setTimeout(() => {
-        if (onSkip) onSkip();
-      }, 6000);
-    };
-
     const handlePlaying = () => {
-      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
+      // No-op
     };
 
-    video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('canplay', handlePlaying);
 
     return () => {
-      video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('canplay', handlePlaying);
-      if (skipTimeoutRef.current) clearTimeout(skipTimeoutRef.current);
     };
-  }, [onSkip]);
+  }, []);
 
   const fetchComments = async () => {
     const cacheKey = `post_comments_${post.id}`;
