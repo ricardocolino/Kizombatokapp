@@ -68,8 +68,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const incrementView = React.useCallback(async () => {
     if (viewCountedRef.current) return;
     
+    // Verificar se o usuário está logado
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // Marcar como contado imediatamente para evitar múltiplas chamadas simultâneas
+    viewCountedRef.current = true;
+    
     if (localStorage.getItem(`viewed_${post.id}`)) {
-      viewCountedRef.current = true;
       return;
     }
 
@@ -93,9 +99,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       });
 
       localStorage.setItem(`viewed_${post.id}`, 'true');
-      viewCountedRef.current = true;
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
+      // Opcional: resetar se falhar, mas geralmente melhor manter true para não spammar erros
     }
   }, [post.id, post.user_id]);
 
