@@ -156,7 +156,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
     console.log(`🔄 Comentários do post ${post.id}: buscando do servidor`);
     const { data: { session } } = await supabase.auth.getSession();
-    const { data } = await supabase.from('comments').select('*, profiles(*)').eq('post_id', post.id).order('created_at', { ascending: false });
+    const { data } = await supabase.from('comments').select('*, profiles!user_id(*)').eq('post_id', post.id).order('created_at', { ascending: false });
     
     if (data) {
       const commentsWithMetadata = await Promise.all(data.map(async (c) => {

@@ -46,7 +46,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         if (trimmedQuery) {
           const { data } = await supabase
             .from('posts')
-            .select('*, profiles(*)')
+            .select('*, profiles!user_id(*)')
             .ilike('content', `%${trimmedQuery}%`)
             .limit(limit);
 
@@ -60,7 +60,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
           const { data } = await supabase
             .from('posts')
-            .select('*, profiles(*)')
+            .select('*, profiles!user_id(*)')
             .in('user_id', userIds)
             .limit(limit);
 
@@ -83,7 +83,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           // 🔹 Lógica: Os 10 primeiros vídeos são os mais dublados
           const { data } = await supabase
             .from('posts')
-            .select('*, profiles(*)');
+            .select('*, profiles!user_id(*)');
 
           const rawPosts = data || [];
           

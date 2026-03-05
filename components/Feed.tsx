@@ -103,7 +103,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       if (soundIds.length > 0) {
         const { data: sounds } = await supabase
           .from('posts')
-          .select('*, profiles(*)')
+          .select('*, profiles!user_id(*)')
           .in('id', soundIds);
         
         if (sounds) {
@@ -174,7 +174,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       
       let query = supabase
         .from('posts')
-        .select(`*, profiles (*)`)
+        .select(`*, profiles!user_id (*)`)
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -240,9 +240,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       if (currentPage === 0) {
         appCache.set(cacheKey, sortedPosts);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching posts:', error);
-      setError(error.message || 'Erro ao carregar os mambos. Verifica a tua ligação.');
+      const message = error instanceof Error ? error.message : 'Erro ao carregar os mambos. Verifica a tua ligação.';
+      setError(message);
     } finally {
       if (!isNextPage) setTimeout(() => setLoading(false), 800);
     }

@@ -104,7 +104,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     try {
       const { data, error } = await supabase
         .from('reactions')
-        .select('post_id, posts(*, profiles(*))')
+        .select('post_id, posts(*, profiles!user_id(*))')
         .eq('user_id', userId)
         .eq('type', 'like')
         .order('created_at', { ascending: false });
