@@ -39,6 +39,7 @@ const PostSkeleton = () => (
 const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
@@ -144,7 +145,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
 
   const fetchPosts = React.useCallback(async (isNextPage = false) => {
     try {
-      if (!isNextPage) setLoading(true);
+      if (!isNextPage) {
+        setLoading(true);
+        setError(null);
+      }
       
       const currentPage = isNextPage ? pageRef.current + 1 : 0;
       pageRef.current = currentPage;
@@ -155,7 +159,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       if (!isNextPage) {
         // VERIFICAR CACHE PRIMEIRO
         const cachedPosts = appCache.get(cacheKey);
-        if (cachedPosts && cachedPosts.length > 0) {
+        if (cachedPosts) {
           console.log('📦 Usando posts do cache');
           setPosts(cachedPosts);
           fetchBatchMetadata(cachedPosts);
@@ -198,7 +202,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
 
       let sortedPosts = [...rawPosts];
       if (currentPage === 0) {
-        // ... ordenação existente ...
         const dubbingCounts: Record<string, number> = {};
         rawPosts.forEach(p => {
           if (p.sound_id) {
@@ -229,17 +232,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         sortedPosts = [...firstFive, ...remaining];
       }
 
-      // BUSCAR METADADOS EM LOTE
+      // BUSCAR METADADOS EM LOTE (Apenas para os novos posts)
       fetchBatchMetadata(sortedPosts);
 
       setPosts(prevPosts => isNextPage ? [...prevPosts, ...sortedPosts] : sortedPosts);
       
-      // SÓ GUARDAR NO CACHE SE HOUVER POSTS
-      if (currentPage === 0 && sortedPosts.length > 0) {
+      if (currentPage === 0) {
         appCache.set(cacheKey, sortedPosts);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching posts:', error);
+      setError(error.message || 'Erro ao carregar os mambos. Verifica a tua ligação.');
     } finally {
       if (!isNextPage) setTimeout(() => setLoading(false), 800);
     }
@@ -286,6 +289,24 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     return (
       <div className="feed-container h-full w-full bg-black">
         {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-black text-zinc-500 p-10 text-center">
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <p className="font-bold text-white text-lg mb-2">Eish, algo correu mal!</p>
+        <p className="text-sm mb-8 max-w-xs">{error}</p>
+        <button 
+          onClick={() => fetchPosts()}
+          className="bg-white text-black px-8 py-3 rounded-full font-black uppercase text-xs tracking-widest hover:scale-105 active:scale-95 transition-all"
+        >
+          Tentar Novamente
+        </button>
       </div>
     );
   }
