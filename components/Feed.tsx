@@ -155,7 +155,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       if (!isNextPage) {
         // VERIFICAR CACHE PRIMEIRO
         const cachedPosts = appCache.get(cacheKey);
-        if (cachedPosts) {
+        if (cachedPosts && cachedPosts.length > 0) {
           console.log('📦 Usando posts do cache');
           setPosts(cachedPosts);
           fetchBatchMetadata(cachedPosts);
@@ -198,6 +198,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
 
       let sortedPosts = [...rawPosts];
       if (currentPage === 0) {
+        // ... ordenação existente ...
         const dubbingCounts: Record<string, number> = {};
         rawPosts.forEach(p => {
           if (p.sound_id) {
@@ -228,12 +229,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         sortedPosts = [...firstFive, ...remaining];
       }
 
-      // BUSCAR METADADOS EM LOTE (Apenas para os novos posts)
+      // BUSCAR METADADOS EM LOTE
       fetchBatchMetadata(sortedPosts);
 
       setPosts(prevPosts => isNextPage ? [...prevPosts, ...sortedPosts] : sortedPosts);
       
-      if (currentPage === 0) {
+      // SÓ GUARDAR NO CACHE SE HOUVER POSTS
+      if (currentPage === 0 && sortedPosts.length > 0) {
         appCache.set(cacheKey, sortedPosts);
       }
     } catch (error) {

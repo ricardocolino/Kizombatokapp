@@ -51,7 +51,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
   
   // Usar ref para viewCounted para evitar re-renderizações e re-criação de funções
-  const viewCountedRef = useRef<boolean>(!!(typeof window !== 'undefined' && localStorage.getItem(`viewed_${post.id}`)));
+  const viewCountedRef = useRef<boolean>(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,11 +68,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const incrementView = React.useCallback(async () => {
     if (viewCountedRef.current) return;
     
-    if (localStorage.getItem(`viewed_${post.id}`)) {
-      viewCountedRef.current = true;
-      return;
-    }
-
     try {
       // Incrementar views do post
       await supabase.rpc('increment_post_views', { target_post_id: post.id });
@@ -92,7 +87,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         }
       });
 
-      localStorage.setItem(`viewed_${post.id}`, 'true');
       viewCountedRef.current = true;
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
