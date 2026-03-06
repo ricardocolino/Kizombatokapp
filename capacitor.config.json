@@ -3,6 +3,7 @@
   "appName": "KizombaTok",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "orientation": "portrait",
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 3000,

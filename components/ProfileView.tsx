@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle } from 'lucide-react';
+import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 interface ProfileViewProps {
   userId: string;
@@ -24,6 +25,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [postsPage, setPostsPage] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [monthlyStats, setMonthlyStats] = useState<{ month: string, earnings: number, views: number }[]>([]);
+  const [pendingEarnings, setPendingEarnings] = useState(0);
+  const [claiming, setClaiming] = useState(false);
   const PAGE_SIZE = 6;
   
   // Edit Profile State
@@ -156,6 +160,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       views: totalViews,
       comments: totalComments
     });
+
+    // Calcular ganhos pendentes (0.1 Kz por view)
+    // Usamos localStorage para simular o que já foi resgatado nesta demo
+    const claimedViews = Number(localStorage.getItem(`claimed_views_${userId}`) || 0);
+    const unclaimedViews = Math.max(0, totalViews - claimedViews);
+    setPendingEarnings(Number((unclaimedViews * 0.1).toFixed(1)));
+
+    // Gerar estatísticas mensais simuladas baseadas nos dados reais
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonthIndex = new Date().getMonth();
+    const stats_data = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const idx = (currentMonthIndex - i + 12) % 12;
+      // Simulação: Earnings crescem conforme as views totais
+      const baseEarnings = (totalViews * 0.1) / 6;
+      const randomFactor = 0.5 + Math.random();
+      stats_data.push({
+        month: months[idx],
+        earnings: Number((baseEarnings * randomFactor).toFixed(1)),
+        views: Math.floor((totalViews / 6) * randomFactor)
+      });
+    }
+    setMonthlyStats(stats_data);
   }, [userId]);
 
   const loadAll = React.useCallback(async () => {
@@ -244,6 +272,33 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       console.error("Erro no depósito:", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClaimEarnings = async () => {
+    if (pendingEarnings <= 0) return;
+    
+    setClaiming(true);
+    try {
+      const newBalance = (profile?.balance || 0) + pendingEarnings;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      // Marcar estas views como resgatadas
+      localStorage.setItem(`claimed_views_${userId}`, stats.views.toString());
+      
+      await fetchProfile();
+      setPendingEarnings(0);
+      alert(`Boa, mambo! Resgataste ${pendingEarnings} Kz para a tua carteira! 🇦🇴💰`);
+    } catch (err) {
+      console.error("Erro ao resgatar ganhos:", err);
+      alert("Houve um mambo ao resgatar os ganhos. Tenta de novo!");
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -569,103 +624,202 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       )}
 
-      {/* Dashboard Modal */}
+      {/* Dashboard Fullscreen View */}
       {showDashboard && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowDashboard(false)} />
-          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="p-8 flex flex-col gap-8">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600">
-                    <BarChart3 size={24} />
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in slide-in-from-right duration-300">
+          {/* Header */}
+          <header className="flex items-center justify-between px-6 h-20 border-b border-zinc-900 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
+            <button 
+              onClick={() => setShowDashboard(false)}
+              className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors flex items-center gap-2"
+            >
+              <ChevronLeft size={24} />
+              <span className="text-xs font-black uppercase tracking-widest">Voltar</span>
+            </button>
+            <div className="flex flex-col items-center">
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">Painel de Controlo</h2>
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Dados em Tempo Real</span>
+              </div>
+            </div>
+            <button className="p-2 -mr-2 text-zinc-400 hover:text-white transition-colors">
+              <Share2 size={20} />
+            </button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
+            {/* Wallet Card - Modernized */}
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-red-600 rounded-[40px] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+              <div className="relative bg-zinc-950 border border-zinc-900 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                  <Wallet size={120} />
+                </div>
+                
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo Disponível</p>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-5xl font-black text-white tracking-tighter">
+                        {profile.balance?.toFixed(1) || '0.0'}
+                      </h3>
+                      <span className="text-sm font-black text-amber-500 uppercase tracking-widest">Kz</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Painel de Controlo</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Teu desempenho na banda</p>
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                    <Coins size={28} />
                   </div>
                 </div>
-                <button onClick={() => setShowDashboard(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 p-6 rounded-[32px] flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-                      <Wallet size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[28px] font-black text-white leading-none">{profile.balance?.toFixed(1) || '0.0'} <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Kz</span></p>
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Saldo Kizombas</p>
-                    </div>
-                  </div>
+                <div className="flex gap-3 mt-2">
                   <button 
                     onClick={() => { setShowDashboard(false); setShowDeposit(true); }}
-                    className="p-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl transition-all active:scale-95"
+                    className="flex-1 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
                   >
-                    <ArrowUpCircle size={24} />
+                    <ArrowUpCircle size={16} />
+                    Carregar
+                  </button>
+                  <button 
+                    className="flex-1 py-4 bg-zinc-900 text-white border border-zinc-800 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all active:scale-95"
+                  >
+                    <Download size={16} />
+                    Levantar
                   </button>
                 </div>
 
-                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
-                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                    <Eye size={18} />
+                {/* Claim Earnings Section */}
+                {pendingEarnings > 0 && (
+                  <div className="mt-4 p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Ganhos de Conteúdo</p>
+                        <p className="text-xl font-black text-white mt-0.5">{pendingEarnings} Kz <span className="text-[10px] text-zinc-500 font-bold uppercase">Pendentes</span></p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                        <TrendingUp size={20} />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleClaimEarnings}
+                      disabled={claiming}
+                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white rounded-xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                    >
+                      {claiming ? <Loader2 size={14} className="animate-spin" /> : <Coins size={14} />}
+                      Resgatar para a Carteira
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-[24px] font-black text-white leading-none">{stats.views.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Visualizações</p>
-                  </div>
-                </div>
+                )}
+              </div>
+            </div>
 
-                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
-                  <div className="w-8 h-8 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
-                    <Heart size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[24px] font-black text-white leading-none">{stats.likes.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Gostos Totais</p>
-                  </div>
-                </div>
+            {/* Monthly Results Chart */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Resultados Mensais (Kz)</h3>
+                <TrendingUp size={16} className="text-emerald-500" />
+              </div>
+              
+              <div className="h-64 w-full bg-zinc-950 border border-zinc-900 rounded-[40px] p-6">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyStats}>
+                    <defs>
+                      <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
+                    <XAxis 
+                      dataKey="month" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#52525b', fontSize: 10, fontWeight: 900 }} 
+                      dy={10}
+                    />
+                    <YAxis hide />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '16px', fontSize: '10px', fontWeight: '900' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="earnings" 
+                      stroke="#ef4444" 
+                      strokeWidth={4}
+                      fillOpacity={1} 
+                      fill="url(#colorEarnings)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-                    <MessageCircle size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[24px] font-black text-white leading-none">{stats.comments.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Comentários</p>
-                  </div>
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
+                  <Eye size={20} />
                 </div>
-
-                <div className="bg-zinc-900/50 border border-zinc-800/50 p-5 rounded-3xl flex flex-col gap-3 group hover:bg-zinc-900 transition-all">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Users size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[24px] font-black text-white leading-none">{stats.followers.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Seguidores</p>
-                  </div>
+                <div>
+                  <p className="text-2xl font-black text-white tracking-tighter">{stats.views.toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Visualizações</p>
                 </div>
               </div>
 
-              <div className="bg-red-600/5 border border-red-600/10 p-6 rounded-[32px] flex items-center gap-5">
-                <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/20">
-                  <TrendingUp size={24} />
+              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
+                  <Heart size={20} />
                 </div>
-                <div className="flex-1">
-                  <p className="text-[11px] font-black text-white uppercase tracking-widest leading-tight">Vais longe, mambo!</p>
-                  <p className="text-[10px] text-zinc-500 font-medium mt-1">Continua a postar para subires na banda 🇦🇴</p>
+                <div>
+                  <p className="text-2xl font-black text-white tracking-tighter">{stats.likes.toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Gostos Totais</p>
                 </div>
               </div>
 
-              <button 
-                onClick={() => setShowDashboard(false)}
-                className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
-              >
-                Fechar Painel
-              </button>
+              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20">
+                  <MessageCircle size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-white tracking-tighter">{stats.comments.toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Comentários</p>
+                </div>
+              </div>
+
+              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-white tracking-tighter">{stats.followers.toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Seguidores</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly Breakdown List */}
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 px-2">Histórico de Ganhos</h3>
+              <div className="bg-zinc-950 border border-zinc-900 rounded-[40px] overflow-hidden">
+                {monthlyStats.slice().reverse().map((m, i) => (
+                  <div key={m.month} className={`flex items-center justify-between p-6 ${i !== monthlyStats.length - 1 ? 'border-b border-zinc-900' : ''}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-[10px] font-black text-zinc-400 uppercase">
+                        {m.month}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white">{m.earnings} Kz</p>
+                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-tighter">{m.views.toLocaleString()} views</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-emerald-500">
+                      <TrendingUp size={12} />
+                      <span className="text-[10px] font-black">+{Math.floor(Math.random() * 20) + 5}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

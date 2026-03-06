@@ -39,6 +39,21 @@ const App: React.FC = () => {
       StatusBar.setBackgroundColor({ color: '#000000' });
     }
 
+    // Lock orientation to portrait if supported
+    const lockOrientation = async () => {
+      try {
+        if (typeof screen !== 'undefined' && screen.orientation && screen.orientation.lock) {
+          // @ts-expect-error - lock might not be in all type definitions
+          await screen.orientation.lock('portrait').catch(() => {
+            // Silently fail if not supported (e.g. desktop or non-fullscreen)
+          });
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    lockOrientation();
+
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);

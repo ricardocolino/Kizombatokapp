@@ -17,8 +17,6 @@
     "generate-assets": "capacitor-assets generate --android"
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.10",
-    "@ffmpeg/util": "^0.12.1",
     "@capacitor-community/camera-preview": "^7.0.5",
     "@capacitor/android": "^8.1.0",
     "@capacitor/camera": "^8.0.1",
@@ -26,11 +24,14 @@
     "@capacitor/core": "^8.1.0",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
     "@supabase/supabase-js": "^2.95.3",
     "lamejs": "^1.2.1",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

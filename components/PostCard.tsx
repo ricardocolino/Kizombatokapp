@@ -40,6 +40,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [uiVisible, setUiVisible] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -49,8 +50,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
-  
-  // Usar ref para viewCounted para evitar re-renderizações e re-criação de funções
+  useEffect(() => {
+    // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
+    const timer = setTimeout(() => {
+      setUiVisible(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
   const viewCountedRef = useRef<boolean>(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -95,15 +101,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handlePlay = React.useCallback(() => {
     if (videoRef.current && !videoError) {
+      // Prioridade máxima: Tentar reproduzir imediatamente
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
           setIsPlaying(true);
+          // Deferir o incremento de views para não competir com a reprodução inicial
           if (!viewCountedRef.current) {
-            incrementView();
+            setTimeout(() => {
+              incrementView();
+            }, 2000);
           }
         }).catch((err) => {
-          console.error("Playback failed:", err);
+          // Se falhou por interrupção (ex: scroll rápido), não logamos como erro grave
+          if (err.name !== 'AbortError') {
+            console.error("Playback failed:", err);
+          }
           setIsPlaying(false);
         });
       }
@@ -114,11 +127,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) handlePlay();
-          else handlePause();
+          if (entry.isIntersecting) {
+            // Prioridade máxima: Tentar reproduzir assim que houver interseção
+            handlePlay();
+          } else {
+            handlePause();
+          }
         });
       },
-      { threshold: 0.6 }
+      { 
+        threshold: [0.1, 0.5, 0.9], // Múltiplos pontos de verificação
+        rootMargin: '0px' 
+      }
     );
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
@@ -129,16 +149,21 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const video = videoRef.current;
     if (!video) return;
 
-    const handlePlaying = () => {
-      // No-op
-    };
+    const handleCanPlay = () => {
+      // Se o observer já marcou como visível mas o vídeo não estava pronto, tentamos agora
+      if (observerRef.current && containerRef.current) {
+        // Verificação manual rápida de visibilidade se necessário
+      }
+    }
 
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('canplay', handlePlaying);
+    video.addEventListener('playing', () => setIsPlaying(true));
+    video.addEventListener('pause', () => setIsPlaying(false));
+    video.addEventListener('canplay', handleCanPlay);
 
     return () => {
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('canplay', handlePlaying);
+      video.removeEventListener('playing', () => setIsPlaying(true));
+      video.removeEventListener('pause', () => setIsPlaying(false));
+      video.removeEventListener('canplay', handleCanPlay);
     };
   }, []);
 
@@ -499,8 +524,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           loop
           muted={isMuted}
           playsInline
-          autoPlay
-          preload="metadata"
+          preload="auto"
           crossOrigin="anonymous"
           onError={() => setVideoError(true)}
           poster={post.thumbnail_url || undefined}
@@ -523,87 +547,91 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       </div>
 
       {/* Sidebar Controls */}
-      <div className="absolute right-2 sm:right-3 bottom-12 sm:bottom-6 flex flex-col gap-3 sm:gap-5 items-center z-30">
-        <div className="relative mb-1 sm:mb-2">
-          <div 
-            onClick={() => onNavigateToProfile(post.user_id)}
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
-          >
-             {post.profiles?.avatar_url ? (
-               <img src={post.profiles.avatar_url} className="w-full h-full object-cover" />
-             ) : (
-               <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
-             )}
-          </div>
-          {!metadata.isFollowing && !metadata.isOwnPost && (
-            <button 
-              onClick={handleFollow}
-              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
+      {uiVisible && (
+        <div className="absolute right-2 sm:right-3 bottom-12 sm:bottom-6 flex flex-col gap-3 sm:gap-5 items-center z-30">
+          <div className="relative mb-1 sm:mb-2">
+            <div 
+              onClick={() => onNavigateToProfile(post.user_id)}
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
             >
-              +
+               {post.profiles?.avatar_url ? (
+                 <img src={post.profiles.avatar_url} className="w-full h-full object-cover" loading="lazy" />
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
+               )}
+            </div>
+            {!metadata.isFollowing && !metadata.isOwnPost && (
+              <button 
+                onClick={handleFollow}
+                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
+              >
+                +
+              </button>
+            )}
+          </div>
+
+          <button onClick={toggleLike} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
+              <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+            </div>
+            <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
+          </button>
+
+          <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+              <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+            </div>
+            <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
+          </button>
+
+          <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+              <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
+          </button>
+
+          {!metadata.isOwnPost && (
+            <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
+              <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-amber-500 drop-shadow-xl" />
+              </div>
+              <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase drop-shadow-md tracking-widest">Presente</span>
             </button>
           )}
+
+          {/* Music Avatar Icon */}
+          <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
+             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
+                {musicProfile?.avatar_url ? (
+                  <img src={musicProfile.avatar_url} className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                    <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
+                  </div>
+                )}
+             </div>
+          </div>
         </div>
-
-        <button onClick={toggleLike} className="flex flex-col items-center group">
-          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-            <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
-          </div>
-          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
-        </button>
-
-        <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
-          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-            <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
-          </div>
-          <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
-        </button>
-
-        <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
-          <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-            <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
-          </div>
-          <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
-        </button>
-
-        {!metadata.isOwnPost && (
-          <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
-            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-              <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-amber-500 drop-shadow-xl" />
-            </div>
-            <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase drop-shadow-md tracking-widest">Presente</span>
-          </button>
-        )}
-
-        {/* Music Avatar Icon */}
-        <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
-           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
-              {musicProfile?.avatar_url ? (
-                <img src={musicProfile.avatar_url} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                  <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
-                </div>
-              )}
-           </div>
-        </div>
-      </div>
+      )}
 
       {/* Caption Area */}
-      <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
-        <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
-          <span 
-            onClick={() => onNavigateToProfile(post.user_id)}
-            className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
-          >
-            {post.profiles?.name || `@${post.profiles?.username}`}
-            <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
-          </span>
-        </h3>
-        <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
-          {post.content}
-        </p>
-      </div>
+      {uiVisible && (
+        <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
+          <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
+            <span 
+              onClick={() => onNavigateToProfile(post.user_id)}
+              className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
+            >
+              {post.profiles?.name || `@${post.profiles?.username}`}
+              <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
+            </span>
+          </h3>
+          <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
+            {post.content}
+          </p>
+        </div>
+      )}
 
       {/* Professional Comments Drawer */}
       {showComments && (
