@@ -17,6 +17,8 @@ export class AgoraService {
     }
     
     try {
+      // Definir papel como host ANTES de entrar no canal (Obrigatório em modo 'live')
+      await this.client.setClientRole('host');
       await this.client.join(APP_ID, channelName, token, uid);
     } catch (err) {
       const agoraErr = err as { code: string; message: string };
@@ -37,7 +39,20 @@ export class AgoraService {
       this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
       
-      await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+      // Tentar publicar. Se falhar por ser audiência, forçamos a mudança de papel e tentamos de novo.
+      try {
+        await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+      } catch (publishErr) {
+        const agoraErr = publishErr as { code: string; message?: string };
+        if (agoraErr.code === 'INVALID_OPERATION' || agoraErr.message?.includes('audience')) {
+          console.warn('Tentativa de publicar como audiência. Forçando papel de host...');
+          await this.client.setClientRole('host');
+          await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+        } else {
+          throw publishErr;
+        }
+      }
+      
       return { videoTrack: this.localVideoTrack, audioTrack: this.localAudioTrack };
     } catch (err) {
       const agoraErr = err as { code: string };

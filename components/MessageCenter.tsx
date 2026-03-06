@@ -4,7 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Profile, LiveStream as LiveStreamType } from '../types';
 import { Search, Heart, UserPlus, MessageSquare, Bell, Users, ChevronRight } from 'lucide-react';
-import LiveStream from './LiveStream';
+import ViewerLive from './ViewerLive';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -167,9 +167,8 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24 p-6">
         {selectedLive && (
-          <LiveStream 
+          <ViewerLive 
             channelName={selectedLive.channel_name}
-            isHost={false}
             onClose={() => setSelectedLive(null)}
             hostProfile={selectedLive.profiles}
           />

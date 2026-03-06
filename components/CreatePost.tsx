@@ -7,7 +7,7 @@ import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical
 import { Post, Profile } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-import LiveStream from './LiveStream';
+import HostLive from './HostLive';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -783,9 +783,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
       {showLiveStream && currentUserProfile && (
-        <LiveStream 
+        <HostLive 
           channelName={`live_${currentUserProfile.id}`}
-          isHost={true}
           onClose={() => setShowLiveStream(false)}
           title={liveTitle}
           hostProfile={currentUserProfile}

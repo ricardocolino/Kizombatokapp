@@ -6,7 +6,7 @@ import { Post, Profile, LiveStream as LiveStreamType } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
 import { Radio, Users, ChevronRight, X } from 'lucide-react';
-import LiveStream from './LiveStream';
+import ViewerLive from './ViewerLive';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -445,9 +445,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       )}
 
       {selectedLive && (
-        <LiveStream 
+        <ViewerLive 
           channelName={selectedLive.channel_name}
-          isHost={false}
           onClose={() => setSelectedLive(null)}
           hostProfile={selectedLive.profiles}
         />
