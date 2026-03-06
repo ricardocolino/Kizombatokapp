@@ -80,10 +80,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       
       // Incrementar balanço do autor (Moeda: Kizombas)
       // Ganhos por view: 0.1 Kz
-      await supabase.rpc('increment_user_balance', { 
+      const { error: balanceError } = await supabase.rpc('increment_user_balance', { 
         target_user_id: post.user_id, 
         amount: 0.1 
-      }).catch(async () => {
+      });
+
+      if (balanceError) {
         // Fallback se o RPC não existir: Tentativa de update direto
         const { data: profile } = await supabase.from('profiles').select('balance').eq('id', post.user_id).single();
         if (profile) {
@@ -91,7 +93,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             .update({ balance: (profile.balance || 0) + 0.1 })
             .eq('id', post.user_id);
         }
-      });
+      }
 
       viewCountedRef.current = true;
     } catch (e) {

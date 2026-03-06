@@ -12,7 +12,19 @@ export class AgoraService {
   }
 
   async joinAndPublish(channelName: string, uid: string | number | null = null, token: string | null = null) {
-    await this.client.join(APP_ID, channelName, token, uid);
+    if (this.client.connectionState !== 'DISCONNECTED') {
+      await this.leave();
+    }
+    
+    try {
+      await this.client.join(APP_ID, channelName, token, uid);
+    } catch (err) {
+      const agoraErr = err as { code: string; message: string };
+      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER') {
+        console.error('Erro de Autenticação Agora: O App ID pode exigir um Token. Tenta desativar "App Certificate" no console da Agora ou fornecer um token.');
+      }
+      throw err;
+    }
     
     this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
     this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
@@ -22,8 +34,21 @@ export class AgoraService {
   }
 
   async joinAsAudience(channelName: string, uid: string | number | null = null, token: string | null = null) {
+    if (this.client.connectionState !== 'DISCONNECTED') {
+      await this.leave();
+    }
+    
     await this.client.setClientRole('audience');
-    await this.client.join(APP_ID, channelName, token, uid);
+    
+    try {
+      await this.client.join(APP_ID, channelName, token, uid);
+    } catch (err) {
+      const agoraErr = err as { code: string; message: string };
+      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER') {
+        console.error('Erro de Autenticação Agora: O App ID pode exigir um Token.');
+      }
+      throw err;
+    }
     
     this.client.on('user-published', async (user, mediaType) => {
       await this.client.subscribe(user, mediaType);
@@ -38,9 +63,20 @@ export class AgoraService {
   }
 
   async leave() {
-    this.localAudioTrack?.close();
-    this.localVideoTrack?.close();
-    await this.client.leave();
+    try {
+      this.localAudioTrack?.stop();
+      this.localAudioTrack?.close();
+      this.localVideoTrack?.stop();
+      this.localVideoTrack?.close();
+      this.localAudioTrack = null;
+      this.localVideoTrack = null;
+      
+      if (this.client.connectionState !== 'DISCONNECTED') {
+        await this.client.leave();
+      }
+    } catch (err) {
+      console.error('Erro ao sair da live:', err);
+    }
   }
 
   onUserJoined(callback: (user: { uid: string | number }) => void) {
