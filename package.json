@@ -27,6 +27,7 @@
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.1",
     "@supabase/supabase-js": "^2.95.3",
+    "agora-rtc-sdk-ng": "^4.24.2",
     "lamejs": "^1.2.1",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",

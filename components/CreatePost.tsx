@@ -3,10 +3,11 @@ import { supabase } from '../supabaseClient';
 import * as lamejs from 'lamejs';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
-import { Post } from '../types';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
+import { Post, Profile } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
+import LiveStream from './LiveStream';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -42,7 +43,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
-  const [mode, setMode] = useState<'video' | 'photo'>('video');
+  const [mode, setMode] = useState<'video' | 'photo' | 'live'>('video');
+  const [liveTitle, setLiveTitle] = useState('');
+  const [showLiveStream, setShowLiveStream] = useState(false);
   const [textOverlay, setTextOverlay] = useState('');
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
@@ -403,6 +406,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const initiateRecording = async () => {
+    if (mode === 'live') {
+      setShowLiveStream(true);
+      return;
+    }
     if (isRecording || countdown !== null) return;
     startCountdown();
   };
@@ -760,8 +767,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     startCamera();
   };
 
+  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        setCurrentUserProfile(data);
+      }
+    };
+    fetchUser();
+  }, []);
+
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
+      {showLiveStream && currentUserProfile && (
+        <LiveStream 
+          channelName={`live_${currentUserProfile.id}`}
+          isHost={true}
+          onClose={() => setShowLiveStream(false)}
+          title={liveTitle}
+          hostProfile={currentUserProfile}
+        />
+      )}
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -1012,6 +1041,29 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
+            {mode === 'live' && !showLiveStream && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-10 z-50">
+                <div className="bg-black/40 backdrop-blur-xl border border-white/10 p-6 rounded-[32px] shadow-2xl animate-in zoom-in duration-300">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center border border-red-600/30">
+                      <Radio size={32} className="text-red-600 animate-pulse" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-black uppercase tracking-tighter text-white">Pronto para a Live?</h3>
+                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Dá um título ao teu mambo</p>
+                    </div>
+                    <input 
+                      type="text"
+                      value={liveTitle}
+                      onChange={(e) => setLiveTitle(e.target.value)}
+                      placeholder="Ex: Kizomba Night na Banda..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-red-600 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
@@ -1029,6 +1081,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'photo' ? 'text-white' : 'text-white/40'}`}
                 >
                   Foto
+                </button>
+                <button 
+                  onClick={() => setMode('live')}
+                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'live' ? 'text-white' : 'text-white/40'}`}
+                >
+                  Live
                 </button>
               </div>
 
@@ -1050,9 +1108,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                       60s
                     </button>
                   </>
-                ) : (
+                ) : mode === 'photo' ? (
                   <div className="px-6 py-1.5 bg-white/10 text-white/40 rounded-full text-[9px] font-black uppercase tracking-widest border border-white/10">
                     Modo Foto
+                  </div>
+                ) : (
+                  <div className="px-6 py-1.5 bg-red-600/20 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-600/30 animate-pulse">
+                    Em Direto
                   </div>
                 )}
               </div>
@@ -1067,21 +1129,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  className="hidden" 
                  onChange={handleNativeVideoChange} 
                />
-               <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
-                 <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
-                   <ImageIcon size={24} />
-                 </div>
-                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                 <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
-               </label>
+               <div className="w-12 h-12 flex items-center justify-center">
+                 {mode !== 'live' && (
+                   <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
+                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
+                       <ImageIcon size={24} />
+                     </div>
+                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
+                     <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
+                   </label>
+                 )}
+               </div>
                
                <button 
-                onClick={mode === 'video' ? (isRecording ? stopRecording : initiateRecording) : takePhoto} 
+                onClick={mode === 'photo' ? takePhoto : initiateRecording} 
                 disabled={isStarting} 
                 className="relative flex items-center justify-center disabled:opacity-50"
                >
-                 <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                 <div className={`w-20 h-20 rounded-full border-[6px] ${mode === 'live' ? 'border-red-600/40' : 'border-white/40'} flex items-center justify-center shadow-2xl`}>
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'live' ? 'bg-red-600' : (mode === 'video' ? 'bg-red-600' : 'bg-white')} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
                  </div>
                  {mode === 'photo' && (
                    <div className="absolute flex items-center justify-center">
@@ -1093,19 +1159,35 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                      )}
                    </div>
                  )}
+                 {mode === 'live' && (
+                   <div className="absolute flex items-center justify-center">
+                     <Radio size={24} className="text-white animate-pulse" />
+                   </div>
+                 )}
                </button>
 
-               <button 
-                onClick={isRecording ? stopRecording : () => {
-                  if (mediaFiles.length > 0) {
-                    stopCamera();
-                  }
-                }} 
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-               >
-                 <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
-                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
-               </button>
+               <div className="w-12 h-12 flex items-center justify-center">
+                 {mode === 'live' ? (
+                   <div className="flex flex-col items-center gap-1">
+                     <div className="p-3.5 bg-red-600/20 rounded-2xl text-red-600 border border-red-600/30 shadow-xl">
+                       <Radio size={24} className="animate-pulse" />
+                     </div>
+                     <span className="text-[8px] font-black uppercase text-red-600 tracking-widest mt-1">Live</span>
+                   </div>
+                 ) : (
+                   <button 
+                    onClick={isRecording ? stopRecording : () => {
+                      if (mediaFiles.length > 0) {
+                        stopCamera();
+                      }
+                    }} 
+                    className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+                   >
+                     <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
+                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
+                   </button>
+                 )}
+               </div>
              </div>
           </div>
         )}

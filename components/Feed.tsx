@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Post, Profile } from '../types';
+import { Post, Profile, LiveStream as LiveStreamType } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
+import { Radio, Users, ChevronRight, X } from 'lucide-react';
+import LiveStream from './LiveStream';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -38,6 +40,9 @@ const PostSkeleton = () => (
 
 const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
+  const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
+  const [showLivesOverlay, setShowLivesOverlay] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -56,6 +61,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
+  }, []);
+
+  useEffect(() => {
+    const fetchLives = async () => {
+      const { data } = await supabase
+        .from('lives')
+        .select('*, profiles(*)')
+        .eq('is_active', true)
+        .order('started_at', { ascending: false });
+      if (data) setActiveLives(data);
+    };
+    fetchLives();
   }, []);
 
   const fetchBatchMetadata = React.useCallback(async (postsToFetch: Post[]) => {
@@ -341,7 +358,102 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
         </button>
       </div>
 
-      <div className="feed-container h-full w-full">
+      {/* Lives Button */}
+      <div className="absolute top-8 sm:top-12 right-4 z-50">
+        <button 
+          onClick={() => setShowLivesOverlay(true)}
+          className="relative flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 active:scale-95 transition-all group"
+        >
+          <Radio size={16} className="text-red-600 animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-white">Lives</span>
+          {activeLives.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-black">
+              {activeLives.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {showLivesOverlay && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="h-full flex flex-col">
+            <header className="pt-16 px-6 pb-6 flex items-center justify-between border-b border-white/5">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tighter text-white">Lives Ativas</h2>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Vibe em Direto da Banda 🇦🇴</p>
+              </div>
+              <button 
+                onClick={() => setShowLivesOverlay(false)}
+                className="p-2 bg-white/5 rounded-full text-white"
+              >
+                <X size={24} />
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+              {activeLives.length > 0 ? (
+                activeLives.map(live => (
+                  <div 
+                    key={live.id}
+                    onClick={() => {
+                      setSelectedLive(live);
+                      setShowLivesOverlay(false);
+                    }}
+                    className="bg-zinc-900/50 border border-white/5 p-5 rounded-[32px] flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full border-2 border-red-600 p-1">
+                          <div className="w-full h-full rounded-full overflow-hidden bg-zinc-800">
+                            {live.profiles?.avatar_url ? (
+                              <img src={live.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-lg font-black">
+                                {live.profiles?.username?.[0].toUpperCase() || 'A'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter border-2 border-black shadow-lg">Live</div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white">@{live.profiles?.username}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium mt-1 line-clamp-1">{live.title}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-bold">
+                            <Users size={12} className="text-red-600" />
+                            {live.viewer_count} a ver
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
+                      <ChevronRight size={20} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center opacity-30 grayscale py-20">
+                  <Radio size={64} className="text-zinc-500 mb-6" />
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-center">Ninguém em direto agora</p>
+                  <p className="text-[10px] text-center mt-2 max-w-[200px]">Sê o primeiro a entrar em direto e mostra a tua vibe!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedLive && (
+        <LiveStream 
+          channelName={selectedLive.channel_name}
+          isHost={false}
+          onClose={() => setSelectedLive(null)}
+          hostProfile={selectedLive.profiles}
+        />
+      )}
+
+      <div className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post) => (
           <div key={post.id} className="feed-item relative">
             <PostCard 

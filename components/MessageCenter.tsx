@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Profile } from '../types';
-import { Search, Heart, UserPlus, MessageSquare, Bell } from 'lucide-react';
+import { Profile, LiveStream as LiveStreamType } from '../types';
+import { Search, Heart, UserPlus, MessageSquare, Bell, Users, ChevronRight } from 'lucide-react';
+import LiveStream from './LiveStream';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -24,13 +25,25 @@ interface NotificationItem {
 
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
+  const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'Tudo' | 'Likes' | 'Comentários' | 'Seguidores'>('Tudo');
+  const [filter, setFilter] = useState<'Tudo' | 'Lives' | 'Likes' | 'Comentários' | 'Seguidores'>('Tudo');
 
   const fetchNotifications = React.useCallback(async () => {
     if (!currentUser) return;
     try {
       setLoading(true);
+      
+      // Fetch Active Lives
+      const { data: lives } = await supabase
+        .from('lives')
+        .select('*, profiles(*)')
+        .eq('is_active', true)
+        .order('started_at', { ascending: false });
+      
+      if (lives) setActiveLives(lives);
+
       // 1. Fetch Follows
       const { data: follows } = await supabase
         .from('follows')
@@ -105,6 +118,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   };
 
   const handleNotificationClick = (notif: NotificationItem) => {
+    if (filter === 'Lives') return;
     if (notif.type === 'follow' && notif.user) {
       onNavigateToProfile(notif.user.id);
     } else if ((notif.type === 'like' || notif.type === 'comment') && notif.postId) {
@@ -114,6 +128,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
   const filteredNotifications = notifications.filter(n => {
     if (filter === 'Tudo') return true;
+    if (filter === 'Lives') return false;
     if (filter === 'Likes') return n.type === 'like';
     if (filter === 'Comentários') return n.type === 'comment';
     if (filter === 'Seguidores') return n.type === 'follow';
@@ -134,10 +149,10 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
         {/* Filtros de Notificações */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-          {['Tudo', 'Likes', 'Comentários', 'Seguidores'].map((f) => (
+          {['Tudo', 'Lives', 'Likes', 'Comentários', 'Seguidores'].map((f) => (
             <button 
               key={f} 
-              onClick={() => setFilter(f as 'Tudo' | 'Likes' | 'Comentários' | 'Seguidores')}
+              onClick={() => setFilter(f as 'Tudo' | 'Lives' | 'Likes' | 'Comentários' | 'Seguidores')}
               className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                 filter === f 
                 ? 'bg-white text-black border-white shadow-lg' 
@@ -151,71 +166,132 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
       </header>
 
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24 p-6">
+        {selectedLive && (
+          <LiveStream 
+            channelName={selectedLive.channel_name}
+            isHost={false}
+            onClose={() => setSelectedLive(null)}
+            hostProfile={selectedLive.profiles}
+          />
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
             <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">A Carregar</span>
           </div>
         ) : (
-          <div className="space-y-1">
-            {filteredNotifications.map((notif) => (
-              <div 
-                key={notif.id} 
-                onClick={() => handleNotificationClick(notif)}
-                className="flex items-center gap-4 py-4 group animate-[slideUp_0.3s_ease-out] hover:bg-zinc-900/30 rounded-2xl px-2 transition-colors cursor-pointer"
-              >
-                <div className="relative shrink-0">
-                  <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-800 bg-zinc-900">
-                    {notif.user?.avatar_url ? (
-                      <img src={notif.user.avatar_url} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black text-sm uppercase">
-                        {notif.user?.username?.[0] || '?'}
+          <div className="space-y-6">
+            {/* Active Lives Section */}
+            {(filter === 'Tudo' || filter === 'Lives') && activeLives.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Lives Ativas Agora</h3>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-red-600 animate-pulse" />
+                    <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">Em Direto</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {activeLives.map(live => (
+                    <div 
+                      key={live.id}
+                      onClick={() => setSelectedLive(live)}
+                      className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-[24px] flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full border-2 border-red-600 p-0.5">
+                            <div className="w-full h-full rounded-full overflow-hidden bg-zinc-800">
+                              {live.profiles?.avatar_url ? (
+                                <img src={live.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs font-black">
+                                  {live.profiles?.username?.[0].toUpperCase() || 'A'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 bg-red-600 text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-tighter border-2 border-black">Live</div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-white">@{live.profiles?.username}</p>
+                          <p className="text-[10px] text-zinc-500 font-medium mt-0.5 line-clamp-1">{live.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1 text-[9px] text-zinc-400">
+                              <Users size={10} />
+                              {live.viewer_count} a ver
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      <ChevronRight size={18} className="text-zinc-700 group-hover:text-white transition-colors" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              {filteredNotifications.map((notif) => (
+                <div 
+                  key={notif.id} 
+                  onClick={() => handleNotificationClick(notif)}
+                  className="flex items-center gap-4 py-4 group animate-[slideUp_0.3s_ease-out] hover:bg-zinc-900/30 rounded-2xl px-2 transition-colors cursor-pointer"
+                >
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-800 bg-zinc-900">
+                      {notif.user?.avatar_url ? (
+                        <img src={notif.user.avatar_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black text-sm uppercase">
+                          {notif.user?.username?.[0] || '?'}
+                        </div>
+                      )}
+                    </div>
+                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-black shadow-lg ${
+                      notif.type === 'like' ? 'bg-red-600' : 
+                      notif.type === 'follow' ? 'bg-blue-600' : 
+                      'bg-yellow-500'
+                    }`}>
+                      {notif.type === 'like' && <Heart size={10} fill="white" className="text-white" />}
+                      {notif.type === 'follow' && <UserPlus size={10} className="text-white" />}
+                      {notif.type === 'comment' && <MessageSquare size={10} fill="white" className="text-white" />}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-zinc-400 leading-tight">
+                      <span className="font-black text-white mr-1.5">@{notif.user?.username}</span>
+                      {notif.type === 'like' && 'curtiu o teu mambo.'}
+                      {notif.type === 'follow' && 'começou a seguir-te.'}
+                      {notif.type === 'comment' && 'comentou no teu vídeo.'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-zinc-700 font-black uppercase tracking-tighter">{formatTime(notif.created_at)}</span>
+                    </div>
+                    {notif.content && (
+                      <p className="text-[11px] text-zinc-500 mt-1.5 italic line-clamp-1 bg-zinc-900/50 p-2 rounded-lg border border-zinc-800/30">
+                        &quot;{notif.content}&quot;
+                      </p>
                     )}
                   </div>
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-black shadow-lg ${
-                    notif.type === 'like' ? 'bg-red-600' : 
-                    notif.type === 'follow' ? 'bg-blue-600' : 
-                    'bg-yellow-500'
-                  }`}>
-                    {notif.type === 'like' && <Heart size={10} fill="white" className="text-white" />}
-                    {notif.type === 'follow' && <UserPlus size={10} className="text-white" />}
-                    {notif.type === 'comment' && <MessageSquare size={10} fill="white" className="text-white" />}
-                  </div>
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] text-zinc-400 leading-tight">
-                    <span className="font-black text-white mr-1.5">@{notif.user?.username}</span>
-                    {notif.type === 'like' && 'curtiu o teu mambo.'}
-                    {notif.type === 'follow' && 'começou a seguir-te.'}
-                    {notif.type === 'comment' && 'comentou no teu vídeo.'}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-zinc-700 font-black uppercase tracking-tighter">{formatTime(notif.created_at)}</span>
-                  </div>
-                  {notif.content && (
-                    <p className="text-[11px] text-zinc-500 mt-1.5 italic line-clamp-1 bg-zinc-900/50 p-2 rounded-lg border border-zinc-800/30">
-                      &quot;{notif.content}&quot;
-                    </p>
+                  {notif.type === 'follow' ? (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onNavigateToProfile(notif.user.id); }}
+                      className="px-5 py-2 bg-red-600 text-white text-[9px] font-black uppercase rounded-xl shadow-lg active:scale-95 transition-all"
+                    >
+                      Seguir
+                    </button>
+                  ) : (
+                    <div className="w-12 h-12 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden shrink-0 opacity-40 hover:opacity-100 transition-opacity">
+                      <div className="w-full h-full flex items-center justify-center"><Bell size={14} className="text-zinc-700"/></div>
+                    </div>
                   )}
                 </div>
-
-                {notif.type === 'follow' ? (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onNavigateToProfile(notif.user.id); }}
-                    className="px-5 py-2 bg-red-600 text-white text-[9px] font-black uppercase rounded-xl shadow-lg active:scale-95 transition-all"
-                  >
-                    Seguir
-                  </button>
-                ) : (
-                  <div className="w-12 h-12 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden shrink-0 opacity-40 hover:opacity-100 transition-opacity">
-                    <div className="w-full h-full flex items-center justify-center"><Bell size={14} className="text-zinc-700"/></div>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
 
             {filteredNotifications.length === 0 && !loading && (
               <div className="py-24 flex flex-col items-center justify-center opacity-20 grayscale text-center">
