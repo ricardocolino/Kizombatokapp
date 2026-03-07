@@ -6,6 +6,9 @@ import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
+import UserActionModal from './UserActionModal';
+import GiftAnimation from './GiftAnimation';
+
 interface HostLiveProps {
   channelName: string;
   onClose: () => void;
@@ -13,15 +16,28 @@ interface HostLiveProps {
   hostProfile: Profile;
 }
 
+interface LiveComment {
+  id: string;
+  username: string;
+  text: string;
+  userId?: string;
+  avatarUrl?: string;
+  type?: 'system' | 'gift';
+  giftName?: string;
+}
+
 const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostProfile }) => {
   const videoRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount] = useState(0);
-  const [comments, setComments] = useState<{ id: string, username: string, text: string, type?: 'system' | 'gift' }[]>([]);
+  const [comments, setComments] = useState<LiveComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [likes, setLikes] = useState(0);
   const [showHostPanel, setShowHostPanel] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string } | null>(null);
+  const [activeGift, setActiveGift] = useState<{ name: string, username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
 
   const channelRef = useRef<{
     send: (payload: { type: string; event: string; payload?: Record<string, unknown> }) => Promise<string>;
@@ -56,6 +72,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         // Register live in DB
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted) {
+          setCurrentUser({ id: session.user.id });
           const { error: dbError } = await supabase.from('lives').insert({
             user_id: session.user.id,
             channel_name: channelName,
@@ -91,7 +108,12 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
     channelRef.current = supabase.channel(`live_${channelName}`)
       .on('broadcast', { event: 'comment' }, ({ payload }) => {
-        if (isMounted) setComments(prev => [...prev, payload]);
+        if (isMounted) {
+          setComments(prev => [...prev, payload]);
+          if (payload.type === 'gift') {
+            setActiveGift({ name: payload.giftName, username: payload.username });
+          }
+        }
       })
       .on('broadcast', { event: 'like' }, () => {
         if (isMounted) setLikes(prev => prev + 1);
@@ -117,10 +139,11 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current) return;
     
-    const { data: { session } } = await supabase.auth.getSession();
     const comment = { 
       id: Date.now().toString(), 
-      username: session?.user.email?.split('@')[0] || 'Host', 
+      userId: hostProfile.id,
+      username: hostProfile.username || 'Host', 
+      avatarUrl: hostProfile.avatar_url,
       text: newComment 
     };
 
@@ -132,7 +155,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
       event: 'comment',
       payload: comment
     });
-  }, [newComment]);
+  }, [newComment, hostProfile]);
 
   if (error) {
     return (
@@ -198,7 +221,24 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         <div className="flex flex-col gap-4">
           <div className="max-h-64 overflow-y-auto flex flex-col gap-2 no-scrollbar mask-fade-top">
             {comments.map(c => (
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={c.id} className={`flex items-start gap-2 p-2 rounded-xl max-w-[85%] ${c.type === 'system' ? 'bg-zinc-800/40 border border-zinc-700/30' : c.type === 'gift' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-black/30 backdrop-blur-sm'}`}>
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                key={c.id} 
+                onClick={() => c.type !== 'system' && setSelectedUser({ id: c.userId || '', username: c.username, avatarUrl: c.avatarUrl })}
+                className={`flex items-start gap-2 p-2 rounded-xl max-w-[85%] cursor-pointer active:scale-95 transition-transform ${c.type === 'system' ? 'bg-zinc-800/40 border border-zinc-700/30' : c.type === 'gift' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-black/30 backdrop-blur-sm'}`}
+              >
+                {c.type !== 'system' && (
+                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-zinc-800">
+                    {c.avatarUrl ? (
+                      <img src={c.avatarUrl} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-white/40">
+                        {c.username[0].toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className={`text-[9px] font-black uppercase tracking-wider ${c.type === 'system' ? 'text-zinc-400' : c.type === 'gift' ? 'text-yellow-500' : 'text-red-500'}`}>{c.username}</span>
                   <p className={`text-[11px] font-medium leading-tight ${c.type === 'gift' ? 'text-yellow-200 font-black' : 'text-white'}`}>{c.text}</p>
@@ -221,6 +261,25 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
       </div>
 
       <AnimatePresence>
+        {activeGift && (
+          <GiftAnimation 
+            giftName={activeGift.name} 
+            username={activeGift.username} 
+            onComplete={() => setActiveGift(null)} 
+          />
+        )}
+
+        {selectedUser && (
+          <UserActionModal 
+            userId={selectedUser.id}
+            username={selectedUser.username}
+            avatarUrl={selectedUser.avatarUrl}
+            isHost={true}
+            onClose={() => setSelectedUser(null)}
+            currentUser={currentUser}
+          />
+        )}
+
         {showHostPanel && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowHostPanel(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[210]" />

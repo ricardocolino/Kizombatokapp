@@ -359,15 +359,15 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
       </div>
 
       {/* Lives Button */}
-      <div className="absolute top-8 sm:top-12 right-4 z-50">
+      <div className="absolute top-8 sm:top-12 left-4 z-50">
         <button 
           onClick={() => setShowLivesOverlay(true)}
-          className="relative flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 active:scale-95 transition-all group"
+          className="flex items-center gap-2 text-base sm:text-lg font-bold text-white/60 hover:text-white transition-all pointer-events-auto"
         >
-          <Radio size={16} className="text-red-600 animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-white">Lives</span>
+          <Radio size={20} className="text-red-600 animate-pulse" />
+          <span>Lives</span>
           {activeLives.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-black">
+            <span className="bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-black">
               {activeLives.length}
             </span>
           )}

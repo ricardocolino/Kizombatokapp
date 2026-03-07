@@ -5,20 +5,37 @@ import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
+import UserActionModal from './UserActionModal';
+import GiftAnimation from './GiftAnimation';
+
 interface ViewerLiveProps {
   channelName: string;
   onClose: () => void;
   hostProfile?: Profile;
 }
 
+interface LiveComment {
+  id: string;
+  username: string;
+  text: string;
+  userId?: string;
+  avatarUrl?: string;
+  type?: 'system' | 'gift';
+  giftName?: string;
+}
+
 const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfile }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount] = useState(0);
-  const [comments, setComments] = useState<{ id: string, username: string, text: string, type?: 'system' | 'gift' }[]>([]);
+  const [comments, setComments] = useState<LiveComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [likes, setLikes] = useState(0);
   const [showGiftMenu, setShowGiftMenu] = useState(false);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string } | null>(null);
+  const [activeGift, setActiveGift] = useState<{ name: string, username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
 
   const channelRef = useRef<{
     send: (payload: { type: string; event: string; payload?: Record<string, unknown> }) => Promise<string>;
@@ -31,6 +48,17 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     const setupLive = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setCurrentUser({ id: session.user.id });
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          if (profile && isMounted) setUserProfile(profile);
+        }
+
         await agoraService.joinAsAudience(channelName);
         if (isMounted) {
           setLoading(false);
@@ -52,7 +80,12 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     channelRef.current = supabase.channel(`live_${channelName}`)
       .on('broadcast', { event: 'comment' }, ({ payload }) => {
-        if (isMounted) setComments(prev => [...prev, payload]);
+        if (isMounted) {
+          setComments(prev => [...prev, payload]);
+          if (payload.type === 'gift') {
+            setActiveGift({ name: payload.giftName, username: payload.username });
+          }
+        }
       })
       .on('broadcast', { event: 'like' }, () => {
         if (isMounted) setLikes(prev => prev + 1);
@@ -69,12 +102,13 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   }, [channelName]);
 
   const handleSendComment = useCallback(async () => {
-    if (!newComment.trim() || !channelRef.current) return;
+    if (!newComment.trim() || !channelRef.current || !userProfile) return;
     
-    const { data: { session } } = await supabase.auth.getSession();
     const comment = { 
       id: Date.now().toString(), 
-      username: session?.user.email?.split('@')[0] || 'Espectador', 
+      userId: userProfile.id,
+      username: userProfile.username || 'Espectador', 
+      avatarUrl: userProfile.avatar_url,
       text: newComment 
     };
 
@@ -86,7 +120,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       event: 'comment',
       payload: comment
     });
-  }, [newComment]);
+  }, [newComment, userProfile]);
 
   const handleSendLike = useCallback(async () => {
     if (!channelRef.current) return;
@@ -97,17 +131,44 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     });
   }, []);
 
-  const sendGift = useCallback(async (giftName: string) => {
-    if (!channelRef.current) return;
+  const sendGift = useCallback(async (giftName: string, price: number) => {
+    if (!channelRef.current || !userProfile) return;
+    
+    if (userProfile.balance < price) {
+      alert('Saldo insuficiente para enviar este presente!');
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    // Deduct balance in DB
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ balance: userProfile.balance - price })
+      .eq('id', session.user.id);
+
+    if (updateError) {
+      console.error('Erro ao descontar saldo:', updateError);
+      alert('Erro ao processar o presente. Tenta novamente.');
+      return;
+    }
+
+    // Update local state
+    setUserProfile(prev => prev ? { ...prev, balance: prev.balance - price } : null);
+
     const giftMsg = {
       id: 'gift_' + Date.now().toString(),
-      username: session?.user.email?.split('@')[0] || 'Espectador',
+      userId: userProfile.id,
+      username: userProfile.username || 'Espectador',
+      avatarUrl: userProfile.avatar_url,
       text: `enviou um ${giftName}! 🎁`,
-      type: 'gift' as const
+      type: 'gift' as const,
+      giftName: giftName
     };
     
     setComments(prev => [...prev, giftMsg]);
+    setActiveGift({ name: giftName, username: userProfile.username || 'Espectador' });
     setShowGiftMenu(false);
     
     await channelRef.current.send({
@@ -115,7 +176,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       event: 'comment',
       payload: giftMsg
     });
-  }, []);
+  }, [userProfile]);
 
   if (error) {
     return (
@@ -176,7 +237,24 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         <div className="flex flex-col gap-4">
           <div className="max-h-64 overflow-y-auto flex flex-col gap-2 no-scrollbar mask-fade-top">
             {comments.map(c => (
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} key={c.id} className={`flex items-start gap-2 p-2 rounded-xl max-w-[85%] ${c.type === 'system' ? 'bg-zinc-800/40 border border-zinc-700/30' : c.type === 'gift' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-black/30 backdrop-blur-sm'}`}>
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                key={c.id} 
+                onClick={() => c.type !== 'system' && setSelectedUser({ id: c.userId || '', username: c.username, avatarUrl: c.avatarUrl })}
+                className={`flex items-start gap-2 p-2 rounded-xl max-w-[85%] cursor-pointer active:scale-95 transition-transform ${c.type === 'system' ? 'bg-zinc-800/40 border border-zinc-700/30' : c.type === 'gift' ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-black/30 backdrop-blur-sm'}`}
+              >
+                {c.type !== 'system' && (
+                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-zinc-800">
+                    {c.avatarUrl ? (
+                      <img src={c.avatarUrl} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-white/40">
+                        {c.username[0].toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className={`text-[9px] font-black uppercase tracking-wider ${c.type === 'system' ? 'text-zinc-400' : c.type === 'gift' ? 'text-yellow-500' : 'text-red-500'}`}>{c.username}</span>
                   <p className={`text-[11px] font-medium leading-tight ${c.type === 'gift' ? 'text-yellow-200 font-black' : 'text-white'}`}>{c.text}</p>
@@ -204,12 +282,45 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       </div>
 
       <AnimatePresence>
+        {activeGift && (
+          <GiftAnimation 
+            giftName={activeGift.name} 
+            username={activeGift.username} 
+            onComplete={() => setActiveGift(null)} 
+          />
+        )}
+
+        {selectedUser && (
+          <UserActionModal 
+            userId={selectedUser.id}
+            username={selectedUser.username}
+            avatarUrl={selectedUser.avatarUrl}
+            isHost={false}
+            onClose={() => setSelectedUser(null)}
+            currentUser={currentUser}
+          />
+        )}
+
         {showGiftMenu && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowGiftMenu(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[210]" />
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="absolute bottom-0 left-0 w-full bg-zinc-900 rounded-t-[32px] z-[220] p-8 pb-12">
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="absolute bottom-0 left-0 w-full bg-zinc-900 rounded-t-[32px] z-[220] p-8 pb-12"
+            >
               <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-8" />
-              <h3 className="text-xl font-black text-white mb-8 uppercase tracking-tighter flex items-center gap-3"><Gift className="text-yellow-500" /> Enviar Presente</h3>
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                  <Gift className="text-yellow-500" /> Enviar Presente
+                </h3>
+                <div className="bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 rounded-2xl">
+                  <p className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">O teu Saldo</p>
+                  <p className="text-sm font-black text-white">{userProfile?.balance || 0} Kz</p>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { name: 'Rosa', icon: '🌹', price: 1 },
@@ -219,7 +330,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
                   { name: 'Fogo', icon: '🔥', price: 2 },
                   { name: 'Angola', icon: '🇦🇴', price: 100 },
                 ].map(gift => (
-                  <button key={gift.name} onClick={() => sendGift(gift.name)} className="flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border border-white/5 active:scale-95 transition-all">
+                  <button key={gift.name} onClick={() => sendGift(gift.name, gift.price)} className="flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border border-white/5 active:scale-95 transition-all">
                     <span className="text-3xl">{gift.icon}</span>
                     <span className="text-[10px] font-black text-white">{gift.name}</span>
                     <span className="text-[9px] font-bold text-yellow-500">{gift.price} Kz</span>
