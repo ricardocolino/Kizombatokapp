@@ -154,6 +154,22 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       return;
     }
 
+    // Add balance to host
+    if (hostProfile?.id) {
+      const { data: hostData } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', hostProfile.id)
+        .single();
+
+      if (hostData) {
+        await supabase
+          .from('profiles')
+          .update({ balance: hostData.balance + price })
+          .eq('id', hostProfile.id);
+      }
+    }
+
     // Update local state
     setUserProfile(prev => prev ? { ...prev, balance: prev.balance - price } : null);
 
@@ -176,7 +192,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       event: 'comment',
       payload: giftMsg
     });
-  }, [userProfile]);
+  }, [userProfile, hostProfile]);
 
   if (error) {
     return (
