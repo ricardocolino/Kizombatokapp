@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
-import { MoreHorizontal, AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
+import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 interface ProfileViewProps {
@@ -416,22 +416,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           )}
           {isOwnProfile && (
-            <button 
-              onClick={() => alert('Para instalares no Android:\n1. Clica nos 3 pontos do navegador\n2. Escolhe "Instalar Aplicação" ou "Adicionar ao Ecrã Principal".')}
-              className="text-zinc-400 hover:text-white transition-all p-1 flex items-center gap-1"
-            >
-              <Plus size={18} className="rotate-45" />
-              <span className="text-[10px] font-black uppercase tracking-tighter">App</span>
-            </button>
-          )}
-          {isOwnProfile && (
             <button onClick={() => setShowLogoutModal(true)} className="text-zinc-400 hover:text-red-600 transition-all p-1">
               <LogOut size={20}/>
             </button>
           )}
-          <button className="text-zinc-400 hover:text-white transition-colors p-1">
-            <MoreHorizontal size={20} />
-          </button>
         </div>
       </header>
 
