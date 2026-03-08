@@ -153,10 +153,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           args.push('-vf', vfFilter);
         }
         args.push('-c:v', 'libx264');
-        args.push('-preset', 'faster'); // Melhor compressão que ultrafast
-        args.push('-crf', '28'); // Equilíbrio ideal entre peso e qualidade para web
-        args.push('-maxrate', '1.5M'); // Limita o bitrate para evitar "engasgos"
-        args.push('-bufsize', '3M');
+        args.push('-preset', 'ultrafast'); // Muito mais rápido que 'faster' para mobile
+        args.push('-crf', '30'); // Ligeiramente mais comprimido para upload mais rápido
+        args.push('-maxrate', '1.2M'); // Limita o bitrate para evitar ficheiros gigantes
+        args.push('-bufsize', '2.4M');
         args.push('-pix_fmt', 'yuv420p');
         args.push('-profile:v', 'baseline', '-level', '3.0'); // Máxima compatibilidade
       } else {
@@ -210,7 +210,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     try {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles(*)')
+        .select('*, profiles!user_id(*)')
+        .order('created_at', { ascending: false })
         .limit(20);
       if (data) setAvailableSounds(data);
     } catch (e) {
@@ -641,7 +642,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Se houve dubbing, o áudio já está embutido no vídeo processado pelo FFmpeg
       let audioUrl = null;
       const isDubbing = !!selectedSound && !useOriginalAudio;
-      if (!isPhoto && !isDubbing) {
+      
+      if (isDubbing) {
+        // Se é dublagem, o áudio é o mesmo da música selecionada
+        audioUrl = selectedSound.audio_url || selectedSound.media_url;
+      } else if (!isPhoto) {
         try {
           const videoBlob = filesToUpload[0];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -700,10 +705,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         } catch (audioErr) {
           console.error('Erro ao extrair/converter áudio:', audioErr);
         }
-      } else if (!isPhoto && isDubbing && selectedSound) {
-        // Em modo dubbing, o áudio do som selecionado já foi embutido pelo FFmpeg
-        // Guardamos a referência ao audio_url do sound original para o feed saber qual som foi usado
-        audioUrl = selectedSound.audio_url || selectedSound.media_url;
       }
 
       // Gerar e fazer upload da thumbnail (só para vídeo)
