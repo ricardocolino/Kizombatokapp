@@ -107,6 +107,17 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
     setupLive();
 
+    const refreshProfile = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', hostProfile.id)
+        .single();
+      if (data && isMounted) {
+        setCurrentHostProfile(data);
+      }
+    };
+
     // Real-time profile updates (balance, etc)
     const profileSubscription = supabase
       .channel(`profile_${hostProfile.id}`)
@@ -132,6 +143,8 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
           setComments(prev => [...prev, payload]);
           if (payload.type === 'gift') {
             setActiveGift({ name: payload.giftName, username: payload.username });
+            // Refresh profile manually to ensure balance is correct
+            refreshProfile();
           }
         }
       })

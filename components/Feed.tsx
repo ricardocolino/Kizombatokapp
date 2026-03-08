@@ -449,6 +449,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
           channelName={selectedLive.channel_name}
           onClose={() => setSelectedLive(null)}
           hostProfile={selectedLive.profiles}
+          hostId={selectedLive.user_id}
         />
       )}
 

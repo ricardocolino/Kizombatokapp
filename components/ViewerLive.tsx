@@ -12,6 +12,7 @@ interface ViewerLiveProps {
   channelName: string;
   onClose: () => void;
   hostProfile?: Profile;
+  hostId: string;
 }
 
 interface LiveComment {
@@ -24,7 +25,7 @@ interface LiveComment {
   giftName?: string;
 }
 
-const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfile }) => {
+const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfile, hostId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewerCount] = useState(0);
@@ -180,20 +181,26 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
       if (updateError) throw updateError;
 
-      // Add balance to host
-      if (hostProfile?.id) {
-        // We fetch and update. In a real production app, an RPC for incrementing would be better.
+      // Add balance to host using RPC (more reliable)
+      const { error: hostUpdateError } = await supabase.rpc('increment_user_balance', {
+        target_user_id: hostId,
+        amount: price
+      });
+
+      if (hostUpdateError) {
+        console.error('Erro ao incrementar saldo do host via RPC:', hostUpdateError);
+        // Fallback to manual update if RPC fails
         const { data: hostData } = await supabase
           .from('profiles')
           .select('balance')
-          .eq('id', hostProfile.id)
+          .eq('id', hostId)
           .single();
 
         if (hostData) {
           await supabase
             .from('profiles')
             .update({ balance: hostData.balance + price })
-            .eq('id', hostProfile.id);
+            .eq('id', hostId);
         }
       }
     } catch (error) {
@@ -202,7 +209,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       setUserProfile(prev => prev ? { ...prev, balance: oldBalance } : null);
       alert('Houve um problema ao processar o presente. O teu saldo foi restaurado.');
     }
-  }, [userProfile, hostProfile]);
+  }, [userProfile, hostId]);
 
   if (error) {
     return (
