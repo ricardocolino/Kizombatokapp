@@ -142,36 +142,12 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Deduct balance in DB
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ balance: userProfile.balance - price })
-      .eq('id', session.user.id);
-
-    if (updateError) {
-      console.error('Erro ao descontar saldo:', updateError);
-      alert('Erro ao processar o presente. Tenta novamente.');
-      return;
-    }
-
-    // Add balance to host
-    if (hostProfile?.id) {
-      const { data: hostData } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', hostProfile.id)
-        .single();
-
-      if (hostData) {
-        await supabase
-          .from('profiles')
-          .update({ balance: hostData.balance + price })
-          .eq('id', hostProfile.id);
-      }
-    }
-
-    // Update local state
-    setUserProfile(prev => prev ? { ...prev, balance: prev.balance - price } : null);
+    // --- OPTIMISTIC UI UPDATES (Instant feedback) ---
+    const oldBalance = userProfile.balance;
+    const newBalance = oldBalance - price;
+    
+    // Update local state immediately
+    setUserProfile(prev => prev ? { ...prev, balance: newBalance } : null);
 
     const giftMsg = {
       id: 'gift_' + Date.now().toString(),
@@ -187,11 +163,45 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     setActiveGift({ name: giftName, username: userProfile.username || 'Espectador' });
     setShowGiftMenu(false);
     
-    await channelRef.current.send({
+    // Broadcast immediately
+    channelRef.current.send({
       type: 'broadcast',
       event: 'comment',
       payload: giftMsg
     });
+
+    // --- BACKGROUND DB UPDATES ---
+    try {
+      // Deduct balance from sender
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
+
+      // Add balance to host
+      if (hostProfile?.id) {
+        // We fetch and update. In a real production app, an RPC for incrementing would be better.
+        const { data: hostData } = await supabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', hostProfile.id)
+          .single();
+
+        if (hostData) {
+          await supabase
+            .from('profiles')
+            .update({ balance: hostData.balance + price })
+            .eq('id', hostProfile.id);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao processar presente no servidor:', error);
+      // Rollback local state on error
+      setUserProfile(prev => prev ? { ...prev, balance: oldBalance } : null);
+      alert('Houve um problema ao processar o presente. O teu saldo foi restaurado.');
+    }
   }, [userProfile, hostProfile]);
 
   if (error) {

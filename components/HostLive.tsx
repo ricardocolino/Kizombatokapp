@@ -38,6 +38,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
   const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string } | null>(null);
   const [activeGift, setActiveGift] = useState<{ name: string, username: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [currentHostProfile, setCurrentHostProfile] = useState<Profile>(hostProfile);
 
   const channelRef = useRef<{
     send: (payload: { type: string; event: string; payload?: Record<string, unknown> }) => Promise<string>;
@@ -106,6 +107,25 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
     setupLive();
 
+    // Real-time profile updates (balance, etc)
+    const profileSubscription = supabase
+      .channel(`profile_${hostProfile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${hostProfile.id}`
+        },
+        (payload) => {
+          if (isMounted) {
+            setCurrentHostProfile(payload.new as Profile);
+          }
+        }
+      )
+      .subscribe();
+
     channelRef.current = supabase.channel(`live_${channelName}`)
       .on('broadcast', { event: 'comment' }, ({ payload }) => {
         if (isMounted) {
@@ -130,20 +150,21 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         await agoraService.leave();
       };
       endLive();
+      supabase.removeChannel(profileSubscription);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [channelName, title]);
+  }, [channelName, title, hostProfile.id]);
 
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current) return;
     
     const comment = { 
       id: Date.now().toString(), 
-      userId: hostProfile.id,
-      username: hostProfile.username || 'Host', 
-      avatarUrl: hostProfile.avatar_url,
+      userId: currentHostProfile.id,
+      username: currentHostProfile.username || 'Host', 
+      avatarUrl: currentHostProfile.avatar_url,
       text: newComment 
     };
 
@@ -155,7 +176,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
       event: 'comment',
       payload: comment
     });
-  }, [newComment, hostProfile]);
+  }, [newComment, currentHostProfile]);
 
   if (error) {
     return (
@@ -181,16 +202,16 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border-2 border-red-600 overflow-hidden shadow-lg shadow-red-600/20">
-              {hostProfile.avatar_url ? (
-                <img src={hostProfile.avatar_url} className="w-full h-full object-cover" alt="" />
+              {currentHostProfile.avatar_url ? (
+                <img src={currentHostProfile.avatar_url} className="w-full h-full object-cover" alt="" />
               ) : (
                 <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs font-black">
-                  {hostProfile.username?.[0].toUpperCase() || 'A'}
+                  {currentHostProfile.username?.[0].toUpperCase() || 'A'}
                 </div>
               )}
             </div>
             <div>
-              <p className="text-xs font-black text-white drop-shadow-md">{hostProfile.username || 'Host'}</p>
+              <p className="text-xs font-black text-white drop-shadow-md">{currentHostProfile.username || 'Host'}</p>
               <div className="flex items-center gap-2">
                 <span className="bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Direto</span>
                 <button onClick={() => {}} className="flex items-center gap-1 text-[10px] text-white/90 font-bold bg-black/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
@@ -290,7 +311,13 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><Shield className="text-blue-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Moderadores</span></button>
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><Ban className="text-red-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Bloqueados</span></button>
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><MessageCircle className="text-green-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Filtros Chat</span></button>
-                <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><Star className="text-yellow-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Estatísticas</span></button>
+                <div className="flex flex-col items-center gap-3 p-6 bg-yellow-500/10 rounded-[24px] border border-yellow-500/20">
+                  <Star className="text-yellow-500" size={28} />
+                  <div className="text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 block mb-1">Saldo Total</span>
+                    <span className="text-sm font-black text-white">{currentHostProfile.balance} Kz</span>
+                  </div>
+                </div>
               </div>
               <button onClick={onClose} className="w-full mt-8 bg-red-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-lg shadow-red-600/20">Encerrar Live</button>
             </motion.div>
