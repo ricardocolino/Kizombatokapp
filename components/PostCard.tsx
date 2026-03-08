@@ -58,6 +58,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     return () => clearTimeout(timer);
   }, []);
   const viewCountedRef = useRef<boolean>(false);
+  const viewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,35 +70,32 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       videoRef.current.pause();
     }
     setIsPlaying(false);
+    if (viewTimeoutRef.current) {
+      clearTimeout(viewTimeoutRef.current);
+      viewTimeoutRef.current = null;
+    }
   }, []);
 
   const incrementView = React.useCallback(async () => {
     if (viewCountedRef.current) return;
+    viewCountedRef.current = true;
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      // Não contar view se for o próprio autor a ver o seu post
+      if (session?.user.id === post.user_id) {
+        return;
+      }
+
       // Incrementar views do post
       await supabase.rpc('increment_post_views', { target_post_id: post.id });
       
-      // Incrementar balanço do autor (Moeda: Kizombas)
-      // Ganhos por view: 0.1 Kz
-      const { error: balanceError } = await supabase.rpc('increment_user_balance', { 
-        target_user_id: post.user_id, 
-        amount: 0.1 
-      });
-
-      if (balanceError) {
-        // Fallback se o RPC não existir: Tentativa de update direto
-        const { data: profile } = await supabase.from('profiles').select('balance').eq('id', post.user_id).single();
-        if (profile) {
-          await supabase.from('profiles')
-            .update({ balance: (profile.balance || 0) + 0.1 })
-            .eq('id', post.user_id);
-        }
-      }
-
-      viewCountedRef.current = true;
+      // NOTA: O balanço agora é resgatado manualmente no Painel do Perfil
+      // para evitar ganhos automáticos confusos e garantir que o utilizador
+      // veja o progresso dos seus mambos.
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
+      viewCountedRef.current = false;
     }
   }, [post.id, post.user_id]);
 
@@ -109,9 +107,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         playPromise.then(() => {
           setIsPlaying(true);
           // Deferir o incremento de views para não competir com a reprodução inicial
-          if (!viewCountedRef.current) {
-            setTimeout(() => {
+          if (!viewCountedRef.current && !viewTimeoutRef.current) {
+            viewTimeoutRef.current = setTimeout(() => {
               incrementView();
+              viewTimeoutRef.current = null;
             }, 2000);
           }
         }).catch((err) => {
