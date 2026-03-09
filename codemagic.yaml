@@ -28,9 +28,6 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync android
-      - name: Install Android SDK 36
-        script: |
-          yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Build Android APK
         script: |
           cd android
