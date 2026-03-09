@@ -76,10 +76,6 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     await r2Client.send(command);
     console.log("R2 Upload successful");
 
-    // Construct the public URL
-    // R2 public URLs usually follow the pattern: https://<bucket-name>.<account-id>.r2.cloudflarestorage.com/<file-path>
-    // OR a custom domain if configured.
-    // For simplicity, we'll use a public bucket URL if provided, or construct it.
     const publicUrl = process.env.R2_PUBLIC_URL 
       ? `${process.env.R2_PUBLIC_URL}/${filePath}`
       : `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}/${filePath}`;
@@ -87,8 +83,20 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     res.json({ url: publicUrl });
   } catch (error) {
     console.error("R2 Upload Error:", error);
-    res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ 
+      error: (error as Error).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    });
   }
+});
+
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global Error:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+    code: err.code
+  });
 });
 
 app.get("/api/health", (req, res) => {

@@ -12,7 +12,7 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
   });
 
   if (!response.ok) {
-    let errorMessage = "Failed to upload to R2";
+    let errorMessage = `Upload failed with status ${response.status}`;
     try {
       const error = await response.json();
       errorMessage = error.error || errorMessage;
@@ -20,7 +20,12 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
       // If not JSON, try to get text
       try {
         const text = await response.text();
-        errorMessage = text || errorMessage;
+        // If it's HTML, just show the status and a snippet
+        if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+          errorMessage = `Server Error (${response.status}): The server returned an HTML error page. This often means the file is too large for the server's proxy or the route was not found.`;
+        } else {
+          errorMessage = text.slice(0, 100) || errorMessage;
+        }
       } catch {
         // Fallback to default
       }
