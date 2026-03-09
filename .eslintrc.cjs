@@ -24,7 +24,8 @@ module.exports = [
       },
       globals: {
         ...globals.browser,
-        ...globals.es2020
+        ...globals.es2020,
+        ...globals.node
       }
     },
     plugins: {

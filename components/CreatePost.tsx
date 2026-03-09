@@ -5,6 +5,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
 import { Post, Profile } from '../types';
+import { uploadToR2 } from '../services/uploadService';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import HostLive from './HostLive';
@@ -628,11 +629,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         const isRecorded = (file instanceof Blob) && !(file instanceof File);
         const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'mp4' : (file as File).name.split('.').pop());
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
-        const filePath = `posts/${fileName}`;
         
-        const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl: mediaUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+        const mediaUrl = await uploadToR2(file, 'posts', fileName);
         uploadedUrls.push(mediaUrl);
       }
 
@@ -695,13 +693,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           
           const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
           const audioFileName = `${session.user.id}-${timestamp}.mp3`;
-          const audioFilePath = `audio/${audioFileName}`;
           
-          const { error: audioUploadError } = await supabase.storage.from('posts').upload(audioFilePath, mp3Blob);
-          if (!audioUploadError) {
-            const { data: { publicUrl: aUrl } } = supabase.storage.from('posts').getPublicUrl(audioFilePath);
-            audioUrl = aUrl;
-          }
+          audioUrl = await uploadToR2(mp3Blob, 'audio', audioFileName);
         } catch (audioErr) {
           console.error('Erro ao extrair/converter áudio:', audioErr);
         }
@@ -713,12 +706,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         try {
           const thumbBlob = await generateThumbnail(filesToUpload[0]);
           const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
-          const thumbFilePath = `thumbnails/${thumbFileName}`;
-          const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
-          if (!thumbUploadError) {
-            const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
-            thumbnailUrl = tUrl;
-          }
+          thumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
         } catch (thumbErr) {
           console.error('Erro ao gerar thumbnail:', thumbErr);
         }

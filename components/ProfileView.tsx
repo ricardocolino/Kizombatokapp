@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
+import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
@@ -354,27 +355,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
       const folder = type === 'avatar' ? 'avatars' : 'capa';
-      const filePath = `${folder}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('profiles')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        if (uploadError.message.includes('bucket not found')) {
-          throw new Error('O servidor de fotos não está configurado. Usa uma URL por agora.');
-        }
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(filePath);
+      const publicUrl = await uploadToR2(file, folder, fileName);
 
       if (type === 'avatar') {
-        setEditForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
+        setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
       } else {
-        setEditForm(prev => ({ ...prev, cover_url: data.publicUrl }));
+        setEditForm(prev => ({ ...prev, cover_url: publicUrl }));
       }
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : 'Erro ao carregar a foto.');
