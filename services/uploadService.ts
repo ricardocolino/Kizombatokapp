@@ -1,83 +1,52 @@
-import { Capacitor } from '@capacitor/core';
-
-const WORKER_URL = import.meta.env.VITE_UPLOAD_WORKER_URL;
+import { supabase } from '../supabaseClient';
 
 /**
- * Retorna o endpoint de upload correto dependendo da plataforma.
- * No Android (Capacitor), usa o Cloudflare Worker.
- * Em desenvolvimento web, usa o servidor Express local.
+ * Faz upload de um ficheiro para o Supabase Storage.
+ * @param file O ficheiro ou blob para upload.
+ * @param bucket O nome do bucket (ex: 'posts').
+ * @param folder A pasta dentro do bucket (ex: 'posts' ou 'thumbnails').
+ * @param fileName Nome opcional para o ficheiro.
+ * @returns A URL pública do ficheiro.
  */
-function getUploadEndpoint(): string {
-  if (Capacitor.isNativePlatform()) {
-    if (!WORKER_URL) {
-      console.warn("VITE_UPLOAD_WORKER_URL não configurada. Usando fallback local.");
-      return "/api/upload";
-    }
-    return `${WORKER_URL}/api/upload`;
-  }
-  return "/api/upload";
-}
+export async function uploadFile(
+  file: File | Blob,
+  bucket: string,
+  folder: string,
+  fileName?: string
+): Promise<string> {
+  const actualFileName = fileName || `${Date.now()}-${(file as File).name || 'upload'}`;
+  const filePath = `${folder}/${actualFileName}`;
 
-export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folder", folder);
-  if (fileName) {
-    formData.append("fileName", fileName);
-  }
+  console.log(`Iniciando upload para Supabase: ${bucket}/${filePath}`);
 
-  const endpoint = getUploadEndpoint();
-  console.log(`Iniciando upload para: ${endpoint}`);
-
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
     });
 
-    if (!response.ok) {
-      let errorMessage = `Upload falhou com status ${response.status}`;
-      try {
-        const error = await response.json();
-        errorMessage = error.error || errorMessage;
-      } catch {
-        try {
-          const text = await response.text();
-          if (text.includes("<!DOCTYPE") || text.includes("<html")) {
-            errorMessage = `Erro no Servidor (${response.status}): O servidor retornou uma página HTML. No Android, isto significa que o Worker URL não está configurado ou acessível.`;
-          } else {
-            errorMessage = text.slice(0, 100) || errorMessage;
-          }
-        } catch {
-          // Fallback
-        }
-      }
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    return data.url;
-  } catch (error) {
-    console.error("Erro no uploadToR2:", error);
-    throw error;
+  if (error) {
+    console.error('Erro no upload do Supabase:', error);
+    throw new Error(`Erro no upload: ${error.message}`);
   }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(filePath);
+
+  if (!publicUrlData) {
+    throw new Error('Não foi possível obter a URL pública do ficheiro.');
+  }
+
+  return publicUrlData.publicUrl;
 }
 
 /**
- * Verifica se o Cloudflare Worker está online e configurado.
+ * Função legada para manter compatibilidade com chamadas existentes.
  */
-export async function checkWorkerHealth(): Promise<boolean> {
-  if (!WORKER_URL) return false;
-  
-  try {
-    const response = await fetch(`${WORKER_URL}/api/health`);
-    if (response.ok) {
-      const data = await response.json();
-      return data.status === "ok";
-    }
-    return false;
-  } catch (err) {
-    console.error("Worker health check failed:", err);
-    return false;
-  }
+export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
+  console.warn('uploadToR2 foi descontinuado. Usando Supabase Storage.');
+  // O bucket principal no Supabase parece ser 'posts' baseado no contexto anterior
+  return uploadFile(file, 'posts', folder, fileName);
 }

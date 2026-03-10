@@ -1,7 +1,5 @@
 import express from "express";
 import cors from "cors";
-import multer from "multer";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,75 +17,12 @@ app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Cloudflare R2 Configuration
-const r2Client = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-  },
-});
-
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-  }
-});
-
 // API routes
-app.post("/api/upload", upload.single("file"), async (req, res) => {
-  console.log("Upload request received:", {
-    file: req.file ? {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    } : 'no file',
-    body: req.body
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok",
+    storage: "supabase"
   });
-
-  try {
-    if (!req.file) {
-      console.error("No file in request");
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    if (!process.env.R2_BUCKET_NAME) {
-      console.error("R2_BUCKET_NAME is not defined");
-      return res.status(500).json({ error: "Server configuration error: R2_BUCKET_NAME missing" });
-    }
-
-    const file = req.file;
-    const folder = req.body.folder || "posts";
-    const fileName = req.body.fileName || `${Date.now()}-${file.originalname}`;
-    const filePath = `${folder}/${fileName}`;
-
-    console.log(`Uploading to R2: ${filePath} in bucket ${process.env.R2_BUCKET_NAME}`);
-
-    const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: filePath,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    });
-
-    await r2Client.send(command);
-    console.log("R2 Upload successful");
-
-    const publicUrl = process.env.R2_PUBLIC_URL 
-      ? `${process.env.R2_PUBLIC_URL}/${filePath}`
-      : `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}/${filePath}`;
-
-    res.json({ url: publicUrl });
-  } catch (error) {
-    console.error("R2 Upload Error:", error);
-    res.status(500).json({ 
-      error: (error as Error).message,
-      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
-    });
-  }
 });
 
 // Global error handler
@@ -99,13 +34,6 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(error.status || 500).json({
     error: error.message || "Internal Server Error",
     code: error.code
-  });
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok",
-    r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT)
   });
 });
 
