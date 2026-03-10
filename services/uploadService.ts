@@ -1,52 +1,66 @@
-import { supabase } from '../supabaseClient';
+import { Capacitor } from '@capacitor/core';
 
 /**
- * Faz upload de um ficheiro para o Supabase Storage.
+ * Retorna o endpoint de upload.
+ * No Android (Capacitor), precisamos da URL completa do servidor.
+ * Na Web, podemos usar o caminho relativo.
+ */
+function getUploadEndpoint(): string {
+  // Se estivermos no Android/iOS, usamos a URL do servidor configurada no ambiente
+  // Se não houver URL configurada, tentamos usar o origin atual (que na web funciona)
+  if (Capacitor.isNativePlatform()) {
+    // No AI Studio, o frontend e backend estão no mesmo domínio
+    // Mas no Android o origin é 'capacitor://localhost'
+    // Por isso precisamos da URL real do servidor.
+    return "/api/upload"; 
+  }
+  return "/api/upload";
+}
+
+/**
+ * Faz upload de um ficheiro para o Cloudflare R2 via Servidor Express.
  * @param file O ficheiro ou blob para upload.
- * @param bucket O nome do bucket (ex: 'posts').
  * @param folder A pasta dentro do bucket (ex: 'posts' ou 'thumbnails').
  * @param fileName Nome opcional para o ficheiro.
  * @returns A URL pública do ficheiro.
  */
-export async function uploadFile(
-  file: File | Blob,
-  bucket: string,
-  folder: string,
-  fileName?: string
-): Promise<string> {
-  const actualFileName = fileName || `${Date.now()}-${(file as File).name || 'upload'}`;
-  const filePath = `${folder}/${actualFileName}`;
+export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+  if (fileName) {
+    formData.append("fileName", fileName);
+  }
 
-  console.log(`Iniciando upload para Supabase: ${bucket}/${filePath}`);
+  const endpoint = getUploadEndpoint();
+  console.log(`Iniciando upload para: ${endpoint}`);
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      body: formData,
     });
 
-  if (error) {
-    console.error('Erro no upload do Supabase:', error);
-    throw new Error(`Erro no upload: ${error.message}`);
+    if (!response.ok) {
+      let errorMessage = `Upload falhou com status ${response.status}`;
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch {
+        try {
+          const text = await response.text();
+          errorMessage = text.slice(0, 100) || errorMessage;
+        } catch {
+          // Fallback
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error("Erro no uploadToR2:", error);
+    throw error;
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath);
-
-  if (!publicUrlData) {
-    throw new Error('Não foi possível obter a URL pública do ficheiro.');
-  }
-
-  return publicUrlData.publicUrl;
-}
-
-/**
- * Função legada para manter compatibilidade com chamadas existentes.
- */
-export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
-  console.warn('uploadToR2 foi descontinuado. Usando Supabase Storage.');
-  // O bucket principal no Supabase parece ser 'posts' baseado no contexto anterior
-  return uploadFile(file, 'posts', folder, fileName);
 }

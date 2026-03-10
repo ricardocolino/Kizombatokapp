@@ -5,6 +5,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
 import { Post, Profile } from '../types';
+import { uploadToR2 } from '../services/uploadService';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import HostLive from './HostLive';
@@ -595,7 +596,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const handleUpload = async () => {
-    if (mediaFiles.length === 0) return;
+    if (mediaFiles.length === 0) {
+      console.log("No media files to upload");
+      return;
+    }
+    
+    console.log("Starting upload process for", mediaFiles.length, "files");
     
     // Parar áudio antes de começar o upload
     if (playbackAudioRef.current) {
@@ -603,19 +609,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     }
     
     setUploading(true);
+    setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessão expirada.');
+      if (!session) {
+        console.error("No active session");
+        throw new Error('Sessão expirada. Por favor, faz login novamente.');
+      }
       
       const isPhoto = mediaFiles[0].type.startsWith('image/');
       const uploadedUrls: string[] = [];
       const timestamp = Date.now();
 
+      console.log("Is photo:", isPhoto, "Media type:", mediaFiles[0].type);
+
       // Processar vídeo com FFmpeg (filtro + áudio dubbing + trim)
       let filesToUpload = [...mediaFiles];
       if (!isPhoto) {
+        console.log("Processing video with FFmpeg...");
         try {
           const processedBlob = await processVideoWithFFmpeg(mediaFiles[0]);
+          console.log("FFmpeg processing complete. Blob size:", processedBlob.size);
           filesToUpload = [processedBlob, ...mediaFiles.slice(1)];
         } catch (ffmpegErr) {
           console.error('Erro no FFmpeg, usando vídeo original:', ffmpegErr);
@@ -628,25 +642,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         const isRecorded = (file instanceof Blob) && !(file instanceof File);
         const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'mp4' : (file as File).name.split('.').pop());
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
-        const filePath = `posts/${fileName}`;
         
-        const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl: mediaUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
+        console.log(`Uploading file ${i+1}/${filesToUpload.length} to R2: ${fileName}`);
+        const mediaUrl = await uploadToR2(file, 'posts', fileName);
+        console.log(`File ${i+1} uploaded successfully: ${mediaUrl}`);
         uploadedUrls.push(mediaUrl);
       }
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
       
       // Extrair e fazer upload do áudio como MP3 (só para vídeo)
-      // Se houve dubbing, o áudio já está embutido no vídeo processado pelo FFmpeg
       let audioUrl = null;
       const isDubbing = !!selectedSound && !useOriginalAudio;
       
+      console.log("Is dubbing:", isDubbing);
+
       if (isDubbing) {
-        // Se é dublagem, o áudio é o mesmo da música selecionada
         audioUrl = selectedSound.audio_url || selectedSound.media_url;
+        console.log("Using existing audio URL for dubbing:", audioUrl);
       } else if (!isPhoto) {
+        console.log("Extracting audio from video...");
         try {
           const videoBlob = filesToUpload[0];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -656,8 +671,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           
           const channels = audioBuffer.numberOfChannels;
           const sampleRate = audioBuffer.sampleRate;
+          console.log(`Audio extracted: ${channels} channels, ${sampleRate}Hz`);
+
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mp3encoder = new (lamejs as any).Mp3Encoder(channels, sampleRate, 128);
+          const Mp3Encoder = (lamejs as any).Mp3Encoder || (lamejs as any).default?.Mp3Encoder;
+          if (!Mp3Encoder) {
+            throw new Error("Mp3Encoder not found in lamejs");
+          }
+          const mp3encoder = new Mp3Encoder(channels, sampleRate, 128);
           const mp3Data = [];
           
           const sampleBlockSize = 1152;
@@ -695,13 +716,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           
           const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
           const audioFileName = `${session.user.id}-${timestamp}.mp3`;
-          const audioFilePath = `audio/${audioFileName}`;
           
-          const { error: audioUploadError } = await supabase.storage.from('posts').upload(audioFilePath, mp3Blob);
-          if (!audioUploadError) {
-            const { data: { publicUrl: aUrl } } = supabase.storage.from('posts').getPublicUrl(audioFilePath);
-            audioUrl = aUrl;
-          }
+          console.log("Uploading MP3 to R2...");
+          audioUrl = await uploadToR2(mp3Blob, 'audio', audioFileName);
+          console.log("MP3 uploaded successfully:", audioUrl);
         } catch (audioErr) {
           console.error('Erro ao extrair/converter áudio:', audioErr);
         }
@@ -710,15 +728,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Gerar e fazer upload da thumbnail (só para vídeo)
       let thumbnailUrl = null;
       if (!isPhoto) {
+        console.log("Generating thumbnail...");
         try {
           const thumbBlob = await generateThumbnail(filesToUpload[0]);
           const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
-          const thumbFilePath = `thumbnails/${thumbFileName}`;
-          const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
-          if (!thumbUploadError) {
-            const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
-            thumbnailUrl = tUrl;
-          }
+          thumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
         } catch (thumbErr) {
           console.error('Erro ao gerar thumbnail:', thumbErr);
         }
@@ -726,6 +741,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         thumbnailUrl = uploadedUrls[0];
       }
 
+      console.log("Inserting post into Supabase...");
       // Inserir post na BD
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
@@ -735,7 +751,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         audio_url: audioUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
-        // Filtro já aplicado no vídeo pelo FFmpeg — guardamos null para o feed não re-aplicar via CSS
         text_overlay: textOverlay || null,
         filter: null,
         views: 0,
@@ -743,8 +758,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       });
       
       if (insertError) throw insertError;
+      console.log("Post created successfully in Supabase");
       setTimeout(() => onCreated(), 500);
     } catch (err: unknown) {
+      console.error("Upload error:", err);
       setError((err as Error).message || 'Erro ao publicar.');
     } finally {
       setUploading(false);
