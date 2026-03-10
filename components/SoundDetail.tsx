@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '../types';
 import { ArrowLeft, Play, Pause, Music2, Share2, Grid, Bookmark, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { parseMediaUrl } from '../services/mediaUtils';
 
 interface SoundDetailProps {
   post: Post;
@@ -47,7 +48,7 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
 
   const togglePlay = () => {
     if (!audioRef.current) {
-      audioRef.current = new Audio(post.audio_url || post.media_url);
+      audioRef.current = new Audio(post.audio_url || parseMediaUrl(post.media_url));
       audioRef.current.onended = () => setIsPlaying(false);
     }
 
@@ -122,9 +123,9 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
         {relatedPosts.map(p => (
           <div key={p.id} className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden cursor-pointer">
             {p.media_type === 'video' ? (
-              <video src={p.media_url} className="w-full h-full object-cover" muted playsInline poster={p.thumbnail_url || undefined} />
+              <video src={parseMediaUrl(p.media_url)} className="w-full h-full object-cover" muted playsInline poster={p.thumbnail_url || undefined} />
             ) : (
-              <img src={p.media_url} className="w-full h-full object-cover" />
+              <img src={parseMediaUrl(p.media_url)} className="w-full h-full object-cover" />
             )}
             <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[9px] font-black text-white drop-shadow-md">
               <Play size={8} fill="white" /> {p.views > 1000 ? `${(p.views / 1000).toFixed(1)}k` : p.views}

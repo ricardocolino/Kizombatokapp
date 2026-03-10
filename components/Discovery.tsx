@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
 import { Search, TrendingUp, Music2, AlertCircle, UserCheck } from 'lucide-react';
+import { parseMediaUrl } from '../services/mediaUtils';
 
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
@@ -236,14 +237,16 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               <>
                 {post.media_type === 'video' ? (
                   <video 
-                    src={post.media_url} 
+                    src={parseMediaUrl(post.media_url)} 
                     className="w-full h-full object-cover" 
                     muted 
                     playsInline 
+                    preload="metadata"
+                    crossOrigin="anonymous"
                     poster={post.thumbnail_url || undefined}
                   />
                 ) : (
-                  <img src={post.media_url} className="w-full h-full object-cover" alt="" />
+                  <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" alt="" />
                 )}
                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors duration-300" />
                 <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] text-white font-black drop-shadow-md">

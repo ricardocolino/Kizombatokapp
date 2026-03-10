@@ -2,10 +2,11 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
+import { parseMediaUrl } from '../services/mediaUtils';
 
 interface PostCardProps {
   post: Post;
@@ -42,6 +43,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [videoError, setVideoError] = useState(false);
   const [uiVisible, setUiVisible] = useState(false);
 
+  // Handle media_url that might be a JSON array string
+  const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
+
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showGifts, setShowGifts] = useState(false);
@@ -50,6 +54,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
+  useEffect(() => {
+    setVideoError(false);
+    setIsPlaying(false);
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, [mediaUrl]);
+
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
     const timer = setTimeout(() => {
@@ -100,7 +112,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [post.id, post.user_id]);
 
   const handlePlay = React.useCallback(() => {
-    if (videoRef.current && !videoError) {
+    if (videoRef.current) {
+      // Se houve erro anterior, tentamos recarregar
+      if (videoError) {
+        setVideoError(false);
+        videoRef.current.load();
+      }
+
       // Prioridade máxima: Tentar reproduzir imediatamente
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -117,6 +135,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           // Se falhou por interrupção (ex: scroll rápido), não logamos como erro grave
           if (err.name !== 'AbortError') {
             console.error("Playback failed:", err);
+            // Não marcamos videoError aqui para permitir novas tentativas ao scrollar
           }
           setIsPlaying(false);
         });
@@ -345,7 +364,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(post.media_url);
+      const response = await fetch(mediaUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -519,7 +538,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
         <video
           ref={videoRef}
-          src={post.media_url}
+          src={mediaUrl}
           className="w-full h-full object-cover"
           style={{ filter: post.filter || undefined }}
           loop
@@ -527,7 +546,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           playsInline
           preload="auto"
           crossOrigin="anonymous"
-          onError={() => setVideoError(true)}
+          onError={(e) => {
+            // Só marcamos erro se o src for válido e falhou mesmo
+            if (mediaUrl) {
+              console.error("Playback failed for URL:", mediaUrl, e);
+              setVideoError(true);
+            }
+          }}
           poster={post.thumbnail_url || undefined}
         />
 
@@ -540,9 +565,29 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
         
-        {!isPlaying && (
+        {!isPlaying && !videoError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
             <Play size={64} className="text-white opacity-60" fill="white" />
+          </div>
+        )}
+
+        {videoError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 text-center">
+            <AlertCircle size={48} className="text-zinc-400 mb-3" />
+            <p className="text-white text-sm font-medium mb-4">Mambo falhou ao carregar o vídeo</p>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setVideoError(false);
+                if (videoRef.current) {
+                  videoRef.current.load();
+                  handlePlay();
+                }
+              }}
+              className="px-6 py-2 bg-white text-black rounded-full text-sm font-bold active:scale-95 transition-all"
+            >
+              Tentar de novo
+            </button>
           </div>
         )}
       </div>

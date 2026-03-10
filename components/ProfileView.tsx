@@ -4,6 +4,7 @@ import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { parseMediaUrl } from '../services/mediaUtils';
 
 interface ProfileViewProps {
   userId: string;
@@ -535,9 +536,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer"
               >
                 {post.media_type === 'video' ? (
-                  <video src={post.media_url} className="w-full h-full object-cover" muted playsInline poster={post.thumbnail_url || undefined} />
+                  <video 
+                    src={parseMediaUrl(post.media_url)} 
+                    className="w-full h-full object-cover" 
+                    muted 
+                    playsInline 
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    poster={post.thumbnail_url || undefined} 
+                  />
                 ) : (
-                  <img src={post.media_url} className="w-full h-full object-cover" />
+                  <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
                 )}
                 <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-black text-white drop-shadow-md">
                   <span className="text-[7px]">▶</span> {post.views}
