@@ -1,0 +1,10 @@
+name = "kizombatok-upload"
+main = "worker.js"
+compatibility_date = "2024-03-09"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "kizombatok-media"
+
+[vars]
+R2_PUBLIC_URL = "https://pub-your-id.r2.dev" # Replace with your R2 public URL

@@ -91,11 +91,14 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Global Error:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "Internal Server Error",
-    code: err.code
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const error = err as any;
+  console.error("Global Error:", error);
+  res.status(error.status || 500).json({
+    error: error.message || "Internal Server Error",
+    code: error.code
   });
 });
 
