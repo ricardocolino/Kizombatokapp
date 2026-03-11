@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 
 /**
  * Retorna o endpoint de upload.
@@ -7,17 +6,9 @@ import { Capacitor } from '@capacitor/core';
  */
 function getUploadEndpoint(): string {
   const apiUrl = import.meta.env.VITE_API_URL || "";
-  const base = apiUrl.replace(/\/$/, '');
-  
-  let url = "";
-  // Prioritize VITE_API_URL if provided, otherwise fallback to origin on web
-  if (base) {
-    url = `${base}/api/upload`;
-  } else if (Capacitor.isNativePlatform()) {
-    url = "/api/upload"; // This will likely fail on native without a base
-  } else {
-    url = `${window.location.origin}/api/upload`;
-  }
+  // Se a URL já for o Worker, usamos como está. 
+  // Se não tiver protocolo, assumimos que é um caminho relativo do servidor local.
+  let url = apiUrl || "/api/upload";
   
   // Clean up double slashes (except after http:// or https://)
   const finalUrl = url.replace(/([^:]\/)\/+/g, "$1");

@@ -218,8 +218,9 @@ const App: React.FC = () => {
   const checkApiHealth = async () => {
     setApiStatus('checking');
     try {
-      const endpoint = `${window.location.origin}/api/health`;
-      const res = await fetch(endpoint);
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const endpoint = apiUrl ? apiUrl : `${window.location.origin}/api/health`;
+      const res = await fetch(endpoint, { method: 'GET' });
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'ok') {
