@@ -9,12 +9,15 @@ function getUploadEndpoint(): string {
   const apiUrl = import.meta.env.VITE_API_URL || "";
   const base = apiUrl.replace(/\/$/, '');
   
+  let url = "";
   if (Capacitor.isNativePlatform()) {
-    // On native, we MUST use the full URL
-    return base ? `${base}/api/upload` : "/api/upload";
+    url = base ? `${base}/api/upload` : "/api/upload";
+  } else {
+    url = `${window.location.origin}/api/upload`;
   }
-  // On web, use the current origin to be explicit
-  return `${window.location.origin}/api/upload`;
+  
+  // Clean up double slashes (except after http:// or https://)
+  return url.replace(/([^:]\/)\/+/g, "$1");
 }
 
 /**
@@ -36,7 +39,8 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
   formData.append("folder", folder);
 
   const endpoint = getUploadEndpoint();
-  console.log(`Iniciando upload para: ${endpoint}`);
+  console.log(`>>> [UPLOAD SERVICE] Iniciando upload para: ${endpoint}`);
+  console.log(`>>> [UPLOAD SERVICE] Folder: ${folder}, FileName: ${fileName || 'N/A'}`);
 
   try {
     const response = await fetch(endpoint, {

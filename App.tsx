@@ -213,8 +213,40 @@ const App: React.FC = () => {
     }
   };
 
+  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'error' | null>(null);
+
+  const checkApiHealth = async () => {
+    setApiStatus('checking');
+    try {
+      const endpoint = `${window.location.origin}/api/health`;
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'ok') {
+          setApiStatus('ok');
+          console.log(">>> [HEALTH CHECK] API is OK", data);
+        } else {
+          setApiStatus('error');
+        }
+      } else {
+        setApiStatus('error');
+      }
+    } catch (err) {
+      console.error(">>> [HEALTH CHECK] API Error:", err);
+      setApiStatus('error');
+    }
+  };
+
   return (
     <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+      {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
+      {apiStatus && (
+        <div className="fixed top-2 left-2 z-[9999] bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-[10px] font-black uppercase shadow-2xl">
+          API: {apiStatus === 'checking' ? '⏳' : (apiStatus === 'ok' ? '✅ OK' : '❌ ERRO')}
+          <button onClick={() => setApiStatus(null)} className="ml-2 text-zinc-500">X</button>
+        </div>
+      )}
+
       <main className={`flex-1 overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
         {renderContent()}
       </main>
@@ -222,6 +254,7 @@ const App: React.FC = () => {
       <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-50">
         <button 
           onClick={handleGoHome}
+          onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600'}`}
         >
           <Home size={22} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />

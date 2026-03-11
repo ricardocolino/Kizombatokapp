@@ -15,7 +15,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Global request logger
+app.use((req, _res, next) => {
+  console.log(`>>> [GLOBAL LOG] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(cors());
+
+// Log all API requests
+app.use("/api", (req, _res, next) => {
+  console.log(`>>> [API LOG] ${req.method} ${req.url}`);
+  next();
+});
 
 // Necessário para FFmpeg.wasm (SharedArrayBuffer)
 app.use((_req, res, next) => {
@@ -46,8 +58,16 @@ const upload = multer({
 });
 
 // API routes
-app.post("/api/upload", upload.single("file"), async (req, res) => {
-  console.log(">>> [API] Upload request received");
+app.post(["/api/upload", "/api/upload/"], (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      console.error(">>> [API] Multer Error:", err);
+      return res.status(400).json({ error: `Erro no processamento do arquivo: ${err.message}` });
+    }
+    next();
+  });
+}, async (req, res) => {
+  console.log(">>> [API] Upload request received after multer");
   console.log(">>> [API] File info:", req.file ? {
     originalname: req.file.originalname,
     mimetype: req.file.mimetype,
@@ -114,6 +134,7 @@ app.get("/api/health", (req, res) => {
 
 // Fallback for non-existent API routes to avoid returning HTML
 app.all("/api/*", (req, res) => {
+  console.warn(`>>> [API FALLBACK] Route not found: ${req.method} ${req.url}`);
   res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
 });
 
@@ -130,6 +151,17 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 });
 
 async function startServer() {
+  console.log(">>> [SERVER] Starting server...");
+  console.log(">>> [SERVER] NODE_ENV:", process.env.NODE_ENV);
+  console.log(">>> [SERVER] R2 Config Check:", {
+    endpoint: !!process.env.R2_ENDPOINT,
+    bucket: !!process.env.R2_BUCKET_NAME,
+    accessKey: !!process.env.R2_ACCESS_KEY_ID,
+    secretKey: !!process.env.R2_SECRET_ACCESS_KEY,
+    workerUrl: !!process.env.R2_WORKER_URL,
+    publicUrl: !!process.env.R2_PUBLIC_URL
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
