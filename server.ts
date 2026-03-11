@@ -15,6 +15,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
+
 // Necessário para FFmpeg.wasm (SharedArrayBuffer)
 app.use((_req, res, next) => {
   res.header("Cross-Origin-Opener-Policy", "same-origin");
@@ -22,7 +24,6 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
@@ -46,23 +47,22 @@ const upload = multer({
 
 // API routes
 app.post("/api/upload", upload.single("file"), async (req, res) => {
-  console.log("Upload request received:", {
-    file: req.file ? {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    } : 'no file',
-    body: req.body
-  });
+  console.log(">>> [API] Upload request received");
+  console.log(">>> [API] File info:", req.file ? {
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size
+  } : 'NO FILE');
+  console.log(">>> [API] Body info:", req.body);
 
   try {
     if (!req.file) {
-      console.error("No file in request");
+      console.error(">>> [API] Error: No file in request");
       return res.status(400).json({ error: "No file uploaded" });
     }
 
     if (!process.env.R2_BUCKET_NAME) {
-      console.error("R2_BUCKET_NAME is not defined");
+      console.error(">>> [API] Error: R2_BUCKET_NAME is not defined");
       return res.status(500).json({ error: "Server configuration error: R2_BUCKET_NAME missing" });
     }
 
@@ -71,7 +71,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     const fileName = req.body.fileName || `${Date.now()}-${file.originalname}`;
     const filePath = `${folder}/${fileName}`;
 
-    console.log(`Uploading to R2: ${filePath} in bucket ${process.env.R2_BUCKET_NAME}`);
+    console.log(`>>> [API] Uploading to R2: ${filePath} in bucket ${process.env.R2_BUCKET_NAME}`);
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
@@ -81,7 +81,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     });
 
     await r2Client.send(command);
-    console.log("R2 Upload successful:", filePath);
+    console.log(">>> [API] R2 Upload successful:", filePath);
 
     // Prioritize Worker URL if available (usually for CORS/Proxy)
     let publicUrl = "";
@@ -93,10 +93,10 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       publicUrl = `${process.env.R2_ENDPOINT?.replace(/\/$/, '')}/${process.env.R2_BUCKET_NAME}/${filePath}`;
     }
 
-    console.log("Returning public URL:", publicUrl);
+    console.log(">>> [API] Returning public URL:", publicUrl);
     res.json({ url: publicUrl });
   } catch (error) {
-    console.error("R2 Upload Error:", error);
+    console.error(">>> [API] R2 Upload Error:", error);
     res.status(500).json({ 
       error: (error as Error).message,
       stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
@@ -110,6 +110,11 @@ app.get("/api/health", (req, res) => {
     storage: "cloudflare-r2",
     r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT)
   });
+});
+
+// Fallback for non-existent API routes to avoid returning HTML
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
 });
 
 // Global error handler

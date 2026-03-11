@@ -13,8 +13,8 @@ function getUploadEndpoint(): string {
     // On native, we MUST use the full URL
     return base ? `${base}/api/upload` : "/api/upload";
   }
-  // On web, relative path is usually safer for same-origin
-  return "/api/upload";
+  // On web, use the current origin to be explicit
+  return `${window.location.origin}/api/upload`;
 }
 
 /**
@@ -44,20 +44,30 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
       body: formData,
     });
 
+    const contentType = response.headers.get("content-type");
+    
     if (!response.ok) {
       let errorMessage = `Upload falhou com status ${response.status}`;
-      try {
-        const error = await response.json();
-        errorMessage = error.error || errorMessage;
-      } catch {
+      if (contentType && contentType.includes("application/json")) {
         try {
-          const text = await response.text();
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch { /* ignore */ }
+      } else {
+        const text = await response.text();
+        if (text.includes("<!DOCTYPE html>")) {
+          errorMessage = "O servidor retornou uma página HTML em vez de JSON. Verifique se a rota /api/upload existe e se o servidor está rodando.";
+        } else {
           errorMessage = text.slice(0, 100) || errorMessage;
-        } catch {
-          // Fallback
         }
       }
       throw new Error(errorMessage);
+    }
+
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      console.error("Resposta não-JSON do servidor:", text.slice(0, 200));
+      throw new Error("O servidor não retornou um JSON válido. Verifique os logs do backend.");
     }
 
     const data = await response.json();
