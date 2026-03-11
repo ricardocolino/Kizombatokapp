@@ -15,6 +15,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Necessário para FFmpeg.wasm (SharedArrayBuffer)
+app.use((_req, res, next) => {
+  res.header("Cross-Origin-Opener-Policy", "same-origin");
+  res.header("Cross-Origin-Embedder-Policy", "require-corp");
+  next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
@@ -74,7 +81,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     });
 
     await r2Client.send(command);
-    console.log("R2 Upload successful");
+    console.log("R2 Upload successful:", filePath);
 
     // Prioritize Worker URL if available (usually for CORS/Proxy)
     let publicUrl = "";
@@ -86,6 +93,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       publicUrl = `${process.env.R2_ENDPOINT?.replace(/\/$/, '')}/${process.env.R2_BUCKET_NAME}/${filePath}`;
     }
 
+    console.log("Returning public URL:", publicUrl);
     res.json({ url: publicUrl });
   } catch (error) {
     console.error("R2 Upload Error:", error);

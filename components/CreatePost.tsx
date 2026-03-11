@@ -761,8 +761,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       console.log("Post created successfully in Supabase");
       setTimeout(() => onCreated(), 500);
     } catch (err: unknown) {
-      console.error("Upload error:", err);
-      setError((err as Error).message || 'Erro ao publicar.');
+      console.error("Upload error details:", err);
+      const errorMsg = (err as Error).message || 'Erro desconhecido';
+      setError(`Falha ao publicar: ${errorMsg}`);
     } finally {
       setUploading(false);
     }

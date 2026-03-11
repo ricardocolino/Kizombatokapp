@@ -26,11 +26,14 @@ function getUploadEndpoint(): string {
  */
 export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folder", folder);
+  // Passar o fileName como terceiro argumento para o Blob
   if (fileName) {
+    formData.append("file", file, fileName);
     formData.append("fileName", fileName);
+  } else {
+    formData.append("file", file);
   }
+  formData.append("folder", folder);
 
   const endpoint = getUploadEndpoint();
   console.log(`Iniciando upload para: ${endpoint}`);

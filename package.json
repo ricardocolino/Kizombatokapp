@@ -38,7 +38,7 @@
     "lamejs": "^1.2.1",
     "lucide-react": "^0.564.0",
     "motion": "^12.35.0",
-    "multer": "^2.1.1",
+    "multer": "^1.4.5-lts.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.7.0",
