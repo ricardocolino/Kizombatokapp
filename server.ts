@@ -76,9 +76,15 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     await r2Client.send(command);
     console.log("R2 Upload successful");
 
-    const publicUrl = process.env.R2_PUBLIC_URL 
-      ? `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${filePath}`
-      : `${process.env.R2_ENDPOINT?.replace(/\/$/, '')}/${process.env.R2_BUCKET_NAME}/${filePath}`;
+    // Prioritize Worker URL if available (usually for CORS/Proxy)
+    let publicUrl = "";
+    if (process.env.R2_WORKER_URL) {
+      publicUrl = `${process.env.R2_WORKER_URL.replace(/\/$/, '')}/${filePath}`;
+    } else if (process.env.R2_PUBLIC_URL) {
+      publicUrl = `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${filePath}`;
+    } else {
+      publicUrl = `${process.env.R2_ENDPOINT?.replace(/\/$/, '')}/${process.env.R2_BUCKET_NAME}/${filePath}`;
+    }
 
     res.json({ url: publicUrl });
   } catch (error) {

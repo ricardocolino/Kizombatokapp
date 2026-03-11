@@ -18,10 +18,24 @@ export function parseMediaUrl(mediaUrl: string | null | undefined): string {
   try {
     if (mediaUrl.startsWith('[') && mediaUrl.endsWith(']')) {
       const urls = JSON.parse(mediaUrl);
-      return Array.isArray(urls) ? urls[0] : mediaUrl;
+      mediaUrl = Array.isArray(urls) ? urls[0] : mediaUrl;
     }
   } catch {
     // Not a JSON array
+  }
+  
+  // Rewrite R2 URL to Worker URL if configured (to fix CORS/Playback)
+  const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
+  if (workerUrl && mediaUrl.includes('r2.dev')) {
+    try {
+      const url = new URL(mediaUrl);
+      // If it's the old R2 domain, swap it for the worker domain
+      if (url.hostname.includes('r2.dev')) {
+        return `${workerUrl.replace(/\/$/, '')}${url.pathname}${url.search}`;
+      }
+    } catch {
+      // Invalid URL, return as is
+    }
   }
   
   return mediaUrl;
