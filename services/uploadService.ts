@@ -6,14 +6,14 @@ import { Capacitor } from '@capacitor/core';
  * Na Web, podemos usar o caminho relativo.
  */
 function getUploadEndpoint(): string {
-  // Se estivermos no Android/iOS, usamos a URL do servidor configurada no ambiente
-  // Se não houver URL configurada, tentamos usar o origin atual (que na web funciona)
+  const apiUrl = import.meta.env.VITE_API_URL || "";
+  const base = apiUrl.replace(/\/$/, '');
+  
   if (Capacitor.isNativePlatform()) {
-    // No AI Studio, o frontend e backend estão no mesmo domínio
-    // Mas no Android o origin é 'capacitor://localhost'
-    // Por isso precisamos da URL real do servidor.
-    return "/api/upload"; 
+    // On native, we MUST use the full URL
+    return base ? `${base}/api/upload` : "/api/upload";
   }
+  // On web, relative path is usually safer for same-origin
   return "/api/upload";
 }
 

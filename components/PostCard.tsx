@@ -545,7 +545,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           muted={isMuted}
           playsInline
           preload="auto"
-          
+          crossOrigin="anonymous"
           onError={(e) => {
             // Só marcamos erro se o src for válido e falhou mesmo
             if (mediaUrl) {
