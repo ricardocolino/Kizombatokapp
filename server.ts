@@ -153,6 +153,7 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 async function startServer() {
   console.log(">>> [SERVER] Starting server...");
   console.log(">>> [SERVER] NODE_ENV:", process.env.NODE_ENV);
+  console.log(">>> [SERVER] VITE_API_URL:", process.env.VITE_API_URL || "NOT DEFINED");
   console.log(">>> [SERVER] R2 Config Check:", {
     endpoint: !!process.env.R2_ENDPOINT,
     bucket: !!process.env.R2_BUCKET_NAME,

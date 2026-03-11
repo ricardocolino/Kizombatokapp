@@ -10,14 +10,18 @@ function getUploadEndpoint(): string {
   const base = apiUrl.replace(/\/$/, '');
   
   let url = "";
-  if (Capacitor.isNativePlatform()) {
-    url = base ? `${base}/api/upload` : "/api/upload";
+  // Prioritize VITE_API_URL if provided, otherwise fallback to origin on web
+  if (base) {
+    url = `${base}/api/upload`;
+  } else if (Capacitor.isNativePlatform()) {
+    url = "/api/upload"; // This will likely fail on native without a base
   } else {
     url = `${window.location.origin}/api/upload`;
   }
   
   // Clean up double slashes (except after http:// or https://)
-  return url.replace(/([^:]\/)\/+/g, "$1");
+  const finalUrl = url.replace(/([^:]\/)\/+/g, "$1");
+  return finalUrl;
 }
 
 /**
