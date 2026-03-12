@@ -414,7 +414,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Banner */}
       <div className="w-full h-32 bg-zinc-900 relative overflow-hidden">
         {profile.cover_url ? (
-          <img src={profile.cover_url} className="w-full h-full object-cover" alt="" />
+          <img src={parseMediaUrl(profile.cover_url)} className="w-full h-full object-cover" alt="" />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-zinc-800 to-zinc-900" />
         )}
@@ -427,7 +427,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="w-20 h-20 rounded-full bg-black p-1">
               <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden border-2 border-black">
                 {profile.avatar_url ? (
-                  <img src={profile.avatar_url} className="w-full h-full object-cover" alt="" />
+                  <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
                 ) : (
                   <span className="text-2xl font-black text-white">{profile.username[0].toUpperCase()}</span>
                 )}
@@ -542,8 +542,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     muted 
                     playsInline 
                     preload="metadata"
-                    crossOrigin="anonymous"
-                    poster={post.thumbnail_url || undefined} 
+                    poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined} 
                   />
                 ) : (
                   <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
@@ -907,7 +906,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   className="relative w-full h-32 rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden cursor-pointer group"
                 >
                   {editForm.cover_url ? (
-                    <img src={editForm.cover_url} className="w-full h-full object-cover" alt="" />
+                    <img src={parseMediaUrl(editForm.cover_url)} className="w-full h-full object-cover" alt="" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-900/50">
                       <Plus className="text-zinc-700" size={24} />
@@ -934,7 +933,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-zinc-800">
                     <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
                       {editForm.avatar_url ? (
-                        <img src={editForm.avatar_url} className="w-full h-full object-cover" alt="" />
+                        <img src={parseMediaUrl(editForm.avatar_url)} className="w-full h-full object-cover" alt="" />
                       ) : (
                         <span className="text-2xl font-black text-zinc-600 uppercase">{editForm.username[0] || '?'}</span>
                       )}

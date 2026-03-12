@@ -78,7 +78,7 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
         <div className="relative group cursor-pointer" onClick={togglePlay}>
           <div className={`w-40 h-40 bg-zinc-950 rounded-full border-[10px] border-zinc-900 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.2)] ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`}>
              {post.profiles?.avatar_url ? (
-               <img src={post.profiles.avatar_url} className="w-[65%] h-[65%] rounded-full object-cover border-2 border-zinc-800" />
+               <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-[65%] h-[65%] rounded-full object-cover border-2 border-zinc-800" />
              ) : (
                <div className="w-full h-full flex items-center justify-center">
                  <Music2 size={60} className="text-zinc-800" />
@@ -123,7 +123,7 @@ const SoundDetail: React.FC<SoundDetailProps> = ({ post, onBack, onUseSound }) =
         {relatedPosts.map(p => (
           <div key={p.id} className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden cursor-pointer">
             {p.media_type === 'video' ? (
-              <video src={parseMediaUrl(p.media_url)} className="w-full h-full object-cover" muted playsInline poster={p.thumbnail_url || undefined} />
+              <video src={parseMediaUrl(p.media_url)} className="w-full h-full object-cover" muted playsInline poster={p.thumbnail_url ? parseMediaUrl(p.thumbnail_url) : undefined} />
             ) : (
               <img src={parseMediaUrl(p.media_url)} className="w-full h-full object-cover" />
             )}

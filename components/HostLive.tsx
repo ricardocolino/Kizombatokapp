@@ -4,6 +4,7 @@ import { agoraService } from '../services/agoraService';
 import { X, Users, Heart, Send, Loader2, Settings, Shield, Ban, MessageCircle, AlertCircle, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
+import { parseMediaUrl } from '../services/mediaUtils';
 import { motion, AnimatePresence } from 'motion/react';
 
 import UserActionModal from './UserActionModal';
@@ -216,7 +217,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border-2 border-red-600 overflow-hidden shadow-lg shadow-red-600/20">
               {currentHostProfile.avatar_url ? (
-                <img src={currentHostProfile.avatar_url} className="w-full h-full object-cover" alt="" />
+                <img src={parseMediaUrl(currentHostProfile.avatar_url)} className="w-full h-full object-cover" alt="" />
               ) : (
                 <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs font-black">
                   {currentHostProfile.username?.[0].toUpperCase() || 'A'}

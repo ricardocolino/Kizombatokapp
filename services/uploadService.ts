@@ -72,8 +72,9 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
     const data = await response.json();
     if (!data.url) throw new Error("O servidor não devolveu a URL do ficheiro.");
     return data.url;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Erro crítico no uploadToR2:", error);
-    throw new Error(error.message || "Erro de conexão com o servidor de upload");
+    const message = error instanceof Error ? error.message : "Erro de conexão com o servidor de upload";
+    throw new Error(message);
   }
 }

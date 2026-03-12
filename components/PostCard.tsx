@@ -476,7 +476,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           className={`${isReply ? 'w-7 h-7' : 'w-10 h-10'} rounded-full bg-zinc-900 shrink-0 overflow-hidden border border-zinc-800 shadow-lg cursor-pointer hover:brightness-110 active:scale-95 transition-all`}
         >
           {c.profiles?.avatar_url ? (
-            <img src={c.profiles.avatar_url} className="w-full h-full object-cover" />
+            <img src={parseMediaUrl(c.profiles.avatar_url)} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center font-black text-zinc-500 uppercase text-[10px]">{c.profiles?.name?.[0] || c.profiles?.username?.[0]}</div>
           )}
@@ -545,7 +545,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           muted={isMuted}
           playsInline
           preload="auto"
-          crossOrigin="anonymous"
           onError={(e) => {
             // Só marcamos erro se o src for válido e falhou mesmo
             if (mediaUrl) {
@@ -553,7 +552,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               setVideoError(true);
             }
           }}
-          poster={post.thumbnail_url || undefined}
+          poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
         />
 
         {/* Text Overlay */}
@@ -601,7 +600,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
             >
                {post.profiles?.avatar_url ? (
-                 <img src={post.profiles.avatar_url} className="w-full h-full object-cover" loading="lazy" />
+                 <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
                ) : (
                  <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
                )}
@@ -650,7 +649,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
                 {musicProfile?.avatar_url ? (
-                  <img src={musicProfile.avatar_url} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={parseMediaUrl(musicProfile.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                     <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
@@ -790,7 +789,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   >
                     <div className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden group-active:scale-90 transition-transform">
                       {friend.avatar_url ? (
-                        <img src={friend.avatar_url} className="w-full h-full object-cover" />
+                        <img src={parseMediaUrl(friend.avatar_url)} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black uppercase text-xs">{friend.name?.[0] || friend.username?.[0]}</div>
                       )}

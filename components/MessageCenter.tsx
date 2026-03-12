@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Profile, LiveStream as LiveStreamType } from '../types';
+import { parseMediaUrl } from '../services/mediaUtils';
 import { Bell, Camera, Hand } from 'lucide-react';
 import ViewerLive from './ViewerLive';
 
@@ -186,7 +187,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                     <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-[#fe2c55] to-[#ff0050]">
                       <div className="w-full h-full rounded-full border-2 border-black overflow-hidden bg-zinc-900">
                         {live.profiles?.avatar_url ? (
-                          <img src={live.profiles.avatar_url} className="w-full h-full object-cover" />
+                          <img src={parseMediaUrl(live.profiles.avatar_url)} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-500 font-bold">
                             {live.profiles?.username?.[0].toUpperCase() || 'A'}
@@ -219,7 +220,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                 >
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800 shrink-0">
                     {notif.user?.avatar_url ? (
-                      <img src={notif.user.avatar_url} className="w-full h-full object-cover" />
+                      <img src={parseMediaUrl(notif.user.avatar_url)} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold">
                         {notif.user?.username?.[0].toUpperCase() || '?'}

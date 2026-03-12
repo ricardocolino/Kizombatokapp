@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Post, Profile, LiveStream as LiveStreamType } from '../types';
+import { parseMediaUrl } from '../services/mediaUtils';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
 import { Radio, Users, ChevronRight, X } from 'lucide-react';
@@ -406,7 +407,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
                         <div className="w-16 h-16 rounded-full border-2 border-red-600 p-1">
                           <div className="w-full h-full rounded-full overflow-hidden bg-zinc-800">
                             {live.profiles?.avatar_url ? (
-                              <img src={live.profiles.avatar_url} className="w-full h-full object-cover" alt="" />
+                              <img src={parseMediaUrl(live.profiles.avatar_url)} className="w-full h-full object-cover" alt="" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-lg font-black">
                                 {live.profiles?.username?.[0].toUpperCase() || 'A'}

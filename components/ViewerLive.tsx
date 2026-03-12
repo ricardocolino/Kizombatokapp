@@ -3,6 +3,7 @@ import { agoraService } from '../services/agoraService';
 import { X, Users, Heart, Send, Loader2, Gift, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
+import { parseMediaUrl } from '../services/mediaUtils';
 import { motion, AnimatePresence } from 'motion/react';
 
 import UserActionModal from './UserActionModal';
@@ -236,7 +237,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border-2 border-red-600 overflow-hidden shadow-lg shadow-red-600/20">
               {hostProfile?.avatar_url ? (
-                <img src={hostProfile.avatar_url} className="w-full h-full object-cover" alt="" />
+                <img src={parseMediaUrl(hostProfile.avatar_url)} className="w-full h-full object-cover" alt="" />
               ) : (
                 <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs font-black">
                   {hostProfile?.username?.[0].toUpperCase() || 'A'}

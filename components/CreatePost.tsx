@@ -6,6 +6,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
 import { Post, Profile } from '../types';
 import { uploadToR2 } from '../services/uploadService';
+import { parseMediaUrl } from '../services/mediaUtils';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import HostLive from './HostLive';
@@ -230,7 +231,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playSoundPreview = (url: string) => {
     stopPreviewAudio();
     const audio = new Audio(url);
-    audio.crossOrigin = "anonymous";
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(e => {
@@ -451,7 +451,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         // Iniciar áudio de dublagem imediatamente sem travar o vídeo
         if (isDubbing && selectedSound) {
           const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.crossOrigin = "anonymous";
           audio.volume = 1.0;
           playbackAudioRef.current = audio;
           audio.play().catch(err => console.error("Erro ao tocar áudio na gravação:", err));
@@ -850,7 +849,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                         playbackAudioRef.current.play().catch(() => {});
                       } else {
                         const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-                        audio.crossOrigin = "anonymous";
                         audio.loop = true;
                         audio.currentTime = video.currentTime;
                         playbackAudioRef.current = audio;
@@ -1344,7 +1342,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   >
                      <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                         {sound.profiles?.avatar_url ? (
-                          <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
+                          <img src={parseMediaUrl(sound.profiles.avatar_url)} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
                         )}
