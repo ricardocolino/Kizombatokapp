@@ -6,25 +6,26 @@
  */
 function getUploadEndpoint(): string {
   const apiUrl = import.meta.env.VITE_API_URL || "";
-  // Se a URL já for o Worker, usamos como está. 
-  // Se não tiver protocolo, assumimos que é um caminho relativo do servidor local.
-  let url = apiUrl || "/api/upload";
   
-  // Clean up double slashes (except after http:// or https://)
-  const finalUrl = url.replace(/([^:]\/)\/+/g, "$1");
-  return finalUrl;
+  // Se a URL for do Cloudflare Workers, usamos exatamente como está
+  if (apiUrl.includes('workers.dev')) {
+    return apiUrl;
+  }
+  
+  // Caso contrário, se for local ou Cloud Run, garantimos o sufixo /api/upload
+  let url = apiUrl || "/api/upload";
+  if (apiUrl && !apiUrl.endsWith('/api/upload')) {
+    url = `${apiUrl.replace(/\/$/, '')}/api/upload`;
+  }
+  
+  return url.replace(/([^:]\/)\/+/g, "$1");
 }
 
 /**
- * Faz upload de um ficheiro para o Cloudflare R2 via Servidor Express.
- * @param file O ficheiro ou blob para upload.
- * @param folder A pasta dentro do bucket (ex: 'posts' ou 'thumbnails').
- * @param fileName Nome opcional para o ficheiro.
- * @returns A URL pública do ficheiro.
+ * Faz upload de um ficheiro para o Cloudflare R2 via Worker ou Servidor.
  */
 export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
   const formData = new FormData();
-  // Passar o fileName como terceiro argumento para o Blob
   if (fileName) {
     formData.append("file", file, fileName);
     formData.append("fileName", fileName);
@@ -34,45 +35,54 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
   formData.append("folder", folder);
 
   const endpoint = getUploadEndpoint();
-  console.log(`>>> [UPLOAD SERVICE] Iniciando upload para: ${endpoint}`);
-  console.log(`>>> [UPLOAD SERVICE] Folder: ${folder}, FileName: ${fileName || 'N/A'}`);
+  console.log(`>>> [UPLOAD] Enviando para: ${endpoint}`);
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       body: formData,
+      // Não incluímos headers de Content-Type manual para o browser definir o boundary do FormData
     });
 
-    const contentType = response.headers.get("content-type");
+    const contentType = response.headers.get("content-type") || "";
     
     if (!response.ok) {
-      let errorMessage = `Upload falhou com status ${response.status}`;
-      if (contentType && contentType.includes("application/json")) {
-        try {
-          const error = await response.json();
-          errorMessage = error.error || errorMessage;
-        } catch { /* ignore */ }
-      } else {
-        const text = await response.text();
-        if (text.includes("<!DOCTYPE html>")) {
-          errorMessage = "O servidor retornou uma página HTML em vez de JSON. Verifique se a rota /api/upload existe e se o servidor está rodando.";
-        } else {
-          errorMessage = text.slice(0, 100) || errorMessage;
+      const errorText = await response.text();
+      console.error(`>>> [UPLOAD ERROR] Status: ${response.status}, Content-Type: ${contentType}, Body:`, errorText);
+      
+      // Se o erro for 404, pode ser que o Worker precise do sufixo /api/upload afinal
+      if (response.status === 404 && endpoint.includes('workers.dev') && !endpoint.endsWith('/api/upload')) {
+        console.log(">>> [UPLOAD] Tentando fallback com /api/upload...");
+        const fallbackRes = await fetch(`${endpoint.replace(/\/$/, '')}/api/upload`, {
+          method: "POST",
+          body: formData
+        });
+        if (fallbackRes.ok) {
+          const data = await fallbackRes.json();
+          return data.url;
         }
       }
-      throw new Error(errorMessage);
+      
+      throw new Error(`Erro ${response.status}: ${errorText.slice(0, 100) || 'Falha na comunicação com o Cloudflare'}`);
     }
 
-    if (!contentType || !contentType.includes("application/json")) {
+    // Se chegou aqui, a resposta é 2xx. Vamos verificar se é JSON.
+    if (!contentType.includes("application/json")) {
       const text = await response.text();
-      console.error("Resposta não-JSON do servidor:", text.slice(0, 200));
-      throw new Error("O servidor não retornou um JSON válido. Verifique os logs do backend.");
+      console.error(">>> [UPLOAD ERROR] Resposta não é JSON:", text.slice(0, 200));
+      throw new Error(`O servidor respondeu com sucesso mas não enviou JSON. Conteúdo: ${text.slice(0, 50)}...`);
     }
 
-    const data = await response.json();
-    return data.url;
-  } catch (error) {
-    console.error("Erro no uploadToR2:", error);
-    throw error;
+    try {
+      const data = await response.json();
+      if (!data.url) throw new Error("Resposta do servidor sem URL de ficheiro.");
+      return data.url;
+    } catch (parseError) {
+      console.error(">>> [UPLOAD ERROR] Falha ao processar JSON:", parseError);
+      throw new Error("O servidor enviou uma resposta que não pôde ser lida como JSON.");
+    }
+  } catch (error: any) {
+    console.error("Erro crítico no uploadToR2:", error);
+    throw new Error(error.message || "Erro desconhecido no upload");
   }
 }
