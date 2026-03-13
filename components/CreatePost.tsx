@@ -431,31 +431,46 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.preload = 'metadata';
+      video.preload = 'auto';
       video.muted = true;
       video.playsInline = true;
-      video.onloadedmetadata = () => {
-        video.currentTime = 0.5; // Capture at 0.5 seconds
+      
+      // Importante: Não aplicar filtro aqui se o vídeo já foi processado pelo FFmpeg
+      // Mas como a função é genérica, vamos garantir que ela captura um frame real
+      
+      video.onloadeddata = () => {
+        // Tentar capturar aos 1 segundo ou no meio do vídeo se for mais curto
+        const captureTime = Math.min(1.0, video.duration / 2);
+        video.currentTime = captureTime;
       };
+
       video.onseeked = () => {
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-        if (ctx && filter !== 'none') {
-          ctx.filter = filter;
+        
+        if (!ctx || canvas.width === 0 || canvas.height === 0) {
+          reject(new Error('Invalid video dimensions for thumbnail'));
+          return;
         }
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
-          else reject(new Error('Failed to generate thumbnail'));
-        }, 'image/jpeg', 0.9);
+          else reject(new Error('Failed to generate thumbnail blob'));
+        }, 'image/jpeg', 0.8);
+        
         URL.revokeObjectURL(video.src);
       };
+
       video.onerror = (e) => {
+        console.error('[Thumbnail] Erro no elemento vídeo:', e);
         URL.revokeObjectURL(video.src);
-        reject(e);
+        reject(new Error('Video error during thumbnail generation'));
       };
+
       video.src = URL.createObjectURL(file);
     });
   };
