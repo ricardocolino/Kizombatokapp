@@ -528,6 +528,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         setProcessingVideo(true);
         const ffmpeg = await loadFFmpeg();
         const inputFileName = 'input_raw.mp4';
+        
+        console.log('[Upload] Descarregando vídeo gravado...');
         const videoData = await fetchFile(mediaFiles[0]);
         await ffmpeg.writeFile(inputFileName, videoData);
 
@@ -536,23 +538,42 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         if (recordedFacingMode === 'rear') {
           const rotation = 'hflip,vflip';
           vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
+          console.log('[Upload] Aplicando rotação para câmera traseira');
         }
 
         const isDubbing = !!selectedSound && !useOriginalAudio;
         const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
         
-        const videoArgs = ['-i', inputFileName];
+        const videoArgs: string[] = [];
+        
+        // Se houver trim, aplicamos ANTES do input do vídeo para ser eficiente e não afetar o áudio da dublagem
         if (hasTrim) {
+          console.log(`[Upload] Aplicando Trim: ${trimStart}s - ${trimEnd}s`);
           videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
         }
+        videoArgs.push('-i', inputFileName);
 
         if (isDubbing && selectedSound) {
-          const soundData = await fetchFile(selectedSound.audio_url || selectedSound.media_url);
-          await ffmpeg.writeFile('dub.mp3', soundData);
-          videoArgs.push('-i', 'dub.mp3');
-          videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
-          videoArgs.push('-af', 'aresample=async=1');
+          const audioUrl = selectedSound.audio_url || selectedSound.media_url;
+          console.log('[Upload] Dublagem ativa. Descarregando áudio:', audioUrl);
+          
+          if (!audioUrl) {
+            throw new Error('O som selecionado não possui um ficheiro de áudio válido.');
+          }
+          
+          try {
+            const soundData = await fetchFile(audioUrl);
+            await ffmpeg.writeFile('dub.mp3', soundData);
+            videoArgs.push('-i', 'dub.mp3');
+            // Mapear vídeo do input 0 e áudio do input 1
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
+            videoArgs.push('-af', 'aresample=async=1');
+          } catch (fetchErr) {
+            console.error('[Upload] Erro ao descarregar áudio de dublagem:', fetchErr);
+            throw new Error('Não foi possível descarregar o áudio da dublagem. Verifique a sua ligação.');
+          }
         } else {
+          console.log('[Upload] Usando áudio original');
           videoArgs.push('-map', '0:v:0', '-map', '0:a:0?');
         }
 
@@ -566,15 +587,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
         videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
         
-        console.log('[FFmpeg] Executando comando de vídeo...');
+        console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
         await ffmpeg.exec(videoArgs);
+        
+        console.log('[Upload] Lendo vídeo processado...');
         const videoOutput = await ffmpeg.readFile('output.mp4');
+        if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
+          throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
+        }
         finalVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
         // 2. Extrair Áudio MP3 (Apenas se NÃO for dublagem, para criar um novo som original)
         if (!isDubbing) {
           console.log('[FFmpeg] Extraindo áudio original para MP3...');
-          // Extraímos do output.mp4 para garantir que o áudio respeita o trim
           await ffmpeg.exec(['-i', 'output.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-y', 'output.mp3']);
           const audioOutput = await ffmpeg.readFile('output.mp3');
           const audioBlob = new Blob([audioOutput], { type: 'audio/mp3' });
