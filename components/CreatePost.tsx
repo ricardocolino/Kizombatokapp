@@ -106,8 +106,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const { data } = await supabase
         .from('posts')
         .select('*, profiles!user_id(*)')
+        .eq('media_type', 'video')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
       if (data) setAvailableSounds(data);
     } catch (e) {
       console.error("Erro ao carregar sons:", e);
@@ -554,23 +555,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         videoArgs.push('-i', inputFileName);
 
         if (isDubbing && selectedSound) {
-          const audioUrl = selectedSound.audio_url || selectedSound.media_url;
+          let audioUrl = selectedSound.audio_url || selectedSound.media_url;
           console.log('[Upload] Dublagem ativa. Descarregando áudio:', audioUrl);
           
           if (!audioUrl) {
             throw new Error('O som selecionado não possui um ficheiro de áudio válido.');
           }
           
+          // Garantir que a URL é absoluta
+          if (audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
+          
           try {
-            const soundData = await fetchFile(audioUrl);
+            console.log('[Upload] Tentando descarregar áudio via fetch...');
+            const audioResponse = await fetch(audioUrl, { mode: 'cors' });
+            if (!audioResponse.ok) {
+              throw new Error(`Erro HTTP ${audioResponse.status} ao aceder ao áudio.`);
+            }
+            const audioBlob = await audioResponse.blob();
+            const soundData = await fetchFile(audioBlob);
             await ffmpeg.writeFile('dub.mp3', soundData);
             videoArgs.push('-i', 'dub.mp3');
             // Mapear vídeo do input 0 e áudio do input 1
             videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
             videoArgs.push('-af', 'aresample=async=1');
-          } catch (fetchErr) {
+          } catch (fetchErr: unknown) {
             console.error('[Upload] Erro ao descarregar áudio de dublagem:', fetchErr);
-            throw new Error('Não foi possível descarregar o áudio da dublagem. Verifique a sua ligação.');
+            const detail = fetchErr instanceof Error ? fetchErr.message : 'Erro de rede ou CORS';
+            throw new Error(`Não foi possível descarregar o áudio da dublagem (${detail}). Verifique a sua ligação.`);
           }
         } else {
           console.log('[Upload] Usando áudio original');
