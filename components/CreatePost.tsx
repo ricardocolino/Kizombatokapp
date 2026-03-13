@@ -3,13 +3,10 @@ import { supabase } from '../supabaseClient';
 import * as lamejs from 'lamejs';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
-import { Post, Profile } from '../types';
-import { uploadToR2 } from '../services/uploadService';
-import { parseMediaUrl } from '../services/mediaUtils';
+import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
+import { Post } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-import HostLive from './HostLive';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -45,9 +42,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
-  const [mode, setMode] = useState<'video' | 'photo' | 'live'>('video');
-  const [liveTitle, setLiveTitle] = useState('');
-  const [showLiveStream, setShowLiveStream] = useState(false);
+  const [mode, setMode] = useState<'video' | 'photo'>('video');
   const [textOverlay, setTextOverlay] = useState('');
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [filter, setFilter] = useState('none');
@@ -126,10 +121,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // -ss e -to ANTES de -i para seek rápido (input seeking)
       args.push('-i', 'input.mp4');
 
-      if (hasTrim) {
-        args.push('-ss', String(trimStart));
-        args.push('-to', String(trimEnd));
-      }
+if (hasTrim) {
+  args.push('-ss', String(trimStart));
+  args.push('-to', String(trimEnd));
+}
       // Áudio externo para dubbing — segundo input
       if (hasDubbingAudio) {
         const audioUrl = selectedSound!.audio_url || selectedSound!.media_url;
@@ -151,19 +146,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Se há filtro → tem de re-encodar com libx264
       // Se não há filtro → copia o stream original (evita artefactos)
       if (vfFilter || hasDubbingAudio || hasTrim) {
-        if (vfFilter) {
-          args.push('-vf', vfFilter);
-        }
-        args.push('-c:v', 'libx264');
-        args.push('-preset', 'ultrafast'); // Muito mais rápido que 'faster' para mobile
-        args.push('-crf', '30'); // Ligeiramente mais comprimido para upload mais rápido
-        args.push('-maxrate', '1.2M'); // Limita o bitrate para evitar ficheiros gigantes
-        args.push('-bufsize', '2.4M');
-        args.push('-pix_fmt', 'yuv420p');
-        args.push('-profile:v', 'baseline', '-level', '3.0'); // Máxima compatibilidade
-      } else {
-        args.push('-c:v', 'copy');
-      }
+  args.push('-c:v', 'libx264');
+  args.push('-preset', 'ultrafast');
+  args.push('-crf', '23');
+  args.push('-pix_fmt', 'yuv420p');
+} else {
+  args.push('-c:v', 'copy');
+}
       // Codec de áudio
       if (hasDubbingAudio) {
         args.push('-c:a', 'aac');
@@ -212,8 +201,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     try {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles!user_id(*)')
-        .order('created_at', { ascending: false })
+        .select('*, profiles(*)')
         .limit(20);
       if (data) setAvailableSounds(data);
     } catch (e) {
@@ -231,6 +219,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const playSoundPreview = (url: string) => {
     stopPreviewAudio();
     const audio = new Audio(url);
+    audio.crossOrigin = "anonymous";
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(e => {
@@ -349,10 +338,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       clearTimeout(initTimer);
       stopCamera();
       stopPreviewAudio();
-      if (playbackAudioRef.current) {
-        playbackAudioRef.current.pause();
-        playbackAudioRef.current = null;
-      }
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [startCamera, stopCamera]);
@@ -408,10 +393,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const initiateRecording = async () => {
-    if (mode === 'live') {
-      setShowLiveStream(true);
-      return;
-    }
     if (isRecording || countdown !== null) return;
     startCountdown();
   };
@@ -437,26 +418,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     
     if (Capacitor.isNativePlatform()) {
       try {
+        if (selectedSound && !useOriginalAudio) {
+          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
+          audio.crossOrigin = "anonymous";
+          audio.volume = 1.0;
+          playbackAudioRef.current = audio;
+          await audio.play();
+        }
+
         setRecordedFacingMode(facingMode);
+
         const isDubbing = !!selectedSound && !useOriginalAudio;
-        
-        // Iniciar gravação de vídeo
-        const videoPromise = CameraPreview.startRecordVideo({
+        console.log("Iniciando gravação nativa. Dublagem:", isDubbing);
+
+        await CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
           disableAudio: isDubbing
         });
-
-        // Iniciar áudio de dublagem imediatamente sem travar o vídeo
-        if (isDubbing && selectedSound) {
-          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.volume = 1.0;
-          playbackAudioRef.current = audio;
-          audio.play().catch(err => console.error("Erro ao tocar áudio na gravação:", err));
-        }
-
-        await videoPromise;
         
         setIsRecording(true);
         setRecordingSeconds(0);
@@ -595,40 +575,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const handleUpload = async () => {
-    if (mediaFiles.length === 0) {
-      console.log("No media files to upload");
-      return;
-    }
-    
-    console.log("Starting upload process for", mediaFiles.length, "files");
-    
-    // Parar áudio antes de começar o upload
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-    }
-    
+    if (mediaFiles.length === 0) return;
     setUploading(true);
-    setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error("No active session");
-        throw new Error('Sessão expirada. Por favor, faz login novamente.');
-      }
+      if (!session) throw new Error('Sessão expirada.');
       
       const isPhoto = mediaFiles[0].type.startsWith('image/');
       const uploadedUrls: string[] = [];
       const timestamp = Date.now();
 
-      console.log("Is photo:", isPhoto, "Media type:", mediaFiles[0].type);
-
       // Processar vídeo com FFmpeg (filtro + áudio dubbing + trim)
       let filesToUpload = [...mediaFiles];
       if (!isPhoto) {
-        console.log("Processing video with FFmpeg...");
         try {
           const processedBlob = await processVideoWithFFmpeg(mediaFiles[0]);
-          console.log("FFmpeg processing complete. Blob size:", processedBlob.size);
           filesToUpload = [processedBlob, ...mediaFiles.slice(1)];
         } catch (ffmpegErr) {
           console.error('Erro no FFmpeg, usando vídeo original:', ffmpegErr);
@@ -641,26 +602,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         const isRecorded = (file instanceof Blob) && !(file instanceof File);
         const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'mp4' : (file as File).name.split('.').pop());
         const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
+        const filePath = `posts/${fileName}`;
         
-        console.log(`Uploading file ${i+1}/${filesToUpload.length} to R2: ${fileName}`);
-        const mediaUrl = await uploadToR2(file, 'posts', fileName);
-        console.log(`File ${i+1} uploaded successfully: ${mediaUrl}`);
+        const { error: uploadError } = await supabase.storage.from('posts').upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl: mediaUrl } } = supabase.storage.from('posts').getPublicUrl(filePath);
         uploadedUrls.push(mediaUrl);
       }
 
       const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
       
       // Extrair e fazer upload do áudio como MP3 (só para vídeo)
+      // Se houve dubbing, o áudio já está embutido no vídeo processado pelo FFmpeg
       let audioUrl = null;
       const isDubbing = !!selectedSound && !useOriginalAudio;
-      
-      console.log("Is dubbing:", isDubbing);
-
-      if (isDubbing) {
-        audioUrl = selectedSound.audio_url || selectedSound.media_url;
-        console.log("Using existing audio URL for dubbing:", audioUrl);
-      } else if (!isPhoto) {
-        console.log("Extracting audio from video...");
+      if (!isPhoto && !isDubbing) {
         try {
           const videoBlob = filesToUpload[0];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -670,14 +626,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           
           const channels = audioBuffer.numberOfChannels;
           const sampleRate = audioBuffer.sampleRate;
-          console.log(`Audio extracted: ${channels} channels, ${sampleRate}Hz`);
-
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const Mp3Encoder = (lamejs as any).Mp3Encoder || (lamejs as any).default?.Mp3Encoder;
-          if (!Mp3Encoder) {
-            throw new Error("Mp3Encoder not found in lamejs");
-          }
-          const mp3encoder = new Mp3Encoder(channels, sampleRate, 128);
+          const mp3encoder = new (lamejs as any).Mp3Encoder(channels, sampleRate, 128);
           const mp3Data = [];
           
           const sampleBlockSize = 1152;
@@ -715,24 +665,34 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           
           const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
           const audioFileName = `${session.user.id}-${timestamp}.mp3`;
+          const audioFilePath = `audio/${audioFileName}`;
           
-          console.log("Uploading MP3 to R2...");
-          audioUrl = await uploadToR2(mp3Blob, 'audio', audioFileName);
-          console.log("MP3 uploaded successfully:", audioUrl);
+          const { error: audioUploadError } = await supabase.storage.from('posts').upload(audioFilePath, mp3Blob);
+          if (!audioUploadError) {
+            const { data: { publicUrl: aUrl } } = supabase.storage.from('posts').getPublicUrl(audioFilePath);
+            audioUrl = aUrl;
+          }
         } catch (audioErr) {
           console.error('Erro ao extrair/converter áudio:', audioErr);
         }
+      } else if (!isPhoto && isDubbing && selectedSound) {
+        // Em modo dubbing, o áudio do som selecionado já foi embutido pelo FFmpeg
+        // Guardamos a referência ao audio_url do sound original para o feed saber qual som foi usado
+        audioUrl = selectedSound.audio_url || selectedSound.media_url;
       }
 
       // Gerar e fazer upload da thumbnail (só para vídeo)
       let thumbnailUrl = null;
       if (!isPhoto) {
-        console.log("Generating thumbnail...");
         try {
           const thumbBlob = await generateThumbnail(filesToUpload[0]);
           const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
-          thumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+          const thumbFilePath = `thumbnails/${thumbFileName}`;
+          const { error: thumbUploadError } = await supabase.storage.from('posts').upload(thumbFilePath, thumbBlob);
+          if (!thumbUploadError) {
+            const { data: { publicUrl: tUrl } } = supabase.storage.from('posts').getPublicUrl(thumbFilePath);
+            thumbnailUrl = tUrl;
+          }
         } catch (thumbErr) {
           console.error('Erro ao gerar thumbnail:', thumbErr);
         }
@@ -740,7 +700,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         thumbnailUrl = uploadedUrls[0];
       }
 
-      console.log("Inserting post into Supabase...");
       // Inserir post na BD
       const { error: insertError = null } = await supabase.from('posts').insert({
         user_id: session.user.id,
@@ -750,6 +709,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         audio_url: audioUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
+        // Filtro já aplicado no vídeo pelo FFmpeg — guardamos null para o feed não re-aplicar via CSS
         text_overlay: textOverlay || null,
         filter: null,
         views: 0,
@@ -757,12 +717,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       });
       
       if (insertError) throw insertError;
-      console.log("Post created successfully in Supabase");
       setTimeout(() => onCreated(), 500);
     } catch (err: unknown) {
-      console.error("Upload error details:", err);
-      const errorMsg = (err as Error).message || 'Erro desconhecido';
-      setError(`Falha ao publicar: ${errorMsg}`);
+      setError((err as Error).message || 'Erro ao publicar.');
     } finally {
       setUploading(false);
     }
@@ -777,37 +734,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
-    
-    // Resetar para câmera frontal e desligar flash
-    setFacingMode('user');
-    setIsFlashOn(false);
-    
     startCamera();
   };
 
-  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-        setCurrentUserProfile(data);
-      }
-    };
-    fetchUser();
-  }, []);
-
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
-      {showLiveStream && currentUserProfile && (
-        <HostLive 
-          channelName={`live_${currentUserProfile.id}`}
-          onClose={() => setShowLiveStream(false)}
-          title={liveTitle}
-          hostProfile={currentUserProfile}
-        />
-      )}
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -849,6 +780,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                         playbackAudioRef.current.play().catch(() => {});
                       } else {
                         const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
+                        audio.crossOrigin = "anonymous";
                         audio.loop = true;
                         audio.currentTime = video.currentTime;
                         playbackAudioRef.current = audio;
@@ -1057,29 +989,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </div>
             )}
 
-            {mode === 'live' && !showLiveStream && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-10 z-50">
-                <div className="bg-black/40 backdrop-blur-xl border border-white/10 p-6 rounded-[32px] shadow-2xl animate-in zoom-in duration-300">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center border border-red-600/30">
-                      <Radio size={32} className="text-red-600 animate-pulse" />
-                    </div>
-                    <div className="text-center">
-                      <h3 className="text-lg font-black uppercase tracking-tighter text-white">Pronto para a Live?</h3>
-                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Dá um título ao teu mambo</p>
-                    </div>
-                    <input 
-                      type="text"
-                      value={liveTitle}
-                      onChange={(e) => setLiveTitle(e.target.value)}
-                      placeholder="Ex: Kizomba Night na Banda..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-red-600 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
             <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
@@ -1097,12 +1006,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'photo' ? 'text-white' : 'text-white/40'}`}
                 >
                   Foto
-                </button>
-                <button 
-                  onClick={() => setMode('live')}
-                  className={`text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'live' ? 'text-white' : 'text-white/40'}`}
-                >
-                  Live
                 </button>
               </div>
 
@@ -1124,13 +1027,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                       60s
                     </button>
                   </>
-                ) : mode === 'photo' ? (
+                ) : (
                   <div className="px-6 py-1.5 bg-white/10 text-white/40 rounded-full text-[9px] font-black uppercase tracking-widest border border-white/10">
                     Modo Foto
-                  </div>
-                ) : (
-                  <div className="px-6 py-1.5 bg-red-600/20 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-600/30 animate-pulse">
-                    Em Direto
                   </div>
                 )}
               </div>
@@ -1145,25 +1044,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                  className="hidden" 
                  onChange={handleNativeVideoChange} 
                />
-               <div className="w-12 h-12 flex items-center justify-center">
-                 {mode !== 'live' && (
-                   <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
-                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
-                       <ImageIcon size={24} />
-                     </div>
-                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                     <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
-                   </label>
-                 )}
-               </div>
+               <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
+                 <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
+                   <ImageIcon size={24} />
+                 </div>
+                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
+                 <input type="file" className="hidden" accept={mode === 'video' ? 'video/*' : 'image/*'} multiple={mode === 'photo'} onChange={handleFileChange} />
+               </label>
                
                <button 
-                onClick={mode === 'photo' ? takePhoto : initiateRecording} 
+                onClick={mode === 'video' ? (isRecording ? stopRecording : initiateRecording) : takePhoto} 
                 disabled={isStarting} 
                 className="relative flex items-center justify-center disabled:opacity-50"
                >
-                 <div className={`w-20 h-20 rounded-full border-[6px] ${mode === 'live' ? 'border-red-600/40' : 'border-white/40'} flex items-center justify-center shadow-2xl`}>
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'live' ? 'bg-red-600' : (mode === 'video' ? 'bg-red-600' : 'bg-white')} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                 <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${mode === 'video' ? 'bg-red-600' : 'bg-white'} shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
                  </div>
                  {mode === 'photo' && (
                    <div className="absolute flex items-center justify-center">
@@ -1175,35 +1070,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                      )}
                    </div>
                  )}
-                 {mode === 'live' && (
-                   <div className="absolute flex items-center justify-center">
-                     <Radio size={24} className="text-white animate-pulse" />
-                   </div>
-                 )}
                </button>
 
-               <div className="w-12 h-12 flex items-center justify-center">
-                 {mode === 'live' ? (
-                   <div className="flex flex-col items-center gap-1">
-                     <div className="p-3.5 bg-red-600/20 rounded-2xl text-red-600 border border-red-600/30 shadow-xl">
-                       <Radio size={24} className="animate-pulse" />
-                     </div>
-                     <span className="text-[8px] font-black uppercase text-red-600 tracking-widest mt-1">Live</span>
-                   </div>
-                 ) : (
-                   <button 
-                    onClick={isRecording ? stopRecording : () => {
-                      if (mediaFiles.length > 0) {
-                        stopCamera();
-                      }
-                    }} 
-                    className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-                   >
-                     <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
-                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
-                   </button>
-                 )}
-               </div>
+               <button 
+                onClick={isRecording ? stopRecording : () => {
+                  if (mediaFiles.length > 0) {
+                    stopCamera();
+                    // We don't need to do anything else, the preview will show up because mediaFiles.length > 0
+                  }
+                }} 
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${(recordingSeconds > 0 || (mode === 'photo' && mediaFiles.length > 0)) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+               >
+                 <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
+                 <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
+               </button>
              </div>
           </div>
         )}
@@ -1342,7 +1222,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   >
                      <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                         {sound.profiles?.avatar_url ? (
-                          <img src={parseMediaUrl(sound.profiles.avatar_url)} className="w-full h-full object-cover" />
+                          <img src={sound.profiles.avatar_url} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
                         )}
@@ -1381,6 +1261,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                          <button 
                            onClick={(e) => {
                              e.stopPropagation();
+                             // Add bookmark logic if needed
                            }}
                            className="text-zinc-600 hover:text-white transition-colors"
                          >
