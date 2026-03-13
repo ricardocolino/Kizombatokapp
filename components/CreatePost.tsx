@@ -151,10 +151,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
       // Mapeamento explícito de streams
       args.push('-map', '0:v:0');
+
       if (hasDubbingAudio) {
+        // usa apenas o áudio da música
         args.push('-map', '1:a:0');
+        args.push('-af', 'aresample=async=1');
+        args.push('-shortest');
       } else {
-        // Tenta mapear áudio original; ignora se não existir
+        // usa áudio original do vídeo (se existir)
         args.push('-map', '0:a:0?');
       }
 
@@ -179,7 +183,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       if (hasDubbingAudio) {
         args.push('-c:a', 'aac');
         args.push('-b:a', '128k');
-        args.push('-shortest'); // corta quando o mais curto (vídeo ou áudio) termina
       } else if (vfFilter) {
         // Re-encoding de vídeo → re-encode áudio também para garantir sync
         args.push('-c:a', 'aac');
@@ -457,7 +460,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: isDubbing // DESATIVA O MICROFONE TOTALMENTE SE ESTIVER DUBLANDO
+          disableAudio: true // Sempre desativado para evitar eco e bugs, o FFmpeg trata do áudio
         });
 
         // Iniciar áudio de dublagem imediatamente sem travar o vídeo
