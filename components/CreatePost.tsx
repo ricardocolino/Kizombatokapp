@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import * as lamejs from 'lamejs';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
@@ -74,7 +73,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
-  const [processingVideo, setProcessingVideo] = useState(false);
+  const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
 
   // Mapeia filtros CSS para filtros FFmpeg reais
   const cssFilterToFFmpeg = (cssFilter: string): string | null => {
@@ -100,126 +99,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     ffmpegRef.current = ffmpeg;
     setFfmpegLoaded(true);
     return ffmpeg;
-  };
-
-  // Processa o vídeo com FFmpeg: aplica filtro real, mescla áudio externo e respeita o trim
-  const processVideoWithFFmpeg = async (videoBlob: Blob): Promise<Blob> => {
-    setProcessingVideo(true);
-    try {
-      const ffmpeg = await loadFFmpeg();
-
-      const videoData = await fetchFile(videoBlob);
-      await ffmpeg.writeFile('input.mp4', videoData);
-
-      let vfFilter = cssFilterToFFmpeg(filter);
-      
-      // Corrigir orientação da câmera traseira se necessário (180 graus)
-      if (recordedFacingMode === 'rear') {
-        const rotation = 'hflip,vflip';
-        vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
-        console.log('[FFmpeg] Aplicando rotação de 180 graus para câmera traseira');
-      }
-
-      const hasDubbingAudio = !!selectedSound && !useOriginalAudio && (selectedSound.audio_url || selectedSound.media_url);
-      const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
-
-      console.log(`[FFmpeg] Processando: Dublagem=${hasDubbingAudio}, Filtro=${filter}, Trim=${hasTrim}`);
-
-      // Se não há nada para processar, devolve o blob original
-      if (!vfFilter && !hasDubbingAudio && !hasTrim) {
-        console.log('[FFmpeg] Nada para processar, usando vídeo original');
-        await ffmpeg.deleteFile('input.mp4');
-        return videoBlob;
-      }
-
-      const args: string[] = [];
-
-      // -ss e -to ANTES de -i para seek rápido (input seeking)
-      args.push('-i', 'input.mp4');
-
-      if (hasTrim) {
-        args.push('-ss', String(trimStart));
-        args.push('-to', String(trimEnd));
-      }
-      // Áudio externo para dubbing — segundo input
-      if (hasDubbingAudio) {
-        const audioUrl = selectedSound!.audio_url || selectedSound!.media_url;
-        const audioData = await fetchFile(audioUrl);
-        await ffmpeg.writeFile('dubbing.mp3', audioData);
-        args.push('-i', 'dubbing.mp3');
-      }
-
-      // Mapeamento explícito de streams
-      args.push('-map', '0:v:0');
-
-      if (hasDubbingAudio) {
-        // usa apenas o áudio da música
-        args.push('-map', '1:a:0');
-        args.push('-af', 'aresample=async=1');
-        args.push('-shortest');
-      } else {
-        // usa áudio original do vídeo (se existir)
-        args.push('-map', '0:a:0?');
-      }
-
-      // Codec de vídeo:
-      // Se há filtro → tem de re-encodar com libx264
-      // Se não há filtro → copia o stream original (evita artefactos)
-      if (vfFilter || hasDubbingAudio || hasTrim) {
-        if (vfFilter) {
-          args.push('-vf', vfFilter);
-        }
-        args.push('-c:v', 'libx264');
-        args.push('-preset', 'ultrafast'); // Muito mais rápido que 'faster' para mobile
-        args.push('-crf', '30'); // Ligeiramente mais comprimido para upload mais rápido
-        args.push('-maxrate', '1.2M'); // Limita o bitrate para evitar ficheiros gigantes
-        args.push('-bufsize', '2.4M');
-        args.push('-pix_fmt', 'yuv420p');
-        args.push('-profile:v', 'baseline', '-level', '3.0'); // Máxima compatibilidade
-      } else {
-        args.push('-c:v', 'copy');
-      }
-      // Codec de áudio
-      if (hasDubbingAudio) {
-        args.push('-c:a', 'aac');
-        args.push('-b:a', '128k');
-      } else if (vfFilter) {
-        // Re-encoding de vídeo → re-encode áudio também para garantir sync
-        args.push('-c:a', 'aac');
-        args.push('-b:a', '128k');
-      } else {
-        args.push('-c:a', 'copy');
-      }
-
-      args.push('-movflags', '+faststart');
-      args.push('-y'); // sobrescreve sem perguntar
-      args.push('output.mp4');
-
-      console.log('[FFmpeg] Comando:', args.join(' '));
-      await ffmpeg.exec(args);
-
-      const outputData = await ffmpeg.readFile('output.mp4');
-
-      // Verificar que o output não está vazio
-      if (!outputData || (outputData as Uint8Array).byteLength < 1000) {
-        throw new Error('FFmpeg produziu um ficheiro inválido — usando vídeo original como fallback.');
-      }
-
-      const outputBlob = new Blob([outputData], { type: 'video/mp4' });
-
-      // Limpar ficheiros do FS virtual
-      try { await ffmpeg.deleteFile('input.mp4'); } catch { /* ignore */ }
-      try { await ffmpeg.deleteFile('output.mp4'); } catch { /* ignore */ }
-      if (hasDubbingAudio) { try { await ffmpeg.deleteFile('dubbing.mp3'); } catch { /* ignore */ } }
-
-      return outputBlob;
-    } catch (err) {
-      console.error('[FFmpeg] Erro no processamento:', err);
-      // Fallback: devolve o vídeo original sem processar
-      return videoBlob;
-    } finally {
-      setProcessingVideo(false);
-    }
   };
 
   const fetchRandomSounds = async () => {
@@ -610,176 +489,148 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   };
 
   const handleUpload = async () => {
-    if (mediaFiles.length === 0) {
-      console.log("No media files to upload");
-      return;
-    }
-    
-    console.log("Starting upload process for", mediaFiles.length, "files");
-    
-    // Parar áudio antes de começar o upload
-    if (playbackAudioRef.current) {
-      playbackAudioRef.current.pause();
-    }
+    if (mediaFiles.length === 0) return;
     
     setUploading(true);
     setError(null);
+
+    // Parar áudio de playback se estiver a correr
+    if (playbackAudioRef.current) {
+      playbackAudioRef.current.pause();
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error("No active session");
-        throw new Error('Sessão expirada. Por favor, faz login novamente.');
-      }
+      if (!session) throw new Error('Sessão expirada. Por favor, faz login novamente.');
       
       const isPhoto = mediaFiles[0].type.startsWith('image/');
-      const uploadedUrls: string[] = [];
       const timestamp = Date.now();
+      const userId = session.user.id;
 
-      console.log("Is photo:", isPhoto, "Media type:", mediaFiles[0].type);
+      let finalVideoBlob: Blob | null = null;
+      let finalAudioUrl: string | null = null;
+      let finalThumbnailUrl: string | null = null;
+      let finalMediaUrl: string | null = null;
 
-      // Processar vídeo com FFmpeg (filtro + áudio dubbing + trim)
-      let filesToUpload = [...mediaFiles];
-      if (!isPhoto) {
-        console.log("Processing video with FFmpeg...");
-        try {
-          const processedBlob = await processVideoWithFFmpeg(mediaFiles[0]);
-          console.log("FFmpeg processing complete. Blob size:", processedBlob.size);
-          filesToUpload = [processedBlob, ...mediaFiles.slice(1)];
-        } catch (ffmpegErr) {
-          console.error('Erro no FFmpeg, usando vídeo original:', ffmpegErr);
-          // Continua com o vídeo original em caso de falha
+      if (isPhoto) {
+        // Lógica para Fotos (até 5)
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const fileName = `${userId}-${timestamp}-${i}.jpg`;
+          const url = await uploadToR2(mediaFiles[i], 'posts', fileName);
+          uploadedUrls.push(url);
         }
-      }
-
-      for (let i = 0; i < filesToUpload.length; i++) {
-        const file = filesToUpload[i];
-        const isRecorded = (file instanceof Blob) && !(file instanceof File);
-        const fileExt = isPhoto ? 'jpg' : (isRecorded ? 'mp4' : (file as File).name.split('.').pop());
-        const fileName = `${session.user.id}-${timestamp}-${i}.${fileExt}`;
-        
-        console.log(`Uploading file ${i+1}/${filesToUpload.length} to R2: ${fileName}`);
-        const mediaUrl = await uploadToR2(file, 'posts', fileName);
-        console.log(`File ${i+1} uploaded successfully: ${mediaUrl}`);
-        uploadedUrls.push(mediaUrl);
-      }
-
-      const mediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
-      
-      // Extrair e fazer upload do áudio como MP3 (só para vídeo)
-      let audioUrl = null;
-      const isDubbing = !!selectedSound && !useOriginalAudio;
-      
-      console.log("Is dubbing:", isDubbing);
-
-      if (isDubbing) {
-        audioUrl = selectedSound.audio_url || selectedSound.media_url;
-        console.log("Using existing audio URL for dubbing:", audioUrl);
-      } else if (!isPhoto) {
-        console.log("Extracting audio from video...");
-        try {
-          const videoBlob = filesToUpload[0];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const arrayBuffer = await videoBlob.arrayBuffer();
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          
-          const channels = audioBuffer.numberOfChannels;
-          const sampleRate = audioBuffer.sampleRate;
-          console.log(`Audio extracted: ${channels} channels, ${sampleRate}Hz`);
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const Mp3Encoder = (lamejs as any).Mp3Encoder || (lamejs as any).default?.Mp3Encoder;
-          if (!Mp3Encoder) {
-            throw new Error("Mp3Encoder not found in lamejs");
-          }
-          const mp3encoder = new Mp3Encoder(channels, sampleRate, 128);
-          const mp3Data = [];
-          
-          const sampleBlockSize = 1152;
-          const left = audioBuffer.getChannelData(0);
-          const right = channels > 1 ? audioBuffer.getChannelData(1) : null;
-          
-          for (let i = 0; i < left.length; i += sampleBlockSize) {
-            const leftChunk = left.subarray(i, i + sampleBlockSize);
-            const leftInt16 = new Int16Array(leftChunk.length);
-            for (let j = 0; j < leftChunk.length; j++) {
-              leftInt16[j] = leftChunk[j] < 0 ? leftChunk[j] * 0x8000 : leftChunk[j] * 0x7FFF;
-            }
-            
-            let mp3buf;
-            if (right) {
-              const rightChunk = right.subarray(i, i + sampleBlockSize);
-              const rightInt16 = new Int16Array(rightChunk.length);
-              for (let j = 0; j < rightChunk.length; j++) {
-                rightInt16[j] = rightChunk[j] < 0 ? rightChunk[j] * 0x8000 : rightChunk[j] * 0x7FFF;
-              }
-              mp3buf = mp3encoder.encodeBuffer(leftInt16, rightInt16);
-            } else {
-              mp3buf = mp3encoder.encodeBuffer(leftInt16);
-            }
-            
-            if (mp3buf.length > 0) {
-              mp3Data.push(mp3buf);
-            }
-          }
-          
-          const mp3buf = mp3encoder.flush();
-          if (mp3buf.length > 0) {
-            mp3Data.push(mp3buf);
-          }
-          
-          const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
-          const audioFileName = `${session.user.id}-${timestamp}.mp3`;
-          
-          console.log("Uploading MP3 to R2...");
-          audioUrl = await uploadToR2(mp3Blob, 'audio', audioFileName);
-          console.log("MP3 uploaded successfully:", audioUrl);
-        } catch (audioErr) {
-          console.error('Erro ao extrair/converter áudio:', audioErr);
-        }
-      }
-
-      // Gerar e fazer upload da thumbnail (só para vídeo)
-      let thumbnailUrl = null;
-      if (!isPhoto) {
-        console.log("Generating thumbnail...");
-        try {
-          const thumbBlob = await generateThumbnail(filesToUpload[0]);
-          const thumbFileName = `${session.user.id}-${timestamp}.jpg`;
-          thumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
-        } catch (thumbErr) {
-          console.error('Erro ao gerar thumbnail:', thumbErr);
-        }
+        finalMediaUrl = uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : uploadedUrls[0];
+        finalThumbnailUrl = uploadedUrls[0];
       } else {
-        thumbnailUrl = uploadedUrls[0];
+        // Lógica para Vídeo com FFmpeg Integrado
+        console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
+        setProcessingVideo(true);
+        const ffmpeg = await loadFFmpeg();
+        const inputFileName = 'input_raw.mp4';
+        const videoData = await fetchFile(mediaFiles[0]);
+        await ffmpeg.writeFile(inputFileName, videoData);
+
+        // 1. Processar Vídeo (Filtros, Trim, Rotação)
+        let vfFilter = cssFilterToFFmpeg(filter);
+        if (recordedFacingMode === 'rear') {
+          const rotation = 'hflip,vflip';
+          vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
+        }
+
+        const isDubbing = !!selectedSound && !useOriginalAudio;
+        const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
+        
+        const videoArgs = ['-i', inputFileName];
+        if (hasTrim) {
+          videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
+        }
+
+        if (isDubbing && selectedSound) {
+          const soundData = await fetchFile(selectedSound.audio_url || selectedSound.media_url);
+          await ffmpeg.writeFile('dub.mp3', soundData);
+          videoArgs.push('-i', 'dub.mp3');
+          videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
+          videoArgs.push('-af', 'aresample=async=1');
+        } else {
+          videoArgs.push('-map', '0:v:0', '-map', '0:a:0?');
+        }
+
+        if (vfFilter || isDubbing || hasTrim) {
+          if (vfFilter) videoArgs.push('-vf', vfFilter);
+          videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
+          videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+        } else {
+          videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
+        }
+
+        videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
+        
+        console.log('[FFmpeg] Executando comando de vídeo...');
+        await ffmpeg.exec(videoArgs);
+        const videoOutput = await ffmpeg.readFile('output.mp4');
+        finalVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
+
+        // 2. Extrair Áudio MP3 (Apenas se NÃO for dublagem, para criar um novo som original)
+        if (!isDubbing) {
+          console.log('[FFmpeg] Extraindo áudio original para MP3...');
+          // Extraímos do output.mp4 para garantir que o áudio respeita o trim
+          await ffmpeg.exec(['-i', 'output.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-y', 'output.mp3']);
+          const audioOutput = await ffmpeg.readFile('output.mp3');
+          const audioBlob = new Blob([audioOutput], { type: 'audio/mp3' });
+          const audioFileName = `${userId}-${timestamp}.mp3`;
+          finalAudioUrl = await uploadToR2(audioBlob, 'audio', audioFileName);
+          console.log('[Upload] Áudio MP3 enviado:', finalAudioUrl);
+        } else {
+          finalAudioUrl = selectedSound?.audio_url || selectedSound?.media_url || null;
+        }
+
+        // 3. Gerar Thumbnail
+        console.log('[Upload] Gerando thumbnail...');
+        const thumbBlob = await generateThumbnail(finalVideoBlob);
+        const thumbFileName = `${userId}-${timestamp}.jpg`;
+        finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+
+        // 4. Upload do Vídeo Final
+        const videoFileName = `${userId}-${timestamp}.mp4`;
+        finalMediaUrl = await uploadToR2(finalVideoBlob, 'posts', videoFileName);
+        
+        // Limpeza FFmpeg
+        try {
+          await ffmpeg.deleteFile(inputFileName);
+          await ffmpeg.deleteFile('output.mp4');
+          if (isDubbing) await ffmpeg.deleteFile('dub.mp3');
+          if (!isDubbing) await ffmpeg.deleteFile('output.mp3');
+        } catch (e) { console.warn('Erro ao limpar ficheiros FFmpeg:', e); }
       }
 
-      console.log("Inserting post into Supabase...");
-      // Inserir post na BD
-      const { error: insertError = null } = await supabase.from('posts').insert({
-        user_id: session.user.id,
+      // 5. Salvar no Supabase
+      console.log('[Upload] Salvando post no Supabase...');
+      const { error: insertError } = await supabase.from('posts').insert({
+        user_id: userId,
         content: content,
-        media_url: mediaUrl,
-        thumbnail_url: thumbnailUrl,
-        audio_url: audioUrl,
+        media_url: finalMediaUrl,
+        thumbnail_url: finalThumbnailUrl,
+        audio_url: finalAudioUrl,
         media_type: isPhoto ? 'image' : 'video',
         sound_id: selectedSound ? selectedSound.id : null,
         text_overlay: textOverlay || null,
-        filter: null,
         views: 0,
         created_at: new Date().toISOString()
       });
-      
+
       if (insertError) throw insertError;
-      console.log("Post created successfully in Supabase");
+      
+      console.log('[Upload] Sucesso total!');
       setTimeout(() => onCreated(), 500);
+
     } catch (err: unknown) {
-      console.error("Upload error details:", err);
-      const errorMsg = (err as Error).message || 'Erro desconhecido';
+      console.error('[Upload] Erro crítico:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(`Falha ao publicar: ${errorMsg}`);
     } finally {
       setUploading(false);
+      setProcessingVideo(false);
     }
   };
 
