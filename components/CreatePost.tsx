@@ -123,6 +123,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       const hasDubbingAudio = !!selectedSound && !useOriginalAudio && (selectedSound.audio_url || selectedSound.media_url);
       const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
 
+      console.log(`[FFmpeg] Processando: Dublagem=${hasDubbingAudio}, Filtro=${filter}, Trim=${hasTrim}`);
+
       // Se não há nada para processar, devolve o blob original
       if (!vfFilter && !hasDubbingAudio && !hasTrim) {
         console.log('[FFmpeg] Nada para processar, usando vídeo original');
@@ -291,14 +293,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       // Request permissions explicitly for both camera and microphone
       // This is important for video recording to work with audio
       try {
-        // Only request audio if we might need it (not strictly dubbing right now)
-        // but we usually need to request once to get the system prompt
-        const needsAudio = useOriginalAudio || !selectedSound;
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: needsAudio, 
-          video: true 
-        });
+        // Request both once to ensure permissions are granted for the session
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         stream.getTracks().forEach(track => track.stop());
         
         const status = await CameraPreview.requestPermissions();
@@ -326,7 +322,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setIsStarting(false);
       isStartingRef.current = false;
     }
-  }, [useOriginalAudio, selectedSound]);
+  }, []); // Revertido para array vazio para não reiniciar ao escolher som
 
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
@@ -461,7 +457,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: isDubbing // Desativa o microfone se estiver dublando
+          disableAudio: isDubbing // DESATIVA O MICROFONE TOTALMENTE SE ESTIVER DUBLANDO
         });
 
         // Iniciar áudio de dublagem imediatamente sem travar o vídeo
