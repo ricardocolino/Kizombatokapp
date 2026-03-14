@@ -549,10 +549,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
         setProcessingVideo(true);
         const ffmpeg = await loadFFmpeg();
+        
+        // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
+        const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4', 'output.mp3'];
+        for (const f of cleanupFiles) {
+          try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+        }
+
         const inputFileName = 'input_raw.mp4';
         
         console.log('[Upload] Descarregando vídeo gravado...');
         const videoData = await fetchFile(mediaFiles[0]);
+        if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
         await ffmpeg.writeFile(inputFileName, videoData);
 
         // 1. Processar Vídeo (Filtros, Trim, Rotação)
@@ -596,15 +604,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               );
             }
             const audioBlob = await audioResponse.blob();
-            const audioData = await fetchFile(audioBlob);
-            await ffmpeg.writeFile('dubbing.mp3', audioData);
+            console.log(`[Upload] Áudio descarregado. Tamanho: ${audioBlob.size} bytes, Tipo: ${audioBlob.type}`);
             
-            console.log('[Upload] Ficheiro de dublagem escrito com sucesso.');
+            if (audioBlob.size < 1000) {
+              throw new Error(`O áudio da dublagem é demasiado pequeno (${audioBlob.size} bytes). Pode estar corrompido.`);
+            }
+            
+            // Conversão manual para Uint8Array (mais seguro que fetchFile para Blobs em Android)
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const audioData = new Uint8Array(arrayBuffer);
+            
+            if (!audioData || audioData.length === 0) {
+              throw new Error('Falha ao converter o áudio para bytes processáveis.');
+            }
+            
+            await ffmpeg.writeFile('dubbing.mp3', audioData);
+            console.log('[Upload] Ficheiro dubbing.mp3 escrito com sucesso no FS virtual.');
             
             videoArgs.push('-i', 'dubbing.mp3');
             // Mapear vídeo do input 0 e áudio do input 1
-            // Usamos -t para garantir a duração exata do vídeo recortado
-            const duration = trimEnd - trimStart;
+            // Usamos -t para garantir a duração exata do vídeo recortado e evitar loops
+            const duration = Math.max(0.1, trimEnd - trimStart);
             videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-t', String(duration));
             videoArgs.push('-af', 'aresample=async=1');
           } catch (fetchErr: unknown) {
