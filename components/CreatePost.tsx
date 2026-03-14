@@ -607,7 +607,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             console.log(`[Upload] Áudio descarregado. Tamanho: ${audioBlob.size} bytes, Tipo: ${audioBlob.type}`);
             
             if (audioBlob.size < 1000) {
-              throw new Error(`O áudio da dublagem é demasiado pequeno (${audioBlob.size} bytes). Pode estar corrompido.`);
+              // Tentar ler o conteúdo para diagnóstico
+              const errorText = await audioBlob.text();
+              console.error(`[Upload] Resposta curta do proxy: ${errorText}`);
+              throw new Error(`O áudio da dublagem é demasiado pequeno (${audioBlob.size} bytes). Resposta do servidor: "${errorText.slice(0, 50)}"`);
             }
             
             // Conversão manual para Uint8Array (mais seguro que fetchFile para Blobs em Android)
