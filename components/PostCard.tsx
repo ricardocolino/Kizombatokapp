@@ -12,10 +12,8 @@ interface PostCardProps {
   post: Post;
   metadata: PostMetadata;
   followingList: Profile[];
-  originalSoundData?: { post: Post, profile: Profile };
   onUpdateMetadata: (postId: string, updates: Partial<PostMetadata>) => void;
   onNavigateToProfile: (userId: string) => void;
-  onNavigateToSound: (post: Post) => void;
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
@@ -31,10 +29,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   post, 
   metadata, 
   followingList, 
-  originalSoundData,
   onUpdateMetadata,
   onNavigateToProfile, 
-  onNavigateToSound, 
   isMuted, 
   onToggleMute, 
   onRequireAuth
@@ -524,14 +520,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
 
-  // Music avatar logic - use the original sound owner profile if sound_id exists
-  const musicProfile = originalSoundData?.profile || post.profiles;
-
-  // Helper to navigate to the correct sound (original or current)
-  const handleSoundClick = () => {
-    onNavigateToSound(originalSoundData?.post || post);
-  };
-
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
       {/* Video Content */}
@@ -646,10 +634,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           )}
 
           {/* Music Avatar Icon */}
-          <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5 cursor-pointer" onClick={handleSoundClick}>
+          <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5">
              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
-                {musicProfile?.avatar_url ? (
-                  <img src={parseMediaUrl(musicProfile.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
+                {post.profiles?.avatar_url ? (
+                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                     <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />

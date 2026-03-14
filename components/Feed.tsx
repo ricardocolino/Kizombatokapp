@@ -11,7 +11,6 @@ import ViewerLive from './ViewerLive';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
-  onNavigateToSound: (post: Post) => void;
   onRequireAuth?: () => void;
   initialPostId?: string | null;
 }
@@ -24,22 +23,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const PostSkeleton = () => (
-  <div className="feed-item h-full w-full bg-zinc-900 animate-pulse relative">
-    <div className="absolute bottom-10 left-5 space-y-3 w-2/3">
-      <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
-      <div className="h-3 bg-zinc-800 rounded w-full"></div>
-      <div className="h-3 bg-zinc-800 rounded w-3/4"></div>
-    </div>
-    <div className="absolute right-4 bottom-24 space-y-6">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="w-12 h-12 bg-zinc-800 rounded-full"></div>
-      ))}
-    </div>
-  </div>
-);
-
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onRequireAuth, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
   const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
@@ -55,7 +39,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   const PAGE_SIZE = 50;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const [followingList, setFollowingList] = useState<Profile[]>([]);
-  const [originalPostsMap, setOriginalPostsMap] = useState<Record<string, { post: Post, profile: Profile }>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,7 +64,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
     
     const postIds = postsToFetch.map(p => p.id);
     const authorIds = [...new Set(postsToFetch.map(p => p.user_id))];
-    const soundIds = postsToFetch.map(p => p.sound_id).filter(Boolean) as string[];
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -114,25 +96,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           currentFollowingList = followingListRes.data.map((f: any) => f.profiles).filter(Boolean);
           setFollowingList(currentFollowingList);
-        }
-      }
-
-      // 3. Buscar posts originais para dublagens
-      if (soundIds.length > 0) {
-        const { data: sounds } = await supabase
-          .from('posts')
-          .select('*, profiles!user_id(*)')
-          .in('id', soundIds);
-        
-        if (sounds) {
-          const newOriginals: Record<string, { post: Post, profile: Profile }> = {};
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sounds.forEach((s: any) => {
-            if (s.profiles) {
-              newOriginals[s.id] = { post: s as Post, profile: s.profiles as Profile };
-            }
-          });
-          setOriginalPostsMap(prev => ({ ...prev, ...newOriginals }));
         }
       }
 
@@ -220,20 +183,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
 
       let sortedPosts = [...rawPosts];
       if (currentPage === 0) {
-        const dubbingCounts: Record<string, number> = {};
-        rawPosts.forEach(p => {
-          if (p.sound_id) {
-            dubbingCounts[p.sound_id] = (dubbingCounts[p.sound_id] || 0) + 1;
-          }
-        });
-
-        sortedPosts.sort((a, b) => {
-          const countA = dubbingCounts[a.id] || 0;
-          const countB = dubbingCounts[b.id] || 0;
-          if (countB !== countA) return countB - countA;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-
         if (initialPostId) {
           const targetPost = sortedPosts.find(p => p.id === initialPostId);
           if (targetPost) {
@@ -307,7 +256,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
   if (loading) {
     return (
       <div className="feed-container h-full w-full bg-black">
-        {[1, 2, 3].map(i => <PostSkeleton key={i} />)}
+        {[1, 2, 3].map(i => (
+          <div key={i} className="feed-item h-full w-full bg-zinc-900 animate-pulse relative">
+            <div className="absolute bottom-10 left-5 space-y-3 w-2/3">
+              <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
+              <div className="h-3 bg-zinc-800 rounded w-full"></div>
+              <div className="h-3 bg-zinc-800 rounded w-3/4"></div>
+            </div>
+            <div className="absolute right-4 bottom-24 space-y-6">
+              {[1, 2, 3, 4].map(j => (
+                <div key={j} className="w-12 h-12 bg-zinc-800 rounded-full"></div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -461,10 +423,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onNavigateToSound, onR
               post={post} 
               metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, liked: false, isFollowing: false, isOwnPost: false }}
               followingList={followingList}
-              originalSoundData={post.sound_id ? originalPostsMap[post.sound_id] : undefined}
               onUpdateMetadata={handleUpdateMetadata}
               onNavigateToProfile={onNavigateToProfile} 
-              onNavigateToSound={onNavigateToSound}
               isMuted={isMuted}
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}

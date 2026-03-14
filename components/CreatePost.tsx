@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { Video, X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, ChevronDown, Search, Bookmark, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, Search, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
 import { Post, Profile } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -12,10 +12,9 @@ import HostLive from './HostLive';
 
 interface CreatePostProps {
   onCreated: () => void;
-  preSelectedSound?: Post | null;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -24,9 +23,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   
   // Sound Selection State
   const [availableSounds, setAvailableSounds] = useState<Post[]>([]);
-  const [selectedSound, setSelectedSound] = useState<Post | null>(preSelectedSound || null);
   const [showSoundPicker, setShowSoundPicker] = useState(false);
-  const [useOriginalAudio, setUseOriginalAudio] = useState(!preSelectedSound);
 
   // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
@@ -337,25 +334,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
     if (Capacitor.isNativePlatform()) {
       try {
         setRecordedFacingMode(facingMode);
-        const isDubbing = !!selectedSound && !useOriginalAudio;
-        
-        console.log(`[Recording] Iniciando gravação. Dublagem: ${isDubbing}, Câmera: ${facingMode}`);
+        console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
 
         // Iniciar gravação de vídeo
         const videoPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: true // Sempre desativado para evitar eco e bugs, o FFmpeg trata do áudio
+          disableAudio: false
         });
-
-        // Iniciar áudio de dublagem imediatamente sem travar o vídeo
-        if (isDubbing && selectedSound) {
-          const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-          audio.volume = 1.0;
-          playbackAudioRef.current = audio;
-          audio.play().catch(err => console.error("Erro ao tocar áudio na gravação:", err));
-        }
 
         await videoPromise;
         
@@ -571,93 +558,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           console.log('[Upload] Aplicando rotação para câmera traseira');
         }
 
-        const isDubbing = !!selectedSound && !useOriginalAudio;
         const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
         
         const videoArgs: string[] = [];
         
-        // Se houver trim, aplicamos ANTES do input do vídeo para ser eficiente e não afetar o áudio da dublagem
+        // Se houver trim, aplicamos ANTES do input do vídeo para ser eficiente
         if (hasTrim) {
           console.log(`[Upload] Aplicando Trim: ${trimStart}s - ${trimEnd}s`);
           videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
         }
         videoArgs.push('-i', inputFileName);
 
-        if (isDubbing && selectedSound) {
-          let audioUrl = selectedSound.audio_url || selectedSound.media_url;
-          console.log('[Upload] Dublagem ativa. Descarregando áudio:', audioUrl);
-          
-          if (!audioUrl) {
-            throw new Error('O som selecionado não possui um ficheiro de áudio válido.');
-          }
-          
-          // Garantir que a URL é absoluta (importante para Android/Capacitor)
-          if (audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
-          
-          try {
-            console.log('[Upload] Tentando descarregar áudio...');
-            
-            // Adicionar timestamp para evitar cache
-            const cleanAudioUrl = audioUrl.includes('?') 
-              ? `${audioUrl}&t=${Date.now()}` 
-              : `${audioUrl}?t=${Date.now()}`;
+        console.log('[Upload] Usando áudio original');
+        videoArgs.push('-map', '0:v:0', '-map', '0:a:0?');
 
-            let audioResponse;
-            
-            try {
-              console.log('[Upload] Tentativa 1: Descarregamento direto...');
-              audioResponse = await fetch(cleanAudioUrl);
-              if (!audioResponse.ok) throw new Error(`Direct fetch failed with ${audioResponse.status}`);
-            } catch (directErr) {
-              console.warn('[Upload] Tentativa direta falhou, tentando via Proxy AllOrigins...', directErr);
-              const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanAudioUrl)}`;
-              audioResponse = await fetch(proxiedUrl);
-            }
-
-            if (!audioResponse.ok) {
-              throw new Error(
-                `Não foi possível descarregar o áudio da dublagem (Erro HTTP ${audioResponse.status}). Verifique se o som original ainda existe.`
-              );
-            }
-            
-            const audioBlob = await audioResponse.blob();
-            console.log(`[Upload] Áudio descarregado. Tamanho: ${audioBlob.size} bytes, Tipo: ${audioBlob.type}`);
-            
-            if (audioBlob.size < 1000) {
-              // Tentar ler o conteúdo para diagnóstico
-              const errorText = await audioBlob.text();
-              console.error(`[Upload] Resposta curta do proxy: ${errorText}`);
-              throw new Error(`O áudio da dublagem é demasiado pequeno (${audioBlob.size} bytes). Resposta do servidor: "${errorText.slice(0, 50)}"`);
-            }
-            
-            // Conversão manual para Uint8Array (mais seguro que fetchFile para Blobs em Android)
-            const arrayBuffer = await audioBlob.arrayBuffer();
-            const audioData = new Uint8Array(arrayBuffer);
-            
-            if (!audioData || audioData.length === 0) {
-              throw new Error('Falha ao converter o áudio para bytes processáveis.');
-            }
-            
-            await ffmpeg.writeFile('dubbing.mp3', audioData);
-            console.log('[Upload] Ficheiro dubbing.mp3 escrito com sucesso no FS virtual.');
-            
-            videoArgs.push('-i', 'dubbing.mp3');
-            // Mapear vídeo do input 0 e áudio do input 1
-            // Usamos -t para garantir a duração exata do vídeo recortado e evitar loops
-            const duration = Math.max(0.1, trimEnd - trimStart);
-            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-t', String(duration));
-            videoArgs.push('-af', 'aresample=async=1');
-          } catch (fetchErr: unknown) {
-            console.error('[Upload] Erro ao descarregar áudio de dublagem:', fetchErr);
-            const detail = fetchErr instanceof Error ? fetchErr.message : 'Erro de rede ou CORS';
-            throw new Error(detail.includes('HTTP') ? detail : `Não foi possível descarregar o áudio da dublagem (${detail}). Verifique a sua ligação.`);
-          }
-        } else {
-          console.log('[Upload] Usando áudio original');
-          videoArgs.push('-map', '0:v:0', '-map', '0:a:0?');
-        }
-
-        if (vfFilter || isDubbing || hasTrim) {
+        if (vfFilter || hasTrim) {
           if (vfFilter) videoArgs.push('-vf', vfFilter);
           videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
           videoArgs.push('-c:a', 'aac', '-b:a', '128k');
@@ -677,18 +592,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         }
         finalVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
-        // 2. Extrair Áudio MP3 (Apenas se NÃO for dublagem, para criar um novo som original)
-        if (!isDubbing) {
-          console.log('[FFmpeg] Extraindo áudio original para MP3...');
-          await ffmpeg.exec(['-i', 'output.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-y', 'output.mp3']);
-          const audioOutput = await ffmpeg.readFile('output.mp3');
-          const audioBlob = new Blob([audioOutput], { type: 'audio/mp3' });
-          const audioFileName = `${userId}-${timestamp}.mp3`;
-          finalAudioUrl = await uploadToR2(audioBlob, 'audio', audioFileName);
-          console.log('[Upload] Áudio MP3 enviado:', finalAudioUrl);
-        } else {
-          finalAudioUrl = selectedSound?.audio_url || selectedSound?.media_url || null;
-        }
+        // 2. Extrair Áudio MP3 (para criar um novo som original)
+        console.log('[FFmpeg] Extraindo áudio original para MP3...');
+        await ffmpeg.exec(['-i', 'output.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-y', 'output.mp3']);
+        const audioOutput = await ffmpeg.readFile('output.mp3');
+        const audioBlob = new Blob([audioOutput], { type: 'audio/mp3' });
+        const audioFileName = `${userId}-${timestamp}.mp3`;
+        finalAudioUrl = await uploadToR2(audioBlob, 'audio', audioFileName);
+        console.log('[Upload] Áudio MP3 enviado:', finalAudioUrl);
 
         // 3. Gerar Thumbnail
         console.log('[Upload] Gerando thumbnail...');
@@ -704,8 +615,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         try {
           await ffmpeg.deleteFile(inputFileName);
           await ffmpeg.deleteFile('output.mp4');
-          if (isDubbing) await ffmpeg.deleteFile('dubbing.mp3');
-          if (!isDubbing) await ffmpeg.deleteFile('output.mp3');
+          await ffmpeg.deleteFile('output.mp3');
         } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
       }
 
@@ -718,7 +628,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
         thumbnail_url: finalThumbnailUrl,
         audio_url: finalAudioUrl,
         media_type: isPhoto ? 'image' : 'video',
-        sound_id: selectedSound ? selectedSound.id : null,
+        sound_id: null,
         text_overlay: textOverlay || null,
         views: 0,
         created_at: new Date().toISOString()
@@ -823,26 +733,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                   autoPlay 
                   loop 
                   playsInline 
-                  muted={!!selectedSound && !useOriginalAudio}
+                  muted={false}
                   style={{ filter: filter !== 'none' ? filter : undefined }} 
-                  onPlay={(e) => {
-                    if (selectedSound && !useOriginalAudio) {
-                      const video = e.currentTarget;
-                      if (playbackAudioRef.current) {
-                        playbackAudioRef.current.currentTime = video.currentTime;
-                        playbackAudioRef.current.play().catch(() => {});
-                      } else {
-                        const audio = new Audio(selectedSound.audio_url || selectedSound.media_url);
-                        audio.loop = true;
-                        audio.currentTime = video.currentTime;
-                        playbackAudioRef.current = audio;
-                        audio.play().catch(() => {});
-                      }
-                    }
-                  }}
-                  onPause={() => {
-                    if (playbackAudioRef.current) playbackAudioRef.current.pause();
-                  }}
+                  onPlay={() => {}}
+                  onPause={() => {}}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -850,13 +744,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                     }
                     if (video.currentTime > trimEnd) {
                       video.currentTime = trimStart;
-                    }
-
-                    if (selectedSound && !useOriginalAudio && playbackAudioRef.current) {
-                      const audio = playbackAudioRef.current;
-                      if (Math.abs(audio.currentTime - video.currentTime) > 0.3) {
-                        audio.currentTime = video.currentTime;
-                      }
                     }
                   }}
                 />
@@ -875,14 +762,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               </button>
 
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
-                <button 
-                  onClick={() => setShowSoundPicker(true)}
-                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-                >
-                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Music2 size={20}/></div>
-                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Som</span>
-                </button>
-
                 {!mediaFiles[0]?.type.startsWith('image/') && (
                   <button 
                     onClick={() => setShowTrimEditor(true)}
@@ -934,19 +813,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
             )}
             
             <div className="absolute top-8 left-0 w-full flex justify-center z-50">
-               <button 
-                 onClick={() => {
-                   if (!showSoundPicker) stopPreviewAudio();
-                   setShowSoundPicker(!showSoundPicker);
-                 }}
-                 className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 hover:bg-black/60 transition-all active:scale-95 shadow-2xl"
-               >
-                 <Music2 size={14} className="text-white" />
-                 <span className="text-[10px] font-black uppercase text-white tracking-widest truncate max-w-[120px]">
-                   {selectedSound && !useOriginalAudio ? (selectedSound.content || `@${selectedSound.profiles?.username}`) : 'Escolher Som'}
-                 </span>
-                 <ChevronDown size={14} className="text-white" />
-               </button>
             </div>
 
             {countdown !== null && (
@@ -1289,55 +1155,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
 
             {/* Lista de Músicas */}
             <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-10">
-              {/* Opção Áudio Original */}
-              <button 
-                onClick={() => { 
-                  stopPreviewAudio();
-                  setUseOriginalAudio(true); 
-                  setSelectedSound(null); 
-                  setShowSoundPicker(false); 
-                }}
-                className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all ${useOriginalAudio ? 'opacity-100' : 'opacity-60'}`}
-              >
-                 <div className="w-14 h-14 bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-500 shrink-0 border border-zinc-800">
-                  <Video size={24}/>
-                 </div>
-                 <div className="flex-1 text-left">
-                    <p className="text-[12px] font-black text-white uppercase tracking-tight">Áudio Original</p>
-                    <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest mt-0.5">Som ambiente do vídeo</p>
-                 </div>
-                 {useOriginalAudio && <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white"><CheckCircle2 size={12}/></div>}
-              </button>
-
               {availableSounds.map(sound => (
                 <div key={sound.id} className="relative">
                   <div 
                     onClick={() => { 
-                      if (selectedSound?.id === sound.id) {
-                        stopPreviewAudio();
-                        setSelectedSound(null);
-                      } else {
-                        setSelectedSound(sound); 
-                        setUseOriginalAudio(false); 
-                        playSoundPreview(sound.audio_url || sound.media_url);
-                      }
+                      playSoundPreview(sound.audio_url || sound.media_url);
                     }}
-                    className={`w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer ${selectedSound?.id === sound.id ? 'bg-zinc-900/30' : ''}`}
+                    className="w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer"
                   >
                      <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                         {sound.profiles?.avatar_url ? (
                           <img src={parseMediaUrl(sound.profiles.avatar_url)} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
-                        )}
-                        {selectedSound?.id === sound.id && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <div className="flex gap-1 items-end h-4">
-                              <div className="w-1 bg-red-600 animate-[progress_0.6s_ease-in-out_infinite] h-full" />
-                              <div className="w-1 bg-red-600 animate-[progress_0.8s_ease-in-out_infinite] h-2/3" />
-                              <div className="w-1 bg-red-600 animate-[progress_0.7s_ease-in-out_infinite] h-5/6" />
-                            </div>
-                          </div>
                         )}
                      </div>
                      <div className="flex-1 text-left overflow-hidden">
@@ -1348,30 +1178,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
                           {sound.profiles?.username || 'Anónimo'} • 00:15
                         </p>
                      </div>
-                     
-                     {selectedSound?.id === sound.id ? (
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           stopPreviewAudio();
-                           setShowSoundPicker(false);
-                         }}
-                         className="bg-red-600 text-white text-[9px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg shadow-red-600/20 active:scale-95 transition-all animate-[bounce_1s_infinite]"
-                       >
-                         Usar
-                       </button>
-                     ) : (
-                       <div className="flex gap-4">
-                         <button 
-                           onClick={(e) => {
-                             e.stopPropagation();
-                           }}
-                           className="text-zinc-600 hover:text-white transition-colors"
-                         >
-                            <Bookmark size={20} />
-                         </button>
-                       </div>
-                     )}
                   </div>
                 </div>
               ))}

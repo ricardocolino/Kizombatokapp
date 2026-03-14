@@ -8,10 +8,8 @@ import ProfileView from './components/ProfileView';
 import MessageCenter from './components/MessageCenter';
 import Discovery from './components/Discovery';
 import CreatePost from './components/CreatePost';
-import SoundDetail from './components/SoundDetail';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
-import { Post } from './types';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -19,8 +17,7 @@ export enum Tab {
   DISCOVER = 'discover',
   CREATE = 'create',
   INBOX = 'inbox',
-  PROFILE = 'profile',
-  SOUND_DETAIL = 'sound_detail'
+  PROFILE = 'profile'
 }
 
 const App: React.FC = () => {
@@ -28,7 +25,6 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
-  const [selectedSoundPost, setSelectedSoundPost] = useState<Post | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -69,7 +65,6 @@ const App: React.FC = () => {
         appCache.clear();
         setActiveTab(Tab.HOME);
         setViewProfileId(null);
-        setSelectedSoundPost(null);
         setTargetPostId(null);
       }
     });
@@ -159,11 +154,6 @@ const App: React.FC = () => {
     setActiveTab(Tab.PROFILE);
   };
 
-  const handleNavigateToSound = (post: Post) => {
-    setSelectedSoundPost(post);
-    setActiveTab(Tab.SOUND_DETAIL);
-  };
-
   const handleNavigateToPost = (postId: string) => {
     setTargetPostId(postId);
     setActiveTab(Tab.HOME);
@@ -171,14 +161,8 @@ const App: React.FC = () => {
 
   const handleGoHome = () => {
     setViewProfileId(null);
-    setSelectedSoundPost(null);
     setTargetPostId(null);
     setActiveTab(Tab.HOME);
-  };
-
-  const handleUseSound = (post: Post) => {
-    setSelectedSoundPost(post);
-    setActiveTab(Tab.CREATE);
   };
 
   const renderContent = () => {
@@ -195,21 +179,19 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case Tab.HOME:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onNavigateToSound={handleNavigateToSound} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} />;
       case Tab.DISCOVER:
         return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.CREATE:
-        return <CreatePost onCreated={() => { setSelectedSoundPost(null); setActiveTab(Tab.HOME); }} preSelectedSound={selectedSoundPost} />;
+        return <CreatePost onCreated={() => { setActiveTab(Tab.HOME); }} />;
       case Tab.INBOX:
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.PROFILE: {
         const targetId = viewProfileId || user?.id;
         return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;
       }
-      case Tab.SOUND_DETAIL:
-        return selectedSoundPost ? <SoundDetail post={selectedSoundPost} onBack={() => setActiveTab(Tab.HOME)} onUseSound={handleUseSound} /> : null;
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onNavigateToSound={handleNavigateToSound} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} />;
     }
   };
 
@@ -262,7 +244,7 @@ const App: React.FC = () => {
           <span className="text-[9px] font-black uppercase tracking-tighter">Home</span>
         </button>
         <button 
-          onClick={() => { setSelectedSoundPost(null); setActiveTab(Tab.DISCOVER); }}
+          onClick={() => { setActiveTab(Tab.DISCOVER); }}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600'}`}
         >
           <Search size={22} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
@@ -277,7 +259,7 @@ const App: React.FC = () => {
           </div>
         </button>
         <button 
-          onClick={() => { setSelectedSoundPost(null); setActiveTab(Tab.INBOX); }}
+          onClick={() => { setActiveTab(Tab.INBOX); }}
           className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600'}`}
         >
           <div className="relative">
@@ -291,7 +273,7 @@ const App: React.FC = () => {
           <span className="text-[9px] font-black uppercase tracking-tighter">Inbox</span>
         </button>
         <button 
-          onClick={() => { setViewProfileId(null); setSelectedSoundPost(null); setActiveTab(Tab.PROFILE); }}
+          onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
           className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600'}`}
         >
           <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
