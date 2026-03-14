@@ -595,14 +595,31 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           if (audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
           
           try {
-            console.log('[Upload] Tentando descarregar áudio via proxy CORS (corsproxy.io)...');
-            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(audioUrl)}`;
-            const audioResponse = await fetch(proxiedUrl);
+            console.log('[Upload] Tentando descarregar áudio...');
+            
+            // Adicionar timestamp para evitar cache
+            const cleanAudioUrl = audioUrl.includes('?') 
+              ? `${audioUrl}&t=${Date.now()}` 
+              : `${audioUrl}?t=${Date.now()}`;
+
+            let audioResponse;
+            
+            try {
+              console.log('[Upload] Tentativa 1: Descarregamento direto...');
+              audioResponse = await fetch(cleanAudioUrl);
+              if (!audioResponse.ok) throw new Error(`Direct fetch failed with ${audioResponse.status}`);
+            } catch (directErr) {
+              console.warn('[Upload] Tentativa direta falhou, tentando via Proxy AllOrigins...', directErr);
+              const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanAudioUrl)}`;
+              audioResponse = await fetch(proxiedUrl);
+            }
+
             if (!audioResponse.ok) {
               throw new Error(
-                `Não foi possível descarregar o áudio da dublagem (HTTP ${audioResponse.status}). Verifique a sua ligação.`
+                `Não foi possível descarregar o áudio da dublagem (Erro HTTP ${audioResponse.status}). Verifique se o som original ainda existe.`
               );
             }
+            
             const audioBlob = await audioResponse.blob();
             console.log(`[Upload] Áudio descarregado. Tamanho: ${audioBlob.size} bytes, Tipo: ${audioBlob.type}`);
             
