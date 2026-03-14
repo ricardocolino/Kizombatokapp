@@ -518,7 +518,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
       const userId = session.user.id;
 
       let finalVideoBlob: Blob | null = null;
-      let finalAudioUrl: string | null = null;
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
 
@@ -539,7 +538,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         const ffmpeg = await loadFFmpeg();
         
         // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
-        const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4', 'output.mp3'];
+        const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
         for (const f of cleanupFiles) {
           try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
         }
@@ -593,15 +592,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         }
         finalVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
-        // 2. Extrair Áudio MP3 (para criar um novo som original)
-        console.log('[FFmpeg] Extraindo áudio original para MP3...');
-        await ffmpeg.exec(['-i', 'output.mp4', '-vn', '-acodec', 'libmp3lame', '-ab', '128k', '-y', 'output.mp3']);
-        const audioOutput = await ffmpeg.readFile('output.mp3');
-        const audioBlob = new Blob([audioOutput], { type: 'audio/mp3' });
-        const audioFileName = `${userId}-${timestamp}.mp3`;
-        finalAudioUrl = await uploadToR2(audioBlob, 'audio', audioFileName);
-        console.log('[Upload] Áudio MP3 enviado:', finalAudioUrl);
-
         // 3. Gerar Thumbnail
         console.log('[Upload] Gerando thumbnail...');
         const thumbBlob = await generateThumbnail(finalVideoBlob);
@@ -616,7 +606,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         try {
           await ffmpeg.deleteFile(inputFileName);
           await ffmpeg.deleteFile('output.mp4');
-          await ffmpeg.deleteFile('output.mp3');
         } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
       }
 
@@ -627,7 +616,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         content: content,
         media_url: finalMediaUrl,
         thumbnail_url: finalThumbnailUrl,
-        audio_url: finalAudioUrl,
         media_type: isPhoto ? 'image' : 'video',
         is_education: isEducation,
         sound_id: null,
