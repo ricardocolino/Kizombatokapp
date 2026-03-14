@@ -581,8 +581,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           if (audioUrl.startsWith('//')) audioUrl = 'https:' + audioUrl;
           
           try {
-            console.log('[Upload] Tentando descarregar áudio via fetch nativo...');
-            const audioResponse = await fetch(audioUrl);
+            console.log('[Upload] Tentando descarregar áudio via proxy CORS...');
+            const proxiedUrl = `https://little-thunder-1b1c.anastacia6000.workers.dev/?url=${encodeURIComponent(audioUrl)}`;
+            const audioResponse = await fetch(proxiedUrl);
             if (!audioResponse.ok) {
               throw new Error(
                 `Não foi possível descarregar o áudio da dublagem (HTTP ${audioResponse.status}). Verifique a sua ligação.`
