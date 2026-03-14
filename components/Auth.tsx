@@ -86,7 +86,7 @@ const Auth: React.FC = () => {
             <Sparkles className="text-white -rotate-12" size={40} />
           </div>
           <h1 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-2">
-            KizombaTok
+            AngoChat
           </h1>
           <p className="text-zinc-500 font-bold uppercase tracking-[0.2em] text-[10px]">
             {isSignUp ? 'Cria a tua conta na banda' : 'Entra na vibe de Angola'}

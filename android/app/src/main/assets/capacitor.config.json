@@ -1,6 +1,6 @@
 {
 	"appId": "com.kizombatok.angolavibe",
-	"appName": "KizombaTok",
+	"appName": "AngoChat",
 	"webDir": "dist",
 	"bundledWebRuntime": false
 }

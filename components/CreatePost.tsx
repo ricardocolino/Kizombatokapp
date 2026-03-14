@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, Search, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Music2, Loader2, Zap, FlipVertical as Flip, Search, Type, Wand2, Image as ImageIcon, Camera, Scissors, Radio, BookOpen } from 'lucide-react';
 import { Post, Profile } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -51,6 +51,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
+  const [isEducation, setIsEducation] = useState(false);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -628,6 +629,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         thumbnail_url: finalThumbnailUrl,
         audio_url: finalAudioUrl,
         media_type: isPhoto ? 'image' : 'video',
+        is_education: isEducation,
         sound_id: null,
         text_overlay: textOverlay || null,
         views: 0,
@@ -785,6 +787,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                  <div className="absolute bottom-3 right-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
                    {content.length}/200
                  </div>
+               </div>
+
+               {/* Educação Toggle */}
+               <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4">
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-red-600/10 rounded-lg text-red-600">
+                     <BookOpen size={18} />
+                   </div>
+                   <div>
+                     <p className="text-xs font-black uppercase tracking-widest text-white">Conteúdo Educativo</p>
+                     <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
+                   </div>
+                 </div>
+                 <button 
+                   onClick={() => setIsEducation(!isEducation)}
+                   className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-red-600' : 'bg-zinc-800'}`}
+                 >
+                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isEducation ? 'left-7' : 'left-1'}`} />
+                 </button>
                </div>
                
                <button onClick={handleUpload} disabled={uploading || processingVideo} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>

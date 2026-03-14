@@ -188,7 +188,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           <div className="px-4 mt-4 mb-6">
             <div className="w-full h-36 bg-gradient-to-br from-red-800 via-zinc-900 to-yellow-600 rounded-2xl flex items-center justify-between px-6 overflow-hidden relative shadow-2xl">
               <div className="z-10">
-                <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter drop-shadow-xl">#KizombaTok</h2>
+                <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter drop-shadow-xl">#AngoChat</h2>
                 <p className="text-xs text-zinc-100/90 font-bold uppercase tracking-widest mt-1">A Vibe de Angola 🇦🇴</p>
               </div>
               <Music2 size={100} className="absolute -right-4 -bottom-4 text-white/10 rotate-12" />

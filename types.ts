@@ -22,6 +22,7 @@ export interface Post {
   sound_id: string | null;
   text_overlay: string | null;
   filter: string | null;
+  is_education: boolean;
   created_at: string;
   profiles?: Profile;
   _count?: {

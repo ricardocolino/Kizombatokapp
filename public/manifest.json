@@ -1,6 +1,6 @@
 {
-  "name": "KizombaTok - Angola Vibe",
-  "short_name": "KizombaTok",
+  "name": "AngoChat",
+  "short_name": "AngoChat",
   "description": "A vibe de Angola começa aqui. Partilha os teus mambos!",
   "start_url": "/",
   "display": "standalone",

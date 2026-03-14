@@ -400,7 +400,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handleSocialShare = (platform: string) => {
     const url = encodeURIComponent(`${window.location.origin}/post/${post.id}`);
-    const text = encodeURIComponent(`Olha este mambo no KizombaTok!`);
+    const text = encodeURIComponent(`Olha este mambo no AngoChat!`);
     let shareUrl = '';
 
     switch (platform) {

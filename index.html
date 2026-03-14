@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KizombaTok - Vibe de Angola</title>
+    <title>AngoChat - Vibe de Angola</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="manifest" href="/manifest.json">
@@ -62,28 +62,6 @@
           scroll-behavior: smooth;
         }
 
-        /* Portrait Only Warning */
-        #portrait-warning {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: #000;
-            z-index: 9999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        @media (orientation: landscape) and (max-height: 500px) {
-            #portrait-warning {
-                display: flex;
-            }
-            #root {
-                display: none;
-            }
-        }
     </style>
 <script type="importmap">
 {
@@ -99,11 +77,6 @@
 <link rel="stylesheet" href="/index.css">
 </head>
 <body>
-    <div id="portrait-warning">
-        <div style="font-size: 48px; margin-bottom: 20px;">📱</div>
-        <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; color: #fff;">Roda o Telemóvel</h2>
-        <p style="color: #71717a; font-size: 14px; margin-top: 10px;">O KizombaTok funciona melhor em modo vertical (Portrait). 🇦🇴</p>
-    </div>
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>

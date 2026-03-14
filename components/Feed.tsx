@@ -6,8 +6,7 @@ import { Post, Profile, LiveStream as LiveStreamType } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
-import { Radio, Users, ChevronRight, X } from 'lucide-react';
-import ViewerLive from './ViewerLive';
+import { ChevronRight, X, BookOpen } from 'lucide-react';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -25,9 +24,8 @@ export interface PostMetadata {
 
 const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
-  const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
-  const [showLivesOverlay, setShowLivesOverlay] = useState(false);
+  const [educationPosts, setEducationPosts] = useState<Post[]>([]);
+  const [showEducationOverlay, setShowEducationOverlay] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -48,15 +46,16 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
   }, []);
 
   useEffect(() => {
-    const fetchLives = async () => {
+    const fetchEducationPosts = async () => {
       const { data } = await supabase
-        .from('lives')
-        .select('*, profiles(*)')
-        .eq('is_active', true)
-        .order('started_at', { ascending: false });
-      if (data) setActiveLives(data);
+        .from('posts')
+        .select('*, profiles!user_id(*)')
+        .eq('is_education', true)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) setEducationPosts(data);
     };
-    fetchLives();
+    fetchEducationPosts();
   }, []);
 
   const fetchBatchMetadata = React.useCallback(async (postsToFetch: Post[]) => {
@@ -321,32 +320,32 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
         </button>
       </div>
 
-      {/* Lives Button */}
+      {/* Education Button */}
       <div className="absolute top-8 sm:top-12 left-4 z-50">
         <button 
-          onClick={() => setShowLivesOverlay(true)}
+          onClick={() => setShowEducationOverlay(true)}
           className="flex items-center gap-2 text-base sm:text-lg font-bold text-white/60 hover:text-white transition-all pointer-events-auto"
         >
-          <Radio size={20} className="text-red-600 animate-pulse" />
-          <span>Lives</span>
-          {activeLives.length > 0 && (
+          <BookOpen size={20} className="text-red-600" />
+          <span>Educação</span>
+          {educationPosts.length > 0 && (
             <span className="bg-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full border border-black">
-              {activeLives.length}
+              {educationPosts.length}
             </span>
           )}
         </button>
       </div>
 
-      {showLivesOverlay && (
+      {showEducationOverlay && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="h-full flex flex-col">
             <header className="pt-16 px-6 pb-6 flex items-center justify-between border-b border-white/5">
               <div>
-                <h2 className="text-xl font-black uppercase tracking-tighter text-white">Lives Ativas</h2>
-                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Vibe em Direto da Banda 🇦🇴</p>
+                <h2 className="text-xl font-black uppercase tracking-tighter text-white">Educação</h2>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Aprende mambos novos da Banda 🇦🇴</p>
               </div>
               <button 
-                onClick={() => setShowLivesOverlay(false)}
+                onClick={() => setShowEducationOverlay(false)}
                 className="p-2 bg-white/5 rounded-full text-white"
               >
                 <X size={24} />
@@ -354,13 +353,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
             </header>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-              {activeLives.length > 0 ? (
-                activeLives.map(live => (
+              {educationPosts.length > 0 ? (
+                educationPosts.map(post => (
                   <div 
-                    key={live.id}
+                    key={post.id}
                     onClick={() => {
-                      setSelectedLive(live);
-                      setShowLivesOverlay(false);
+                      // Navegar para o post no feed
+                      setPosts([post, ...posts.filter(p => p.id !== post.id)]);
+                      setShowEducationOverlay(false);
                     }}
                     className="bg-zinc-900/50 border border-white/5 p-5 rounded-[32px] flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
                   >
@@ -368,26 +368,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
                       <div className="relative">
                         <div className="w-16 h-16 rounded-full border-2 border-red-600 p-1">
                           <div className="w-full h-full rounded-full overflow-hidden bg-zinc-800">
-                            {live.profiles?.avatar_url ? (
-                              <img src={parseMediaUrl(live.profiles.avatar_url)} className="w-full h-full object-cover" alt="" />
+                            {post.profiles?.avatar_url ? (
+                              <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" alt="" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-lg font-black">
-                                {live.profiles?.username?.[0].toUpperCase() || 'A'}
+                                {post.profiles?.username?.[0].toUpperCase() || 'A'}
                               </div>
                             )}
                           </div>
                         </div>
-                        <div className="absolute -bottom-1 -right-1 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter border-2 border-black shadow-lg">Live</div>
+                        <div className="absolute -bottom-1 -right-1 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter border-2 border-black shadow-lg">Edu</div>
                       </div>
                       <div>
-                        <p className="text-sm font-black text-white">@{live.profiles?.username}</p>
-                        <p className="text-[11px] text-zinc-400 font-medium mt-1 line-clamp-1">{live.title}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-bold">
-                            <Users size={12} className="text-red-600" />
-                            {live.viewer_count} a ver
-                          </div>
-                        </div>
+                        <p className="text-sm font-black text-white">@{post.profiles?.username}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium mt-1 line-clamp-1">{post.content}</p>
                       </div>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
@@ -397,23 +391,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
                 ))
               ) : (
                 <div className="h-full flex flex-col items-center justify-center opacity-30 grayscale py-20">
-                  <Radio size={64} className="text-zinc-500 mb-6" />
-                  <p className="text-xs font-black uppercase tracking-[0.3em] text-center">Ninguém em direto agora</p>
-                  <p className="text-[10px] text-center mt-2 max-w-[200px]">Sê o primeiro a entrar em direto e mostra a tua vibe!</p>
+                  <BookOpen size={64} className="text-zinc-500 mb-6" />
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-center">Sem vídeos de educação</p>
+                  <p className="text-[10px] text-center mt-2 max-w-[200px]">Sê o primeiro a partilhar conhecimento!</p>
                 </div>
               )}
             </div>
           </div>
         </div>
-      )}
-
-      {selectedLive && (
-        <ViewerLive 
-          channelName={selectedLive.channel_name}
-          onClose={() => setSelectedLive(null)}
-          hostProfile={selectedLive.profiles}
-          hostId={selectedLive.user_id}
-        />
       )}
 
       <div className="feed-container h-full w-full no-scrollbar">
