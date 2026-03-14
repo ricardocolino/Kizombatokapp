@@ -91,6 +91,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
     const ffmpeg = new FFmpeg();
+    
+    // Adicionar logs detalhados para depuração
+    ffmpeg.on('log', ({ message }) => {
+      console.log('[FFmpeg Log]', message);
+    });
+
     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
     await ffmpeg.load({
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -590,12 +596,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
               );
             }
             const audioBlob = await audioResponse.blob();
-            const audioData = await fetchFile(audioBlob); // ← passa o Blob, não a URL
+            const audioData = await fetchFile(audioBlob);
             await ffmpeg.writeFile('dubbing.mp3', audioData);
+            
+            console.log('[Upload] Ficheiro de dublagem escrito com sucesso.');
             
             videoArgs.push('-i', 'dubbing.mp3');
             // Mapear vídeo do input 0 e áudio do input 1
-            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
+            // Usamos -t para garantir a duração exata do vídeo recortado
+            const duration = trimEnd - trimStart;
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-t', String(duration));
             videoArgs.push('-af', 'aresample=async=1');
           } catch (fetchErr: unknown) {
             console.error('[Upload] Erro ao descarregar áudio de dublagem:', fetchErr);
@@ -656,7 +666,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
           await ffmpeg.deleteFile('output.mp4');
           if (isDubbing) await ffmpeg.deleteFile('dubbing.mp3');
           if (!isDubbing) await ffmpeg.deleteFile('output.mp3');
-        } catch (e) { console.warn('Erro ao limpar ficheiros FFmpeg:', e); }
+        } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
       }
 
       // 5. Salvar no Supabase
@@ -680,8 +690,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, preSelectedSound }) 
       setTimeout(() => onCreated(), 500);
 
     } catch (err: unknown) {
-      console.error('[Upload] Erro crítico:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('[Upload] Erro crítico detalhado:', err);
+      let errorMsg = 'Erro desconhecido';
+      
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      } else {
+        try {
+          errorMsg = JSON.stringify(err);
+        } catch {
+          errorMsg = 'Erro complexo não serializável';
+        }
+      }
+      
       setError(`Falha ao publicar: ${errorMsg}`);
     } finally {
       setUploading(false);
