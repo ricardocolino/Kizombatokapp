@@ -493,11 +493,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <span className="text-sm font-black text-white">{stats.likes}</span>
             <span className="text-xs text-zinc-500">Likes</span>
           </div>
-            <div className="flex gap-1 items-center px-3 py-1 bg-zinc-900/50 rounded-full border border-zinc-800">
-            <Coins size={14} className="text-amber-500" />
-            <span className="text-sm font-black text-white">{profile.balance?.toFixed(0) || '0'}</span>
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">AngoCoins</span>
-          </div>
         </div>
       </div>
 

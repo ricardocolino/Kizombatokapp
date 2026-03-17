@@ -25,6 +25,7 @@ interface LiveComment {
   avatarUrl?: string;
   type?: 'system' | 'gift';
   giftName?: string;
+  price?: number;
 }
 
 const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostProfile }) => {
@@ -144,7 +145,17 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
           setComments(prev => [...prev, payload]);
           if (payload.type === 'gift') {
             setActiveGift({ name: payload.giftName, username: payload.username });
-            // Refresh profile manually to ensure balance is correct
+            
+            // Atualização otimista do saldo do host (25% do valor do presente)
+            if (payload.price) {
+              const creatorShare = Math.floor(payload.price * 0.25);
+              setCurrentHostProfile(prev => ({
+                ...prev,
+                balance: prev.balance + creatorShare
+              }));
+            }
+
+            // Refresh profile manually to ensure balance is correct eventually
             refreshProfile();
           }
         }

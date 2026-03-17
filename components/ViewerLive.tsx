@@ -24,6 +24,7 @@ interface LiveComment {
   avatarUrl?: string;
   type?: 'system' | 'gift';
   giftName?: string;
+  price?: number;
 }
 
 const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfile, hostId }) => {
@@ -158,7 +159,8 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       avatarUrl: userProfile.avatar_url,
       text: `enviou um ${giftName}! 🎁`,
       type: 'gift' as const,
-      giftName: giftName
+      giftName: giftName,
+      price: price
     };
     
     setComments(prev => [...prev, giftMsg]);
