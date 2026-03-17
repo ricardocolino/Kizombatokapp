@@ -185,11 +185,10 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       if (updateError) throw updateError;
 
       // Add balance to host using RPC (more reliable)
-      // Creator receives 25% of the coins (which represents their USD share)
-      const creatorShare = Math.floor(price * 0.25);
+      // Creator receives 100% of the coins
       const { error: hostUpdateError } = await supabase.rpc('increment_user_balance', {
         target_user_id: hostId,
-        amount: creatorShare
+        amount: price
       });
 
       if (hostUpdateError) {
@@ -204,7 +203,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         if (hostData) {
           await supabase
             .from('profiles')
-            .update({ balance: hostData.balance + creatorShare })
+            .update({ balance: hostData.balance + price })
             .eq('id', hostId);
         }
       }

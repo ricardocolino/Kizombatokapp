@@ -146,12 +146,11 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
           if (payload.type === 'gift') {
             setActiveGift({ name: payload.giftName, username: payload.username });
             
-            // Atualização otimista do saldo do host (25% do valor do presente)
+            // Atualização otimista do saldo do host (100% do valor do presente)
             if (payload.price) {
-              const creatorShare = Math.floor(payload.price * 0.25);
               setCurrentHostProfile(prev => ({
                 ...prev,
-                balance: prev.balance + creatorShare
+                balance: prev.balance + payload.price
               }));
             }
 

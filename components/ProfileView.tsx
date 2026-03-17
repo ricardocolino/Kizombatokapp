@@ -163,10 +163,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       comments: totalComments
     });
 
-    // Calcular ganhos pendentes (0.0025 USD por view - 25% de 0.01 USD)
+    // Calcular ganhos pendentes (0.01 USD por view)
     const claimedViews = Number(localStorage.getItem(`claimed_views_${userId}`) || 0);
     const unclaimedViews = Math.max(0, totalViews - claimedViews);
-    setPendingEarnings(Number((unclaimedViews * 0.0025).toFixed(4)));
+    setPendingEarnings(Number((unclaimedViews * 0.01).toFixed(4)));
 
     // Gerar estatísticas mensais simuladas baseadas nos dados reais
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -176,7 +176,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     for (let i = 5; i >= 0; i--) {
       const idx = (currentMonthIndex - i + 12) % 12;
       // Simulação: Earnings crescem conforme as views totais (em USD)
-      const baseEarnings = (totalViews * 0.0025) / 6;
+      const baseEarnings = (totalViews * 0.01) / 6;
       const randomFactor = 0.5 + Math.random();
       stats_data.push({
         month: months[idx],
