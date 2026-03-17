@@ -931,7 +931,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                       type="text"
                       value={liveTitle}
                       onChange={(e) => setLiveTitle(e.target.value)}
-                      placeholder="Ex: Kizomba Night na Banda..."
+                      placeholder="Ex: Kuduro Night na Banda..."
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-red-600 transition-all"
                     />
                   </div>

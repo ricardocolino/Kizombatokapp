@@ -441,12 +441,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       if (error) {
         if (error.message.includes('insufficient balance')) {
-          alert('Não tens Kizombas suficientes! Carrega o teu saldo no perfil.');
+          alert('Não tens AngoCoins suficientes! Carrega o teu saldo no perfil.');
         } else {
           throw error;
         }
       } else {
-        alert(`Enviaste ${amount} Kz para ${post.profiles?.name || post.profiles?.username}! 🔥`);
+        alert(`Enviaste ${amount} AngoCoins para ${post.profiles?.name || post.profiles?.username}! 🔥`);
         setShowGifts(false);
       }
     } catch (err) {
@@ -852,7 +852,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                  </div>
                  <div>
                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Enviar Presente</h3>
-                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Apoia o criador com Kizombas</p>
+                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Apoia o criador com AngoCoins</p>
                  </div>
                </div>
                <button onClick={() => !sendingGift && setShowGifts(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
@@ -869,7 +869,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
                     <Coins size={20} />
                   </div>
-                  <span className="text-xs font-black text-white">{amount} Kz</span>
+                  <span className="text-xs font-black text-white">{amount} AC</span>
                 </button>
               ))}
             </div>

@@ -163,11 +163,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       comments: totalComments
     });
 
-    // Calcular ganhos pendentes (0.1 Kz por view)
-    // Usamos localStorage para simular o que já foi resgatado nesta demo
+    // Calcular ganhos pendentes (0.0025 USD por view - 25% de 0.01 USD)
     const claimedViews = Number(localStorage.getItem(`claimed_views_${userId}`) || 0);
     const unclaimedViews = Math.max(0, totalViews - claimedViews);
-    setPendingEarnings(Number((unclaimedViews * 0.1).toFixed(1)));
+    setPendingEarnings(Number((unclaimedViews * 0.0025).toFixed(4)));
 
     // Gerar estatísticas mensais simuladas baseadas nos dados reais
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -176,12 +175,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     
     for (let i = 5; i >= 0; i--) {
       const idx = (currentMonthIndex - i + 12) % 12;
-      // Simulação: Earnings crescem conforme as views totais
-      const baseEarnings = (totalViews * 0.1) / 6;
+      // Simulação: Earnings crescem conforme as views totais (em USD)
+      const baseEarnings = (totalViews * 0.0025) / 6;
       const randomFactor = 0.5 + Math.random();
       stats_data.push({
         month: months[idx],
-        earnings: Number((baseEarnings * randomFactor).toFixed(1)),
+        earnings: Number((baseEarnings * randomFactor).toFixed(2)),
         views: Math.floor((totalViews / 6) * randomFactor)
       });
     }
@@ -282,7 +281,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     
     setClaiming(true);
     try {
-      const newBalance = (profile?.balance || 0) + pendingEarnings;
+      // Converter USD para AngoCoins (1 USD = 100 AngoCoins)
+      const earningsInCoins = Math.floor(pendingEarnings * 100);
+      const newBalance = (profile?.balance || 0) + earningsInCoins;
       const { error } = await supabase
         .from('profiles')
         .update({ balance: newBalance })
@@ -295,7 +296,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       await fetchProfile();
       setPendingEarnings(0);
-      alert(`Boa, mambo! Resgataste ${pendingEarnings} Kz para a tua carteira! 🇦🇴💰`);
+      alert(`Boa, mambo! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para a tua carteira! 🇦🇴💰`);
     } catch (err) {
       console.error("Erro ao resgatar ganhos:", err);
       alert("Houve um mambo ao resgatar os ganhos. Tenta de novo!");
@@ -492,10 +493,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <span className="text-sm font-black text-white">{stats.likes}</span>
             <span className="text-xs text-zinc-500">Likes</span>
           </div>
-          <div className="flex gap-1 items-center px-3 py-1 bg-zinc-900/50 rounded-full border border-zinc-800">
+            <div className="flex gap-1 items-center px-3 py-1 bg-zinc-900/50 rounded-full border border-zinc-800">
             <Coins size={14} className="text-amber-500" />
-            <span className="text-sm font-black text-white">{profile.balance?.toFixed(1) || '0.0'}</span>
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Kz</span>
+            <span className="text-sm font-black text-white">{profile.balance?.toFixed(0) || '0'}</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">AngoCoins</span>
           </div>
         </div>
       </div>
@@ -645,9 +646,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo Disponível</p>
                     <div className="flex items-baseline gap-2">
                       <h3 className="text-5xl font-black text-white tracking-tighter">
-                        {profile.balance?.toFixed(1) || '0.0'}
+                        {profile.balance?.toFixed(0) || '0'}
                       </h3>
-                      <span className="text-sm font-black text-amber-500 uppercase tracking-widest">Kz</span>
+                      <span className="text-sm font-black text-amber-500 uppercase tracking-widest">AngoCoins</span>
                     </div>
                   </div>
                   <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
@@ -677,7 +678,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Ganhos de Conteúdo</p>
-                        <p className="text-xl font-black text-white mt-0.5">{pendingEarnings} Kz <span className="text-[10px] text-zinc-500 font-bold uppercase">Pendentes</span></p>
+                        <p className="text-xl font-black text-white mt-0.5">${pendingEarnings.toFixed(2)} <span className="text-[10px] text-zinc-500 font-bold uppercase">USD Pendentes</span></p>
                       </div>
                       <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                         <TrendingUp size={20} />
@@ -699,7 +700,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             {/* Monthly Results Chart */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Resultados Mensais (Kz)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Resultados Mensais (USD)</h3>
                 <TrendingUp size={16} className="text-emerald-500" />
               </div>
               
@@ -792,7 +793,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                         {m.month}
                       </div>
                       <div>
-                        <p className="text-sm font-black text-white">{m.earnings} Kz</p>
+                        <p className="text-sm font-black text-white">${m.earnings.toFixed(2)} USD</p>
                         <p className="text-[9px] font-black text-zinc-600 uppercase tracking-tighter">{m.views.toLocaleString()} views</p>
                       </div>
                     </div>
@@ -820,7 +821,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <ArrowUpCircle size={24} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Carregar Kizombas</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Carregar AngoCoins</h3>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Aumenta o teu saldo na banda</p>
                   </div>
                 </div>
@@ -830,17 +831,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                {[10, 50, 100, 500, 1000, 5000].map(amount => (
+                {[40, 100, 500, 1000, 5000, 10000].map(amount => (
                   <button 
                     key={amount}
                     onClick={() => setDepositAmount(amount)}
-                    className={`py-4 rounded-2xl font-black text-xs transition-all border ${
+                    className={`py-4 rounded-2xl font-black text-[10px] transition-all border ${
                       depositAmount === amount 
                         ? 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20' 
                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                     }`}
                   >
-                    {amount} Kz
+                    {amount} AC
                   </button>
                 ))}
               </div>
@@ -848,10 +849,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex flex-col gap-2">
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total a Pagar</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-black text-white">{(depositAmount * 10).toLocaleString()} Kz</p>
-                  <p className="text-xs font-bold text-zinc-600 uppercase">AOA</p>
+                  <p className="text-3xl font-black text-white">${(depositAmount / 100).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-zinc-600 uppercase">USD</p>
                 </div>
-                <p className="text-[9px] text-zinc-700 font-medium mt-2">Simulação de pagamento via Multicaixa Express</p>
+                <p className="text-[9px] text-zinc-700 font-medium mt-2">Pagamento seguro via Stripe / PayPal</p>
               </div>
 
               <button 

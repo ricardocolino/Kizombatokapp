@@ -147,7 +147,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               setSearchQuery(e.target.value);
               setDisplayLimit(10); 
             }}
-            placeholder="Pesquisar Kuduro, Kizomba, Mambo..." 
+            placeholder="Pesquisar Kuduro, Mambo, Semba..." 
             className="w-full bg-zinc-900 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-red-600 transition-all outline-none text-white shadow-inner"
           />
         </div>

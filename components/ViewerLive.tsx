@@ -183,9 +183,11 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       if (updateError) throw updateError;
 
       // Add balance to host using RPC (more reliable)
+      // Creator receives 25% of the coins (which represents their USD share)
+      const creatorShare = Math.floor(price * 0.25);
       const { error: hostUpdateError } = await supabase.rpc('increment_user_balance', {
         target_user_id: hostId,
-        amount: price
+        amount: creatorShare
       });
 
       if (hostUpdateError) {
@@ -200,7 +202,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         if (hostData) {
           await supabase
             .from('profiles')
-            .update({ balance: hostData.balance + price })
+            .update({ balance: hostData.balance + creatorShare })
             .eq('id', hostId);
         }
       }
@@ -351,7 +353,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
                 </h3>
                 <div className="bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 rounded-2xl">
                   <p className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">O teu Saldo</p>
-                  <p className="text-sm font-black text-white">{userProfile?.balance || 0} Kz</p>
+                  <p className="text-sm font-black text-white">{userProfile?.balance || 0} AngoCoins</p>
                 </div>
               </div>
               
@@ -367,7 +369,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
                   <button key={gift.name} onClick={() => sendGift(gift.name, gift.price)} className="flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border border-white/5 active:scale-95 transition-all">
                     <span className="text-3xl">{gift.icon}</span>
                     <span className="text-[10px] font-black text-white">{gift.name}</span>
-                    <span className="text-[9px] font-bold text-yellow-500">{gift.price} Kz</span>
+                    <span className="text-[9px] font-bold text-yellow-500">{gift.price} AC</span>
                   </button>
                 ))}
               </div>

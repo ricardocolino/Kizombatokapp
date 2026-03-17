@@ -329,7 +329,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
                   <Star className="text-yellow-500" size={28} />
                   <div className="text-center">
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/60 block mb-1">Saldo Total</span>
-                    <span className="text-sm font-black text-white">{currentHostProfile.balance} Kz</span>
+                    <span className="text-sm font-black text-white">{currentHostProfile.balance} AngoCoins</span>
                   </div>
                 </div>
               </div>
