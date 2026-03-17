@@ -164,6 +164,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             channelName={selectedLive.channel_name}
             onClose={() => setSelectedLive(null)}
             hostProfile={selectedLive.profiles}
+            hostId={selectedLive.user_id}
           />
         )}
 

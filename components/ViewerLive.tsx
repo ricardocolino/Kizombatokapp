@@ -13,7 +13,7 @@ interface ViewerLiveProps {
   channelName: string;
   onClose: () => void;
   hostProfile?: Profile;
-  hostId: string;
+  hostId?: string;
 }
 
 interface LiveComment {
@@ -176,6 +176,12 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     // --- BACKGROUND DB UPDATES ---
     try {
+      const targetHostId = hostId || hostProfile?.id;
+      if (!targetHostId) {
+        console.error('Host ID not found for gift update');
+        return;
+      }
+
       // Deduct balance from sender
       const { error: updateError } = await supabase
         .from('profiles')
@@ -187,7 +193,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       // Add balance to host using RPC (more reliable)
       // Creator receives 100% of the coins
       const { error: hostUpdateError } = await supabase.rpc('increment_user_balance', {
-        target_user_id: hostId,
+        target_user_id: targetHostId,
         amount: price
       });
 
@@ -197,14 +203,14 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         const { data: hostData } = await supabase
           .from('profiles')
           .select('balance')
-          .eq('id', hostId)
+          .eq('id', targetHostId)
           .single();
 
         if (hostData) {
           await supabase
             .from('profiles')
             .update({ balance: hostData.balance + price })
-            .eq('id', hostId);
+            .eq('id', targetHostId);
         }
       }
     } catch (error) {
@@ -213,7 +219,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       setUserProfile(prev => prev ? { ...prev, balance: oldBalance } : null);
       alert('Houve um problema ao processar o presente. O teu saldo foi restaurado.');
     }
-  }, [userProfile, hostId]);
+  }, [userProfile, hostId, hostProfile]);
 
   if (error) {
     return (
