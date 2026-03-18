@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Mail, Lock, User, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -75,98 +75,112 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-red-600/20 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-yellow-600/20 rounded-full blur-[120px]" />
+    <div className="h-full w-full bg-black flex flex-col items-center justify-center p-8 relative overflow-hidden">
+      {/* Immersive Background */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-red-600/10 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-red-900/10 rounded-full blur-[120px] animate-pulse delay-700" />
 
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-red-600 to-yellow-500 rounded-3xl rotate-12 mb-6 shadow-2xl">
-            <Sparkles className="text-white -rotate-12" size={40} />
+      <div className="w-full max-w-sm z-10 flex flex-col items-center">
+        {/* Modern App Icon Container */}
+        <div className="mb-12 relative group">
+          <div className="absolute -inset-4 bg-red-600/20 rounded-[40px] blur-xl group-hover:bg-red-600/30 transition-all duration-500" />
+          <div className="relative w-24 h-24 bg-zinc-950 border border-zinc-800 rounded-[32px] flex items-center justify-center shadow-2xl overflow-hidden">
+            {/* Octopus Icon Placeholder - Styled like the user's image */}
+            <div className="w-full h-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center p-4">
+              <svg viewBox="0 0 24 24" fill="white" className="w-full h-full drop-shadow-lg">
+                <path d="M12,2C8.13,2,5,5.13,5,9c0,2.38,1.19,4.47,3,5.74V17c0,0.55,0.45,1,1,1h6c0.55,0,1-0.45,1-1v-2.26 c1.81-1.27,3-3.36,3-5.74C19,5.13,15.87,2,12,2z M12,13c-2.21,0-4-1.79-4-4s1.79-4,4-4s4,1.79,4,4S14.21,13,12,13z M10,9 c0-1.1,0.9-2,2-2s2,0.9,2,2s-0.9,2-2,2S10,10.1,10,9z M12,19c-0.55,0-1,0.45-1,1v1c0,0.55,0.45,1,1,1s1-0.45,1-1v-1 C13,19.45,12.55,19,12,19z M17.29,18.29l0.71,0.71c0.39,0.39,1.02,0.39,1.41,0s0.39-1.02,0-1.41l-0.71-0.71 c-0.39-0.39-1.02-0.39-1.41,0S16.9,17.9,17.29,18.29z M21,12h1c0.55,0,1-0.45,1-1s-0.45-1-1-1h-1c-0.55,0-1,0.45-1,1 S20.45,12,21,12z M18,6.41l0.71-0.71c0.39-0.39,0.39-1.02,0-1.41s-1.02-0.39-1.41,0L16.59,5c-0.39,0.39-0.39,1.02,0,1.41 S17.61,6.8,18,6.41z M12,3c-0.55,0-1-0.45-1-1V1c0-0.55,0.45-1,1-1s1,0.45,1,1v1C13,2.55,12.55,3,12,3z M6.71,5.71L6,5 C5.61,4.61,4.98,4.61,4.59,5s-0.39,1.02,0,1.41L5.3,7.12c0.39,0.39,1.02,0.39,1.41,0S7.1,6.1,6.71,5.71z M3,12H2 c-0.55,0-1,0.45-1,1s0.45,1,1,1h1c0.55,0,1-0.45,1-1S3.55,12,3,12z M6.71,18.29c-0.39-0.39-1.02-0.39-1.41,0l-0.71,0.71 c-0.39,0.39-0.39,1.02,0,1.41s1.02,0.39,1.41,0l0.71-0.71C7.1,19.31,7.1,18.68,6.71,18.29z" />
+              </svg>
+            </div>
           </div>
-          <h1 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-2">
+        </div>
+
+        <div className="text-center mb-10 space-y-2">
+          <h1 className="text-3xl font-black text-white tracking-tight">
             AngoChat
           </h1>
-          <p className="text-zinc-500 font-bold uppercase tracking-[0.2em] text-[10px]">
-            {isSignUp ? 'Cria a tua conta na banda' : 'Entra na vibe de Angola'}
+          <p className="text-zinc-500 text-sm font-medium">
+            {isSignUp ? 'Cria a tua conta' : 'Bem-vindo de volta'}
           </p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form onSubmit={handleAuth} className="w-full space-y-3">
           {isSignUp && (
-            <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+            <div className="group">
               <input
                 type="text"
                 placeholder="Nome de Usuário"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl py-4 px-6 text-white placeholder:text-zinc-600 focus:bg-zinc-900 focus:border-red-600/50 outline-none transition-all"
                 required={isSignUp}
               />
             </div>
           )}
 
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+          <div className="group">
             <input
               type="email"
               placeholder="E-mail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl py-4 px-6 text-white placeholder:text-zinc-600 focus:bg-zinc-900 focus:border-red-600/50 outline-none transition-all"
               required
             />
           </div>
 
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+          <div className="group">
             <input
               type="password"
               placeholder="Palavra-passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:ring-2 focus:ring-red-600 outline-none transition-all"
+              className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl py-4 px-6 text-white placeholder:text-zinc-600 focus:bg-zinc-900 focus:border-red-600/50 outline-none transition-all"
               required
             />
           </div>
 
           {error && (
-            <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 px-3">
-              {error}
-            </p>
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+              <p className="text-red-500 text-xs font-bold text-center">
+                {error}
+              </p>
+            </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95 shadow-xl disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <>
-                {isSignUp ? 'Criar Conta' : 'Entrar Agora'}
-                <ArrowRight size={16} />
-              </>
-            )}
-          </button>
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-red-600/20 disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <>
+                  {isSignUp ? 'Registar' : 'Entrar'}
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
+          </div>
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-10">
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-zinc-400 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors"
+            className="text-zinc-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors py-2 px-4"
           >
-            {isSignUp ? 'Já tens conta? Faz Login' : 'Não tens conta? Regista-te'}
+            {isSignUp ? 'Já tens conta? Login' : 'Não tens conta? Regista-te'}
           </button>
         </div>
       </div>
       
-      <p className="absolute bottom-8 text-[9px] text-zinc-600 font-bold uppercase tracking-[0.3em]">
-        Feito em Angola 🇦🇴
-      </p>
+      <div className="absolute bottom-10 flex flex-col items-center gap-2">
+        <div className="w-1 h-1 rounded-full bg-red-600" />
+        <p className="text-[10px] text-zinc-700 font-bold uppercase tracking-[0.4em]">
+          Angola 🇦🇴
+        </p>
+      </div>
     </div>
   );
 };
