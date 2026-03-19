@@ -569,6 +569,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, dubbingSound }) => {
         if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
         await ffmpeg.writeFile(inputFileName, videoData);
 
+        // Se houver som selecionado, descarregar e preparar para FFmpeg (Caminho B)
+        if (selectedSound) {
+          console.log('[Upload] Descarregando áudio de dublagem...');
+          try {
+            const audioUrl = parseMediaUrl(selectedSound.audio_url || selectedSound.media_url);
+            const audioData = await fetchFile(audioUrl);
+            await ffmpeg.writeFile('dubbing.mp3', audioData);
+          } catch (audioErr) {
+            console.error('[Upload] Erro ao descarregar áudio, prosseguindo sem dublagem no ficheiro:', audioErr);
+            // Se falhar o download do áudio, continuamos sem o merge para não bloquear o upload
+          }
+        }
+
         // 1. Processar Vídeo (Filtros, Trim, Rotação)
         let vfFilter = cssFilterToFFmpeg(filter);
         if (recordedFacingMode === 'rear') {
@@ -577,24 +590,47 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, dubbingSound }) => {
           console.log('[Upload] Aplicando rotação para câmera traseira');
         }
 
-        const hasTrim = trimStart > 0 || trimEnd < recordingSeconds;
+        const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         
         const videoArgs: string[] = [];
         
-        // Se houver trim, aplicamos ANTES do input do vídeo para ser eficiente
+        // Input 0: Vídeo
         if (hasTrim) {
-          console.log(`[Upload] Aplicando Trim: ${trimStart}s - ${trimEnd}s`);
           videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
         }
         videoArgs.push('-i', inputFileName);
 
-        console.log('[Upload] Usando áudio original');
-        videoArgs.push('-map', '0:v:0', '-map', '0:a:0?');
+        // Input 1: Áudio (se houver dublagem e o ficheiro existir no FS do FFmpeg)
+        let audioMerged = false;
+        if (selectedSound) {
+          try {
+            // Verificar se o ficheiro foi escrito com sucesso
+            await ffmpeg.readFile('dubbing.mp3');
+            if (hasTrim) {
+              videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
+            }
+            videoArgs.push('-i', 'dubbing.mp3');
+            audioMerged = true;
+          } catch {
+            console.warn('[Upload] dubbing.mp3 não encontrado no FFmpeg FS');
+          }
+        }
 
-        if (vfFilter || hasTrim) {
+        // Mapeamento: Vídeo do input 0, Áudio do input 1 (se dublado) ou input 0 (original)
+        videoArgs.push('-map', '0:v:0');
+        if (audioMerged) {
+          console.log('[Upload] Mapeando áudio de dublagem para o ficheiro final');
+          videoArgs.push('-map', '1:a:0');
+        } else {
+          console.log('[Upload] Mapeando áudio original');
+          videoArgs.push('-map', '0:a:0?');
+        }
+
+        if (vfFilter || hasTrim || audioMerged) {
           if (vfFilter) videoArgs.push('-vf', vfFilter);
           videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
           videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+          if (audioMerged) videoArgs.push('-shortest');
         } else {
           videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
         }
@@ -639,6 +675,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, dubbingSound }) => {
         is_education: isEducation,
         sound_id: selectedSound?.id || null,
         audio_url: selectedSound ? (selectedSound.audio_url || selectedSound.media_url) : null,
+        filter: selectedSound ? `${filter}|merged` : filter,
         text_overlay: textOverlay || null,
         views: 0,
         created_at: new Date().toISOString()

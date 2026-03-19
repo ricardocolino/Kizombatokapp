@@ -558,9 +558,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             ref={videoRef}
             src={mediaUrl}
             className="w-full h-full object-cover"
-            style={{ filter: post.filter || undefined }}
+            style={{ filter: post.filter ? post.filter.split('|')[0] : undefined }}
             loop
-            muted={isMuted || !!post.sound_id}
+            muted={isMuted || (!!post.sound_id && !post.filter?.includes('|merged'))}
             playsInline
             preload="auto"
             onError={(e) => {
@@ -573,8 +573,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
           />
 
-          {/* Dual Player Audio for Dubbing */}
-          {post.sound_id && post.audio_url && (
+          {/* Dual Player Audio for Dubbing (Apenas se não estiver "merged") */}
+          {post.sound_id && post.audio_url && !post.filter?.includes('|merged') && (
             <audio
               ref={audioRef}
               src={parseMediaUrl(post.audio_url)}
