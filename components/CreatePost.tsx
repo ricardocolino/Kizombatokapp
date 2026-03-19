@@ -513,12 +513,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
       console.log('[Upload] Salvando post no Supabase...');
       const { error: insertError } = await supabase.from('posts').insert({
         user_id: userId,
-        content: content,
+        content: content || null,
         media_url: finalMediaUrl,
         thumbnail_url: finalThumbnailUrl,
         media_type: 'video',
-        is_education: isEducation,
-        filter: filter,
+        is_education: isEducation ? 1 : 0, // Convertendo para inteiro se necessário
+        filter: filter === 'none' ? null : filter,
         text_overlay: textOverlay || null,
         views: 0,
         created_at: new Date().toISOString()
