@@ -12,9 +12,10 @@ import HostLive from './HostLive';
 
 interface CreatePostProps {
   onCreated: () => void;
+  dubbingSound?: Post | null;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, dubbingSound }) => {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -24,6 +25,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
   // Sound Selection State
   const [availableSounds, setAvailableSounds] = useState<Post[]>([]);
   const [showSoundPicker, setShowSoundPicker] = useState(false);
+  const [selectedSound, setSelectedSound] = useState<Post | null>(null);
+  const [previewingSound, setPreviewingSound] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dubbingSound) {
+      setSelectedSound(dubbingSound);
+    }
+  }, [dubbingSound]);
 
   // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
@@ -119,25 +128,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
     }
   };
 
+  const playSoundPreview = (url: string | null) => {
+    if (!url) return;
+    stopPreviewAudio();
+    const fullUrl = parseMediaUrl(url);
+    const audio = new Audio(fullUrl);
+    previewAudioRef.current = audio;
+    setPreviewingSound(url);
+    audio.play().catch(e => {
+      if (e.name !== 'AbortError') {
+        console.error("Erro ao tocar preview:", e);
+      }
+    });
+    audio.onended = () => setPreviewingSound(null);
+  };
+
   const stopPreviewAudio = () => {
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
       previewAudioRef.current = null;
     }
-  };
-
-  const playSoundPreview = (url: string) => {
-    stopPreviewAudio();
-    const audio = new Audio(url);
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(e => {
-        if (e.name !== 'AbortError') {
-          console.error("Erro ao tocar preview:", e);
-        }
-      });
-    }
-    previewAudioRef.current = audio;
+    setPreviewingSound(null);
   };
 
   const isStartingRef = useRef(false);
@@ -336,6 +347,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
       try {
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
+
+        // Iniciar áudio se houver som selecionado
+        if (selectedSound) {
+          const audioUrl = parseMediaUrl(selectedSound.audio_url || selectedSound.media_url);
+          const audio = new Audio(audioUrl);
+          playbackAudioRef.current = audio;
+          audio.play().catch(e => console.error("Erro ao tocar áudio de dublagem:", e));
+        }
 
         // Iniciar gravação de vídeo
         const videoPromise = CameraPreview.startRecordVideo({
@@ -618,7 +637,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
         thumbnail_url: finalThumbnailUrl,
         media_type: isPhoto ? 'image' : 'video',
         is_education: isEducation,
-        sound_id: null,
+        sound_id: selectedSound?.id || null,
+        audio_url: selectedSound ? (selectedSound.audio_url || selectedSound.media_url) : null,
         text_overlay: textOverlay || null,
         views: 0,
         created_at: new Date().toISOString()
@@ -822,6 +842,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
             )}
             
             <div className="absolute top-8 left-0 w-full flex justify-center z-50">
+              {selectedSound && (
+                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 animate-in slide-in-from-top duration-300">
+                  <Music2 size={14} className="text-red-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase text-white tracking-widest truncate max-w-[150px]">
+                    {selectedSound.content || 'Som Original'}
+                  </span>
+                  <button onClick={() => setSelectedSound(null)} className="ml-1 text-white/40 hover:text-white">
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {countdown !== null && (
@@ -1165,18 +1196,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
             {/* Lista de Músicas */}
             <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-10">
               {availableSounds.map(sound => (
-                <div key={sound.id} className="relative">
+                <div key={sound.id} className="relative group">
                   <div 
                     onClick={() => { 
                       playSoundPreview(sound.audio_url || sound.media_url);
                     }}
-                    className="w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all group cursor-pointer"
+                    className="w-full flex items-center gap-4 py-4 border-b border-zinc-900/50 transition-all cursor-pointer"
                   >
                      <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                         {sound.profiles?.avatar_url ? (
-                          <img src={parseMediaUrl(sound.profiles.avatar_url)} className="w-full h-full object-cover" />
+                          <img src={parseMediaUrl(sound.profiles.avatar_url)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-zinc-700"><Music2 size={24}/></div>
+                        )}
+                        {previewingSound === (sound.audio_url || sound.media_url) && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          </div>
                         )}
                      </div>
                      <div className="flex-1 text-left overflow-hidden">
@@ -1187,6 +1223,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                           {sound.profiles?.username || 'Anónimo'} • 00:15
                         </p>
                      </div>
+                     
+                     <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSound(sound);
+                          setShowSoundPicker(false);
+                          stopPreviewAudio();
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg active:scale-90 transition-all"
+                     >
+                        Usar
+                     </button>
                   </div>
                 </div>
               ))}

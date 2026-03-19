@@ -9,6 +9,7 @@ import { appCache } from '../services/cache';
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
   onRequireAuth?: () => void;
+  onDub: (post: Post) => void;
   initialPostId?: string | null;
 }
 
@@ -20,7 +21,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onDub, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -324,6 +325,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
               isMuted={isMuted}
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}
+              onDub={onDub}
             />
           </div>
         ))}

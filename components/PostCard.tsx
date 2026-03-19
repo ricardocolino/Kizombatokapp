@@ -17,6 +17,7 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
+  onDub: (post: Post) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -33,7 +34,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onNavigateToProfile, 
   isMuted, 
   onToggleMute, 
-  onRequireAuth
+  onRequireAuth,
+  onDub
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -69,6 +71,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const viewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +79,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const handlePause = React.useCallback(() => {
     if (videoRef.current) {
       videoRef.current.pause();
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
     setIsPlaying(false);
     if (viewTimeoutRef.current) {
@@ -115,10 +121,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         videoRef.current.load();
       }
 
+      // Sincronizar áudio se for dublagem
+      if (audioRef.current) {
+        audioRef.current.currentTime = videoRef.current.currentTime;
+      }
+
       // Prioridade máxima: Tentar reproduzir imediatamente
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
+          if (audioRef.current) {
+            audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+          }
           setIsPlaying(true);
           // Deferir o incremento de views para não competir com a reprodução inicial
           if (!viewCountedRef.current && !viewTimeoutRef.current) {
@@ -172,13 +186,29 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       }
     }
 
-    video.addEventListener('playing', () => setIsPlaying(true));
-    video.addEventListener('pause', () => setIsPlaying(false));
+    const syncAudio = () => {
+      if (audioRef.current && videoRef.current) {
+        if (Math.abs(audioRef.current.currentTime - videoRef.current.currentTime) > 0.2) {
+          audioRef.current.currentTime = videoRef.current.currentTime;
+        }
+      }
+    };
+
+    video.addEventListener('playing', () => {
+      setIsPlaying(true);
+      if (audioRef.current) audioRef.current.play().catch(() => {});
+    });
+    video.addEventListener('pause', () => {
+      setIsPlaying(false);
+      if (audioRef.current) audioRef.current.pause();
+    });
+    video.addEventListener('timeupdate', syncAudio);
     video.addEventListener('canplay', handleCanPlay);
 
     return () => {
       video.removeEventListener('playing', () => setIsPlaying(true));
       video.removeEventListener('pause', () => setIsPlaying(false));
+      video.removeEventListener('timeupdate', syncAudio);
       video.removeEventListener('canplay', handleCanPlay);
     };
   }, []);
@@ -524,24 +554,35 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
       {/* Video Content */}
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
-        <video
-          ref={videoRef}
-          src={mediaUrl}
-          className="w-full h-full object-cover"
-          style={{ filter: post.filter || undefined }}
-          loop
-          muted={isMuted}
-          playsInline
-          preload="auto"
-          onError={(e) => {
-            // Só marcamos erro se o src for válido e falhou mesmo
-            if (mediaUrl) {
-              console.error("Playback failed for URL:", mediaUrl, e);
-              setVideoError(true);
-            }
-          }}
-          poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
-        />
+          <video
+            ref={videoRef}
+            src={mediaUrl}
+            className="w-full h-full object-cover"
+            style={{ filter: post.filter || undefined }}
+            loop
+            muted={isMuted || !!post.sound_id}
+            playsInline
+            preload="auto"
+            onError={(e) => {
+              // Só marcamos erro se o src for válido e falhou mesmo
+              if (mediaUrl) {
+                console.error("Playback failed for URL:", mediaUrl, e);
+                setVideoError(true);
+              }
+            }}
+            poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
+          />
+
+          {/* Dual Player Audio for Dubbing */}
+          {post.sound_id && post.audio_url && (
+            <audio
+              ref={audioRef}
+              src={parseMediaUrl(post.audio_url)}
+              loop
+              muted={isMuted}
+              preload="auto"
+            />
+          )}
 
         {/* Text Overlay */}
         {post.text_overlay && (
@@ -633,17 +674,29 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </button>
           )}
 
-          {/* Music Avatar Icon */}
+          {/* Music Avatar Icon / Dub Button */}
           <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5">
-             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl">
+             <button 
+               onClick={(e) => { e.stopPropagation(); onDub(post); }}
+               className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl hover:scale-110 active:scale-90 transition-all group"
+             >
                 {post.profiles?.avatar_url ? (
-                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                     <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
                   </div>
                 )}
-             </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Music2 size={16} className="text-white" />
+                </div>
+             </button>
+             {/* Spinning Vinyl Effect if playing */}
+             {isPlaying && (
+               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-zinc-900 rounded-full border-2 border-zinc-800 flex items-center justify-center animate-spin">
+                 <Music2 size={10} className="text-red-500" />
+               </div>
+             )}
           </div>
         </div>
       )}

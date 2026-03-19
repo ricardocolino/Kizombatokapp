@@ -11,6 +11,7 @@ import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
+import { Post } from './types';
 
 export enum Tab {
   HOME = 'home',
@@ -27,6 +28,7 @@ const App: React.FC = () => {
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [dubbingSound, setDubbingSound] = useState<Post | null>(null);
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -162,7 +164,13 @@ const App: React.FC = () => {
   const handleGoHome = () => {
     setViewProfileId(null);
     setTargetPostId(null);
+    setDubbingSound(null);
     setActiveTab(Tab.HOME);
+  };
+
+  const handleDub = (post: Post) => {
+    setDubbingSound(post);
+    setActiveTab(Tab.CREATE);
   };
 
   const renderContent = () => {
@@ -179,11 +187,11 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case Tab.HOME:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onDub={handleDub} />;
       case Tab.DISCOVER:
         return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.CREATE:
-        return <CreatePost onCreated={() => { setActiveTab(Tab.HOME); }} />;
+        return <CreatePost onCreated={() => { setDubbingSound(null); setActiveTab(Tab.HOME); }} dubbingSound={dubbingSound} />;
       case Tab.INBOX:
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.PROFILE: {
@@ -191,7 +199,7 @@ const App: React.FC = () => {
         return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;
       }
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} />;
     }
   };
 
