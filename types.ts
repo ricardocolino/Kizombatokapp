@@ -25,6 +25,9 @@ export interface Post {
   is_education: boolean;
   created_at: string;
   profiles?: Profile;
+  sound?: {
+    profiles?: Profile;
+  };
   _count?: {
     reactions: number;
     comments: number;

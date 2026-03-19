@@ -138,7 +138,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onDub, 
       
       let query = supabase
         .from('posts')
-        .select(`*, profiles!user_id (*)`)
+        .select(`*, profiles!user_id (*), sound:posts!sound_id (profiles!user_id (*))`)
         .order('created_at', { ascending: false })
         .range(from, to);
 
