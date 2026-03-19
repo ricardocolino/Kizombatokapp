@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
-import { Search, TrendingUp, Music2, AlertCircle, UserCheck } from 'lucide-react';
+import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface DiscoveryProps {
@@ -81,28 +81,14 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
           combinedPosts = Array.from(uniqueMap.values());
         } else {
-          // 🔹 Lógica: Os 10 primeiros vídeos são os mais dublados
+          // 🔹 Lógica: Buscar posts mais vistos
           const { data } = await supabase
             .from('posts')
-            .select('*, profiles!user_id(*)');
+            .select('*, profiles!user_id(*)')
+            .order('views', { ascending: false })
+            .limit(limit);
 
-          const rawPosts = data || [];
-          
-          // Calcular contagem de dublagens (quantas vezes o ID do post é usado como sound_id)
-          const dubbingCounts: Record<string, number> = {};
-          rawPosts.forEach(p => {
-            if (p.sound_id) {
-              dubbingCounts[p.sound_id] = (dubbingCounts[p.sound_id] || 0) + 1;
-            }
-          });
-
-          // Ordenar por dublagens e depois por views
-          combinedPosts = [...rawPosts].sort((a, b) => {
-            const countA = dubbingCounts[a.id] || 0;
-            const countB = dubbingCounts[b.id] || 0;
-            if (countB !== countA) return countB - countA;
-            return (b.views || 0) - (a.views || 0);
-          }).slice(0, limit);
+          combinedPosts = data || [];
         }
 
         if (active) setPosts(combinedPosts);
@@ -191,7 +177,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                 <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter drop-shadow-xl">#AngoChat</h2>
                 <p className="text-xs text-zinc-100/90 font-bold uppercase tracking-widest mt-1">A Vibe de Angola 🇦🇴</p>
               </div>
-              <Music2 size={100} className="absolute -right-4 -bottom-4 text-white/10 rotate-12" />
+              <TrendingUp size={100} className="absolute -right-4 -bottom-4 text-white/10 rotate-12" />
               <div className="absolute top-0 right-0 p-4">
                  <div className="bg-red-600 text-[10px] font-black px-2 py-0.5 rounded text-white uppercase">Live</div>
               </div>

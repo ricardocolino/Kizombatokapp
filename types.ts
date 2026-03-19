@@ -18,16 +18,11 @@ export interface Post {
   media_type: 'image' | 'video';
   views: number;
   thumbnail_url: string | null;
-  audio_url: string | null;
-  sound_id: string | null;
   text_overlay: string | null;
   filter: string | null;
   is_education: boolean;
   created_at: string;
   profiles?: Profile;
-  sound?: {
-    profiles?: Profile;
-  };
   _count?: {
     reactions: number;
     comments: number;

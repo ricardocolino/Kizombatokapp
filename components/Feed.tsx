@@ -9,7 +9,6 @@ import { appCache } from '../services/cache';
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
   onRequireAuth?: () => void;
-  onDub: (post: Post) => void;
   initialPostId?: string | null;
 }
 
@@ -21,7 +20,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onDub, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +137,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onDub, 
       
       let query = supabase
         .from('posts')
-        .select(`*, profiles!user_id (*), sound:posts!sound_id (profiles!user_id (*))`)
+        .select(`*, profiles!user_id (*)`)
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -325,7 +324,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onDub, 
               isMuted={isMuted}
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}
-              onDub={onDub}
             />
           </div>
         ))}

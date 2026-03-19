@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Music2, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -17,7 +17,6 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
-  onDub: (post: Post) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -34,8 +33,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onNavigateToProfile, 
   isMuted, 
   onToggleMute, 
-  onRequireAuth,
-  onDub
+  onRequireAuth
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -638,34 +636,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase drop-shadow-md tracking-widest">Presente</span>
             </button>
           )}
-
-          {/* Music Avatar Icon / Dub Button */}
-          <div className="relative mt-1 sm:mt-2 p-1 sm:p-1.5">
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDub(post); }}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-zinc-950 border-[4px] sm:border-[6px] border-zinc-900/80 flex items-center justify-center overflow-hidden shadow-2xl hover:scale-110 active:scale-90 transition-all group"
-              >
-                {/* Se for dublagem, mostra o avatar do som original, senão o do autor */}
-                {post.sound_id && post.sound?.profiles?.avatar_url ? (
-                  <img src={parseMediaUrl(post.sound.profiles.avatar_url)} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" loading="lazy" />
-                ) : post.profiles?.avatar_url ? (
-                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                    <Music2 size={16} className="sm:w-[20px] sm:h-[20px] text-zinc-600" />
-                  </div>
-                )}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Music2 size={16} className="text-white" />
-                </div>
-              </button>
-             {/* Spinning Vinyl Effect if playing */}
-             {isPlaying && (
-               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-zinc-900 rounded-full border-2 border-zinc-800 flex items-center justify-center animate-spin">
-                 <Music2 size={10} className="text-red-500" />
-               </div>
-             )}
-          </div>
         </div>
       )}
 
