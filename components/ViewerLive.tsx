@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { IAgoraRTCRemoteUser, ICameraVideoTrack, IMicrophoneAudioTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 import { agoraService } from '../services/agoraService';
-import { X, Users, Heart, Send, Loader2, Gift, AlertCircle, Mic, MicOff, Video, VideoOff, Radio } from 'lucide-react';
+import { X, Users, Heart, Send, Loader2, Gift, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { Profile } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -40,78 +39,8 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string } | null>(null);
   const [activeGift, setActiveGift] = useState<{ name: string, username: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
-  const [multiGuestEnabled, setMultiGuestEnabled] = useState(false);
-  const [isGuest, setIsGuest] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isCamOn, setIsCamOn] = useState(true);
-  const [guests, setGuests] = useState<IAgoraRTCRemoteUser[]>([]);
-  const [guestProfiles, setGuestProfiles] = useState<Record<string, Profile>>({});
-  const [localGuestTracks, setLocalGuestTracks] = useState<{ videoTrack: ICameraVideoTrack, audioTrack: IMicrophoneAudioTrack } | null>(null);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const [showDebug, setShowDebug] = useState(false);
-  const [hostVideoTrack, setHostVideoTrack] = useState<IRemoteVideoTrack | null>(null);
-
-  const handleRefresh = () => {
-    addLog('Refreshing stream...');
-    window.location.reload();
-  };
-
-  const addLog = useCallback((msg: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugLogs(prev => [`[${timestamp}] ${msg}`, ...prev].slice(0, 50));
-    console.log(`[DEBUG] ${msg}`);
-  }, []);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const hostVideoRef = useRef<HTMLDivElement>(null);
-
-  // Effect to play host video when track or ref or loading state changes
-  useEffect(() => {
-    if (hostVideoTrack && hostVideoRef.current && !loading) {
-      addLog('Iniciando reprodução do vídeo do host (useEffect)');
-      try {
-        hostVideoTrack.play(hostVideoRef.current, { fit: 'cover' });
-        // Retry after a small delay to ensure element is ready
-        const timer = setTimeout(() => {
-          if (hostVideoTrack && hostVideoRef.current) {
-            hostVideoTrack.play(hostVideoRef.current, { fit: 'cover' });
-          }
-        }, 500);
-        return () => clearTimeout(timer);
-      } catch (err) {
-        addLog(`ERRO ao tocar vídeo do host: ${err}`);
-      }
-    }
-  }, [hostVideoTrack, loading, addLog]);
-
-  // Effect to play guest videos
-  useEffect(() => {
-    if (!loading) {
-      guests.forEach(guest => {
-        if (guest.videoTrack) {
-          const containerId = `guest-player-${guest.uid}`;
-          const container = document.getElementById(containerId);
-          if (container) {
-            addLog(`Iniciando reprodução do vídeo do convidado ${guest.uid}`);
-            try {
-              guest.videoTrack.play(container, { fit: 'cover' });
-              // Retry for guests too
-              setTimeout(() => {
-                const retryContainer = document.getElementById(containerId);
-                if (guest.videoTrack && retryContainer) {
-                  guest.videoTrack.play(retryContainer, { fit: 'cover' });
-                }
-              }, 500);
-            } catch (err) {
-              addLog(`ERRO ao tocar vídeo do convidado ${guest.uid}: ${err}`);
-            }
-          } else {
-            addLog(`AVISO: Container para convidado ${guest.uid} não encontrado`);
-          }
-        }
-      });
-    }
-  }, [guests, loading, addLog]);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,90 +66,14 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       }
     };
 
-    const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
-      addLog(`Usuário publicou: ${user.uid} (${mediaType})`);
-      try {
-        await agoraService.subscribe(user, mediaType);
-        addLog(`Subscrito com sucesso a ${user.uid} (${mediaType})`);
-        
-        if (mediaType === 'video') {
-          const isHost = hostId && String(user.uid) === String(hostId);
-          addLog(`Comparação: ${user.uid} === ${hostId} ? ${isHost}`);
-          
-          if (isHost) {
-            addLog('Host identificado, iniciando reprodução de vídeo');
-            setHostVideoTrack(user.videoTrack || null);
-            if (hostVideoRef.current && user.videoTrack) {
-              addLog('Container do host encontrado, chamando play()');
-              user.videoTrack.play(hostVideoRef.current, { fit: 'cover' });
-            } else {
-              addLog(`AVISO: Container do host não encontrado ou track nula. Ref: ${!!hostVideoRef.current}, Track: ${!!user.videoTrack}`);
-            }
-          } else {
-            addLog('Usuário identificado como convidado');
-            setGuests(prev => {
-              if (prev.find(g => g.uid === user.uid)) return prev;
-              return [...prev, user];
-            });
-            
-            // Fetch guest profile
-            const { data } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', String(user.uid))
-              .single();
-            if (data) {
-              setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
-            }
-          }
-        } else if (mediaType === 'audio') {
-          user.audioTrack?.play();
-          addLog(`Áudio de ${user.uid} em reprodução`);
-        }
-      } catch (err) {
-        addLog(`ERRO ao subscrever/tocar track de ${user.uid}: ${err}`);
-      }
-    };
-
-    const handleUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
-      addLog(`Usuário despublicou: ${user.uid} (${mediaType})`);
-      if (mediaType === 'video') {
-        if (String(user.uid) === String(hostId)) {
-          addLog('Host despublicou vídeo');
-          setHostVideoTrack(null);
-        } else {
-          addLog('Convidado despublicou vídeo');
-          setGuests(prev => [...prev]);
-        }
-      }
-    };
-
-    const handleUserLeft = (user: IAgoraRTCRemoteUser) => {
-      addLog(`Usuário saiu: ${user.uid}`);
-      setGuests(prev => prev.filter(g => g.uid !== user.uid));
-      setGuestProfiles(prev => {
-        const next = { ...prev };
-        delete next[user.uid];
-        return next;
-      });
-    };
-
     const setupLive = async () => {
       try {
-        addLog(`Iniciando setup para canal: ${channelName}`);
-        addLog(`Host ID esperado: ${hostId}`);
-        
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           setError('Precisas de estar logado para ver a live.');
           setLoading(false);
           return;
         }
-
-        // Attach listeners BEFORE joining
-        agoraService.onUserPublished(handleUserPublished);
-        agoraService.onUserUnpublished(handleUserUnpublished);
-        agoraService.onUserLeft(handleUserLeft);
 
         // Check if live is active
         const { data: liveData } = await supabase
@@ -236,10 +89,6 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           return;
         }
 
-        if (liveData && isMounted) {
-          setMultiGuestEnabled(liveData.multi_guest_enabled);
-        }
-
         if (session && isMounted) {
           setCurrentUser({ id: session.user.id });
           const { data: profile } = await supabase
@@ -250,23 +99,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           if (profile && isMounted) setUserProfile(profile);
         }
 
-        addLog(`SetupLive: HostId=${hostId}, Canal=${channelName}, MyId=${session.user.id}`);
-        addLog(`Entrando no canal Agora como audiência...`);
-        await agoraService.joinAsAudience(channelName, session.user.id);
-        addLog(`Entrou no canal Agora com sucesso.`);
-        
-        // Log current remote users and subscribe to them
-        const remoteUsers = agoraService.getClient().remoteUsers;
-        addLog(`Usuários remotos já no canal: ${remoteUsers.length}`);
-        remoteUsers.forEach(u => {
-          addLog(`- Usuário remoto: ${u.uid} (Video: ${u.hasVideo}, Audio: ${u.hasAudio})`);
-          if (u.hasVideo) {
-            handleUserPublished(u, 'video');
-          }
-          if (u.hasAudio) {
-            handleUserPublished(u, 'audio');
-          }
-        });
+        await agoraService.joinAsAudience(channelName);
         
         if (isMounted) {
           setLoading(false);
@@ -309,23 +142,6 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           .on('broadcast', { event: 'like' }, () => {
             if (isMounted) setLikes(prev => prev + 1);
           })
-          .on('broadcast', { event: 'multi_guest_toggle' }, ({ payload }) => {
-            if (isMounted) {
-              setMultiGuestEnabled(payload.enabled);
-              if (!payload.enabled && isGuest) {
-                handleLeaveGuest();
-              }
-            }
-          })
-          .on('broadcast', { event: 'guest_action' }, ({ payload }) => {
-            if (isMounted && isGuest && payload.targetUid === session.user.id) {
-              if (payload.type === 'kick') {
-                handleLeaveGuest();
-              } else if (payload.type === 'mute_audio') {
-                toggleMic(false);
-              }
-            }
-          })
           .subscribe(async (status) => {
             if (status === 'SUBSCRIBED' && isMounted) {
               await channel.track({
@@ -338,7 +154,6 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       } catch (err) {
         if (!isMounted) return;
         console.error('Erro ao entrar na live:', err);
-        addLog(`ERRO CRÍTICO no setupLive: ${err}`);
         setError('Não foi possível conectar à live. Tenta novamente.');
       }
     };
@@ -347,15 +162,12 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     return () => {
       isMounted = false;
-      agoraService.offUserPublished(handleUserPublished);
-      agoraService.offUserUnpublished(handleUserUnpublished);
-      agoraService.offUserLeft(handleUserLeft);
       agoraService.leave();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [channelName, isGuest, toggleMic, handleLeaveGuest, hostId, addLog]);
+  }, [channelName]);
 
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current || !userProfile) return;
@@ -394,41 +206,6 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       event: 'like'
     });
   }, []);
-
-  const handleJoinGuest = async () => {
-    try {
-      await agoraService.setRole('host');
-      const tracks = await agoraService.publishTracks();
-      setLocalGuestTracks(tracks);
-      setIsGuest(true);
-      setIsMicOn(true);
-      setIsCamOn(true);
-    } catch (err) {
-      console.error('Erro ao entrar como convidado:', err);
-      alert('Não foi possível ativar a tua câmera.');
-    }
-  };
-
-  const handleLeaveGuest = useCallback(async () => {
-    await agoraService.unpublishTracks();
-    await agoraService.setRole('audience');
-    setLocalGuestTracks(null);
-    setIsGuest(false);
-    setIsMicOn(true);
-    setIsCamOn(true);
-  }, []);
-
-  const toggleMic = useCallback(async (forceState?: boolean) => {
-    const newState = forceState !== undefined ? forceState : !isMicOn;
-    setIsMicOn(newState);
-    await agoraService.muteAudio(!newState);
-  }, [isMicOn]);
-
-  const toggleCam = useCallback(async () => {
-    const newState = !isCamOn;
-    setIsCamOn(newState);
-    await agoraService.muteVideo(!newState);
-  }, [isCamOn]);
 
   const sendGift = useCallback(async (giftName: string, price: number) => {
     if (!channelRef.current || !userProfile) return;
@@ -526,7 +303,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
   if (error) {
     return (
-      <div className="absolute inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-center">
+      <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-center">
         <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center mb-6">
           <AlertCircle className="w-10 h-10 text-red-600" />
         </div>
@@ -541,180 +318,8 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   }
 
   return (
-    <div className="absolute inset-0 z-[200] bg-black flex flex-col">
-      {/* Debug Toggle - Small indicator in top right corner */}
-      <div 
-        className="absolute top-4 right-12 z-[300] w-8 h-8 flex items-center justify-center opacity-20 hover:opacity-100 cursor-pointer bg-white/10 rounded-full"
-        onClick={() => setShowDebug(!showDebug)}
-      >
-        <AlertCircle size={14} className="text-white" />
-      </div>
-
-      {/* Debug Popup */}
-      <AnimatePresence>
-        {showDebug && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute inset-4 z-[400] bg-black/95 border border-white/20 rounded-3xl p-6 flex flex-col"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-black uppercase tracking-widest text-xs">Debug Logs</h3>
-              <button onClick={() => setShowDebug(false)} className="text-white/60 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 font-mono text-[10px]">
-              {debugLogs.map((log, i) => (
-                <div key={i} className="text-zinc-400 border-b border-white/5 pb-1">
-                  {log}
-                </div>
-              ))}
-              {debugLogs.length === 0 && <div className="text-zinc-600 italic">Nenhum log capturado</div>}
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button 
-                onClick={() => setDebugLogs([])}
-                className="flex-1 py-3 bg-zinc-900 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl"
-              >
-                Limpar Logs
-              </button>
-              <button 
-                onClick={() => {
-                  addLog('Forçando re-sincronização do host...');
-                  const remoteUsers = agoraService.getClient().remoteUsers;
-                  const host = remoteUsers.find(u => String(u.uid) === String(hostId));
-                  if (host && host.hasVideo) {
-                    addLog('Host encontrado! Tentando tocar vídeo novamente...');
-                    setHostVideoTrack(host.videoTrack || null);
-                    if (hostVideoRef.current && host.videoTrack) {
-                      host.videoTrack.play(hostVideoRef.current, { fit: 'cover' });
-                    }
-                  } else {
-                    addLog('Host não encontrado ou sem vídeo na lista de usuários remotos.');
-                  }
-                }}
-                className="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
-              >
-                Re-sync Host
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <div className="absolute inset-0 bg-zinc-900">
-        <div 
-          ref={hostVideoRef} 
-          className={`w-full h-full ${showDebug ? 'border-4 border-red-500' : ''}`} 
-        />
-        
-        {!hostVideoTrack && !loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/80 backdrop-blur-md">
-            {hostProfile?.avatar_url ? (
-              <img 
-                src={parseMediaUrl(hostProfile.avatar_url)} 
-                className="w-32 h-32 rounded-full object-cover border-4 border-white/10 opacity-50" 
-                alt="" 
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-zinc-800 flex items-center justify-center text-4xl font-black text-white/20">
-                {hostProfile?.username?.[0].toUpperCase() || 'A'}
-              </div>
-            )}
-            <div className="mt-6 flex flex-col items-center gap-2">
-              <Loader2 className="w-5 h-5 text-red-600 animate-spin opacity-50" />
-              <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">A aguardar sinal do host...</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Guest Windows Grid */}
-        {multiGuestEnabled && (
-          <div className="absolute top-20 right-4 w-32 flex flex-col gap-2 z-10">
-            {/* Local Guest Window */}
-            {isGuest && localGuestTracks?.videoTrack && (
-              <div className="w-32 h-40 bg-black/60 rounded-xl border-2 border-red-600 overflow-hidden relative shadow-2xl">
-                {isCamOn ? (
-                  <div 
-                    className="w-full h-full"
-                    ref={(el) => {
-                      if (el) localGuestTracks.videoTrack.play(el);
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                    {userProfile?.avatar_url ? (
-                      <img src={parseMediaUrl(userProfile.avatar_url)} className="w-full h-full object-cover opacity-50" alt="" />
-                    ) : (
-                      <Users size={24} className="text-white/20" />
-                    )}
-                  </div>
-                )}
-                
-                <div className="absolute top-1 right-1 flex flex-col gap-1">
-                  <button 
-                    onClick={handleLeaveGuest}
-                    className="bg-red-600 p-1 rounded-full text-white"
-                  >
-                    <X size={10} />
-                  </button>
-                  <button 
-                    onClick={() => toggleMic()}
-                    className={`p-1 rounded-full text-white ${isMicOn ? 'bg-zinc-800' : 'bg-red-600'}`}
-                  >
-                    {isMicOn ? <Mic size={10} /> : <MicOff size={10} />}
-                  </button>
-                  <button 
-                    onClick={toggleCam}
-                    className={`p-1 rounded-full text-white ${isCamOn ? 'bg-zinc-800' : 'bg-red-600'}`}
-                  >
-                    {isCamOn ? <Video size={10} /> : <VideoOff size={10} />}
-                  </button>
-                </div>
-
-                <div className="absolute bottom-1 left-1 bg-red-600 px-1.5 py-0.5 rounded text-[8px] text-white font-black uppercase">
-                  Tu (Convidado)
-                </div>
-              </div>
-            )}
-
-            {/* Remote Guest Windows */}
-            {guests.slice(0, 4).map((guest, idx) => {
-              const profile = guestProfiles[guest.uid];
-              return (
-                <div 
-                  key={guest.uid} 
-                  className="w-32 h-40 bg-black/60 rounded-xl border border-white/10 overflow-hidden relative shadow-2xl"
-                >
-                  {guest.hasVideo ? (
-                    <div 
-                      className="w-full h-full"
-                      ref={(el) => {
-                        if (el && guest.videoTrack) {
-                          guest.videoTrack.play(el);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                      {profile?.avatar_url ? (
-                        <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover opacity-50" alt="" />
-                      ) : (
-                        <Users size={24} className="text-white/20" />
-                      )}
-                    </div>
-                  )}
-                  <div className="absolute bottom-1 left-1 bg-black/40 px-1.5 py-0.5 rounded text-[8px] text-white font-black uppercase">
-                    {profile?.username || `Convidado ${idx + 1}`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+      <div id="remote-player" className="absolute inset-0 bg-zinc-900" />
       
       <div className="relative flex-1 flex flex-col p-4 justify-between bg-gradient-to-b from-black/40 via-transparent to-black/60">
         <div className="flex items-center justify-between">
@@ -738,17 +343,9 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={handleRefresh}
-              className="p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10 transition-all active:scale-90"
-            >
-              <Radio size={20} />
-            </button>
-            <button onClick={onClose} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10">
-              <X size={20} />
-            </button>
-          </div>
+          <button onClick={onClose} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10">
+            <X size={20} />
+          </button>
         </div>
 
         {loading && (
@@ -790,16 +387,6 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           </div>
 
           <div className="flex items-center gap-3">
-            {multiGuestEnabled && !isGuest && guests.length < 4 && (
-              <button 
-                onClick={handleJoinGuest}
-                className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/20 active:scale-95 transition-transform border border-white/10"
-                title="Entrar na Live"
-              >
-                <Users size={22} />
-              </button>
-            )}
-            
             <div className="flex-1 relative">
               <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendComment()} placeholder="Diz um mambo..." className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-full py-3.5 px-6 text-xs text-white placeholder:text-white/40 outline-none focus:border-red-600 transition-all shadow-xl" />
               <button onClick={handleSendComment} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-red-600"><Send size={20} /></button>

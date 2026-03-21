@@ -69,7 +69,6 @@ export interface LiveStream {
   channel_name: string;
   viewer_count: number;
   is_active: boolean;
-  multi_guest_enabled: boolean;
   started_at: string;
   profiles?: Profile;
 }
