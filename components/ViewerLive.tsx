@@ -47,6 +47,14 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   const [guests, setGuests] = useState<IAgoraRTCRemoteUser[]>([]);
   const [guestProfiles, setGuestProfiles] = useState<Record<string, Profile>>({});
   const [localGuestTracks, setLocalGuestTracks] = useState<{ videoTrack: ICameraVideoTrack, audioTrack: IMicrophoneAudioTrack } | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const addLog = useCallback((msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [`[${timestamp}] ${msg}`, ...prev].slice(0, 50));
+    console.log(`[DEBUG] ${msg}`);
+  }, []);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const hostVideoRef = useRef<HTMLDivElement>(null);
@@ -85,6 +93,9 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     const setupLive = async () => {
       try {
+        addLog(`Iniciando setup para canal: ${channelName}`);
+        addLog(`Host ID esperado: ${hostId}`);
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           setError('Precisas de estar logado para ver a live.');
@@ -199,14 +210,21 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     setupLive();
 
     agoraService.onUserPublished(async (user, mediaType) => {
+      addLog(`Usuário publicou: ${user.uid} (${mediaType})`);
       await agoraService.subscribe(user, mediaType);
+      
       if (mediaType === 'video') {
-        if (String(user.uid) === String(hostId)) {
+        const isHost = String(user.uid) === String(hostId);
+        addLog(`Comparação: ${user.uid} === ${hostId} ? ${isHost}`);
+        
+        if (isHost) {
+          addLog('Host identificado, iniciando reprodução de vídeo');
           hostVideoTrackRef.current = user.videoTrack;
           if (hostVideoRef.current) {
             user.videoTrack?.play(hostVideoRef.current);
           }
         } else {
+          addLog('Usuário identificado como convidado');
           setGuests(prev => {
             if (prev.find(g => g.uid === user.uid)) return prev;
             return [...prev, user];
@@ -228,16 +246,20 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     });
 
     agoraService.onUserUnpublished((user, mediaType) => {
+      addLog(`Usuário despublicou: ${user.uid} (${mediaType})`);
       if (mediaType === 'video') {
         if (String(user.uid) === String(hostId)) {
+          addLog('Host despublicou vídeo');
           hostVideoTrackRef.current = null;
         } else {
+          addLog('Convidado despublicou vídeo');
           setGuests(prev => [...prev]);
         }
       }
     });
 
     agoraService.onUserLeft((user) => {
+      addLog(`Usuário saiu: ${user.uid}`);
       setGuests(prev => prev.filter(g => g.uid !== user.uid));
       setGuestProfiles(prev => {
         const next = { ...prev };
@@ -253,7 +275,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [channelName, isGuest, toggleMic, handleLeaveGuest, hostId]);
+  }, [channelName, isGuest, toggleMic, handleLeaveGuest, hostId, addLog]);
 
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current || !userProfile) return;
@@ -440,6 +462,46 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
   return (
     <div className="absolute inset-0 z-[200] bg-black flex flex-col">
+      {/* Debug Toggle - Small indicator in top right corner */}
+      <div 
+        className="absolute top-4 right-12 z-[300] w-8 h-8 flex items-center justify-center opacity-20 hover:opacity-100 cursor-pointer bg-white/10 rounded-full"
+        onClick={() => setShowDebug(!showDebug)}
+      >
+        <AlertCircle size={14} className="text-white" />
+      </div>
+
+      {/* Debug Popup */}
+      <AnimatePresence>
+        {showDebug && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-4 z-[400] bg-black/95 border border-white/20 rounded-3xl p-6 flex flex-col"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-black uppercase tracking-widest text-xs">Debug Logs</h3>
+              <button onClick={() => setShowDebug(false)} className="text-white/60 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 font-mono text-[10px]">
+              {debugLogs.map((log, i) => (
+                <div key={i} className="text-zinc-400 border-b border-white/5 pb-1">
+                  {log}
+                </div>
+              ))}
+              {debugLogs.length === 0 && <div className="text-zinc-600 italic">Nenhum log capturado</div>}
+            </div>
+            <button 
+              onClick={() => setDebugLogs([])}
+              className="mt-4 w-full py-3 bg-zinc-900 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl"
+            >
+              Limpar Logs
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="absolute inset-0 bg-zinc-900">
         <div ref={hostVideoRef} className="w-full h-full object-cover" />
         
