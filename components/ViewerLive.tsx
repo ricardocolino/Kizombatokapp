@@ -201,7 +201,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     agoraService.onUserPublished(async (user, mediaType) => {
       await agoraService.subscribe(user, mediaType);
       if (mediaType === 'video') {
-        if (user.uid === hostId) {
+        if (String(user.uid) === String(hostId)) {
           hostVideoTrackRef.current = user.videoTrack;
           if (hostVideoRef.current) {
             user.videoTrack?.play(hostVideoRef.current);
@@ -216,7 +216,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           const { data } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', user.uid)
+            .eq('id', String(user.uid))
             .single();
           if (data) {
             setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
@@ -229,7 +229,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
     agoraService.onUserUnpublished((user, mediaType) => {
       if (mediaType === 'video') {
-        if (user.uid === hostId) {
+        if (String(user.uid) === String(hostId)) {
           hostVideoTrackRef.current = null;
         } else {
           setGuests(prev => [...prev]);
