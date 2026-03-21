@@ -132,7 +132,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
     setupLive();
 
-    agoraService.onUserPublished(async (user, mediaType) => {
+    const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
       await agoraService.subscribe(user, mediaType);
       if (mediaType === 'video') {
         setGuests(prev => {
@@ -150,24 +150,28 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
           setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
         }
       }
-    });
+    };
 
-    agoraService.onUserUnpublished((user, mediaType) => {
+    const handleUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
       if (mediaType === 'video') {
         // We keep the user in guests but their videoTrack will be null
         // or we can just force a re-render
         setGuests(prev => [...prev]);
       }
-    });
+    };
 
-    agoraService.onUserLeft((user) => {
+    const handleUserLeft = (user: IAgoraRTCRemoteUser) => {
       setGuests(prev => prev.filter(g => g.uid !== user.uid));
       setGuestProfiles(prev => {
         const next = { ...prev };
         delete next[user.uid];
         return next;
       });
-    });
+    };
+
+    agoraService.onUserPublished(handleUserPublished);
+    agoraService.onUserUnpublished(handleUserUnpublished);
+    agoraService.onUserLeft(handleUserLeft);
 
     const refreshProfile = async () => {
       const { data } = await supabase
@@ -253,6 +257,9 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
     return () => {
       isMounted = false;
+      agoraService.offUserPublished(handleUserPublished);
+      agoraService.offUserUnpublished(handleUserUnpublished);
+      agoraService.offUserLeft(handleUserLeft);
       const endLive = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {

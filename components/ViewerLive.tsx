@@ -91,6 +91,74 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       }
     };
 
+    const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
+      addLog(`Usuário publicou: ${user.uid} (${mediaType})`);
+      try {
+        await agoraService.subscribe(user, mediaType);
+        addLog(`Subscrito com sucesso a ${user.uid} (${mediaType})`);
+        
+        if (mediaType === 'video') {
+          const isHost = String(user.uid) === String(hostId);
+          addLog(`Comparação: ${user.uid} === ${hostId} ? ${isHost}`);
+          
+          if (isHost) {
+            addLog('Host identificado, iniciando reprodução de vídeo');
+            hostVideoTrackRef.current = user.videoTrack;
+            if (hostVideoRef.current && user.videoTrack) {
+              addLog('Container do host encontrado, chamando play()');
+              user.videoTrack.play(hostVideoRef.current);
+            } else {
+              addLog(`AVISO: Container do host não encontrado ou track nula. Ref: ${!!hostVideoRef.current}, Track: ${!!user.videoTrack}`);
+            }
+          } else {
+            addLog('Usuário identificado como convidado');
+            setGuests(prev => {
+              if (prev.find(g => g.uid === user.uid)) return prev;
+              return [...prev, user];
+            });
+            
+            // Fetch guest profile
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', String(user.uid))
+              .single();
+            if (data) {
+              setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
+            }
+          }
+        } else if (mediaType === 'audio') {
+          user.audioTrack?.play();
+          addLog(`Áudio de ${user.uid} em reprodução`);
+        }
+      } catch (err) {
+        addLog(`ERRO ao subscrever/tocar track de ${user.uid}: ${err}`);
+      }
+    };
+
+    const handleUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => {
+      addLog(`Usuário despublicou: ${user.uid} (${mediaType})`);
+      if (mediaType === 'video') {
+        if (String(user.uid) === String(hostId)) {
+          addLog('Host despublicou vídeo');
+          hostVideoTrackRef.current = null;
+        } else {
+          addLog('Convidado despublicou vídeo');
+          setGuests(prev => [...prev]);
+        }
+      }
+    };
+
+    const handleUserLeft = (user: IAgoraRTCRemoteUser) => {
+      addLog(`Usuário saiu: ${user.uid}`);
+      setGuests(prev => prev.filter(g => g.uid !== user.uid));
+      setGuestProfiles(prev => {
+        const next = { ...prev };
+        delete next[user.uid];
+        return next;
+      });
+    };
+
     const setupLive = async () => {
       try {
         addLog(`Iniciando setup para canal: ${channelName}`);
@@ -102,6 +170,11 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           setLoading(false);
           return;
         }
+
+        // Attach listeners BEFORE joining
+        agoraService.onUserPublished(handleUserPublished);
+        agoraService.onUserUnpublished(handleUserUnpublished);
+        agoraService.onUserLeft(handleUserLeft);
 
         // Check if live is active
         const { data: liveData } = await supabase
@@ -131,7 +204,9 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           if (profile && isMounted) setUserProfile(profile);
         }
 
+        addLog(`Entrando no canal Agora como audiência...`);
         await agoraService.joinAsAudience(channelName, session.user.id);
+        addLog(`Entrou no canal Agora com sucesso.`);
         
         if (isMounted) {
           setLoading(false);
@@ -203,73 +278,18 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
       } catch (err) {
         if (!isMounted) return;
         console.error('Erro ao entrar na live:', err);
+        addLog(`ERRO CRÍTICO no setupLive: ${err}`);
         setError('Não foi possível conectar à live. Tenta novamente.');
       }
     };
 
     setupLive();
 
-    agoraService.onUserPublished(async (user, mediaType) => {
-      addLog(`Usuário publicou: ${user.uid} (${mediaType})`);
-      await agoraService.subscribe(user, mediaType);
-      
-      if (mediaType === 'video') {
-        const isHost = String(user.uid) === String(hostId);
-        addLog(`Comparação: ${user.uid} === ${hostId} ? ${isHost}`);
-        
-        if (isHost) {
-          addLog('Host identificado, iniciando reprodução de vídeo');
-          hostVideoTrackRef.current = user.videoTrack;
-          if (hostVideoRef.current) {
-            user.videoTrack?.play(hostVideoRef.current);
-          }
-        } else {
-          addLog('Usuário identificado como convidado');
-          setGuests(prev => {
-            if (prev.find(g => g.uid === user.uid)) return prev;
-            return [...prev, user];
-          });
-          
-          // Fetch guest profile
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', String(user.uid))
-            .single();
-          if (data) {
-            setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
-          }
-        }
-      } else if (mediaType === 'audio') {
-        user.audioTrack?.play();
-      }
-    });
-
-    agoraService.onUserUnpublished((user, mediaType) => {
-      addLog(`Usuário despublicou: ${user.uid} (${mediaType})`);
-      if (mediaType === 'video') {
-        if (String(user.uid) === String(hostId)) {
-          addLog('Host despublicou vídeo');
-          hostVideoTrackRef.current = null;
-        } else {
-          addLog('Convidado despublicou vídeo');
-          setGuests(prev => [...prev]);
-        }
-      }
-    });
-
-    agoraService.onUserLeft((user) => {
-      addLog(`Usuário saiu: ${user.uid}`);
-      setGuests(prev => prev.filter(g => g.uid !== user.uid));
-      setGuestProfiles(prev => {
-        const next = { ...prev };
-        delete next[user.uid];
-        return next;
-      });
-    });
-
     return () => {
       isMounted = false;
+      agoraService.offUserPublished(handleUserPublished);
+      agoraService.offUserUnpublished(handleUserUnpublished);
+      agoraService.offUserLeft(handleUserLeft);
       agoraService.leave();
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

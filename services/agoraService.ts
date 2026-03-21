@@ -68,8 +68,16 @@ export class AgoraService {
     this.client.on('user-published', callback);
   }
 
+  offUserPublished(callback: (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => void) {
+    this.client.off('user-published', callback);
+  }
+
   onUserUnpublished(callback: (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => void) {
     this.client.on('user-unpublished', callback);
+  }
+
+  offUserUnpublished(callback: (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => void) {
+    this.client.off('user-unpublished', callback);
   }
 
   async subscribe(user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') {
@@ -156,8 +164,16 @@ export class AgoraService {
     this.client.on('user-joined', callback);
   }
 
+  offUserJoined(callback: (user: IAgoraRTCRemoteUser) => void) {
+    this.client.off('user-joined', callback);
+  }
+
   onUserLeft(callback: (user: IAgoraRTCRemoteUser) => void) {
     this.client.on('user-left', callback);
+  }
+
+  offUserLeft(callback: (user: IAgoraRTCRemoteUser) => void) {
+    this.client.off('user-left', callback);
   }
 }
 
