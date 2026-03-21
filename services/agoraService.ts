@@ -1,4 +1,4 @@
-import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
+import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 
 const APP_ID = '4cc52d49125644ab8adc2bea9593f1e0';
 
@@ -64,6 +64,55 @@ export class AgoraService {
     }
   }
 
+  onUserPublished(callback: (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => void) {
+    this.client.on('user-published', callback);
+  }
+
+  onUserUnpublished(callback: (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') => void) {
+    this.client.on('user-unpublished', callback);
+  }
+
+  async subscribe(user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio') {
+    await this.client.subscribe(user, mediaType);
+  }
+
+  async setRole(role: 'host' | 'audience') {
+    await this.client.setClientRole(role);
+  }
+
+  async publishTracks() {
+    if (!this.localAudioTrack || !this.localVideoTrack) {
+      this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+    }
+    await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+    return { videoTrack: this.localVideoTrack, audioTrack: this.localAudioTrack };
+  }
+
+  async unpublishTracks() {
+    if (this.localAudioTrack || this.localVideoTrack) {
+      await this.client.unpublish();
+      this.localAudioTrack?.stop();
+      this.localAudioTrack?.close();
+      this.localVideoTrack?.stop();
+      this.localVideoTrack?.close();
+      this.localAudioTrack = null;
+      this.localVideoTrack = null;
+    }
+  }
+
+  async muteAudio(mute: boolean) {
+    if (this.localAudioTrack) {
+      await this.localAudioTrack.setEnabled(!mute);
+    }
+  }
+
+  async muteVideo(mute: boolean) {
+    if (this.localVideoTrack) {
+      await this.localVideoTrack.setEnabled(!mute);
+    }
+  }
+
   async joinAsAudience(channelName: string, uid: string | number | null = null, token: string | null = null) {
     if (this.client.connectionState !== 'DISCONNECTED') {
       await this.leave();
@@ -84,21 +133,6 @@ export class AgoraService {
       }
       throw err;
     }
-    
-    this.client.on('user-published', async (user, mediaType) => {
-      try {
-        await this.client.subscribe(user, mediaType);
-        if (mediaType === 'video') {
-          const remoteVideoTrack = user.videoTrack;
-          remoteVideoTrack?.play('remote-player');
-        }
-        if (mediaType === 'audio') {
-          user.audioTrack?.play();
-        }
-      } catch (err) {
-        console.error('Erro ao subscrever utilizador remoto:', err);
-      }
-    });
   }
 
   async leave() {
@@ -118,11 +152,11 @@ export class AgoraService {
     }
   }
 
-  onUserJoined(callback: (user: { uid: string | number }) => void) {
+  onUserJoined(callback: (user: IAgoraRTCRemoteUser) => void) {
     this.client.on('user-joined', callback);
   }
 
-  onUserLeft(callback: (user: { uid: string | number }) => void) {
+  onUserLeft(callback: (user: IAgoraRTCRemoteUser) => void) {
     this.client.on('user-left', callback);
   }
 }

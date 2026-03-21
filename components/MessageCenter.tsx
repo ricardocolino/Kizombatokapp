@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { Profile, LiveStream as LiveStreamType } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Bell, Camera, Hand } from 'lucide-react';
-import ViewerLive from './ViewerLive';
+import LiveVerticalFeed from './LiveVerticalFeed';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -28,7 +28,7 @@ interface NotificationItem {
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
-  const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
+  const [activeLiveIndex, setActiveLiveIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = React.useCallback(async () => {
@@ -159,12 +159,11 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   return (
     <div className="h-full flex flex-col bg-black overflow-hidden text-white">
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
-        {selectedLive && (
-          <ViewerLive 
-            channelName={selectedLive.channel_name}
-            onClose={() => setSelectedLive(null)}
-            hostProfile={selectedLive.profiles}
-            hostId={selectedLive.user_id}
+        {activeLiveIndex !== null && (
+          <LiveVerticalFeed 
+            lives={activeLives}
+            initialIndex={activeLiveIndex}
+            onClose={() => setActiveLiveIndex(null)}
           />
         )}
 
@@ -178,10 +177,10 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             {/* Top Horizontal List (Stories/Lives) */}
             <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar border-b border-zinc-900">
               {/* Active Lives */}
-              {activeLives.map(live => (
+              {activeLives.map((live, index) => (
                 <div 
                   key={live.id}
-                  onClick={() => setSelectedLive(live)}
+                  onClick={() => setActiveLiveIndex(index)}
                   className="flex flex-col items-center gap-2 shrink-0 cursor-pointer"
                 >
                   <div className="relative">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
+import { ICameraVideoTrack, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 import { agoraService } from '../services/agoraService';
 import { X, Users, Heart, Send, Loader2, Settings, Shield, Ban, MessageCircle, AlertCircle, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -32,7 +32,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
   const videoRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewerCount] = useState(0);
+  const [viewerCount, setViewerCount] = useState(0);
   const [comments, setComments] = useState<LiveComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [likes, setLikes] = useState(0);
@@ -41,16 +41,36 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
   const [activeGift, setActiveGift] = useState<{ name: string, username: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [currentHostProfile, setCurrentHostProfile] = useState<Profile>(hostProfile);
+  const [multiGuestEnabled, setMultiGuestEnabled] = useState(false);
+  const [guests, setGuests] = useState<IAgoraRTCRemoteUser[]>([]);
+  const [guestProfiles, setGuestProfiles] = useState<Record<string, Profile>>({});
 
-  const channelRef = useRef<{
-    send: (payload: { type: string; event: string; payload?: Record<string, unknown> }) => Promise<string>;
-    subscribe: (callback?: (status: string) => void) => void;
-    unsubscribe: () => void;
-  } | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     let localTracks: { videoTrack: ICameraVideoTrack, audioTrack: IMicrophoneAudioTrack } | null = null;
     let isMounted = true;
+
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from('comments')
+        .select('*, profiles!user_id(*)')
+        .eq('post_id', `live:${channelName}`)
+        .order('created_at', { ascending: true })
+        .limit(50);
+      
+      if (data && isMounted) {
+        const historyComments: LiveComment[] = data.map(c => ({
+          id: c.id.toString(),
+          userId: c.user_id,
+          username: c.profiles?.username || 'Anónimo',
+          avatarUrl: c.profiles?.avatar_url || undefined,
+          text: c.content,
+          type: c.content.includes('enviou um') && c.content.includes('🎁') ? 'gift' : undefined
+        }));
+        setComments(prev => [...historyComments, ...prev.filter(pc => pc.type === 'system')]);
+      }
+    };
 
     const setupLive = async () => {
       try {
@@ -81,12 +101,15 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
             channel_name: channelName,
             title: title || 'Live de Angola 🇦🇴',
             is_active: true,
-            viewer_count: 0
+            viewer_count: 1,
+            multi_guest_enabled: false
           });
           
           if (dbError) {
             console.error('Erro ao registar live na DB:', dbError);
           }
+
+          fetchHistory();
         }
         
         if (isMounted) {
@@ -108,6 +131,43 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
     };
 
     setupLive();
+
+    agoraService.onUserPublished(async (user, mediaType) => {
+      await agoraService.subscribe(user, mediaType);
+      if (mediaType === 'video') {
+        setGuests(prev => {
+          if (prev.find(g => g.uid === user.uid)) return prev;
+          return [...prev, user];
+        });
+        
+        // Fetch guest profile
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.uid)
+          .single();
+        if (data) {
+          setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
+        }
+      }
+    });
+
+    agoraService.onUserUnpublished((user, mediaType) => {
+      if (mediaType === 'video') {
+        // We keep the user in guests but their videoTrack will be null
+        // or we can just force a re-render
+        setGuests(prev => [...prev]);
+      }
+    });
+
+    agoraService.onUserLeft((user) => {
+      setGuests(prev => prev.filter(g => g.uid !== user.uid));
+      setGuestProfiles(prev => {
+        const next = { ...prev };
+        delete next[user.uid];
+        return next;
+      });
+    });
 
     const refreshProfile = async () => {
       const { data } = await supabase
@@ -139,10 +199,30 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
       )
       .subscribe();
 
-    channelRef.current = supabase.channel(`live_${channelName}`)
+    const channel = supabase.channel(`live_${channelName}`, {
+      config: {
+        presence: {
+          key: hostProfile.id,
+        },
+      },
+    });
+
+    channelRef.current = channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const count = Object.keys(state).length;
+        if (isMounted) {
+          setViewerCount(count);
+          // Host updates the global count in DB
+          supabase.from('lives').update({ viewer_count: count }).eq('channel_name', channelName).eq('is_active', true).then();
+        }
+      })
       .on('broadcast', { event: 'comment' }, ({ payload }) => {
         if (isMounted) {
-          setComments(prev => [...prev, payload]);
+          setComments(prev => {
+            if (prev.find(c => c.id === payload.id)) return prev;
+            return [...prev, payload];
+          });
           if (payload.type === 'gift') {
             setActiveGift({ name: payload.giftName, username: payload.username });
             
@@ -162,14 +242,21 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
       .on('broadcast', { event: 'like' }, () => {
         if (isMounted) setLikes(prev => prev + 1);
       })
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && isMounted) {
+          await channel.track({
+            user_id: hostProfile.id,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
 
     return () => {
       isMounted = false;
       const endLive = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          await supabase.from('lives').update({ is_active: false }).eq('channel_name', channelName).eq('user_id', session.user.id);
+          await supabase.from('lives').update({ is_active: false, viewer_count: 0 }).eq('channel_name', channelName).eq('user_id', session.user.id);
         }
         await agoraService.leave();
       };
@@ -184,23 +271,71 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current) return;
     
-    const comment = { 
-      id: Date.now().toString(), 
+    const commentId = Date.now().toString();
+    const comment: LiveComment = { 
+      id: commentId, 
       userId: currentHostProfile.id,
       username: currentHostProfile.username || 'Host', 
-      avatarUrl: currentHostProfile.avatar_url,
+      avatarUrl: currentHostProfile.avatar_url || undefined,
       text: newComment 
     };
 
     setComments(prev => [...prev, comment]);
     setNewComment('');
 
+    // Persist to DB
+    await supabase.from('comments').insert({
+      post_id: `live:${channelName}`,
+      user_id: currentHostProfile.id,
+      content: newComment
+    });
+
     await channelRef.current.send({
       type: 'broadcast',
       event: 'comment',
       payload: comment
     });
-  }, [newComment, currentHostProfile]);
+  }, [newComment, currentHostProfile, channelName]);
+
+  const toggleMultiGuest = async () => {
+    const newState = !multiGuestEnabled;
+    setMultiGuestEnabled(newState);
+    
+    // Update DB
+    await supabase.from('lives')
+      .update({ multi_guest_enabled: newState })
+      .eq('channel_name', channelName)
+      .eq('is_active', true);
+
+    // Broadcast change
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'multi_guest_toggle',
+        payload: { enabled: newState }
+      });
+    }
+  };
+
+  const handleKickGuest = async (uid: string | number) => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'guest_action',
+        payload: { type: 'kick', targetUid: uid }
+      });
+    }
+  };
+
+  const handleMuteGuestAudio = async (uid: string | number) => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'guest_action',
+        payload: { type: 'mute_audio', targetUid: uid }
+      });
+    }
+  };
 
   if (error) {
     return (
@@ -220,7 +355,72 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col">
-      <div ref={videoRef} className="absolute inset-0 bg-zinc-900" />
+      <div className="absolute inset-0 bg-zinc-900">
+        <div ref={videoRef} className="w-full h-full object-cover" />
+        
+        {/* Guest Windows Grid */}
+        {multiGuestEnabled && (
+          <div className="absolute top-20 right-4 w-32 flex flex-col gap-2 z-10">
+            {guests.slice(0, 4).map((guest, idx) => {
+              const profile = guestProfiles[guest.uid];
+              return (
+                <div 
+                  key={guest.uid} 
+                  id={`guest-${guest.uid}`}
+                  className="w-32 h-40 bg-black/60 rounded-xl border border-white/10 overflow-hidden relative shadow-2xl group"
+                >
+                  {guest.hasVideo ? (
+                    <div 
+                      className="w-full h-full"
+                      ref={(el) => {
+                        if (el && guest.videoTrack) {
+                          guest.videoTrack.play(el);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                      {profile?.avatar_url ? (
+                        <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover opacity-50" alt="" />
+                      ) : (
+                        <Users size={24} className="text-white/20" />
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Host Controls for Guest */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                    <button 
+                      onClick={() => handleMuteGuestAudio(guest.uid)}
+                      className="p-1.5 bg-zinc-900/80 rounded-full text-white hover:bg-red-600 transition-colors"
+                      title="Mudar Áudio"
+                    >
+                      <MessageCircle size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleKickGuest(guest.uid)}
+                      className="p-1.5 bg-zinc-900/80 rounded-full text-white hover:bg-red-600 transition-colors"
+                      title="Remover"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="absolute bottom-1 left-1 bg-black/40 px-1.5 py-0.5 rounded text-[8px] text-white font-black uppercase">
+                    {profile?.username || `Convidado ${idx + 1}`}
+                  </div>
+                </div>
+              );
+            })}
+            {guests.length === 0 && (
+              <div className="w-32 h-40 bg-white/5 rounded-xl border border-dashed border-white/20 flex flex-col items-center justify-center text-center p-2">
+                <Users size={16} className="text-white/20 mb-1" />
+                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Vazio</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       
       <div className="relative flex-1 flex flex-col p-4 justify-between bg-gradient-to-b from-black/40 via-transparent to-black/60">
         <div className="flex items-center justify-between">
@@ -332,6 +532,13 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
               <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-8" />
               <h3 className="text-xl font-black text-white mb-8 uppercase tracking-tighter flex items-center gap-3"><Settings className="text-red-600" /> Painel do Host</h3>
               <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={toggleMultiGuest}
+                  className={`flex flex-col items-center gap-3 p-6 rounded-[24px] border transition-colors ${multiGuestEnabled ? 'bg-purple-500/20 border-purple-500/40' : 'bg-white/5 border-white/5'}`}
+                >
+                  <Users className={multiGuestEnabled ? 'text-purple-500' : 'text-white/40'} size={28} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Multi-Guest</span>
+                </button>
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><Shield className="text-blue-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Moderadores</span></button>
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><Ban className="text-red-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Bloqueados</span></button>
                 <button className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-[24px] border border-white/5 hover:bg-white/10 transition-colors"><MessageCircle className="text-green-500" size={28} /><span className="text-[10px] font-black uppercase tracking-widest text-white/60">Filtros Chat</span></button>
