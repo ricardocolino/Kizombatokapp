@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { Profile, LiveStream as LiveStreamType } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Bell, Camera, Hand } from 'lucide-react';
-import LiveVerticalFeed from './LiveVerticalFeed';
+import ViewerLive from './ViewerLive';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -28,7 +28,7 @@ interface NotificationItem {
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
-  const [activeLiveIndex, setActiveLiveIndex] = useState<number | null>(null);
+  const [activeLive, setActiveLive] = useState<LiveStreamType | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = React.useCallback(async () => {
@@ -159,13 +159,14 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   return (
     <div className="h-full flex flex-col bg-black overflow-hidden text-white">
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
-        {activeLiveIndex !== null && (
-          <LiveVerticalFeed 
-            lives={activeLives}
-            initialIndex={activeLiveIndex}
-            onClose={() => setActiveLiveIndex(null)}
-          />
-        )}
+      {activeLive && (
+        <ViewerLive 
+          channelName={activeLive.channel_name}
+          onClose={() => setActiveLive(null)}
+          hostProfile={activeLive.profiles}
+          hostId={activeLive.user_id}
+        />
+      )}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
@@ -177,10 +178,10 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             {/* Top Horizontal List (Stories/Lives) */}
             <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar border-b border-zinc-900">
               {/* Active Lives */}
-              {activeLives.map((live, index) => (
+              {activeLives.map((live) => (
                 <div 
                   key={live.id}
-                  onClick={() => setActiveLiveIndex(index)}
+                  onClick={() => setActiveLive(live)}
                   className="flex flex-col items-center gap-2 shrink-0 cursor-pointer"
                 >
                   <div className="relative">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { IAgoraRTCRemoteUser, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
+import { IAgoraRTCRemoteUser, ICameraVideoTrack, IMicrophoneAudioTrack, IRemoteVideoTrack } from 'agora-rtc-sdk-ng';
 import { agoraService } from '../services/agoraService';
 import { X, Users, Heart, Send, Loader2, Gift, AlertCircle, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -50,7 +50,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const hostVideoRef = useRef<HTMLDivElement>(null);
-  const hostVideoTrackRef = useRef<any>(null);
+  const hostVideoTrackRef = useRef<IRemoteVideoTrack | null>(null);
 
   // Effect to play host video when ref is ready
   useEffect(() => {
