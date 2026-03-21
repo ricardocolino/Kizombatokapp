@@ -49,6 +49,15 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   const [localGuestTracks, setLocalGuestTracks] = useState<{ videoTrack: ICameraVideoTrack, audioTrack: IMicrophoneAudioTrack } | null>(null);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const hostVideoRef = useRef<HTMLDivElement>(null);
+  const hostVideoTrackRef = useRef<any>(null);
+
+  // Effect to play host video when ref is ready
+  useEffect(() => {
+    if (hostVideoTrackRef.current && hostVideoRef.current && !loading) {
+      hostVideoTrackRef.current.play(hostVideoRef.current);
+    }
+  }, [loading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -111,7 +120,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
           if (profile && isMounted) setUserProfile(profile);
         }
 
-        await agoraService.joinAsAudience(channelName);
+        await agoraService.joinAsAudience(channelName, session.user.id);
         
         if (isMounted) {
           setLoading(false);
@@ -192,26 +201,39 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
     agoraService.onUserPublished(async (user, mediaType) => {
       await agoraService.subscribe(user, mediaType);
       if (mediaType === 'video') {
-        setGuests(prev => {
-          if (prev.find(g => g.uid === user.uid)) return prev;
-          return [...prev, user];
-        });
-        
-        // Fetch guest profile
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.uid)
-          .single();
-        if (data) {
-          setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
+        if (user.uid === hostId) {
+          hostVideoTrackRef.current = user.videoTrack;
+          if (hostVideoRef.current) {
+            user.videoTrack?.play(hostVideoRef.current);
+          }
+        } else {
+          setGuests(prev => {
+            if (prev.find(g => g.uid === user.uid)) return prev;
+            return [...prev, user];
+          });
+          
+          // Fetch guest profile
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.uid)
+            .single();
+          if (data) {
+            setGuestProfiles(prev => ({ ...prev, [user.uid]: data }));
+          }
         }
+      } else if (mediaType === 'audio') {
+        user.audioTrack?.play();
       }
     });
 
     agoraService.onUserUnpublished((user, mediaType) => {
       if (mediaType === 'video') {
-        setGuests(prev => [...prev]);
+        if (user.uid === hostId) {
+          hostVideoTrackRef.current = null;
+        } else {
+          setGuests(prev => [...prev]);
+        }
       }
     });
 
@@ -231,7 +253,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [channelName, isGuest, toggleMic, handleLeaveGuest]);
+  }, [channelName, isGuest, toggleMic, handleLeaveGuest, hostId]);
 
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current || !userProfile) return;
@@ -402,7 +424,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-center">
+      <div className="absolute inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-center">
         <div className="w-20 h-20 bg-red-600/20 rounded-full flex items-center justify-center mb-6">
           <AlertCircle className="w-10 h-10 text-red-600" />
         </div>
@@ -417,9 +439,9 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
   }
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+    <div className="absolute inset-0 z-[200] bg-black flex flex-col">
       <div className="absolute inset-0 bg-zinc-900">
-        <div id="remote-player" className="w-full h-full object-cover" />
+        <div ref={hostVideoRef} className="w-full h-full object-cover" />
         
         {/* Guest Windows Grid */}
         {multiGuestEnabled && (

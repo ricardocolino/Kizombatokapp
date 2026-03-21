@@ -75,7 +75,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
     const setupLive = async () => {
       try {
         try {
-          localTracks = await agoraService.joinAndPublish(channelName);
+          localTracks = await agoraService.joinAndPublish(channelName, hostProfile.id);
           if (!isMounted || !localTracks) {
             if (localTracks) await agoraService.leave();
             return;

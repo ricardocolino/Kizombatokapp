@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { LiveStream as LiveStreamType } from '../types';
 import ViewerLive from './ViewerLive';
 import { ChevronUp, ChevronDown } from 'lucide-react';
