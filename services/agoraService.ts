@@ -1,6 +1,6 @@
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 
-const APP_ID = '4cc52d49125644ab8adc2bea9593f1e0';
+const APP_ID = import.meta.env.VITE_AGORA_APP_ID || '4cc52d49125644ab8adc2bea9593f1e0';
 
 export class AgoraService {
   private client: IAgoraRTCClient;
@@ -9,6 +9,10 @@ export class AgoraService {
 
   constructor() {
     this.client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+  }
+
+  getClient() {
+    return this.client;
   }
 
   async joinAndPublish(channelName: string, uid: string | number | null = null, token: string | null = null) {
