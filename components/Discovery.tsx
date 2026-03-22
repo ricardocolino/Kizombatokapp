@@ -4,98 +4,19 @@ import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
 import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
-import ViewerLive from './ViewerLive';
 
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
 }
 
-interface ActiveLive {
-  id: string;
-  channel_name: string;
-  user_id: string;
-  profiles: Profile;
-  multi_guest_enabled: boolean;
-}
-
 const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeLives, setActiveLives] = useState<ActiveLive[]>([]);
-  const [selectedLive, setSelectedLive] = useState<ActiveLive | null>(null);
-
-  useEffect(() => {
-    const fetchActiveLives = async () => {
-      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
-      const { data } = await supabase
-        .from('lives')
-        .select('*, profiles!user_id(*)')
-        .eq('is_active', true)
-        .gt('updated_at', twoMinutesAgo)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      
-      if (data) {
-        const uniqueLivesMap = new Map();
-        data.forEach(live => {
-          if (!uniqueLivesMap.has(live.user_id)) {
-            uniqueLivesMap.set(live.user_id, live);
-          }
-        });
-        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
-      }
-    };
-
-    fetchActiveLives();
-
-    // Subscribe to lives changes
-    const livesSubscription = supabase
-      .channel('lives_discovery_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lives'
-        },
-        async () => {
-          const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
-          const { data } = await supabase
-            .from('lives')
-            .select('*, profiles!user_id(*)')
-            .eq('is_active', true)
-            .gt('updated_at', twoMinutesAgo)
-            .order('started_at', { ascending: false })
-            .limit(50);
-          
-          if (data) {
-            const uniqueLivesMap = new Map();
-            data.forEach(live => {
-              if (!uniqueLivesMap.has(live.user_id)) {
-                uniqueLivesMap.set(live.user_id, live);
-              }
-            });
-            setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
-          } else {
-            setActiveLives([]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(livesSubscription);
-    };
-  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleCloseLive = React.useCallback(() => {
-    setSelectedLive(null);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -257,63 +178,8 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                 <p className="text-xs text-zinc-100/90 font-bold uppercase tracking-widest mt-1">A Vibe de Angola 🇦🇴</p>
               </div>
               <TrendingUp size={100} className="absolute -right-4 -bottom-4 text-white/10 rotate-12" />
-              <div className="absolute top-0 right-0 p-4">
-                 <div className="bg-red-600 text-[10px] font-black px-2 py-0.5 rounded text-white uppercase">Live</div>
-              </div>
             </div>
           </div>
-
-          {/* Live Now Section */}
-          {activeLives.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4 px-4">
-                <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Live Agora</h2>
-              </div>
-              <div className="flex gap-4 px-4 overflow-x-auto no-scrollbar pb-2">
-                {activeLives.map((live) => (
-                  <div 
-                    key={live.id}
-                    onClick={() => setSelectedLive(live)}
-                    className="flex-shrink-0 w-20 flex flex-col items-center gap-2 cursor-pointer group active:scale-95 transition-transform"
-                  >
-                    <div className="relative w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-red-600 via-orange-500 to-yellow-500 shadow-lg shadow-red-600/20">
-                      <div className="w-full h-full rounded-full border-2 border-black overflow-hidden bg-zinc-900">
-                        {live.profiles?.avatar_url ? (
-                          <img 
-                            src={parseMediaUrl(live.profiles.avatar_url)} 
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
-                            alt="" 
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-lg font-black text-zinc-600">
-                            {live.profiles?.username?.[0].toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest border border-black shadow-lg">
-                        Live
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-bold text-zinc-500 truncate w-full text-center">
-                      @{live.profiles?.username}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {selectedLive && (
-            <div className="fixed inset-0 z-[100] bg-black">
-              <ViewerLive 
-                channelName={selectedLive.channel_name} 
-                onClose={handleCloseLive}
-                hostProfile={selectedLive.profiles}
-                hostId={selectedLive.user_id}
-              />
-            </div>
-          )}
 
           {/* Trending Tracks/Hashtags */}
           <div className="flex gap-2 overflow-x-auto px-4 mb-6 no-scrollbar pb-2">

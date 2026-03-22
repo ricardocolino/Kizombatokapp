@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Profile, LiveStream as LiveStreamType } from '../types';
+import { Profile } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Bell, Camera, Hand } from 'lucide-react';
-import ViewerLive from './ViewerLive';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -27,40 +26,13 @@ interface NotificationItem {
 
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
-  const [activeLive, setActiveLive] = useState<LiveStreamType | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const handleCloseLive = React.useCallback(() => {
-    setActiveLive(null);
-  }, []);
 
   const fetchNotifications = React.useCallback(async () => {
     if (!currentUser) return;
     try {
       setLoading(true);
       
-      // Fetch Active Lives - Ensure unique users
-      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
-      const { data: lives } = await supabase
-        .from('lives')
-        .select('*, profiles(*)')
-        .eq('is_active', true)
-        .gt('updated_at', twoMinutesAgo)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      
-      if (lives) {
-        // Filter unique users for lives
-        const uniqueLivesMap = new Map();
-        lives.forEach(live => {
-          if (!uniqueLivesMap.has(live.user_id)) {
-            uniqueLivesMap.set(live.user_id, live);
-          }
-        });
-        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
-      }
-
       // 1. Fetch Follows
       const { data: follows } = await supabase
         .from('follows')
@@ -135,71 +107,6 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
   useEffect(() => {
     fetchNotifications();
-
-    const fetchActiveLives = async () => {
-      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
-      const { data: lives } = await supabase
-        .from('lives')
-        .select('*, profiles(*)')
-        .eq('is_active', true)
-        .gt('updated_at', twoMinutesAgo)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      
-      if (lives) {
-        const uniqueLivesMap = new Map();
-        lives.forEach(live => {
-          if (!uniqueLivesMap.has(live.user_id)) {
-            uniqueLivesMap.set(live.user_id, live);
-          }
-        });
-        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
-      } else {
-        setActiveLives([]);
-      }
-    };
-
-    fetchActiveLives();
-
-    // Subscribe to lives changes
-    const livesSubscription = supabase
-      .channel('lives_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lives'
-        },
-        async () => {
-          // Re-fetch lives when any change occurs
-          const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
-          const { data: lives } = await supabase
-            .from('lives')
-            .select('*, profiles(*)')
-            .eq('is_active', true)
-            .gt('updated_at', twoMinutesAgo)
-            .order('started_at', { ascending: false })
-            .limit(50);
-          
-          if (lives) {
-            const uniqueLivesMap = new Map();
-            lives.forEach(live => {
-              if (!uniqueLivesMap.has(live.user_id)) {
-                uniqueLivesMap.set(live.user_id, live);
-              }
-            });
-            setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
-          } else {
-            setActiveLives([]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(livesSubscription);
-    };
   }, [fetchNotifications]);
 
   const formatTime = (dateStr: string) => {
@@ -229,15 +136,6 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   return (
     <div className="h-full flex flex-col bg-black overflow-hidden text-white">
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
-      {activeLive && (
-        <ViewerLive 
-          channelName={activeLive.channel_name}
-          onClose={handleCloseLive}
-          hostProfile={activeLive.profiles}
-          hostId={activeLive.user_id}
-        />
-      )}
-
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
             <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
@@ -245,42 +143,6 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
           </div>
         ) : (
           <div className="flex flex-col">
-            {/* Top Horizontal List (Stories/Lives) */}
-            <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar border-b border-zinc-900">
-              {/* Active Lives */}
-              {activeLives.map((live) => (
-                <div 
-                  key={live.id}
-                  onClick={() => setActiveLive(live)}
-                  className="flex flex-col items-center gap-2 shrink-0 cursor-pointer"
-                >
-                  <div className="relative">
-                    <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-[#fe2c55] to-[#ff0050]">
-                      <div className="w-full h-full rounded-full border-2 border-black overflow-hidden bg-zinc-900">
-                        {live.profiles?.avatar_url ? (
-                          <img src={parseMediaUrl(live.profiles.avatar_url)} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-zinc-500 font-bold">
-                            {live.profiles?.username?.[0].toUpperCase() || 'A'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#fe2c55] rounded-sm px-1 py-0.5 flex items-center justify-center border border-black">
-                      <div className="flex items-end gap-[1px] h-2">
-                        <div className="w-[1.5px] h-full bg-white animate-[pulse_1s_infinite]" />
-                        <div className="w-[1.5px] h-2/3 bg-white animate-[pulse_1.2s_infinite]" />
-                        <div className="w-[1.5px] h-full bg-white animate-[pulse_0.8s_infinite]" />
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-medium text-white truncate max-w-[64px]">
-                    {live.profiles?.username}
-                  </span>
-                </div>
-              ))}
-            </div>
-
             {/* Notification List */}
             <div className="flex flex-col">
               {notifications.map((notif) => (

@@ -61,15 +61,3 @@ export interface Follow {
   following_id: string;
   created_at: string;
 }
-
-export interface LiveStream {
-  id: string;
-  user_id: string;
-  title: string;
-  channel_name: string;
-  viewer_count: number;
-  is_active: boolean;
-  multi_guest_enabled: boolean;
-  started_at: string;
-  profiles?: Profile;
-}
