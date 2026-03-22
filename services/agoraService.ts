@@ -1,6 +1,6 @@
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 
-const APP_ID = import.meta.env.VITE_AGORA_APP_ID || '4cc52d49125644ab8adc2bea9593f1e0';
+const APP_ID = import.meta.env.VITE_AGORA_APP_ID || 'dbed3d587ca34b93ae30fcec0b24b62d';
 
 export class AgoraService {
   private client: IAgoraRTCClient;
