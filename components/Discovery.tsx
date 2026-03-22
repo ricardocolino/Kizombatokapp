@@ -32,9 +32,18 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         .from('lives')
         .select('*, profiles!user_id(*)')
         .eq('is_active', true)
-        .limit(10);
+        .order('started_at', { ascending: false })
+        .limit(50); // Fetch more to ensure we have enough after deduplication
       
-      if (data) setActiveLives(data);
+      if (data) {
+        const uniqueLivesMap = new Map();
+        data.forEach(live => {
+          if (!uniqueLivesMap.has(live.user_id)) {
+            uniqueLivesMap.set(live.user_id, live);
+          }
+        });
+        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
+      }
     };
 
     fetchActiveLives();
@@ -54,10 +63,20 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
             .from('lives')
             .select('*, profiles!user_id(*)')
             .eq('is_active', true)
-            .limit(10);
+            .order('started_at', { ascending: false })
+            .limit(50);
           
-          if (data) setActiveLives(data);
-          else setActiveLives([]);
+          if (data) {
+            const uniqueLivesMap = new Map();
+            data.forEach(live => {
+              if (!uniqueLivesMap.has(live.user_id)) {
+                uniqueLivesMap.set(live.user_id, live);
+              }
+            });
+            setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
+          } else {
+            setActiveLives([]);
+          }
         }
       )
       .subscribe();
@@ -69,6 +88,10 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleCloseLive = React.useCallback(() => {
+    setSelectedLive(null);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -281,7 +304,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
             <div className="fixed inset-0 z-[100] bg-black">
               <ViewerLive 
                 channelName={selectedLive.channel_name} 
-                onClose={() => setSelectedLive(null)}
+                onClose={handleCloseLive}
                 hostProfile={selectedLive.profiles}
                 hostId={selectedLive.user_id}
               />

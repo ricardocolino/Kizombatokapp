@@ -47,6 +47,28 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  const endLive = useCallback(async () => {
+    await supabase.from('lives')
+      .update({ is_active: false, viewer_count: 0 })
+      .eq('channel_name', channelName)
+      .eq('user_id', hostProfile.id);
+    await agoraService.leave();
+  }, [channelName, hostProfile.id]);
+
+  const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
+    // Use a synchronous-like approach or fire and forget
+    supabase.from('lives')
+      .update({ is_active: false, viewer_count: 0 })
+      .eq('channel_name', channelName)
+      .eq('user_id', hostProfile.id)
+      .then();
+    
+    agoraService.leave().then();
+
+    e.preventDefault();
+    e.returnValue = '';
+  }, [channelName, hostProfile.id]);
+
   useEffect(() => {
     let localTracks: { videoTrack: ICameraVideoTrack, audioTrack: IMicrophoneAudioTrack } | null = null;
     let isMounted = true;
@@ -96,6 +118,13 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted) {
           setCurrentUser({ id: session.user.id });
+          
+          // Mark previous lives as inactive
+          await supabase.from('lives')
+            .update({ is_active: false })
+            .eq('user_id', session.user.id)
+            .eq('is_active', true);
+
           const { error: dbError } = await supabase.from('lives').insert({
             user_id: session.user.id,
             channel_name: channelName,
@@ -129,28 +158,6 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         setError(setupErr.message || 'Ocorreu um erro ao tentar conectar à live.');
       }
     };
-
-    const endLive = useCallback(async () => {
-      await supabase.from('lives')
-        .update({ is_active: false, viewer_count: 0 })
-        .eq('channel_name', channelName)
-        .eq('user_id', hostProfile.id);
-      await agoraService.leave();
-    }, [channelName, hostProfile.id]);
-
-    const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
-      // Use a synchronous-like approach or fire and forget
-      supabase.from('lives')
-        .update({ is_active: false, viewer_count: 0 })
-        .eq('channel_name', channelName)
-        .eq('user_id', hostProfile.id)
-        .then();
-      
-      agoraService.leave().then();
-
-      e.preventDefault();
-      e.returnValue = '';
-    }, [channelName, hostProfile.id]);
 
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -291,7 +298,7 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         supabase.removeChannel(channelRef.current);
       }
     };
-  }, [channelName, title, hostProfile.id]);
+  }, [channelName, title, hostProfile.id, endLive, handleBeforeUnload]);
 
   const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || !channelRef.current) return;

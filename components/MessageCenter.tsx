@@ -31,6 +31,10 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   const [activeLive, setActiveLive] = useState<LiveStreamType | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const handleCloseLive = React.useCallback(() => {
+    setActiveLive(null);
+  }, []);
+
   const fetchNotifications = React.useCallback(async () => {
     if (!currentUser) return;
     try {
@@ -41,19 +45,18 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         .from('lives')
         .select('*, profiles(*)')
         .eq('is_active', true)
-        .order('started_at', { ascending: false });
+        .order('started_at', { ascending: false })
+        .limit(50);
       
       if (lives) {
         // Filter unique users for lives
-        const uniqueLives = lives.reduce((acc: LiveStreamType[], current) => {
-          const x = acc.find(item => item.user_id === current.user_id);
-          if (!x) {
-            return acc.concat([current]);
-          } else {
-            return acc;
+        const uniqueLivesMap = new Map();
+        lives.forEach(live => {
+          if (!uniqueLivesMap.has(live.user_id)) {
+            uniqueLivesMap.set(live.user_id, live);
           }
-        }, []);
-        setActiveLives(uniqueLives);
+        });
+        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
       }
 
       // 1. Fetch Follows
@@ -136,18 +139,17 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         .from('lives')
         .select('*, profiles(*)')
         .eq('is_active', true)
-        .order('started_at', { ascending: false });
+        .order('started_at', { ascending: false })
+        .limit(50);
       
       if (lives) {
-        const uniqueLives = lives.reduce((acc: LiveStreamType[], current) => {
-          const x = acc.find(item => item.user_id === current.user_id);
-          if (!x) {
-            return acc.concat([current]);
-          } else {
-            return acc;
+        const uniqueLivesMap = new Map();
+        lives.forEach(live => {
+          if (!uniqueLivesMap.has(live.user_id)) {
+            uniqueLivesMap.set(live.user_id, live);
           }
-        }, []);
-        setActiveLives(uniqueLives);
+        });
+        setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
       } else {
         setActiveLives([]);
       }
@@ -171,18 +173,17 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             .from('lives')
             .select('*, profiles(*)')
             .eq('is_active', true)
-            .order('started_at', { ascending: false });
+            .order('started_at', { ascending: false })
+            .limit(50);
           
           if (lives) {
-            const uniqueLives = lives.reduce((acc: LiveStreamType[], current) => {
-              const x = acc.find(item => item.user_id === current.user_id);
-              if (!x) {
-                return acc.concat([current]);
-              } else {
-                return acc;
+            const uniqueLivesMap = new Map();
+            lives.forEach(live => {
+              if (!uniqueLivesMap.has(live.user_id)) {
+                uniqueLivesMap.set(live.user_id, live);
               }
-            }, []);
-            setActiveLives(uniqueLives);
+            });
+            setActiveLives(Array.from(uniqueLivesMap.values()).slice(0, 10));
           } else {
             setActiveLives([]);
           }
@@ -225,7 +226,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
       {activeLive && (
         <ViewerLive 
           channelName={activeLive.channel_name}
-          onClose={() => setActiveLive(null)}
+          onClose={handleCloseLive}
           hostProfile={activeLive.profiles}
           hostId={activeLive.user_id}
         />
