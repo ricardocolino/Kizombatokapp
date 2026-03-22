@@ -28,7 +28,7 @@ interface NotificationItem {
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeLives, setActiveLives] = useState<LiveStreamType[]>([]);
-  const [selectedLive, setSelectedLive] = useState<LiveStreamType | null>(null);
+  const [activeLive, setActiveLive] = useState<LiveStreamType | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = React.useCallback(async () => {
@@ -130,6 +130,69 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
   useEffect(() => {
     fetchNotifications();
+
+    const fetchActiveLives = async () => {
+      const { data: lives } = await supabase
+        .from('lives')
+        .select('*, profiles(*)')
+        .eq('is_active', true)
+        .order('started_at', { ascending: false });
+      
+      if (lives) {
+        const uniqueLives = lives.reduce((acc: LiveStreamType[], current) => {
+          const x = acc.find(item => item.user_id === current.user_id);
+          if (!x) {
+            return acc.concat([current]);
+          } else {
+            return acc;
+          }
+        }, []);
+        setActiveLives(uniqueLives);
+      } else {
+        setActiveLives([]);
+      }
+    };
+
+    fetchActiveLives();
+
+    // Subscribe to lives changes
+    const livesSubscription = supabase
+      .channel('lives_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lives'
+        },
+        async () => {
+          // Re-fetch lives when any change occurs
+          const { data: lives } = await supabase
+            .from('lives')
+            .select('*, profiles(*)')
+            .eq('is_active', true)
+            .order('started_at', { ascending: false });
+          
+          if (lives) {
+            const uniqueLives = lives.reduce((acc: LiveStreamType[], current) => {
+              const x = acc.find(item => item.user_id === current.user_id);
+              if (!x) {
+                return acc.concat([current]);
+              } else {
+                return acc;
+              }
+            }, []);
+            setActiveLives(uniqueLives);
+          } else {
+            setActiveLives([]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(livesSubscription);
+    };
   }, [fetchNotifications]);
 
   const formatTime = (dateStr: string) => {
@@ -159,14 +222,14 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   return (
     <div className="h-full flex flex-col bg-black overflow-hidden text-white">
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
-        {selectedLive && (
-          <ViewerLive 
-            channelName={selectedLive.channel_name}
-            onClose={() => setSelectedLive(null)}
-            hostProfile={selectedLive.profiles}
-            hostId={selectedLive.user_id}
-          />
-        )}
+      {activeLive && (
+        <ViewerLive 
+          channelName={activeLive.channel_name}
+          onClose={() => setActiveLive(null)}
+          hostProfile={activeLive.profiles}
+          hostId={activeLive.user_id}
+        />
+      )}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
@@ -178,10 +241,10 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             {/* Top Horizontal List (Stories/Lives) */}
             <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar border-b border-zinc-900">
               {/* Active Lives */}
-              {activeLives.map(live => (
+              {activeLives.map((live) => (
                 <div 
                   key={live.id}
-                  onClick={() => setSelectedLive(live)}
+                  onClick={() => setActiveLive(live)}
                   className="flex flex-col items-center gap-2 shrink-0 cursor-pointer"
                 >
                   <div className="relative">
