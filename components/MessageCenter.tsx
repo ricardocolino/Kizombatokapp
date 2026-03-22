@@ -41,10 +41,12 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
       setLoading(true);
       
       // Fetch Active Lives - Ensure unique users
+      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
       const { data: lives } = await supabase
         .from('lives')
         .select('*, profiles(*)')
         .eq('is_active', true)
+        .gt('updated_at', twoMinutesAgo)
         .order('started_at', { ascending: false })
         .limit(50);
       
@@ -135,10 +137,12 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
     fetchNotifications();
 
     const fetchActiveLives = async () => {
+      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
       const { data: lives } = await supabase
         .from('lives')
         .select('*, profiles(*)')
         .eq('is_active', true)
+        .gt('updated_at', twoMinutesAgo)
         .order('started_at', { ascending: false })
         .limit(50);
       
@@ -169,10 +173,12 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         },
         async () => {
           // Re-fetch lives when any change occurs
+          const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
           const { data: lives } = await supabase
             .from('lives')
             .select('*, profiles(*)')
             .eq('is_active', true)
+            .gt('updated_at', twoMinutesAgo)
             .order('started_at', { ascending: false })
             .limit(50);
           

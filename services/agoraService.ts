@@ -15,23 +15,42 @@ export class AgoraService {
     return this.client;
   }
 
+  async fetchToken(channelName: string, uid: string | number, role: 'publisher' | 'subscriber') {
+    try {
+      const response = await fetch(`/api/agora/token?channelName=${channelName}&uid=${uid}&role=${role}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch Agora token');
+      }
+      const data = await response.json();
+      return data.token;
+    } catch (err) {
+      console.error('Error fetching Agora token:', err);
+      return null;
+    }
+  }
+
   async joinAndPublish(channelName: string, uid: string | number | null = null, token: string | null = null) {
     if (this.client.connectionState !== 'DISCONNECTED') {
       await this.leave();
     }
     
+    let agoraToken = token;
+    if (!agoraToken && uid) {
+      agoraToken = await this.fetchToken(channelName, uid, 'publisher');
+    }
+
     try {
       // Definir papel como host ANTES de entrar no canal (Obrigatório em modo 'live')
       await this.client.setClientRole('host');
-      await this.client.join(APP_ID, channelName, token, uid);
+      await this.client.join(APP_ID, channelName, agoraToken, uid);
     } catch (err) {
       const agoraErr = err as { code: string; message: string };
       if (agoraErr.code === 'OPERATION_ABORTED') {
         console.warn('Operação de join abortada (provavelmente o utilizador saiu rapidamente).');
         return null;
       }
-      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER') {
-        console.error('Erro de Autenticação Agora: O App ID pode exigir um Token. Tenta desativar "App Certificate" no console da Agora ou fornecer um token.');
+      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER' || agoraErr.code === 'INVALID_TOKEN') {
+        console.error('Erro de Autenticação Agora: O App ID exige um Token válido.');
       }
       throw err;
     }
@@ -130,18 +149,23 @@ export class AgoraService {
       await this.leave();
     }
     
+    let agoraToken = token;
+    if (!agoraToken && uid) {
+      agoraToken = await this.fetchToken(channelName, uid, 'subscriber');
+    }
+
     await this.client.setClientRole('audience');
     
     try {
-      await this.client.join(APP_ID, channelName, token, uid);
+      await this.client.join(APP_ID, channelName, agoraToken, uid);
     } catch (err) {
       const agoraErr = err as { code: string; message: string };
       if (agoraErr.code === 'OPERATION_ABORTED') {
         console.warn('Operação de join (audience) abortada.');
         return;
       }
-      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER') {
-        console.error('Erro de Autenticação Agora: O App ID pode exigir um Token.');
+      if (agoraErr.code === 'CAN_NOT_GET_GATEWAY_SERVER' || agoraErr.code === 'INVALID_TOKEN') {
+        console.error('Erro de Autenticação Agora: O App ID exige um Token válido.');
       }
       throw err;
     }

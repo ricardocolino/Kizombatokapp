@@ -28,12 +28,14 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
   useEffect(() => {
     const fetchActiveLives = async () => {
+      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
       const { data } = await supabase
         .from('lives')
         .select('*, profiles!user_id(*)')
         .eq('is_active', true)
+        .gt('updated_at', twoMinutesAgo)
         .order('started_at', { ascending: false })
-        .limit(50); // Fetch more to ensure we have enough after deduplication
+        .limit(50);
       
       if (data) {
         const uniqueLivesMap = new Map();
@@ -59,10 +61,12 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           table: 'lives'
         },
         async () => {
+          const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
           const { data } = await supabase
             .from('lives')
             .select('*, profiles!user_id(*)')
             .eq('is_active', true)
+            .gt('updated_at', twoMinutesAgo)
             .order('started_at', { ascending: false })
             .limit(50);
           

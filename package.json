@@ -32,6 +32,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "agora-rtc-sdk-ng": "^4.24.2",
+    "agora-token": "^2.0.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

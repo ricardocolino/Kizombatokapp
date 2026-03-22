@@ -3,6 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createServer as createViteServer } from "vite";
+import { RtcTokenBuilder, RtcRole } from "agora-token";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -130,6 +131,60 @@ app.get("/api/health", (req, res) => {
     storage: "cloudflare-r2",
     r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT)
   });
+});
+
+app.get("/api/agora/token", (req, res) => {
+  const channelName = req.query.channelName as string;
+  const uid = req.query.uid as string || "0";
+  const role = req.query.role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+  const expirationTimeInSeconds = 3600;
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+  const appId = process.env.AGORA_APP_ID;
+  const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+  if (!appId || !appCertificate) {
+    console.error(">>> [API] Agora configuration missing:", { appId: !!appId, appCertificate: !!appCertificate });
+    return res.status(500).json({ error: "Agora configuration missing" });
+  }
+
+  if (!channelName) {
+    return res.status(400).json({ error: "channelName is required" });
+  }
+
+  try {
+    let token;
+    const uidInt = parseInt(uid);
+    
+    if (isNaN(uidInt) || uid.length > 10) {
+      // Use User Account (string) for UUIDs or non-numeric strings
+      token = RtcTokenBuilder.buildTokenWithAccount(
+        appId,
+        appCertificate,
+        channelName,
+        uid,
+        role,
+        privilegeExpiredTs,
+        privilegeExpiredTs
+      );
+    } else {
+      // Use integer UID
+      token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        uidInt,
+        role,
+        privilegeExpiredTs,
+        privilegeExpiredTs
+      );
+    }
+    res.json({ token });
+  } catch (error) {
+    console.error(">>> [API] Agora Token Error:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
 });
 
 // Fallback for non-existent API routes to avoid returning HTML

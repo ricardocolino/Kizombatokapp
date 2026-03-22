@@ -121,7 +121,7 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ channelName, onClose, hostProfi
             });
         }
 
-        await agoraService.joinAsAudience(channelName);
+        await agoraService.joinAsAudience(channelName, session?.user.id || null);
         if (isMounted) {
           setLoading(false);
           setComments(prev => [...prev, { 

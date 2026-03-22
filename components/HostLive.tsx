@@ -286,8 +286,19 @@ const HostLive: React.FC<HostLiveProps> = ({ channelName, onClose, title, hostPr
         }
       });
 
+    const heartbeatInterval = setInterval(async () => {
+      if (isMounted) {
+        await supabase.from('lives')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('channel_name', channelName)
+          .eq('user_id', hostProfile.id)
+          .eq('is_active', true);
+      }
+    }, 30000); // Every 30 seconds
+
     return () => {
       isMounted = false;
+      clearInterval(heartbeatInterval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       agoraService.offUserPublished(handleUserPublished);
       agoraService.offUserUnpublished(handleUserUnpublished);
