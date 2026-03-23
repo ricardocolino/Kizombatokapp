@@ -73,7 +73,10 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
         body: JSON.stringify({ userId: hostProfile.id, role: 'host' })
       });
 
-      if (!response.ok) throw new Error("Falha ao criar sessão na Cloudflare");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Falha ao criar sessão na Cloudflare");
+      }
       const sessionData = await response.json();
 
       // 2. Setup WebRTC PeerConnection
@@ -115,7 +118,7 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
       console.log("Live started successfully!");
     } catch (err) {
       console.error("Error starting live:", err);
-      setError("Erro ao iniciar a transmissão.");
+      setError((err as Error).message);
       setIsLive(false);
     }
   };
