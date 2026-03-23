@@ -4,6 +4,7 @@ import { X, Users, Heart, Share2, Shield, Gift } from 'lucide-react';
 import { Profile, Live } from '../types';
 import { supabase } from '../supabaseClient';
 import { parseMediaUrl } from '../services/mediaUtils';
+import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 
 interface ViewerLiveProps {
   onClose: () => void;
@@ -11,13 +12,15 @@ interface ViewerLiveProps {
   currentUser: Profile | null;
 }
 
+const AGORA_APP_ID = 'dbed3d587ca34b93ae30fcec0b24b62d';
+
 const ViewerLive: React.FC<ViewerLiveProps> = ({ onClose, live, currentUser }) => {
   const [viewerCount, setViewerCount] = useState(live.viewer_count || 0);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const videoRef = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
 
   const updateViewerCount = useCallback(async (delta: number) => {
     try {
@@ -34,47 +37,48 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ onClose, live, currentUser }) =
     try {
       setIsConnecting(true);
       
-      // 1. Get Cloudflare Session from your Worker
-      const workerUrl = 'https://winter-cloud-965c.anastacia6000.workers.dev/';
-      const response = await fetch(workerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser?.id || 'anonymous', role: 'viewer' })
-      });
+      // 1. Initialize Agora Client
+      const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+      clientRef.current = client;
+      client.setClientRole('audience');
 
-      if (!response.ok) throw new Error("Falha ao ligar à Cloudflare");
-      await response.json(); // sessionData
-
-      // 2. Setup WebRTC PeerConnection
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
-      });
-      peerConnectionRef.current = pc;
-
-      // Handle incoming tracks
-      pc.ontrack = (event) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = event.streams[0];
+      // 2. Handle remote tracks
+      client.on('user-published', async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        if (mediaType === 'video') {
+          const remoteVideoTrack = user.videoTrack;
+          if (videoRef.current) {
+            remoteVideoTrack?.play(videoRef.current);
+          }
         }
-      };
+        if (mediaType === 'audio') {
+          const remoteAudioTrack = user.audioTrack;
+          remoteAudioTrack?.play();
+        }
+      });
 
-      // 3. Create Offer/Answer exchange (Simplified for this example)
-      // In a real RealtimeKit implementation, you'd subscribe to the host's tracks
+      // 3. Join Channel
+      await client.join(AGORA_APP_ID, live.agora_channel, null, currentUser?.id || null);
       
       setIsConnecting(false);
-      console.log("Connected to live successfully!");
+      console.log("Connected to Agora live successfully!");
     } catch (err) {
       console.error("Error connecting to live:", err);
       setError("Não foi possível ligar à transmissão.");
       setIsConnecting(false);
     }
-  }, [currentUser?.id]);
+  }, [live.agora_channel, currentUser?.id]);
 
-  const disconnectFromLive = useCallback(() => {
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
+  const disconnectFromLive = useCallback(async () => {
+    try {
+      if (clientRef.current) {
+        await clientRef.current.leave();
+      }
+    } catch (err) {
+      console.error("Error leaving Agora channel:", err);
+    } finally {
+      onClose();
     }
-    onClose();
   }, [onClose]);
 
   useEffect(() => {
@@ -89,11 +93,9 @@ const ViewerLive: React.FC<ViewerLiveProps> = ({ onClose, live, currentUser }) =
 
   return (
     <div className="fixed inset-0 bg-black z-[200] flex flex-col overflow-hidden">
-      {/* Live Video */}
-      <video 
+      {/* Live Video Container */}
+      <div 
         ref={videoRef} 
-        autoPlay 
-        playsInline 
         className="absolute inset-0 w-full h-full object-cover"
       />
 

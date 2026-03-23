@@ -68,7 +68,7 @@ export interface Live {
   title: string;
   status: 'live' | 'ended';
   viewer_count: number;
-  cloudflare_session_id: string;
+  agora_channel: string;
   created_at: string;
   profiles?: Profile;
 }

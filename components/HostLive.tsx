@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Radio, Users, Heart, Share2, Shield } from 'lucide-react';
 import { Profile } from '../types';
 import { supabase } from '../supabaseClient';
+import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 
 interface HostLiveProps {
   onClose: () => void;
@@ -10,42 +11,49 @@ interface HostLiveProps {
   hostProfile: Profile;
 }
 
+const AGORA_APP_ID = 'dbed3d587ca34b93ae30fcec0b24b62d';
+
 const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
   const [isLive, setIsLive] = useState(false);
   const [viewerCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [liveId, setLiveId] = useState<string | null>(null);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
+  const localTracksRef = useRef<{ video: ICameraVideoTrack; audio: IMicrophoneAudioTrack } | null>(null);
 
   const stopLive = useCallback(async () => {
-    if (liveId) {
-      await supabase.from('lives').update({ status: 'ended' }).eq('id', liveId);
+    try {
+      if (liveId) {
+        await supabase.from('lives').update({ status: 'ended' }).eq('id', liveId);
+      }
+      
+      if (localTracksRef.current) {
+        localTracksRef.current.video.stop();
+        localTracksRef.current.video.close();
+        localTracksRef.current.audio.stop();
+        localTracksRef.current.audio.close();
+      }
+      
+      if (clientRef.current) {
+        await clientRef.current.leave();
+      }
+    } catch (err) {
+      console.error("Error stopping live:", err);
+    } finally {
+      setIsLive(false);
+      onClose();
     }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-    }
-    
-    setIsLive(false);
-    onClose();
   }, [liveId, onClose]);
 
   const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
-      });
-      streamRef.current = stream;
+      const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      localTracksRef.current = { video: videoTrack, audio: audioTrack };
+      
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoTrack.play(videoRef.current);
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
@@ -61,45 +69,23 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
   }, [startCamera, stopLive]);
 
   const startLive = async () => {
-    if (!streamRef.current) return;
+    if (!localTracksRef.current) return;
 
     try {
       setIsLive(true);
       
-      // 1. Get Cloudflare Session from your Worker
-      const workerUrl = 'https://winter-cloud-965c.anastacia6000.workers.dev/';
-      const response = await fetch(workerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: hostProfile.id, role: 'host' })
-      });
+      // 1. Initialize Agora Client
+      const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+      clientRef.current = client;
+      client.setClientRole('host');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Falha ao criar sessão na Cloudflare");
-      }
-      const sessionData = await response.json();
+      // 2. Join Channel
+      const channelName = `live_${hostProfile.id}_${Date.now()}`;
+      await client.join(AGORA_APP_ID, channelName, null, hostProfile.id);
 
-      // 2. Setup WebRTC PeerConnection
-      // This is a simplified WebRTC flow for Cloudflare RealtimeKit/Calls
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
-      });
-      peerConnectionRef.current = pc;
+      // 3. Publish Tracks
+      await client.publish([localTracksRef.current.audio, localTracksRef.current.video]);
 
-      // Add tracks to peer connection
-      streamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, streamRef.current!);
-      });
-
-      // Create Offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // 3. Exchange SDP with Cloudflare (Simplified for this example)
-      // In a real RealtimeKit implementation, you'd send the offer to their signaling endpoint
-      // and receive an answer.
-      
       // 4. Register Live in Supabase
       const { data: liveData, error: supabaseError } = await supabase
         .from('lives')
@@ -107,7 +93,7 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
           host_id: hostProfile.id,
           title: title,
           status: 'live',
-          cloudflare_session_id: sessionData.id,
+          agora_channel: channelName,
           viewer_count: 0
         })
         .select()
@@ -116,7 +102,7 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
       if (supabaseError) throw supabaseError;
       setLiveId(liveData.id);
 
-      console.log("Live started successfully!");
+      console.log("Live started successfully with Agora!");
     } catch (err) {
       console.error("Error starting live:", err);
       setError((err as Error).message);
@@ -126,12 +112,9 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
 
   return (
     <div className="fixed inset-0 bg-black z-[200] flex flex-col overflow-hidden">
-      {/* Camera Preview */}
-      <video 
+      {/* Camera Preview Container */}
+      <div 
         ref={videoRef} 
-        autoPlay 
-        muted 
-        playsInline 
         className="absolute inset-0 w-full h-full object-cover"
       />
 
