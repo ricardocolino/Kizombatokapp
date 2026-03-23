@@ -61,14 +61,3 @@ export interface Follow {
   following_id: string;
   created_at: string;
 }
-
-export interface Live {
-  id: string;
-  host_id: string;
-  title: string;
-  status: 'live' | 'ended';
-  viewer_count: number;
-  agora_channel: string;
-  created_at: string;
-  profiles?: Profile;
-}
