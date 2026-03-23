@@ -66,8 +66,9 @@ const HostLive: React.FC<HostLiveProps> = ({ onClose, title, hostProfile }) => {
     try {
       setIsLive(true);
       
-      // 1. Get Cloudflare Session from our API
-      const response = await fetch('/api/live/session', {
+      // 1. Get Cloudflare Session from your Worker
+      const workerUrl = 'https://winter-cloud-965c.anastacia6000.workers.dev/';
+      const response = await fetch(workerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: hostProfile.id, role: 'host' })
