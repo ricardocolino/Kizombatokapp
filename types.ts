@@ -61,3 +61,11 @@ export interface Follow {
   following_id: string;
   created_at: string;
 }
+
+export interface Repost {
+  id: string;
+  user_id: string;
+  post_id: string;
+  created_at: string;
+  posts?: Post;
+}

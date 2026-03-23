@@ -16,11 +16,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+  const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [depositAmount, setDepositAmount] = useState(10);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -126,6 +127,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   }, [userId]);
 
+  const fetchRepostedPosts = React.useCallback(async () => {
+    setTabLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('reposts')
+        .select('post_id, posts(*, profiles!user_id(*))')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const posts = data.map(item => item.posts).filter(Boolean) as Post[];
+        setRepostedPosts(posts);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar republicados:", e);
+    } finally {
+      setTabLoading(false);
+    }
+  }, [userId]);
+
   const fetchStats = React.useCallback(async () => {
     const { count: followers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId);
     const { count: following } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
@@ -200,8 +221,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   useEffect(() => {
     if (activeTab === 'liked') {
       fetchLikedPosts();
+    } else if (activeTab === 'reposts') {
+      fetchRepostedPosts();
     }
-  }, [activeTab, fetchLikedPosts]);
+  }, [activeTab, fetchLikedPosts, fetchRepostedPosts]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (activeTab !== 'posts' || !hasMorePosts || loadingMore) return;
@@ -381,7 +404,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
   if (!profile) return <div className="p-20 text-center text-zinc-600 uppercase font-black tracking-widest text-xs">Perfil não encontrado.</div>;
 
-  const currentGridData = activeTab === 'posts' ? userPosts : (activeTab === 'liked' ? likedPosts : []);
+  const currentGridData = activeTab === 'posts' ? userPosts : (activeTab === 'liked' ? likedPosts : repostedPosts);
 
   return (
     <div 
@@ -501,11 +524,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         {[ 
           { id: 'posts', label: 'Mambos' }, 
           { id: 'liked', label: 'Curtidas' }, 
-          { id: 'saved', label: 'Guardados' } 
+          { id: 'reposts', label: 'Republicados' } 
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'saved')}
+            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'reposts')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
             <span className={`text-[11px] font-black uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}`}>
@@ -558,7 +581,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             {currentGridData.length === 0 && (
               <div className="col-span-3 py-24 text-center text-zinc-600 flex flex-col items-center gap-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em]">
-                  {activeTab === 'posts' ? 'Nenhum post ainda' : (activeTab === 'liked' ? 'Sem curtidas' : 'Sem salvos')}
+                  {activeTab === 'posts' ? 'Nenhum post ainda' : (activeTab === 'liked' ? 'Sem curtidas' : 'Sem republicados')}
                 </p>
                 <p className="text-[9px] text-zinc-700 uppercase">A vibe de Angola começa aqui 🇦🇴</p>
               </div>

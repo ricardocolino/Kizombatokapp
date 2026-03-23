@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Repeat, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -296,6 +296,30 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
     if (error) {
       onUpdateMetadata(post.id, { isFollowing: false });
+    }
+  };
+
+  const toggleRepost = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
+
+    // Optimistic Update
+    const newReposted = !metadata.reposted;
+    const newRepostsCount = metadata.repostsCount + (newReposted ? 1 : -1);
+    
+    onUpdateMetadata(post.id, { 
+      reposted: newReposted, 
+      repostsCount: newRepostsCount 
+    });
+
+    if (metadata.reposted) {
+      await supabase.from('reposts').delete().eq('post_id', post.id).eq('user_id', session.user.id);
+    } else {
+      await supabase.from('reposts').insert({ post_id: post.id, user_id: session.user.id });
     }
   };
 
@@ -626,6 +650,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
             <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
+          </button>
+
+          <button onClick={toggleRepost} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+              <Repeat size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.reposted ? 'text-green-500' : 'text-white'}`} />
+            </div>
+            <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>
 
           {!metadata.isOwnPost && (

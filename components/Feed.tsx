@@ -15,7 +15,9 @@ interface FeedProps {
 export interface PostMetadata {
   likesCount: number;
   commentsCount: number;
+  repostsCount: number;
   liked: boolean;
+  reposted: boolean;
   isFollowing: boolean;
   isOwnPost: boolean;
 }
@@ -51,28 +53,35 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user.id;
 
-      // 1. Buscar contagens de reações
-      const [reactionsRes] = await Promise.all([
-        supabase.from('reactions').select('post_id').in('post_id', postIds)
+      // 1. Buscar contagens de reações e reposts
+      const [reactionsRes, repostsRes] = await Promise.all([
+        supabase.from('reactions').select('post_id').in('post_id', postIds),
+        supabase.from('reposts').select('post_id').in('post_id', postIds)
       ]);
 
       const reactionCounts: Record<string, number> = {};
       reactionsRes.data?.forEach(r => reactionCounts[r.post_id] = (reactionCounts[r.post_id] || 0) + 1);
 
-      // 2. Dados do utilizador logado (likes e follows)
+      const repostCounts: Record<string, number> = {};
+      repostsRes.data?.forEach(r => repostCounts[r.post_id] = (repostCounts[r.post_id] || 0) + 1);
+
+      // 2. Dados do utilizador logado (likes, follows e reposts)
       let userLikes: Set<string> = new Set();
       let userFollows: Set<string> = new Set();
+      let userReposts: Set<string> = new Set();
       let currentFollowingList: Profile[] = [];
 
       if (currentUserId) {
-        const [likesRes, followsRes, followingListRes] = await Promise.all([
+        const [likesRes, followsRes, followingListRes, userRepostsRes] = await Promise.all([
           supabase.from('reactions').select('post_id').eq('user_id', currentUserId).in('post_id', postIds),
           supabase.from('follows').select('following_id').eq('follower_id', currentUserId).in('following_id', authorIds),
-          supabase.from('follows').select('following_id, profiles:following_id(*)').eq('follower_id', currentUserId)
+          supabase.from('follows').select('following_id, profiles:following_id(*)').eq('follower_id', currentUserId),
+          supabase.from('reposts').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
         ]);
 
         likesRes.data?.forEach(l => userLikes.add(l.post_id));
         followsRes.data?.forEach(f => userFollows.add(f.following_id));
+        userRepostsRes.data?.forEach(r => userReposts.add(r.post_id));
         
         if (followingListRes.data) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,8 +95,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
       postsToFetch.forEach(p => {
         newMetadata[p.id] = {
           likesCount: reactionCounts[p.id] || 0,
-          commentsCount: 0, // Não buscar contagem até o utilizador clicar
+          commentsCount: 0,
+          repostsCount: repostCounts[p.id] || 0,
           liked: userLikes.has(p.id),
+          reposted: userReposts.has(p.id),
           isFollowing: userFollows.has(p.user_id),
           isOwnPost: currentUserId === p.user_id
         };
