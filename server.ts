@@ -128,8 +128,51 @@ app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok",
     storage: "cloudflare-r2",
-    r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT)
+    r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT),
+    realtimeConfigured: !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_REALTIME_APP_ID)
   });
+});
+
+// Cloudflare RealtimeKit Session Endpoint
+app.post("/api/live/session", async (req, res) => {
+  const { userId, role } = req.body;
+
+  if (!process.env.CLOUDFLARE_ACCOUNT_ID || !process.env.CLOUDFLARE_API_TOKEN || !process.env.CLOUDFLARE_REALTIME_APP_ID) {
+    return res.status(500).json({ error: "Cloudflare RealtimeKit not configured on server" });
+  }
+
+  // IDs dos Presets atualizados
+  const PRESET_HOST = "a233aa84-60da-4a2a-a65a-80600e57c0de"; // livestream_host
+  const PRESET_VIEWER = "c3765f85-384d-4d57-b3ea-8638889ab9a2"; // livestream_viewer
+
+  try {
+    const cfResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/realtime/apps/${process.env.CLOUDFLARE_REALTIME_APP_ID}/sessions`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          external_id: userId,
+          preset_id: role === 'host' ? PRESET_HOST : PRESET_VIEWER
+        })
+      }
+    );
+
+    if (!cfResponse.ok) {
+      const errorData = await cfResponse.json();
+      console.error(">>> [Cloudflare Error Details]:", JSON.stringify(errorData, null, 2));
+      throw new Error(errorData.errors?.[0]?.message || "Failed to create Cloudflare session");
+    }
+
+    const data = await cfResponse.json();
+    res.json(data.result);
+  } catch (error) {
+    console.error(">>> [API] Cloudflare Realtime Error:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
 });
 
 // Fallback for non-existent API routes to avoid returning HTML

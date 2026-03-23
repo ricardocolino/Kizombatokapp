@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Post, Profile } from '../types';
-import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
+import { Post, Profile, Live } from '../types';
+import { Search, TrendingUp, AlertCircle, UserCheck, Radio, Users } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
+import ViewerLive from './ViewerLive';
 
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
@@ -13,6 +14,9 @@ interface DiscoveryProps {
 const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [lives, setLives] = useState<Live[]>([]);
+  const [selectedLive, setSelectedLive] = useState<Live | null>(null);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
@@ -20,6 +24,14 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
   useEffect(() => {
     let active = true;
+
+    const fetchCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        if (active) setCurrentUser(data);
+      }
+    };
 
     const fetchTrending = async (query: string = '', limit: number) => {
       try {
@@ -42,7 +54,20 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           if (active) setUsers([]);
         }
 
-        // 🔹 2. Buscar posts por conteúdo
+        // 🔹 2. Buscar lives ativas (apenas se não houver query de busca)
+        if (!trimmedQuery) {
+          const { data: livesData } = await supabase
+            .from('lives')
+            .select('*, profiles(*)')
+            .eq('status', 'live')
+            .order('created_at', { ascending: false });
+          
+          if (active) setLives(livesData || []);
+        } else {
+          if (active) setLives([]);
+        }
+
+        // 🔹 3. Buscar posts por conteúdo
         let postsByContent: Post[] = [];
         if (trimmedQuery) {
           const { data } = await supabase
@@ -100,10 +125,20 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       }
     };
 
+    fetchCurrentUser();
     fetchTrending(searchQuery, displayLimit);
+
+    // Subscribe to lives
+    const livesSubscription = supabase
+      .channel('lives-discovery')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lives' }, () => {
+        fetchTrending(searchQuery, displayLimit);
+      })
+      .subscribe();
 
     return () => {
       active = false; // Cancela atualizações de buscas que ficaram para trás
+      livesSubscription.unsubscribe();
     };
   }, [searchQuery, displayLimit]);
 
@@ -122,6 +157,13 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       onScroll={handleScroll}
       className="h-full w-full bg-zinc-950 overflow-y-auto pb-20 no-scrollbar"
     >
+      {selectedLive && (
+        <ViewerLive 
+          live={selectedLive}
+          onClose={() => setSelectedLive(null)}
+          currentUser={currentUser}
+        />
+      )}
       {/* Search Header */}
       <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-md p-4 z-20 border-b border-zinc-900/50">
         <div className="relative">
@@ -170,6 +212,46 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
       {!searchQuery && (
         <>
+          {/* Lives Section */}
+          {lives.length > 0 && (
+            <div className="px-4 mt-6 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Radio size={16} className="text-red-600 animate-pulse" />
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Kambas em Direto</h3>
+                </div>
+                <span className="text-[8px] font-bold text-red-600 uppercase tracking-widest">Ver Todos</span>
+              </div>
+              
+              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                {lives.map((live) => (
+                  <button 
+                    key={live.id}
+                    onClick={() => setSelectedLive(live)}
+                    className="flex-shrink-0 w-32 group relative"
+                  >
+                    <div className="aspect-[3/4] rounded-2xl overflow-hidden border-2 border-red-600/30 group-hover:border-red-600 transition-all relative">
+                      <img 
+                        src={parseMediaUrl(live.profiles?.avatar_url || '')} 
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                      <div className="absolute top-2 left-2 bg-red-600 text-[7px] font-black px-1.5 py-0.5 rounded text-white uppercase tracking-tighter">
+                        LIVE
+                      </div>
+                      <div className="absolute bottom-2 left-2 right-2 text-left">
+                        <p className="text-white text-[9px] font-black uppercase truncate tracking-tighter">{live.profiles?.username}</p>
+                        <div className="flex items-center gap-1 text-white/60 text-[7px] font-bold">
+                          <Users size={8} /> {live.viewer_count}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Banner */}
           <div className="px-4 mt-4 mb-6">
             <div className="w-full h-36 bg-gradient-to-br from-red-800 via-zinc-900 to-yellow-600 rounded-2xl flex items-center justify-between px-6 overflow-hidden relative shadow-2xl">
