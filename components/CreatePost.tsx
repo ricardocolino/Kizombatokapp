@@ -427,78 +427,96 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       let finalMediaUrl: string | null = null;
 
       if (isVideo) {
-        // Lógica para Vídeo com FFmpeg Integrado
-        console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
-        setProcessingVideo(true);
-        const ffmpeg = await loadFFmpeg();
-        
-        // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
-        const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
-        for (const f of cleanupFiles) {
-          try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
-        }
-
-        const inputFileName = 'input_raw.mp4';
-        
-        console.log('[Upload] Descarregando vídeo gravado...');
-        const videoData = await fetchFile(mediaFiles[0]);
-        if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
-        await ffmpeg.writeFile(inputFileName, videoData);
-
-        // 1. Processar Vídeo (Filtros, Trim, Rotação)
-        let vfFilter = cssFilterToFFmpeg(filter);
-        if (recordedFacingMode === 'rear') {
-          const rotation = 'hflip,vflip';
-          vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
-          console.log('[Upload] Aplicando rotação para câmera traseira');
-        }
-
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
-        
-        const videoArgs: string[] = [];
-        
-        // Input 0: Vídeo
-        if (hasTrim) {
-          videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
-        }
-        videoArgs.push('-i', inputFileName);
+        const baseFilter = cssFilterToFFmpeg(filter);
+        const needsRotation = recordedFacingMode === 'rear';
+        const hasText = !!textOverlay;
+        const needsFFmpeg = !!baseFilter || hasTrim || needsRotation || hasText;
 
-        // Mapeamento: Vídeo do input 0, Áudio do input 0 (original)
-        videoArgs.push('-map', '0:v:0');
-        console.log('[Upload] Mapeando áudio original');
-        videoArgs.push('-map', '0:a:0?');
+        if (needsFFmpeg) {
+          // Lógica para Vídeo com FFmpeg Integrado
+          console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
+          setProcessingVideo(true);
+          const ffmpeg = await loadFFmpeg();
+          
+          // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
+          const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
+          for (const f of cleanupFiles) {
+            try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+          }
 
-        if (vfFilter || hasTrim) {
-          if (vfFilter) videoArgs.push('-vf', vfFilter);
-          videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
-          videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+          const inputFileName = 'input_raw.mp4';
+          
+          console.log('[Upload] Descarregando vídeo gravado...');
+          const videoData = await fetchFile(mediaFiles[0]);
+          if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
+          await ffmpeg.writeFile(inputFileName, videoData);
+
+          // 1. Processar Vídeo (Filtros, Trim, Rotação, Texto)
+          let vfFilter = baseFilter;
+          
+          const textFilter = textOverlay
+            ? `drawtext=text='${textOverlay}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2`
+            : null;
+
+          if (textFilter) {
+            vfFilter = vfFilter ? `${vfFilter},${textFilter}` : textFilter;
+          }
+
+          if (needsRotation) {
+            const rotation = 'hflip,vflip';
+            vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
+            console.log('[Upload] Aplicando rotação para câmera traseira');
+          }
+          
+          const videoArgs: string[] = [];
+          
+          // Input 0: Vídeo
+          if (hasTrim) {
+            videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
+          }
+          videoArgs.push('-i', inputFileName);
+
+          // Mapeamento: Vídeo do input 0, Áudio do input 0 (original)
+          videoArgs.push('-map', '0:v:0');
+          console.log('[Upload] Mapeando áudio original');
+          videoArgs.push('-map', '0:a:0?');
+
+          if (vfFilter || hasTrim) {
+            if (vfFilter) videoArgs.push('-vf', vfFilter);
+            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
+            videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+          } else {
+            videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
+          }
+
+          videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
+          
+          console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
+          await ffmpeg.exec(videoArgs);
+          
+          console.log('[Upload] Lendo vídeo processado...');
+          const videoOutput = await ffmpeg.readFile('output.mp4');
+          if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
+            throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
+          }
+          finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
+
+          // Limpeza FFmpeg
+          try {
+            await ffmpeg.deleteFile(inputFileName);
+            await ffmpeg.deleteFile('output.mp4');
+          } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
         } else {
-          videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
+          console.log('[Upload] FFmpeg não é necessário. Usando vídeo original.');
+          finalMediaBlob = mediaFiles[0];
         }
-
-        videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
-        
-        console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
-        await ffmpeg.exec(videoArgs);
-        
-        console.log('[Upload] Lendo vídeo processado...');
-        const videoOutput = await ffmpeg.readFile('output.mp4');
-        if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
-          throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
-        }
-        finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
         // 3. Gerar Thumbnail
         console.log('[Upload] Gerando thumbnail...');
         const thumbBlob = await generateThumbnail(finalMediaBlob);
         const thumbFileName = `${userId}-${timestamp}.jpg`;
         finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-
-        // Limpeza FFmpeg
-        try {
-          await ffmpeg.deleteFile(inputFileName);
-          await ffmpeg.deleteFile('output.mp4');
-        } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
       }
 
       // 4. Upload do Ficheiro Final
@@ -530,7 +548,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
           filter: filter === 'none' ? null : filter,
-          text_overlay: textOverlay || null,
           views: 0,
           created_at: new Date().toISOString()
         });
@@ -647,6 +664,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                     <span className="text-[8px] font-black uppercase text-white shadow-sm">Recortar</span>
                   </button>
                 )}
+                <button 
+                  onClick={() => setShowTextEditor(true)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Type size={20}/></div>
+                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Texto</span>
+                </button>
+                <button 
+                  onClick={() => setShowFilterPicker(true)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={20}/></div>
+                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
+                </button>
               </div>
             </div>
             
@@ -751,57 +782,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
               </button>
             </div>
 
-            {showTextEditor && (
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
-                <textarea
-                  autoFocus
-                  value={textOverlay}
-                  onChange={(e) => setTextOverlay(e.target.value)}
-                  placeholder="Escreve o teu texto..."
-                  className="w-full bg-transparent text-white text-4xl font-black text-center outline-none resize-none h-40 placeholder:text-white/20"
-                />
-                <div className="flex gap-4 mt-8">
-                  <button 
-                    onClick={() => { setTextOverlay(''); setShowTextEditor(false); }}
-                    className="px-8 py-3 bg-zinc-800 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
-                  >
-                    Limpar
-                  </button>
-                  <button 
-                    onClick={() => setShowTextEditor(false)}
-                    className="px-8 py-3 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
-                  >
-                    Concluído
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {showFilterPicker && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
-                <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
-                    <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
-                  </div>
-                  <div className="grid grid-cols-4 gap-4 pb-8">
-                    {filters.map((f) => (
-                      <button
-                        key={f.value}
-                        onClick={() => { setFilter(f.value); setShowFilterPicker(false); }}
-                        className="flex flex-col items-center gap-2 group"
-                      >
-                        <div className={`w-14 h-14 rounded-2xl border-2 transition-all ${filter === f.value ? 'border-red-600 bg-red-600/20' : 'border-zinc-800 bg-zinc-900'}`} style={{ filter: f.value }}>
-                          <div className="w-full h-full flex items-center justify-center text-white/40"><Wand2 size={20} /></div>
-                        </div>
-                        <span className={`text-[8px] font-black uppercase tracking-widest ${filter === f.value ? 'text-red-500' : 'text-zinc-500'}`}>{f.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
 
             <button onClick={() => onCreated()} className="absolute top-6 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
@@ -890,6 +870,57 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 >
                   Story
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showTextEditor && (
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
+            <textarea
+              autoFocus
+              value={textOverlay}
+              onChange={(e) => setTextOverlay(e.target.value)}
+              placeholder="Escreve o teu texto..."
+              className="w-full bg-transparent text-white text-4xl font-black text-center outline-none resize-none h-40 placeholder:text-white/20"
+            />
+            <div className="flex gap-4 mt-8">
+              <button 
+                onClick={() => { setTextOverlay(''); setShowTextEditor(false); }}
+                className="px-8 py-3 bg-zinc-800 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
+              >
+                Limpar
+              </button>
+              <button 
+                onClick={() => setShowTextEditor(false)}
+                className="px-8 py-3 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
+              >
+                Concluído
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showFilterPicker && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
+            <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
+                <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
+              </div>
+              <div className="grid grid-cols-4 gap-4 pb-8">
+                {filters.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => { setFilter(f.value); setShowFilterPicker(false); }}
+                    className="flex flex-col items-center gap-2 group"
+                  >
+                    <div className={`w-14 h-14 rounded-2xl border-2 transition-all ${filter === f.value ? 'border-red-600 bg-red-600/20' : 'border-zinc-800 bg-zinc-900'}`} style={{ filter: f.value }}>
+                      <div className="w-full h-full flex items-center justify-center text-white/40"><Wand2 size={20} /></div>
+                    </div>
+                    <span className={`text-[8px] font-black uppercase tracking-widest ${filter === f.value ? 'text-red-500' : 'text-zinc-500'}`}>{f.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
