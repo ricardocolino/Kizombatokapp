@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { User } from '@supabase/supabase-js';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
@@ -15,7 +14,6 @@ interface ProfileViewProps {
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
@@ -28,7 +26,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [tabLoading, setTabLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [hasStories, setHasStories] = useState(false);
-  const [uploadingStory, setUploadingStory] = useState(false);
   const [postsPage, setPostsPage] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -82,7 +79,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
   const checkStoriesStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user ?? null);
+    if (!session) return;
 
     const { data } = await supabase
       .from('stories')
@@ -225,50 +222,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
     setMonthlyStats(stats_data);
   }, [userId]);
-
-  const handleStoryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    try {
-      setUploadingStory(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Math.random()}.${fileExt}`;
-      const filePath = `stories/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('posts')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('posts')
-        .getPublicUrl(filePath);
-
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      const { error: storyError } = await supabase
-        .from('stories')
-        .insert({
-          user_id: user.id,
-          media_url: publicUrl,
-          media_type: file.type.startsWith('video') ? 'video' : 'image',
-          expires_at: expiresAt.toISOString()
-        });
-
-      if (storyError) throw storyError;
-
-      setHasStories(true);
-      alert('History publicado com sucesso!');
-    } catch (err) {
-      console.error('Erro ao publicar history:', err);
-      alert('Erro ao publicar history. Tenta novamente.');
-    } finally {
-      setUploadingStory(false);
-    }
-  };
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
@@ -522,12 +475,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 )}
               </div>
             </div>
-            {isOwnProfile && (
-              <label className="absolute bottom-0 right-0 w-7 h-7 bg-red-600 rounded-full border-2 border-black flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-all">
-                <input type="file" accept="image/*,video/*" className="hidden" onChange={handleStoryUpload} disabled={uploadingStory} />
-                {uploadingStory ? <Loader2 size={14} className="animate-spin text-white" /> : <Camera size={14} className="text-white" />}
-              </label>
-            )}
           </div>
           <div className="pt-3">
             {isOwnProfile ? (

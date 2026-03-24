@@ -42,6 +42,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [isEducation, setIsEducation] = useState(false);
+  const [uploadType, setUploadType] = useState<'post' | 'story'>('post');
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -418,104 +419,122 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
       
       const timestamp = Date.now();
       const userId = session.user.id;
+      const isVideo = mediaFiles[0].type.startsWith('video/');
 
-      let finalVideoBlob: Blob | null = null;
+      let finalMediaBlob: Blob | (File | Blob) = mediaFiles[0];
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
 
-      // Lógica para Vídeo com FFmpeg Integrado
-      console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
-      setProcessingVideo(true);
-      const ffmpeg = await loadFFmpeg();
-      
-      // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
-      const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
-      for (const f of cleanupFiles) {
-        try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+      if (isVideo) {
+        // Lógica para Vídeo com FFmpeg Integrado
+        console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
+        setProcessingVideo(true);
+        const ffmpeg = await loadFFmpeg();
+        
+        // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
+        const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
+        for (const f of cleanupFiles) {
+          try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+        }
+
+        const inputFileName = 'input_raw.mp4';
+        
+        console.log('[Upload] Descarregando vídeo gravado...');
+        const videoData = await fetchFile(mediaFiles[0]);
+        if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
+        await ffmpeg.writeFile(inputFileName, videoData);
+
+        // 1. Processar Vídeo (Filtros, Trim, Rotação)
+        let vfFilter = cssFilterToFFmpeg(filter);
+        if (recordedFacingMode === 'rear') {
+          const rotation = 'hflip,vflip';
+          vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
+          console.log('[Upload] Aplicando rotação para câmera traseira');
+        }
+
+        const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
+        
+        const videoArgs: string[] = [];
+        
+        // Input 0: Vídeo
+        if (hasTrim) {
+          videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
+        }
+        videoArgs.push('-i', inputFileName);
+
+        // Mapeamento: Vídeo do input 0, Áudio do input 0 (original)
+        videoArgs.push('-map', '0:v:0');
+        console.log('[Upload] Mapeando áudio original');
+        videoArgs.push('-map', '0:a:0?');
+
+        if (vfFilter || hasTrim) {
+          if (vfFilter) videoArgs.push('-vf', vfFilter);
+          videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
+          videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+        } else {
+          videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
+        }
+
+        videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
+        
+        console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
+        await ffmpeg.exec(videoArgs);
+        
+        console.log('[Upload] Lendo vídeo processado...');
+        const videoOutput = await ffmpeg.readFile('output.mp4');
+        if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
+          throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
+        }
+        finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
+
+        // 3. Gerar Thumbnail
+        console.log('[Upload] Gerando thumbnail...');
+        const thumbBlob = await generateThumbnail(finalMediaBlob);
+        const thumbFileName = `${userId}-${timestamp}.jpg`;
+        finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+
+        // Limpeza FFmpeg
+        try {
+          await ffmpeg.deleteFile(inputFileName);
+          await ffmpeg.deleteFile('output.mp4');
+        } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
       }
 
-      const inputFileName = 'input_raw.mp4';
+      // 4. Upload do Ficheiro Final
+      const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
+      const fileName = `${userId}-${timestamp}.${fileExt}`;
+      const folder = uploadType === 'story' ? 'stories' : 'posts';
+      finalMediaUrl = await uploadToR2(finalMediaBlob, folder, fileName);
       
-      console.log('[Upload] Descarregando vídeo gravado...');
-      const videoData = await fetchFile(mediaFiles[0]);
-      if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
-      await ffmpeg.writeFile(inputFileName, videoData);
-
-      // 1. Processar Vídeo (Filtros, Trim, Rotação)
-      let vfFilter = cssFilterToFFmpeg(filter);
-      if (recordedFacingMode === 'rear') {
-        const rotation = 'hflip,vflip';
-        vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
-        console.log('[Upload] Aplicando rotação para câmera traseira');
-      }
-
-      const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
-      
-      const videoArgs: string[] = [];
-      
-      // Input 0: Vídeo
-      if (hasTrim) {
-        videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
-      }
-      videoArgs.push('-i', inputFileName);
-
-      // Mapeamento: Vídeo do input 0, Áudio do input 0 (original)
-      videoArgs.push('-map', '0:v:0');
-      console.log('[Upload] Mapeando áudio original');
-      videoArgs.push('-map', '0:a:0?');
-
-      if (vfFilter || hasTrim) {
-        if (vfFilter) videoArgs.push('-vf', vfFilter);
-        videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
-        videoArgs.push('-c:a', 'aac', '-b:a', '128k');
-      } else {
-        videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
-      }
-
-      videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
-      
-      console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
-      await ffmpeg.exec(videoArgs);
-      
-      console.log('[Upload] Lendo vídeo processado...');
-      const videoOutput = await ffmpeg.readFile('output.mp4');
-      if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
-        throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
-      }
-      finalVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
-
-      // 3. Gerar Thumbnail
-      console.log('[Upload] Gerando thumbnail...');
-      const thumbBlob = await generateThumbnail(finalVideoBlob);
-      const thumbFileName = `${userId}-${timestamp}.jpg`;
-      finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-
-      // 4. Upload do Vídeo Final
-      const videoFileName = `${userId}-${timestamp}.mp4`;
-      finalMediaUrl = await uploadToR2(finalVideoBlob, 'posts', videoFileName);
-      
-      // Limpeza FFmpeg
-      try {
-        await ffmpeg.deleteFile(inputFileName);
-        await ffmpeg.deleteFile('output.mp4');
-      } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
-
       // 5. Salvar no Supabase
-      console.log('[Upload] Salvando post no Supabase...');
-      const { error: insertError } = await supabase.from('posts').insert({
-        user_id: userId,
-        content: content || null,
-        media_url: finalMediaUrl,
-        thumbnail_url: finalThumbnailUrl,
-        media_type: 'video',
-        is_education: isEducation ? 1 : 0, // Convertendo para inteiro se necessário
-        filter: filter === 'none' ? null : filter,
-        text_overlay: textOverlay || null,
-        views: 0,
-        created_at: new Date().toISOString()
-      });
+      console.log(`[Upload] Salvando ${uploadType} no Supabase...`);
+      
+      if (uploadType === 'story') {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
 
-      if (insertError) throw insertError;
+        const { error: insertError } = await supabase.from('stories').insert({
+          user_id: userId,
+          media_url: finalMediaUrl,
+          media_type: isVideo ? 'video' : 'image',
+          expires_at: expiresAt.toISOString()
+        });
+        if (insertError) throw insertError;
+      } else {
+        const { error: insertError } = await supabase.from('posts').insert({
+          user_id: userId,
+          content: content || null,
+          media_url: finalMediaUrl,
+          thumbnail_url: finalThumbnailUrl,
+          media_type: isVideo ? 'video' : 'image',
+          is_education: isEducation ? 1 : 0,
+          filter: filter === 'none' ? null : filter,
+          text_overlay: textOverlay || null,
+          views: 0,
+          created_at: new Date().toISOString()
+        });
+        if (insertError) throw insertError;
+      }
       
       console.log('[Upload] Sucesso total!');
       setTimeout(() => onCreated(), 500);
@@ -643,27 +662,29 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                  </div>
                </div>
 
-               {/* Educação Toggle */}
-               <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4">
-                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-red-600/10 rounded-lg text-red-600">
-                     <BookOpen size={18} />
+               {/* Educação Toggle - Only for Posts */}
+               {uploadType === 'post' && (
+                 <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4">
+                   <div className="flex items-center gap-3">
+                     <div className="p-2 bg-red-600/10 rounded-lg text-red-600">
+                       <BookOpen size={18} />
+                     </div>
+                     <div>
+                       <p className="text-xs font-black uppercase tracking-widest text-white">Conteúdo Educativo</p>
+                       <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
+                     </div>
                    </div>
-                   <div>
-                     <p className="text-xs font-black uppercase tracking-widest text-white">Conteúdo Educativo</p>
-                     <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
-                   </div>
+                   <button 
+                     onClick={() => setIsEducation(!isEducation)}
+                     className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-red-600' : 'bg-zinc-800'}`}
+                   >
+                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isEducation ? 'left-7' : 'left-1'}`} />
+                   </button>
                  </div>
-                 <button 
-                   onClick={() => setIsEducation(!isEducation)}
-                   className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-red-600' : 'bg-zinc-800'}`}
-                 >
-                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isEducation ? 'left-7' : 'left-1'}`} />
-                 </button>
-               </div>
+               )}
                
                <button onClick={handleUpload} disabled={uploading || processingVideo} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>
-                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>Publicar Agora</span></>}
+                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>{uploadType === 'story' ? 'Publicar no Story' : 'Publicar Agora'}</span></>}
                </button>
             </div>
           </div>
@@ -804,49 +825,72 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
               </div>
             </div>
 
-            <div className="absolute bottom-12 left-0 w-full flex items-center justify-around px-8 z-40">
-               <input 
-                 ref={nativeVideoInputRef}
-                 type="file" 
-                 accept="video/*" 
-                 capture="camcorder" 
-                 className="hidden" 
-                 onChange={handleNativeVideoChange} 
-               />
-               <div className="w-12 h-12 flex items-center justify-center">
-                 <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
-                   <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
-                     <ImageIcon size={24} />
-                   </div>
-                   <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                   <input type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
-                 </label>
-               </div>
-               
-               <button 
-                onClick={initiateRecording} 
-                disabled={isStarting} 
-                className="relative flex items-center justify-center disabled:opacity-50"
-               >
-                 <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
-                 </div>
-               </button>
+            <div className="absolute bottom-12 left-0 w-full flex flex-col items-center gap-6 z-40">
+              <div className="flex items-center justify-around w-full px-8">
+                <input 
+                  ref={nativeVideoInputRef}
+                  type="file" 
+                  accept={uploadType === 'story' ? "video/*,image/*" : "video/*"} 
+                  capture="camcorder" 
+                  className="hidden" 
+                  onChange={handleNativeVideoChange} 
+                />
+                <div className="w-12 h-12 flex items-center justify-center">
+                  <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
+                    <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
+                      <ImageIcon size={24} />
+                    </div>
+                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept={uploadType === 'story' ? "video/*,image/*" : "video/*"} 
+                      onChange={handleFileChange} 
+                    />
+                  </label>
+                </div>
+                
+                <button 
+                  onClick={initiateRecording} 
+                  disabled={isStarting} 
+                  className="relative flex items-center justify-center disabled:opacity-50"
+                >
+                  <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
+                      <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                  </div>
+                </button>
 
-               <div className="w-12 h-12 flex items-center justify-center">
-                 <button 
-                  onClick={isRecording ? stopRecording : () => {
-                    if (mediaFiles.length > 0) {
-                      stopCamera();
-                    }
-                  }} 
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${recordingSeconds > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-                 >
-                   <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
-                   <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
-                 </button>
-               </div>
-             </div>
+                <div className="w-12 h-12 flex items-center justify-center">
+                  <button 
+                    onClick={isRecording ? stopRecording : () => {
+                      if (mediaFiles.length > 0) {
+                        stopCamera();
+                      }
+                    }} 
+                    className={`flex flex-col items-center gap-1 transition-all duration-300 ${recordingSeconds > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+                  >
+                    <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
+                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Upload Type Selector */}
+              <div className="flex gap-8 pb-2">
+                <button 
+                  onClick={() => setUploadType('post')}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
+                >
+                  Mambo
+                </button>
+                <button 
+                  onClick={() => setUploadType('story')}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
+                >
+                  Story
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

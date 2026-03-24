@@ -195,7 +195,7 @@ const App: React.FC = () => {
       case Tab.HOME:
         return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onViewStories={setViewingStoryUserId} />;
       case Tab.DISCOVER:
-        return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} onViewStories={setViewingStoryUserId} currentUserId={user?.id} />;
+        return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} onNavigateToCreate={() => setActiveTab(Tab.CREATE)} onViewStories={setViewingStoryUserId} />;
       case Tab.CREATE:
         return <CreatePost onCreated={() => { setDubbingSound(null); setActiveTab(Tab.HOME); }} dubbingSound={dubbingSound} />;
       case Tab.INBOX:

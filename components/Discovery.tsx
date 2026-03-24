@@ -8,11 +8,11 @@ import { parseMediaUrl } from '../services/mediaUtils';
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
+  onNavigateToCreate?: () => void;
   onViewStories?: (userId: string) => void;
-  currentUserId?: string;
 }
 
-const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile, onViewStories, currentUserId }) => {
+const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile, onNavigateToCreate, onViewStories }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
@@ -211,7 +211,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {/* Add Story Button */}
             <div 
-              onClick={() => onNavigateToProfile && onNavigateToProfile(currentUserId || 'me')}
+              onClick={() => onNavigateToCreate && onNavigateToCreate()}
               className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
             >
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
