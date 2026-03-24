@@ -17,6 +17,7 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
+  onViewStories?: (userId: string) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -33,7 +34,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onNavigateToProfile, 
   isMuted, 
   onToggleMute, 
-  onRequireAuth
+  onRequireAuth,
+  onViewStories
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -612,8 +614,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         <div className="absolute right-2 sm:right-3 bottom-12 sm:bottom-6 flex flex-col gap-3 sm:gap-5 items-center z-30">
           <div className="relative mb-1 sm:mb-2">
             <div 
-              onClick={() => onNavigateToProfile(post.user_id)}
-              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-white overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+              onClick={() => {
+                if (metadata.hasStories && onViewStories) {
+                  onViewStories(post.user_id);
+                } else {
+                  onNavigateToProfile(post.user_id);
+                }
+              }}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.hasStories ? 'border-red-600' : 'border-white'}`}
             >
                {post.profiles?.avatar_url ? (
                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />

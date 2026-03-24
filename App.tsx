@@ -7,6 +7,7 @@ import Feed from './components/Feed';
 import ProfileView from './components/ProfileView';
 import MessageCenter from './components/MessageCenter';
 import Discovery from './components/Discovery';
+import StoryViewer from './components/StoryViewer';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
@@ -23,6 +24,7 @@ export enum Tab {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
+  const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
@@ -157,6 +159,10 @@ const App: React.FC = () => {
   };
 
   const handleNavigateToPost = (postId: string) => {
+    if (postId.startsWith('story:')) {
+      setViewingStoryUserId(postId.replace('story:', ''));
+      return;
+    }
     setTargetPostId(postId);
     setActiveTab(Tab.HOME);
   };
@@ -187,9 +193,9 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case Tab.HOME:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onDub={handleDub} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onViewStories={setViewingStoryUserId} />;
       case Tab.DISCOVER:
-        return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
+        return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} onViewStories={setViewingStoryUserId} currentUserId={user?.id} />;
       case Tab.CREATE:
         return <CreatePost onCreated={() => { setDubbingSound(null); setActiveTab(Tab.HOME); }} dubbingSound={dubbingSound} />;
       case Tab.INBOX:
@@ -236,6 +242,14 @@ const App: React.FC = () => {
           API: {apiStatus === 'checking' ? '⏳' : (apiStatus === 'ok' ? '✅ OK' : '❌ ERRO')}
           <button onClick={() => setApiStatus(null)} className="ml-2 text-zinc-500">X</button>
         </div>
+      )}
+
+      {/* Story Viewer */}
+      {viewingStoryUserId && (
+        <StoryViewer 
+          userId={viewingStoryUserId} 
+          onClose={() => setViewingStoryUserId(null)} 
+        />
       )}
 
       <main className={`flex-1 overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>

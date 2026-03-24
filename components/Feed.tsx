@@ -9,6 +9,7 @@ import { appCache } from '../services/cache';
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
   onRequireAuth?: () => void;
+  onViewStories?: (userId: string) => void;
   initialPostId?: string | null;
 }
 
@@ -18,11 +19,12 @@ export interface PostMetadata {
   repostsCount: number;
   liked: boolean;
   reposted: boolean;
+  hasStories: boolean;
   isFollowing: boolean;
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, initialPostId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,10 +55,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user.id;
 
-      // 1. Buscar contagens de reações e reposts
-      const [reactionsRes, repostsRes] = await Promise.all([
+      // 1. Buscar contagens de reações, reposts e stories ativos
+      const [reactionsRes, repostsRes, storiesRes] = await Promise.all([
         supabase.from('reactions').select('post_id').in('post_id', postIds),
-        supabase.from('reposts').select('post_id').in('post_id', postIds)
+        supabase.from('reposts').select('post_id').in('post_id', postIds),
+        supabase.from('stories').select('user_id').in('user_id', authorIds).gt('expires_at', new Date().toISOString())
       ]);
 
       const reactionCounts: Record<string, number> = {};
@@ -64,6 +67,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
 
       const repostCounts: Record<string, number> = {};
       repostsRes.data?.forEach(r => repostCounts[r.post_id] = (repostCounts[r.post_id] || 0) + 1);
+
+      const usersWithStories: Set<string> = new Set(storiesRes.data?.map(s => s.user_id));
 
       // 2. Dados do utilizador logado (likes, follows e reposts)
       let userLikes: Set<string> = new Set();
@@ -99,6 +104,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
           repostsCount: repostCounts[p.id] || 0,
           liked: userLikes.has(p.id),
           reposted: userReposts.has(p.id),
+          hasStories: usersWithStories.has(p.user_id),
           isFollowing: userFollows.has(p.user_id),
           isOwnPost: currentUserId === p.user_id
         };
@@ -328,13 +334,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, initial
           <div key={post.id} className="feed-item relative">
             <PostCard 
               post={post} 
-              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, liked: false, isFollowing: false, isOwnPost: false }}
+              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
               followingList={followingList}
               onUpdateMetadata={handleUpdateMetadata}
               onNavigateToProfile={onNavigateToProfile} 
               isMuted={isMuted}
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}
+              onViewStories={onViewStories}
             />
           </div>
         ))}
