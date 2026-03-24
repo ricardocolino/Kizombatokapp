@@ -455,12 +455,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // 1. Processar Vídeo (Filtros, Trim, Rotação, Texto)
           let vfFilter = baseFilter;
           
-          const textFilter = textOverlay
-            ? `drawtext=text='${textOverlay}':fontcolor=white:fontsize=24:x=(w-text_w)/2:y=(h-text_h)/2`
-            : null;
-
-          if (textFilter) {
-            vfFilter = vfFilter ? `${vfFilter},${textFilter}` : textFilter;
+          if (hasText) {
+            // Carregar fonte para o drawtext
+            try {
+              console.log('[Upload] Carregando fonte para o texto...');
+              const fontUrl = 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto-Regular.ttf';
+              const fontData = await fetchFile(fontUrl);
+              await ffmpeg.writeFile('font.ttf', fontData);
+              
+              const escapedText = textOverlay.replace(/'/g, "'\\''").replace(/:/g, '\\:');
+              const textFilter = `drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=(h-text_h)/2`;
+              vfFilter = vfFilter ? `${vfFilter},${textFilter}` : textFilter;
+            } catch (fontErr) {
+              console.error('[Upload] Erro ao carregar fonte:', fontErr);
+            }
           }
 
           if (needsRotation) {
@@ -477,13 +485,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           }
           videoArgs.push('-i', inputFileName);
 
-          // Mapeamento: Vídeo do input 0, Áudio do input 0 (original)
-          videoArgs.push('-map', '0:v:0');
+          // Filtros
+          if (vfFilter) {
+            videoArgs.push('-vf', vfFilter);
+          }
+
+          // Mapeamento: Áudio do input 0 (original)
+          // O vídeo filtrado é mapeado automaticamente se não especificarmos -map 0:v:0
           console.log('[Upload] Mapeando áudio original');
           videoArgs.push('-map', '0:a:0?');
 
           if (vfFilter || hasTrim) {
-            if (vfFilter) videoArgs.push('-vf', vfFilter);
             videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
             videoArgs.push('-c:a', 'aac', '-b:a', '128k');
           } else {
