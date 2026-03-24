@@ -364,43 +364,54 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.preload = 'auto';
+      video.preload = 'metadata';
       video.muted = true;
       video.playsInline = true;
       
-      // Importante: Não aplicar filtro aqui se o vídeo já foi processado pelo FFmpeg
-      // Mas como a função é genérica, vamos garantir que ela captura um frame real
-      
-      video.onloadeddata = () => {
-        // Tentar capturar aos 1 segundo ou no meio do vídeo se for mais curto
-        const captureTime = Math.min(1.0, video.duration / 2);
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Thumbnail generation timed out'));
+      }, 10000);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        if (video.src) URL.revokeObjectURL(video.src);
+        video.remove();
+      };
+
+      video.onloadedmetadata = () => {
+        // Tentar capturar aos 0.5 segundos ou no meio do vídeo se for mais curto
+        const captureTime = Math.min(0.5, video.duration / 2);
         video.currentTime = captureTime;
       };
 
       video.onseeked = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx || canvas.width === 0 || canvas.height === 0) {
-          reject(new Error('Invalid video dimensions for thumbnail'));
-          return;
-        }
+        // Pequeno atraso para garantir que o frame foi renderizado
+        requestAnimationFrame(() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx || canvas.width === 0 || canvas.height === 0) {
+            cleanup();
+            reject(new Error('Invalid video dimensions for thumbnail'));
+            return;
+          }
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Failed to generate thumbnail blob'));
-        }, 'image/jpeg', 0.8);
-        
-        URL.revokeObjectURL(video.src);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          canvas.toBlob((blob) => {
+            cleanup();
+            if (blob) resolve(blob);
+            else reject(new Error('Failed to generate thumbnail blob'));
+          }, 'image/jpeg', 0.8);
+        });
       };
 
       video.onerror = (e) => {
         console.error('[Thumbnail] Erro no elemento vídeo:', e);
-        URL.revokeObjectURL(video.src);
+        cleanup();
         reject(new Error('Video error during thumbnail generation'));
       };
 
@@ -440,7 +451,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           const ffmpeg = await loadFFmpeg();
           
           // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
-          const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4'];
+          const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4', 'font.ttf', 'thumb.jpg'];
           for (const f of cleanupFiles) {
             try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
           }
@@ -514,21 +525,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           }
           finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
+          // Gerar thumbnail com FFmpeg (muito mais confiável que o browser para Blobs processados)
+          console.log('[Upload] Gerando thumbnail com FFmpeg...');
+          try {
+            await ffmpeg.exec(['-i', 'output.mp4', '-ss', '0.5', '-vframes', '1', 'thumb.jpg']);
+            const thumbOutput = await ffmpeg.readFile('thumb.jpg');
+            const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
+            
+            const thumbFileName = `${userId}-${timestamp}.jpg`;
+            finalThumbnailUrl = await uploadToR2(thumbBlobFromFFmpeg, 'thumbnails', thumbFileName);
+            console.log('[Upload] Thumbnail gerada com FFmpeg e enviada.');
+          } catch (thumbErr) {
+            console.error('[Upload] Erro ao gerar thumbnail com FFmpeg, tentando fallback browser:', thumbErr);
+          }
+
           // Limpeza FFmpeg
           try {
-            await ffmpeg.deleteFile(inputFileName);
-            await ffmpeg.deleteFile('output.mp4');
+            for (const f of cleanupFiles) {
+              try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+            }
           } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
         } else {
           console.log('[Upload] FFmpeg não é necessário. Usando vídeo original.');
           finalMediaBlob = mediaFiles[0];
         }
 
-        // 3. Gerar Thumbnail
-        console.log('[Upload] Gerando thumbnail...');
-        const thumbBlob = await generateThumbnail(finalMediaBlob);
-        const thumbFileName = `${userId}-${timestamp}.jpg`;
-        finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+        // 3. Gerar Thumbnail (Fallback ou se FFmpeg não foi usado)
+        if (!finalThumbnailUrl) {
+          console.log('[Upload] Gerando thumbnail via browser...');
+          const thumbBlob = await generateThumbnail(finalMediaBlob);
+          const thumbFileName = `${userId}-${timestamp}.jpg`;
+          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+        }
       }
 
       // 4. Upload do Ficheiro Final
