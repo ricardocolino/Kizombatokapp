@@ -210,7 +210,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       }
     } catch (error: unknown) {
       console.error('Error fetching posts:', error);
-      const message = error instanceof Error ? error.message : 'Erro ao carregar os mambos. Verifica a tua ligação.';
+      const message = error instanceof Error ? error.message : 'Erro ao carregar os vídeos. Verifica a tua ligação.';
       setError(message);
     } finally {
       if (!isNextPage) setTimeout(() => setLoading(false), 800);
@@ -296,7 +296,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   if (posts.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-black text-zinc-500 p-10 text-center">
-        <p className="font-bold text-lg mb-2">O mambo está vazio!</p>
+        <p className="font-bold text-lg mb-2">Ainda não há vídeos!</p>
         <p className="text-sm">Sê o primeiro a brilhar na banda. Publica um vídeo agora.</p>
       </div>
     );

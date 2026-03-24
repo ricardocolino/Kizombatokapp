@@ -9,9 +9,10 @@ import { uploadToR2 } from '../services/uploadService';
 
 interface CreatePostProps {
   onCreated: () => void;
+  initialType?: 'post' | 'story';
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post' }) => {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -42,7 +43,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [isEducation, setIsEducation] = useState(false);
-  const [uploadType, setUploadType] = useState<'post' | 'story'>('post');
+  const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
 
   const filters = [
     { name: 'Nenhum', value: 'none' },
@@ -654,7 +655,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                  <textarea 
                    value={content}
                    onChange={(e) => setContent(e.target.value.slice(0, 200))}
-                   placeholder="Escreve uma legenda para o teu mambo..."
+                   placeholder="Escreve uma legenda para o teu vídeo..."
                    className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-red-600/50 transition-all h-24 resize-none"
                  />
                  <div className="absolute bottom-3 right-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
@@ -806,7 +807,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
               <X size={24} />
             </button>
 
-            <div className="absolute bottom-32 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
+            <div className="absolute bottom-56 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
               <div className="flex gap-3">
                 <button 
                   onClick={() => setMaxDuration(15)}
@@ -881,7 +882,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated }) => {
                   onClick={() => setUploadType('post')}
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
-                  Mambo
+                  Vídeo
                 </button>
                 <button 
                   onClick={() => setUploadType('story')}

@@ -169,7 +169,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                       )}
                     </div>
                     <p className="text-[13px] text-zinc-400 truncate">
-                      {notif.type === 'like' && 'Curtiu o teu mambo'}
+                      {notif.type === 'like' && 'Curtiu o teu vídeo'}
                       {notif.type === 'follow' && 'Começou a seguir-te'}
                       {notif.type === 'comment' && `Comentou: ${notif.content}`}
                       {notif.type === 'message' && notif.content}
@@ -192,7 +192,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             {notifications.length === 0 && !loading && (
               <div className="py-24 flex flex-col items-center justify-center opacity-20 grayscale text-center">
                  <Bell size={48} className="text-zinc-500 mb-6" />
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Sem mambos novos</p>
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Sem novidades</p>
               </div>
             )}
           </div>

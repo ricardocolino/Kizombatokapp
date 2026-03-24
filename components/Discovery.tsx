@@ -8,7 +8,7 @@ import { parseMediaUrl } from '../services/mediaUtils';
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
-  onNavigateToCreate?: () => void;
+  onNavigateToCreate?: (isStory?: boolean) => void;
   onViewStories?: (userId: string) => void;
 }
 
@@ -167,7 +167,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               setSearchQuery(e.target.value);
               setDisplayLimit(10); 
             }}
-            placeholder="Pesquisar Kuduro, Mambo, Semba..." 
+            placeholder="Pesquisar Kuduro, Vídeo, Semba..." 
             className="w-full bg-zinc-900 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-red-600 transition-all outline-none text-white shadow-inner"
           />
         </div>
@@ -211,13 +211,13 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {/* Add Story Button */}
             <div 
-              onClick={() => onNavigateToCreate && onNavigateToCreate()}
+              onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
               className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
             >
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
                 <Plus size={24} className="text-zinc-600" />
               </div>
-              <span className="text-[10px] font-bold text-zinc-500">Teu Mambo</span>
+              <span className="text-[10px] font-bold text-zinc-500">Teu Story</span>
             </div>
 
             {stories.map(story => (
@@ -302,7 +302,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
       {posts.length === 0 && !loading && (
         <div className="py-20 text-center text-zinc-600 px-10">
-           <p className="text-sm font-bold">Nenhum mambo encontrado para &quot;{searchQuery}&quot;.</p>
+           <p className="text-sm font-bold">Nenhum vídeo encontrado para &quot;{searchQuery}&quot;.</p>
            <p className="text-[10px] uppercase mt-2 tracking-widest">Tenta outra pesquisa ou explora as tendências!</p>
         </div>
       )}

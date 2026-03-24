@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Story } from '../types';
-import { X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
@@ -15,6 +15,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const STORY_DURATION = 5000; // 5 seconds per story
 
   const handleNext = React.useCallback(() => {
@@ -108,18 +109,29 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
       {/* Header */}
       <div className="absolute top-8 left-0 right-0 px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20">
-            {currentStory.profiles?.avatar_url ? (
-              <img src={parseMediaUrl(currentStory.profiles.avatar_url)} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white text-xs font-black">
-                {currentStory.profiles?.username?.[0]?.toUpperCase()}
-              </div>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20">
+              {currentStory.profiles?.avatar_url ? (
+                <img src={parseMediaUrl(currentStory.profiles.avatar_url)} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white text-xs font-black">
+                  {currentStory.profiles?.username?.[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            <span className="text-white text-sm font-black drop-shadow-md">
+              {currentStory.profiles?.name || `@${currentStory.profiles?.username}`}
+            </span>
           </div>
-          <span className="text-white text-sm font-black drop-shadow-md">
-            {currentStory.profiles?.name || `@${currentStory.profiles?.username}`}
-          </span>
+          
+          {currentStory.media_type === 'video' && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+              className="p-2 text-white/80 hover:text-white transition-colors"
+            >
+              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+          )}
         </div>
         <button onClick={onClose} className="p-2 text-white/80 hover:text-white transition-colors">
           <X size={24} />
@@ -133,7 +145,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
             src={parseMediaUrl(currentStory.media_url)} 
             className="w-full h-full object-contain"
             autoPlay
-            muted
+            muted={isMuted}
             playsInline
             onEnded={handleNext}
           />

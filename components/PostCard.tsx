@@ -102,7 +102,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       
       // NOTA: O balanço agora é resgatado manualmente no Painel do Perfil
       // para evitar ganhos automáticos confusos e garantir que o utilizador
-      // veja o progresso dos seus mambos.
+      // veja o progresso dos seus vídeos.
     } catch (e) {
       console.error("Erro ao incrementar views:", e);
       viewCountedRef.current = false;
@@ -369,7 +369,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       return;
     }
 
-    const shareMessage = `Olha este mambo: ${window.location.origin}/post/${post.id}`;
+    const shareMessage = `Olha este vídeo: ${window.location.origin}/post/${post.id}`;
     
     const { error } = await supabase.from('messages').insert({
       sender_id: session.user.id,
@@ -378,7 +378,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     });
 
     if (!error) {
-      alert('Mambo partilhado com sucesso!');
+      alert('Vídeo partilhado com sucesso!');
     }
   };
 
@@ -422,7 +422,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     });
 
     if (!error) {
-      alert('Denúncia enviada. A nossa equipa irá analisar o mambo.');
+      alert('Denúncia enviada. A nossa equipa irá analisar o vídeo.');
     } else {
       alert('Denúncia enviada com sucesso.');
     }
@@ -430,7 +430,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handleSocialShare = (platform: string) => {
     const url = encodeURIComponent(`${window.location.origin}/post/${post.id}`);
-    const text = encodeURIComponent(`Olha este mambo no AngoChat!`);
+    const text = encodeURIComponent(`Olha este vídeo no AngoChat!`);
     let shareUrl = '';
 
     switch (platform) {
@@ -456,7 +456,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
 
     if (session.user.id === post.user_id) {
-      alert('Não podes enviar presentes a ti mesmo, mambo!');
+      alert('Não podes enviar presentes a ti mesmo!');
       return;
     }
 
@@ -591,7 +591,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         {videoError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 text-center">
             <AlertCircle size={48} className="text-zinc-400 mb-3" />
-            <p className="text-white text-sm font-medium mb-4">Mambo falhou ao carregar o vídeo</p>
+            <p className="text-white text-sm font-medium mb-4">Falha ao carregar o vídeo</p>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -704,7 +704,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div className="flex items-center justify-between p-5 border-b border-zinc-900/50">
                <div className="flex flex-col">
                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Comentários</span>
-                 <span className="text-sm font-black text-white tracking-tighter">{metadata.commentsCount} Mambos</span>
+                 <span className="text-sm font-black text-white tracking-tighter">{metadata.commentsCount} Comentários</span>
                </div>
                <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors"><X size={20}/></button>
             </div>
@@ -745,7 +745,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               {comments.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 opacity-30 grayscale">
                   <MessageCircle size={48} className="text-zinc-500 mb-4" />
-                  <p className="text-xs uppercase font-black tracking-[0.3em]">O mambo está calmo...</p>
+                  <p className="text-xs uppercase font-black tracking-[0.3em]">Ainda não há comentários...</p>
                 </div>
               )}
             </div>
@@ -768,7 +768,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={replyingTo ? `Diz algo para @${replyingTo.profiles?.username}...` : "Comenta este mambo..."}
+                    placeholder={replyingTo ? `Diz algo para @${replyingTo.profiles?.username}...` : "Comenta este vídeo..."}
                     className="w-full bg-zinc-900/50 rounded-2xl px-5 py-3.5 text-sm outline-none border border-zinc-800/50 focus:border-red-600/50 transition-all placeholder:text-zinc-600"
                   />
                 </div>
@@ -791,7 +791,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => setShowShare(false)} />
           <div className="relative bg-zinc-950 rounded-t-[40px] p-6 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
             <div className="flex items-center justify-between mb-6">
-              <span className="text-sm font-black text-white uppercase tracking-widest">Partilhar Mambo</span>
+              <span className="text-sm font-black text-white uppercase tracking-widest">Partilhar Vídeo</span>
               <button onClick={() => setShowShare(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
             </div>
 
@@ -816,7 +816,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   </button>
                 ))}
                 {followingList.length === 0 && (
-                  <p className="text-[10px] text-zinc-600 italic">Segue alguém para partilhares mambos diretamente!</p>
+                  <p className="text-[10px] text-zinc-600 italic">Segue alguém para partilhares vídeos diretamente!</p>
                 )}
               </div>
             </div>

@@ -12,7 +12,6 @@ import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
-import { Post } from './types';
 
 export enum Tab {
   HOME = 'home',
@@ -25,12 +24,12 @@ export enum Tab {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
+  const [isCreatingStory, setIsCreatingStory] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [dubbingSound, setDubbingSound] = useState<Post | null>(null);
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -170,12 +169,10 @@ const App: React.FC = () => {
   const handleGoHome = () => {
     setViewProfileId(null);
     setTargetPostId(null);
-    setDubbingSound(null);
     setActiveTab(Tab.HOME);
   };
 
-  const handleDub = (post: Post) => {
-    setDubbingSound(post);
+  const handleDub = () => {
     setActiveTab(Tab.CREATE);
   };
 
@@ -195,9 +192,23 @@ const App: React.FC = () => {
       case Tab.HOME:
         return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onViewStories={setViewingStoryUserId} />;
       case Tab.DISCOVER:
-        return <Discovery onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} onNavigateToCreate={() => setActiveTab(Tab.CREATE)} onViewStories={setViewingStoryUserId} />;
+        return <Discovery 
+          onNavigateToPost={handleNavigateToPost} 
+          onNavigateToProfile={handleNavigateToProfile} 
+          onNavigateToCreate={(isStory) => { 
+            setIsCreatingStory(!!isStory);
+            setActiveTab(Tab.CREATE); 
+          }} 
+          onViewStories={setViewingStoryUserId} 
+        />;
       case Tab.CREATE:
-        return <CreatePost onCreated={() => { setDubbingSound(null); setActiveTab(Tab.HOME); }} dubbingSound={dubbingSound} />;
+        return <CreatePost 
+          onCreated={() => { 
+            setIsCreatingStory(false);
+            setActiveTab(Tab.HOME); 
+          }} 
+          initialType={isCreatingStory ? 'story' : 'post'}
+        />;
       case Tab.INBOX:
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.PROFILE: {
@@ -273,7 +284,7 @@ const App: React.FC = () => {
           <span className="text-[9px] font-black uppercase tracking-tighter">Explorar</span>
         </button>
         <button 
-          onClick={() => setActiveTab(Tab.CREATE)}
+          onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
           className="flex flex-col items-center group"
         >
           <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">

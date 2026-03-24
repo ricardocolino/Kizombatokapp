@@ -264,7 +264,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const handleFollowToggle = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      alert('Faz login para seguires este mambo!');
+      alert('Faz login para seguires este vídeo!');
       return;
     }
 
@@ -334,10 +334,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       await fetchProfile();
       setPendingEarnings(0);
-      alert(`Boa, mambo! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para a tua carteira! 🇦🇴💰`);
+      alert(`Boa! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para a tua carteira! 🇦🇴💰`);
     } catch (err) {
       console.error("Erro ao resgatar ganhos:", err);
-      alert("Houve um mambo ao resgatar os ganhos. Tenta de novo!");
+      alert("Houve um erro ao resgatar os ganhos. Tenta de novo!");
     } finally {
       setClaiming(false);
     }
@@ -366,7 +366,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       await fetchProfile();
       setIsEditing(false);
     } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : 'Erro ao atualizar o mambo do perfil.');
+      setEditError(err instanceof Error ? err.message : 'Erro ao atualizar o perfil.');
     } finally {
       setSaving(false);
     }
@@ -430,7 +430,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       <header className="sticky top-0 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 h-14 border-b border-zinc-900 z-50">
         <div className="flex flex-col">
           <h1 className="font-black text-sm">{profile.name || profile.username}</h1>
-          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{userPosts.length} Mambos</span>
+          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{userPosts.length} Vídeos</span>
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
@@ -540,7 +540,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Tabs (Estilo X) */}
       <div className="flex border-b border-zinc-900 sticky top-14 bg-black/95 backdrop-blur-md z-40">
         {[ 
-          { id: 'posts', label: 'Mambos' }, 
+          { id: 'posts', label: 'Vídeos' }, 
           { id: 'liked', label: 'Curtidas' }, 
           { id: 'reposts', label: 'Republicados' } 
         ].map(tab => (
@@ -1035,7 +1035,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <textarea 
                     value={editForm.bio}
                     onChange={(e) => setEditForm({...editForm, bio: e.target.value.slice(0, 150)})}
-                    placeholder="Conta um mambo sobre ti..."
+                    placeholder="Conta algo sobre ti..."
                     className="w-full h-32 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner resize-none"
                   />
                   <div className="flex justify-end">
