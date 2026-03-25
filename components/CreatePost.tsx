@@ -473,24 +473,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
           // 2. Construção de Filtros
           const filterParts = [];
+          
+          // Garantir dimensões pares para libx264/yuv420p (Essencial para Android/Mobile)
+          filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
+          
           if (baseFilter) filterParts.push(baseFilter);
           
           if (hasText) {
+            console.log('[Upload] Tentando carregar fonte para o texto...');
+            let fontReady = false;
             try {
-              console.log('[Upload] Carregando fonte para o texto...');
               const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf';
               const fontData = await fetchFile(fontUrl);
               await ffmpeg.writeFile('font.ttf', fontData);
-              
-              // Escapar texto para FFmpeg drawtext
+              fontReady = true;
+            } catch (e) {
+              console.error('[Upload] Falha ao carregar fonte. O vídeo será processado sem texto.', e);
+            }
+
+            if (fontReady) {
               const escapedText = textOverlay
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "'\\''")
                 .replace(/:/g, '\\:');
-                
               filterParts.push(`drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
-            } catch (e) {
-              console.error('[Upload] Erro ao carregar fonte:', e);
             }
           }
           
@@ -512,15 +518,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           
           if (finalVf) {
             videoArgs.push('-vf', finalVf);
-            // Re-encode com boa qualidade e compatibilidade
-            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-pix_fmt', 'yuv420p');
-          } else {
-            // Se não houver filtros, re-encodamos para garantir compatibilidade após o trim
-            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-pix_fmt', 'yuv420p');
           }
           
-          // Mapear vídeo e áudio explicitamente
-          videoArgs.push('-c:a', 'aac', '-b:a', '128k', '-map', '0:v:0', '-map', '0:a:0?', '-movflags', '+faststart', '-y', 'output.mp4');
+          // Configurações de encoding otimizadas para mobile
+          videoArgs.push(
+            '-c:v', 'libx264', 
+            '-preset', 'ultrafast', 
+            '-crf', '28', 
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', 
+            '-b:a', '128k',
+            '-map', '0:a:0?', // Mapeia áudio se existir
+            '-movflags', '+faststart', 
+            '-y', 'output.mp4'
+          );
+          
+          // Nota: Não usamos -map 0:v:0 explicitamente quando temos -vf, 
+          // pois o FFmpeg seleciona automaticamente a saída do filtro.
           
           console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
           await ffmpeg.exec(videoArgs);
