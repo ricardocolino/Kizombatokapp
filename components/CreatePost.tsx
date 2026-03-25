@@ -364,14 +364,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.preload = 'metadata';
+      video.preload = 'auto'; // 'auto' is better for capturing frames
       video.muted = true;
       video.playsInline = true;
       
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error('Thumbnail generation timed out'));
-      }, 10000);
+      }, 15000); // Increased timeout
 
       const cleanup = () => {
         clearTimeout(timeout);
@@ -379,23 +379,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
         video.remove();
       };
 
-      video.onloadedmetadata = () => {
-        // Tentar capturar aos 0.5 segundos ou no meio do vídeo se for mais curto
-        const captureTime = Math.min(0.5, video.duration / 2);
-        video.currentTime = captureTime;
-      };
-
-      video.onseeked = () => {
-        // Pequeno atraso para garantir que o frame foi renderizado
-        requestAnimationFrame(() => {
+      const attemptCapture = () => {
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           const ctx = canvas.getContext('2d');
           
-          if (!ctx || canvas.width === 0 || canvas.height === 0) {
+          if (!ctx) {
             cleanup();
-            reject(new Error('Invalid video dimensions for thumbnail'));
+            reject(new Error('Failed to get canvas context'));
             return;
           }
 
@@ -406,7 +399,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             if (blob) resolve(blob);
             else reject(new Error('Failed to generate thumbnail blob'));
           }, 'image/jpeg', 0.8);
-        });
+        } else {
+          // If dimensions are still 0, wait a bit and try again
+          setTimeout(attemptCapture, 100);
+        }
+      };
+
+      video.onloadedmetadata = () => {
+        const captureTime = isFinite(video.duration) ? Math.min(0.1, video.duration / 2) : 0;
+        video.currentTime = captureTime;
+      };
+
+      video.onseeked = () => {
+        // Ensure we have dimensions before drawing
+        attemptCapture();
       };
 
       video.onerror = (e) => {
@@ -528,7 +534,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // Gerar thumbnail com FFmpeg (muito mais confiável que o browser para Blobs processados)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            await ffmpeg.exec(['-i', 'output.mp4', '-ss', '0.5', '-vframes', '1', 'thumb.jpg']);
+            // Usar -ss antes de -i para ser mais rápido e confiável
+            await ffmpeg.exec(['-ss', '0', '-i', 'output.mp4', '-vframes', '1', '-q:v', '2', 'thumb.jpg']);
             const thumbOutput = await ffmpeg.readFile('thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
             
