@@ -18,9 +18,12 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
-  const STORY_DURATION = 5000; // 5 seconds per story
+  const STORY_DURATION = 5000; // 5 seconds per image story
+
+  const currentStory = stories[currentIndex];
 
   const handleNext = React.useCallback(() => {
+    setProgress(0);
     if (currentIndex < stories.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -46,6 +49,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
       
       if (data && data.length > 0) {
         setStories(data);
+        setCurrentIndex(0);
+        setProgress(0);
       } else {
         onClose();
       }
@@ -56,7 +61,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
   }, [userId, onClose]);
 
   useEffect(() => {
-    if (stories.length === 0 || loading) return;
+    if (stories.length === 0 || loading || !currentStory || currentStory.media_type === 'video') return;
 
     const intervalTime = 50;
     const step = (intervalTime / STORY_DURATION) * 100;
@@ -73,11 +78,18 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
 
     return () => {
       clearInterval(timer);
-      setProgress(0);
     };
-  }, [currentIndex, stories.length, loading, STORY_DURATION, handleNext]);
+  }, [currentIndex, stories.length, loading, currentStory, STORY_DURATION, handleNext]);
+
+  const handleVideoTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (video.duration) {
+      setProgress((video.currentTime / video.duration) * 100);
+    }
+  };
 
   const handlePrev = () => {
+    setProgress(0);
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     } else {
@@ -101,8 +113,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
   }
 
   if (stories.length === 0) return null;
-
-  const currentStory = stories[currentIndex];
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
@@ -156,15 +166,18 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
         {currentStory.media_type === 'video' ? (
           <video 
+            key={currentStory.id}
             src={parseMediaUrl(currentStory.media_url)} 
             className="w-full h-full object-contain"
             autoPlay
             muted={isMuted}
             playsInline
             onEnded={handleNext}
+            onTimeUpdate={handleVideoTimeUpdate}
           />
         ) : (
           <img 
+            key={currentStory.id}
             src={parseMediaUrl(currentStory.media_url)} 
             className="w-full h-full object-contain"
             alt=""

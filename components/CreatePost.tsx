@@ -482,7 +482,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         const needsRotation = recordedFacingMode === 'rear';
-        const needsFFmpeg = hasTrim || needsRotation;
+        // Forçar FFmpeg para todos os vídeos para garantir compressão (vídeos leves como TikTok)
+        const needsFFmpeg = true; 
 
         if (needsFFmpeg) {
           console.log('[Upload] Iniciando processamento FFmpeg...');
@@ -509,7 +510,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // 2. Construção de Filtros
           const filterParts = [];
           
-          // Garantir dimensões pares para libx264/yuv420p (Essencial para Android/Mobile)
+          // Redimensionar para no máximo 720p (1280px de altura) para economizar espaço
+          // E garantir dimensões pares para libx264/yuv420p
+          filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
           if (needsRotation) {
@@ -532,14 +535,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             videoArgs.push('-vf', finalVf);
           }
           
-          // 2. Melhorar o comando FFmpeg
+          // 2. Melhorar o comando FFmpeg para compressão máxima (estilo TikTok)
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
-            '-crf', '28', 
+            '-crf', '32', // Aumentado de 28 para 32 para reduzir significativamente o peso
+            '-maxrate', '1.5M', // Limitar bitrate para vídeos leves
+            '-bufsize', '3M',
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', 
-            '-b:a', '128k',
+            '-b:a', '96k', // Reduzido de 128k para 96k
             '-movflags', '+faststart', 
             '-y', '/output.mp4'
           );
