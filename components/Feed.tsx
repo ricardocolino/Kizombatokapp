@@ -9,8 +9,9 @@ import { appCache } from '../services/cache';
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
   onRequireAuth?: () => void;
-  onViewStories?: (userId: string) => void;
+  onViewStories?: (userId: string, allUserIds?: string[]) => void;
   initialPostId?: string | null;
+  isPaused?: boolean;
 }
 
 export interface PostMetadata {
@@ -24,7 +25,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, initialPostId }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, initialPostId, isPaused }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -342,6 +343,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               onToggleMute={toggleMute}
               onRequireAuth={onRequireAuth}
               onViewStories={onViewStories}
+              isPaused={isPaused}
             />
           </div>
         ))}

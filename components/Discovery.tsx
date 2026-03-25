@@ -9,7 +9,7 @@ interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
   onNavigateToCreate?: (isStory?: boolean) => void;
-  onViewStories?: (userId: string) => void;
+  onViewStories?: (userId: string, allUserIds?: string[]) => void;
 }
 
 const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile, onNavigateToCreate, onViewStories }) => {
@@ -219,11 +219,10 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               </div>
               <span className="text-[10px] font-bold text-zinc-500">Teu Story</span>
             </div>
-
             {stories.map(story => (
               <div 
                 key={story.id} 
-                onClick={() => onViewStories && onViewStories(story.user_id)}
+                onClick={() => onViewStories && onViewStories(story.user_id, stories.map(s => s.user_id))}
                 className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
               >
                 <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">

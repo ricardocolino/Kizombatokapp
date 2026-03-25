@@ -17,7 +17,8 @@ interface PostCardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
-  onViewStories?: (userId: string) => void;
+  onViewStories?: (userId: string, allUserIds?: string[]) => void;
+  isPaused?: boolean;
 }
 
 type EnhancedComment = Comment & { 
@@ -35,7 +36,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   isMuted, 
   onToggleMute, 
   onRequireAuth,
-  onViewStories
+  onViewStories,
+  isPaused
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -145,7 +147,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && !isPaused) {
             // Prioridade máxima: Tentar reproduzir assim que houver interseção
             handlePlay();
           } else {
@@ -161,7 +163,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
     return () => observerRef.current?.disconnect();
-  }, [handlePlay, handlePause]);
+  }, [handlePlay, handlePause, isPaused]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -616,7 +618,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div 
               onClick={() => {
                 if (metadata.hasStories && onViewStories) {
-                  onViewStories(post.user_id);
+                  onViewStories(post.user_id, [post.user_id]);
                 } else {
                   onNavigateToProfile(post.user_id);
                 }

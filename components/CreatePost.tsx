@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Type, Wand2, Image as ImageIcon, Scissors, BookOpen } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -35,26 +35,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
-  const [textOverlay, setTextOverlay] = useState('');
-  const [showTextEditor, setShowTextEditor] = useState(false);
-  const [filter, setFilter] = useState('none');
-  const [showFilterPicker, setShowFilterPicker] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [isEducation, setIsEducation] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
-
-  const filters = [
-    { name: 'Nenhum', value: 'none' },
-    { name: 'P&B', value: 'grayscale(100%)' },
-    { name: 'Sépia', value: 'sepia(100%)' },
-    { name: 'Vibrante', value: 'saturate(200%)' },
-    { name: 'Quente', value: 'sepia(30%) saturate(150%) hue-rotate(-10deg)' },
-    { name: 'Frio', value: 'saturate(80%) hue-rotate(180deg) brightness(1.1)' },
-    { name: 'Inverter', value: 'invert(100%)' },
-    { name: 'Blur', value: 'blur(2px)' },
-  ];
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -62,19 +47,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
-
-  // Mapeia filtros CSS para filtros FFmpeg reais
-  const cssFilterToFFmpeg = (cssFilter: string): string | null => {
-    if (!cssFilter || cssFilter === 'none') return null;
-    if (cssFilter === 'grayscale(100%)') return 'colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3';
-    if (cssFilter === 'sepia(100%)') return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131';
-    if (cssFilter === 'saturate(200%)') return 'eq=saturation=2';
-    if (cssFilter === 'invert(100%)') return 'negate';
-    if (cssFilter.includes('blur(2px)')) return 'gblur=sigma=2';
-    if (cssFilter.includes('sepia(30%)')) return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=saturation=1.2';
-    if (cssFilter.includes('hue-rotate(180deg)')) return 'hue=h=180';
-    return null;
-  };
 
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
@@ -509,9 +481,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
         }
 
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
-        const baseFilter = cssFilterToFFmpeg(filter);
         const needsRotation = recordedFacingMode === 'rear';
-        const needsFFmpeg = !!baseFilter || hasTrim || needsRotation;
+        const needsFFmpeg = hasTrim || needsRotation;
 
         if (needsFFmpeg) {
           console.log('[Upload] Iniciando processamento FFmpeg...');
@@ -540,8 +511,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           
           // Garantir dimensões pares para libx264/yuv420p (Essencial para Android/Mobile)
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
-          
-          if (baseFilter) filterParts.push(baseFilter);
           
           if (needsRotation) {
             filterParts.push('hflip,vflip');
@@ -682,7 +651,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
-          filter: filter === 'none' ? null : filter,
           views: 0,
           created_at: new Date().toISOString()
         });
@@ -746,7 +714,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           <div className="h-full w-full flex flex-col bg-black">
             <div className="relative h-[320px] shrink-0 m-4 mb-2 bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800">
               {mediaFiles[0]?.type.startsWith('image/') ? (
-                <div className="w-full h-full relative" style={{ filter: filter !== 'none' ? filter : undefined }}>
+                <div className="w-full h-full relative">
                   <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
                   {previewUrls.length > 1 && (
                     <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
@@ -762,7 +730,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                   loop 
                   playsInline 
                   muted={false}
-                  style={{ filter: filter !== 'none' ? filter : undefined }} 
                   onPlay={() => {}}
                   onPause={() => {}}
                   onTimeUpdate={(e) => {
@@ -781,7 +748,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 <X size={20} />
               </button>
 
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-40">
                 {!mediaFiles[0]?.type.startsWith('image/') && (
                   <button 
                     onClick={() => setShowTrimEditor(true)}
@@ -791,13 +758,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                     <span className="text-[8px] font-black uppercase text-white shadow-sm">Recortar</span>
                   </button>
                 )}
-                <button 
-                  onClick={() => setShowFilterPicker(true)}
-                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-                >
-                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={20}/></div>
-                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
-                </button>
               </div>
             </div>
             
@@ -845,22 +805,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             <div 
               id="cameraPreview" 
               className="h-full w-full relative bg-transparent" 
-              style={{ 
-                filter: filter !== 'none' ? filter : undefined,
-                backdropFilter: filter !== 'none' ? filter : undefined,
-                WebkitBackdropFilter: filter !== 'none' ? filter : undefined
-              }}
             />
             
-            {textOverlay && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-                <span className="text-white text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
-                  {textOverlay}
-                </span>
-              </div>
-            )}
-            
-
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
                  <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">{countdown}</span>
@@ -885,20 +831,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                   <Zap size={22} fill={isFlashOn ? "currentColor" : "none"} />
                 </div>
                 <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>Flash</span>
-              </button>
-              <button 
-                onClick={() => setShowTextEditor(true)}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-              >
-                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Type size={22}/></div>
-                <span className="text-[8px] font-black uppercase text-white shadow-sm">Texto</span>
-              </button>
-              <button 
-                onClick={() => setShowFilterPicker(true)}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-              >
-                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Wand2 size={22}/></div>
-                <span className="text-[8px] font-black uppercase text-white shadow-sm">Efeitos</span>
               </button>
             </div>
 
@@ -990,57 +922,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 >
                   Story
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showTextEditor && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center p-8">
-            <textarea
-              autoFocus
-              value={textOverlay}
-              onChange={(e) => setTextOverlay(e.target.value)}
-              placeholder="Escreve o teu texto..."
-              className="w-full bg-transparent text-white text-4xl font-black text-center outline-none resize-none h-40 placeholder:text-white/20"
-            />
-            <div className="flex gap-4 mt-8">
-              <button 
-                onClick={() => { setTextOverlay(''); setShowTextEditor(false); }}
-                className="px-8 py-3 bg-zinc-800 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
-              >
-                Limpar
-              </button>
-              <button 
-                onClick={() => setShowTextEditor(false)}
-                className="px-8 py-3 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest"
-              >
-                Concluído
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showFilterPicker && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end">
-            <div className="w-full bg-zinc-950 rounded-t-[32px] p-6 border-t border-zinc-800">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-black uppercase tracking-widest text-white">Efeitos</h3>
-                <button onClick={() => setShowFilterPicker(false)} className="text-zinc-400 hover:text-white"><X size={24} /></button>
-              </div>
-              <div className="grid grid-cols-4 gap-4 pb-8">
-                {filters.map((f) => (
-                  <button
-                    key={f.value}
-                    onClick={() => { setFilter(f.value); setShowFilterPicker(false); }}
-                    className="flex flex-col items-center gap-2 group"
-                  >
-                    <div className={`w-14 h-14 rounded-2xl border-2 transition-all ${filter === f.value ? 'border-red-600 bg-red-600/20' : 'border-zinc-800 bg-zinc-900'}`} style={{ filter: f.value }}>
-                      <div className="w-full h-full flex items-center justify-center text-white/40"><Wand2 size={20} /></div>
-                    </div>
-                    <span className={`text-[8px] font-black uppercase tracking-widest ${filter === f.value ? 'text-red-500' : 'text-zinc-500'}`}>{f.name}</span>
-                  </button>
-                ))}
               </div>
             </div>
           </div>

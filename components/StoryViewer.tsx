@@ -7,10 +7,12 @@ import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
   userId: string;
+  allUserIds?: string[];
+  onNavigateToUser?: (userId: string) => void;
   onClose: () => void;
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
+const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNavigateToUser, onClose }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -22,9 +24,15 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
     if (currentIndex < stories.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      onClose();
+      // Check if there's a next user
+      const currentUserIndex = allUserIds.indexOf(userId);
+      if (currentUserIndex !== -1 && currentUserIndex < allUserIds.length - 1 && onNavigateToUser) {
+        onNavigateToUser(allUserIds[currentUserIndex + 1]);
+      } else {
+        onClose();
+      }
     }
-  }, [currentIndex, stories.length, onClose]);
+  }, [currentIndex, stories.length, userId, allUserIds, onNavigateToUser, onClose]);
 
   useEffect(() => {
     const fetchStories = async () => {
@@ -73,8 +81,14 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, onClose }) => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     } else {
-      setCurrentIndex(0);
-      setProgress(0);
+      // Check if there's a previous user
+      const currentUserIndex = allUserIds.indexOf(userId);
+      if (currentUserIndex !== -1 && currentUserIndex > 0 && onNavigateToUser) {
+        onNavigateToUser(allUserIds[currentUserIndex - 1]);
+      } else {
+        setCurrentIndex(0);
+        setProgress(0);
+      }
     }
   };
 

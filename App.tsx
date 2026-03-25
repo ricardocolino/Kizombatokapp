@@ -24,6 +24,7 @@ export enum Tab {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
+  const [allUsersWithStories, setAllUsersWithStories] = useState<string[]>([]);
   const [isCreatingStory, setIsCreatingStory] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -159,7 +160,9 @@ const App: React.FC = () => {
 
   const handleNavigateToPost = (postId: string) => {
     if (postId.startsWith('story:')) {
-      setViewingStoryUserId(postId.replace('story:', ''));
+      const userId = postId.replace('story:', '');
+      setViewingStoryUserId(userId);
+      setAllUsersWithStories([userId]); // Single user context
       return;
     }
     setTargetPostId(postId);
@@ -190,7 +193,16 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case Tab.HOME:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onRequireAuth={() => setActiveTab(Tab.PROFILE)} initialPostId={targetPostId} onViewStories={setViewingStoryUserId} />;
+        return <Feed 
+          onNavigateToProfile={handleNavigateToProfile} 
+          onRequireAuth={() => setActiveTab(Tab.PROFILE)} 
+          initialPostId={targetPostId} 
+          onViewStories={(userId, allUserIds) => {
+            setViewingStoryUserId(userId);
+            setAllUsersWithStories(allUserIds || [userId]);
+          }} 
+          isPaused={!!viewingStoryUserId}
+        />;
       case Tab.DISCOVER:
         return <Discovery 
           onNavigateToPost={handleNavigateToPost} 
@@ -199,7 +211,10 @@ const App: React.FC = () => {
             setIsCreatingStory(!!isStory);
             setActiveTab(Tab.CREATE); 
           }} 
-          onViewStories={setViewingStoryUserId} 
+          onViewStories={(userId, allUserIds) => {
+            setViewingStoryUserId(userId);
+            setAllUsersWithStories(allUserIds || [userId]);
+          }} 
         />;
       case Tab.CREATE:
         return <CreatePost 
@@ -259,7 +274,12 @@ const App: React.FC = () => {
       {viewingStoryUserId && (
         <StoryViewer 
           userId={viewingStoryUserId} 
-          onClose={() => setViewingStoryUserId(null)} 
+          allUserIds={allUsersWithStories}
+          onNavigateToUser={setViewingStoryUserId}
+          onClose={() => {
+            setViewingStoryUserId(null);
+            setAllUsersWithStories([]);
+          }} 
         />
       )}
 
