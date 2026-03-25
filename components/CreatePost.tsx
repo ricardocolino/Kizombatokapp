@@ -528,13 +528,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           });
 
           // 1. Limpeza e Preparação
-          const cleanupFiles = ['input.mp4', 'output.mp4', 'font.ttf', 'thumb.jpg'];
+          const cleanupFiles = ['/input.mp4', '/output.mp4', '/font.ttf', '/thumb.jpg'];
           for (const f of cleanupFiles) {
             try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
           }
 
           const videoData = await fetchFile(mediaFiles[0]);
-          await ffmpeg.writeFile('input.mp4', videoData);
+          await ffmpeg.writeFile('/input.mp4', videoData);
 
           // 2. Construção de Filtros
           const filterParts = [];
@@ -548,10 +548,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             console.log('[Upload] Tentando carregar fonte para o texto...');
             let fontReady = false;
             try {
-              const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf';
+              // Usar uma URL de fonte mais direta e garantir o caminho absoluto no FFmpeg
+              const fontUrl = 'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Regular.ttf';
               const fontData = await fetchFile(fontUrl);
-              await ffmpeg.writeFile('font.ttf', fontData);
-              fontReady = true;
+              await ffmpeg.writeFile('/font.ttf', fontData);
+              
+              // Verificar se o ficheiro foi realmente escrito
+              const files = await ffmpeg.listDir('/');
+              const fontExists = files.some(f => f.name === 'font.ttf');
+              
+              if (fontExists) {
+                console.log('[Upload] Fonte carregada com sucesso.');
+                fontReady = true;
+              } else {
+                console.error('[Upload] Ficheiro de fonte não encontrado após escrita.');
+              }
             } catch (e) {
               console.error('[Upload] Falha ao carregar fonte. O vídeo será processado sem texto.', e);
             }
@@ -568,7 +579,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 .replace(/\]/g, '\\]')
                 .replace(/\$/g, '\\$')
                 .replace(/%/g, '\\%');
-              filterParts.push(`drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
+              // Usar caminho absoluto /font.ttf
+              filterParts.push(`drawtext=fontfile='/font.ttf':text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
             }
           }
           
@@ -586,7 +598,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
           }
           
-          videoArgs.push('-i', 'input.mp4');
+          videoArgs.push('-i', '/input.mp4');
           
           if (finalVf) {
             videoArgs.push('-vf', finalVf);
@@ -601,7 +613,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             '-c:a', 'aac', 
             '-b:a', '128k',
             '-movflags', '+faststart', 
-            '-y', 'output.mp4'
+            '-y', '/output.mp4'
           );
           
           console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
@@ -616,7 +628,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           }
           
           console.log('[Upload] Lendo vídeo processado...');
-          const videoOutput = await ffmpeg.readFile('output.mp4');
+          const videoOutput = await ffmpeg.readFile('/output.mp4');
           if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
             throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
           }
@@ -654,8 +666,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            await ffmpeg.exec(['-i', 'output.mp4', '-ss', '0.1', '-vframes', '1', '-f', 'image2', 'thumb.jpg']);
-            const thumbOutput = await ffmpeg.readFile('thumb.jpg');
+            await ffmpeg.exec(['-i', '/output.mp4', '-ss', '0.1', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+            const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
             
             const thumbFileName = `${userId}-${timestamp}.jpg`;
