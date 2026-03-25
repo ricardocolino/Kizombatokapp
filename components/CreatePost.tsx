@@ -66,13 +66,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   // Mapeia filtros CSS para filtros FFmpeg reais
   const cssFilterToFFmpeg = (cssFilter: string): string | null => {
     if (!cssFilter || cssFilter === 'none') return null;
-    if (cssFilter === 'grayscale(100%)') return 'hue=s=0';
+    if (cssFilter === 'grayscale(100%)') return 'colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3';
     if (cssFilter === 'sepia(100%)') return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131';
     if (cssFilter === 'saturate(200%)') return 'eq=saturation=2';
     if (cssFilter === 'invert(100%)') return 'negate';
-    if (cssFilter.includes('blur(2px)')) return 'boxblur=2:2';
-    if (cssFilter.includes('sepia(30%)')) return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=saturation=1.5';
-    if (cssFilter.includes('hue-rotate(180deg)')) return 'hue=h=180,eq=saturation=0.8:brightness=1.1';
+    if (cssFilter.includes('blur(2px)')) return 'gblur=sigma=2';
+    if (cssFilter.includes('sepia(30%)')) return 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,eq=saturation=1.2';
+    if (cssFilter.includes('hue-rotate(180deg)')) return 'hue=h=180';
     return null;
   };
 
@@ -458,75 +458,69 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
         const needsFFmpeg = !!baseFilter || hasTrim || needsRotation || hasText;
 
         if (needsFFmpeg) {
-          // Lógica para Vídeo com FFmpeg Integrado
-          console.log('[Upload] Iniciando processamento de vídeo e áudio com FFmpeg...');
+          console.log('[Upload] Iniciando processamento FFmpeg...');
           setProcessingVideo(true);
           const ffmpeg = await loadFFmpeg();
           
-          // Limpeza preventiva de ficheiros de sessões anteriores que possam causar 'FS error'
-          const cleanupFiles = ['input_raw.mp4', 'dubbing.mp3', 'output.mp4', 'font.ttf', 'thumb.jpg'];
+          // 1. Limpeza e Preparação
+          const cleanupFiles = ['input.mp4', 'output.mp4', 'font.ttf', 'thumb.jpg'];
           for (const f of cleanupFiles) {
             try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
           }
 
-          const inputFileName = 'input_raw.mp4';
-          
-          console.log('[Upload] Descarregando vídeo gravado...');
           const videoData = await fetchFile(mediaFiles[0]);
-          if (!videoData || videoData.length === 0) throw new Error('Falha ao ler os dados do vídeo original.');
-          await ffmpeg.writeFile(inputFileName, videoData);
+          await ffmpeg.writeFile('input.mp4', videoData);
 
-          // 1. Processar Vídeo (Filtros, Trim, Rotação, Texto)
-          let vfFilter = baseFilter;
+          // 2. Construção de Filtros
+          const filterParts = [];
+          if (baseFilter) filterParts.push(baseFilter);
           
           if (hasText) {
-            // Carregar fonte para o drawtext
             try {
               console.log('[Upload] Carregando fonte para o texto...');
               const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf';
               const fontData = await fetchFile(fontUrl);
               await ffmpeg.writeFile('font.ttf', fontData);
               
-              const escapedText = textOverlay.replace(/'/g, "'\\''").replace(/:/g, '\\:');
-              const textFilter = `drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=32:x=(w-text_w)/2:y=(h-text_h)/2`;
-              vfFilter = vfFilter ? `${vfFilter},${textFilter}` : textFilter;
-            } catch (fontErr) {
-              console.error('[Upload] Erro ao carregar fonte:', fontErr);
+              // Escapar texto para FFmpeg drawtext
+              const escapedText = textOverlay
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "'\\''")
+                .replace(/:/g, '\\:');
+                
+              filterParts.push(`drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
+            } catch (e) {
+              console.error('[Upload] Erro ao carregar fonte:', e);
             }
           }
-
+          
           if (needsRotation) {
-            const rotation = 'hflip,vflip';
-            vfFilter = vfFilter ? `${vfFilter},${rotation}` : rotation;
-            console.log('[Upload] Aplicando rotação para câmera traseira');
+            filterParts.push('hflip,vflip');
           }
           
+          const finalVf = filterParts.join(',');
+          
+          // 3. Execução do Processamento Principal
           const videoArgs: string[] = [];
           
-          // Input 0: Vídeo
+          // Trim (Input seeking)
           if (hasTrim) {
-            videoArgs.push('-ss', String(trimStart), '-to', String(trimEnd));
+            videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
           }
-          videoArgs.push('-i', inputFileName);
-
-          // Filtros
-          if (vfFilter) {
-            videoArgs.push('-vf', vfFilter);
-          }
-
-          // Mapeamento: Áudio do input 0 (original)
-          // O vídeo filtrado é mapeado automaticamente se não especificarmos -map 0:v:0
-          console.log('[Upload] Mapeando áudio original');
-          videoArgs.push('-map', '0:a:0?');
-
-          if (vfFilter || hasTrim) {
-            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-pix_fmt', 'yuv420p');
-            videoArgs.push('-c:a', 'aac', '-b:a', '128k');
+          
+          videoArgs.push('-i', 'input.mp4');
+          
+          if (finalVf) {
+            videoArgs.push('-vf', finalVf);
+            // Re-encode com boa qualidade e compatibilidade
+            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-pix_fmt', 'yuv420p');
           } else {
-            videoArgs.push('-c:v', 'copy', '-c:a', 'copy');
+            // Se não houver filtros, re-encodamos para garantir compatibilidade após o trim
+            videoArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-pix_fmt', 'yuv420p');
           }
-
-          videoArgs.push('-movflags', '+faststart', '-y', 'output.mp4');
+          
+          // Mapear vídeo e áudio explicitamente
+          videoArgs.push('-c:a', 'aac', '-b:a', '128k', '-map', '0:v:0', '-map', '0:a:0?', '-movflags', '+faststart', '-y', 'output.mp4');
           
           console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
           await ffmpeg.exec(videoArgs);
@@ -538,11 +532,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           }
           finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
 
-          // Gerar thumbnail com FFmpeg (muito mais confiável que o browser para Blobs processados)
+          // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            // Tentar gerar a thumbnail a partir do ficheiro de saída já processado
-            // Usamos -ss 0.1 para garantir que o frame existe e é válido
             await ffmpeg.exec(['-i', 'output.mp4', '-ss', '0.1', '-vframes', '1', '-f', 'image2', 'thumb.jpg']);
             const thumbOutput = await ffmpeg.readFile('thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
@@ -552,31 +544,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             console.log('[Upload] Thumbnail gerada com FFmpeg e enviada.');
           } catch (thumbErr) {
             console.error('[Upload] Erro ao gerar thumbnail com FFmpeg:', thumbErr);
-            // Tentar uma segunda vez com o ficheiro original e filtros (caso o output.mp4 tenha problemas de seek)
-            try {
-              console.log('[Upload] Tentando gerar thumbnail a partir do original...');
-              const thumbArgs = [];
-              if (hasTrim) thumbArgs.push('-ss', String(trimStart));
-              thumbArgs.push('-i', inputFileName);
-              if (vfFilter) thumbArgs.push('-vf', vfFilter);
-              thumbArgs.push('-vframes', '1', '-f', 'image2', 'thumb_alt.jpg');
-              await ffmpeg.exec(thumbArgs);
-              const thumbOutput = await ffmpeg.readFile('thumb_alt.jpg');
-              const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
-              const thumbFileName = `${userId}-${timestamp}.jpg`;
-              finalThumbnailUrl = await uploadToR2(thumbBlobFromFFmpeg, 'thumbnails', thumbFileName);
-              console.log('[Upload] Thumbnail gerada com FFmpeg (alternativo) e enviada.');
-            } catch (thumbErr2) {
-              console.error('[Upload] Falha total na thumbnail FFmpeg:', thumbErr2);
-            }
           }
 
-          // Limpeza FFmpeg
-          try {
-            for (const f of cleanupFiles) {
-              try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
-            }
-          } catch { console.warn('Erro ao limpar ficheiros FFmpeg'); }
+          // 5. Limpeza Final
+          for (const f of cleanupFiles) {
+            try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+          }
         } else {
           console.log('[Upload] FFmpeg não é necessário. Usando vídeo original.');
           finalMediaBlob = mediaFiles[0];
