@@ -511,8 +511,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         const baseFilter = cssFilterToFFmpeg(filter);
         const needsRotation = recordedFacingMode === 'rear';
-        const hasText = !!textOverlay;
-        const needsFFmpeg = !!baseFilter || hasTrim || needsRotation || hasText;
+        const needsFFmpeg = !!baseFilter || hasTrim || needsRotation;
 
         if (needsFFmpeg) {
           console.log('[Upload] Iniciando processamento FFmpeg...');
@@ -528,7 +527,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           });
 
           // 1. Limpeza e Preparação
-          const cleanupFiles = ['/input.mp4', '/output.mp4', '/font.ttf', '/thumb.jpg'];
+          const cleanupFiles = ['/input.mp4', '/output.mp4', '/thumb.jpg'];
           for (const f of cleanupFiles) {
             try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
           }
@@ -543,46 +542,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
           if (baseFilter) filterParts.push(baseFilter);
-          
-          if (hasText) {
-            console.log('[Upload] Tentando carregar fonte para o texto...');
-            let fontReady = false;
-            try {
-              // Usar uma URL de fonte mais direta e garantir o caminho absoluto no FFmpeg
-              const fontUrl = 'https://raw.githubusercontent.com/google/fonts/main/apache/roboto/Roboto-Regular.ttf';
-              const fontData = await fetchFile(fontUrl);
-              await ffmpeg.writeFile('/font.ttf', fontData);
-              
-              // Verificar se o ficheiro foi realmente escrito
-              const files = await ffmpeg.listDir('/');
-              const fontExists = files.some(f => f.name === 'font.ttf');
-              
-              if (fontExists) {
-                console.log('[Upload] Fonte carregada com sucesso.');
-                fontReady = true;
-              } else {
-                console.error('[Upload] Ficheiro de fonte não encontrado após escrita.');
-              }
-            } catch (e) {
-              console.error('[Upload] Falha ao carregar fonte. O vídeo será processado sem texto.', e);
-            }
-
-            if (fontReady) {
-              // 3. Melhorar o escapamento de texto
-              const escapedText = textOverlay
-                .replace(/\\/g, '\\\\')
-                .replace(/'/g, "'\\''")
-                .replace(/:/g, '\\:')
-                .replace(/[{}]/g, '\\$&')
-                .replace(/[()]/g, '\\$&')
-                .replace(/\[/g, '\\[')
-                .replace(/\]/g, '\\]')
-                .replace(/\$/g, '\\$')
-                .replace(/%/g, '\\%');
-              // Usar caminho absoluto /font.ttf
-              filterParts.push(`drawtext=fontfile='/font.ttf':text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
-            }
-          }
           
           if (needsRotation) {
             filterParts.push('hflip,vflip');
@@ -818,14 +777,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 />
               )}
               
-              {textOverlay && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <span className="text-white text-xl font-black text-center px-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] break-words max-w-full">
-                    {textOverlay}
-                  </span>
-                </div>
-              )}
-
               <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
                 <X size={20} />
               </button>
@@ -840,13 +791,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                     <span className="text-[8px] font-black uppercase text-white shadow-sm">Recortar</span>
                   </button>
                 )}
-                <button 
-                  onClick={() => setShowTextEditor(true)}
-                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-                >
-                  <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Type size={20}/></div>
-                  <span className="text-[8px] font-black uppercase text-white shadow-sm">Texto</span>
-                </button>
                 <button 
                   onClick={() => setShowFilterPicker(true)}
                   className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
