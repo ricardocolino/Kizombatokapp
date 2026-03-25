@@ -361,7 +361,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     }
   };
 
-  const generateThumbnail = (file: File | Blob): Promise<Blob> => {
+  const generateThumbnailAttempt = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.preload = 'auto';
@@ -432,6 +432,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     });
   };
 
+  const generateThumbnail = (file: File | Blob, maxRetries = 3): Promise<Blob> => {
+    return new Promise((resolve) => {
+      (async () => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const thumb = await generateThumbnailAttempt(file);
+            resolve(thumb);
+            return;
+          } catch (err) {
+            console.error(`[Thumbnail] Tentativa ${attempt} falhou:`, err);
+            if (attempt === maxRetries) {
+              // Última tentativa: criar thumbnail preta genérica
+              const canvas = document.createElement('canvas');
+              canvas.width = 1080;
+              canvas.height = 1920;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '30px Arial';
+                ctx.fillText('Vídeo', canvas.width/2 - 50, canvas.height/2);
+              }
+              
+              canvas.toBlob((blob) => {
+                resolve(blob as Blob);
+              }, 'image/jpeg', 0.8);
+              return;
+            }
+            // Aguardar antes de tentar novamente
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+      })();
+    });
+  };
+
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
     
@@ -451,6 +488,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       let finalMediaUrl: string | null = null;
 
       if (isVideo) {
+        // 6. Adicionar verificação antes do processamento
+        const originalVideo = mediaFiles[0];
+        if (originalVideo.type === 'video/mp4' || originalVideo.type === 'video/quicktime') {
+          const tempUrl = URL.createObjectURL(originalVideo);
+          const isValid = await new Promise((resolve) => {
+            const video = document.createElement('video');
+            video.onloadedmetadata = () => resolve(video.videoWidth > 0 && video.videoHeight > 0);
+            video.onerror = () => resolve(false);
+            video.src = tempUrl;
+          });
+          URL.revokeObjectURL(tempUrl);
+          
+          if (!isValid) {
+            console.warn('[Upload] Vídeo original inválido, ignorando processamento');
+            setProcessingVideo(false);
+            // Usar vídeo original sem processamento
+            finalMediaBlob = originalVideo;
+          }
+        }
+
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         const baseFilter = cssFilterToFFmpeg(filter);
         const needsRotation = recordedFacingMode === 'rear';
@@ -462,6 +519,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           setProcessingVideo(true);
           const ffmpeg = await loadFFmpeg();
           
+          // 4. Adicionar logs de depuração
+          ffmpeg.on('log', ({ message }) => {
+            console.log('[FFmpeg]', message);
+            if (message.includes('Error') || message.includes('error')) {
+              console.error('[FFmpeg ERROR]', message);
+            }
+          });
+
           // 1. Limpeza e Preparação
           const cleanupFiles = ['input.mp4', 'output.mp4', 'font.ttf', 'thumb.jpg'];
           for (const f of cleanupFiles) {
@@ -492,10 +557,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             }
 
             if (fontReady) {
+              // 3. Melhorar o escapamento de texto
               const escapedText = textOverlay
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "'\\''")
-                .replace(/:/g, '\\:');
+                .replace(/:/g, '\\:')
+                .replace(/[{}]/g, '\\$&')
+                .replace(/[()]/g, '\\$&')
+                .replace(/\[/g, '\\[')
+                .replace(/\]/g, '\\]')
+                .replace(/\$/g, '\\$')
+                .replace(/%/g, '\\%');
               filterParts.push(`drawtext=fontfile=font.ttf:text='${escapedText}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black:shadowx=2:shadowy=2`);
             }
           }
@@ -520,7 +592,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             videoArgs.push('-vf', finalVf);
           }
           
-          // Configurações de encoding otimizadas para mobile
+          // 2. Melhorar o comando FFmpeg
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
@@ -528,23 +600,56 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', 
             '-b:a', '128k',
-            '-map', '0:a:0?', // Mapeia áudio se existir
             '-movflags', '+faststart', 
             '-y', 'output.mp4'
           );
           
-          // Nota: Não usamos -map 0:v:0 explicitamente quando temos -vf, 
-          // pois o FFmpeg seleciona automaticamente a saída do filtro.
-          
           console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
           await ffmpeg.exec(videoArgs);
+
+          // 4. Adicionar logs de depuração - verificar arquivo gerado
+          try {
+            const stats = await ffmpeg.listDir('/');
+            console.log('[FFmpeg] Arquivos após processamento:', stats);
+          } catch (e) {
+            console.warn('[FFmpeg] Erro ao listar arquivos:', e);
+          }
           
           console.log('[Upload] Lendo vídeo processado...');
           const videoOutput = await ffmpeg.readFile('output.mp4');
           if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
             throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
           }
-          finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
+
+          // 1. Adicionar validação do vídeo processado
+          const tempVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
+          if (tempVideoBlob.size === 0) {
+            throw new Error('Vídeo processado está vazio');
+          }
+
+          finalMediaBlob = tempVideoBlob;
+
+          // Testar se o vídeo é válido ANTES de prosseguir
+          try {
+            await new Promise((resolve, reject) => {
+              const testVideo = document.createElement('video');
+              testVideo.preload = 'metadata';
+              testVideo.onloadedmetadata = () => {
+                if (testVideo.videoWidth === 0 || testVideo.videoHeight === 0) {
+                  reject(new Error('Vídeo processado tem dimensões inválidas'));
+                } else {
+                  resolve(true);
+                }
+                testVideo.remove();
+              };
+              testVideo.onerror = () => reject(new Error('Erro ao carregar vídeo processado'));
+              testVideo.src = URL.createObjectURL(tempVideoBlob);
+            });
+          } catch (validationError) {
+            console.error('[Upload] Vídeo processado inválido:', validationError);
+            // Fallback para o vídeo original
+            finalMediaBlob = mediaFiles[0];
+          }
 
           // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
