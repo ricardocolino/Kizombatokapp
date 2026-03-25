@@ -364,22 +364,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.preload = 'auto'; // 'auto' is better for capturing frames
+      video.preload = 'auto';
       video.muted = true;
       video.playsInline = true;
+      video.setAttribute('crossorigin', 'anonymous');
       
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error('Thumbnail generation timed out'));
-      }, 15000); // Increased timeout
+      }, 20000); // Increased timeout to 20s
 
       const cleanup = () => {
         clearTimeout(timeout);
         if (video.src) URL.revokeObjectURL(video.src);
+        video.onloadedmetadata = null;
+        video.onseeked = null;
+        video.onerror = null;
         video.remove();
       };
 
-      const attemptCapture = () => {
+      const attemptCapture = (retries = 0) => {
         if (video.videoWidth > 0 && video.videoHeight > 0) {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
@@ -399,19 +403,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             if (blob) resolve(blob);
             else reject(new Error('Failed to generate thumbnail blob'));
           }, 'image/jpeg', 0.8);
+        } else if (retries < 50) {
+          // If dimensions are still 0, wait a bit and try again (up to 5 seconds)
+          setTimeout(() => attemptCapture(retries + 1), 100);
         } else {
-          // If dimensions are still 0, wait a bit and try again
-          setTimeout(attemptCapture, 100);
+          cleanup();
+          reject(new Error('Invalid video dimensions after multiple attempts'));
         }
       };
 
       video.onloadedmetadata = () => {
-        const captureTime = isFinite(video.duration) ? Math.min(0.1, video.duration / 2) : 0;
+        // Seek to a small offset to ensure a frame is loaded
+        const captureTime = isFinite(video.duration) ? Math.min(0.1, video.duration / 2) : 0.1;
         video.currentTime = captureTime;
       };
 
       video.onseeked = () => {
-        // Ensure we have dimensions before drawing
         attemptCapture();
       };
 
@@ -476,7 +483,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             // Carregar fonte para o drawtext
             try {
               console.log('[Upload] Carregando fonte para o texto...');
-              const fontUrl = 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto-Regular.ttf';
+              const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf';
               const fontData = await fetchFile(fontUrl);
               await ffmpeg.writeFile('font.ttf', fontData);
               
@@ -534,8 +541,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // Gerar thumbnail com FFmpeg (muito mais confiável que o browser para Blobs processados)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            // Usar -ss antes de -i para ser mais rápido e confiável
-            await ffmpeg.exec(['-ss', '0', '-i', 'output.mp4', '-vframes', '1', '-q:v', '2', 'thumb.jpg']);
+            // Tentar gerar a thumbnail a partir do ficheiro de saída já processado
+            // Usamos -ss 0.1 para garantir que o frame existe e é válido
+            await ffmpeg.exec(['-i', 'output.mp4', '-ss', '0.1', '-vframes', '1', '-f', 'image2', 'thumb.jpg']);
             const thumbOutput = await ffmpeg.readFile('thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
             
@@ -543,7 +551,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             finalThumbnailUrl = await uploadToR2(thumbBlobFromFFmpeg, 'thumbnails', thumbFileName);
             console.log('[Upload] Thumbnail gerada com FFmpeg e enviada.');
           } catch (thumbErr) {
-            console.error('[Upload] Erro ao gerar thumbnail com FFmpeg, tentando fallback browser:', thumbErr);
+            console.error('[Upload] Erro ao gerar thumbnail com FFmpeg:', thumbErr);
+            // Tentar uma segunda vez com o ficheiro original e filtros (caso o output.mp4 tenha problemas de seek)
+            try {
+              console.log('[Upload] Tentando gerar thumbnail a partir do original...');
+              const thumbArgs = [];
+              if (hasTrim) thumbArgs.push('-ss', String(trimStart));
+              thumbArgs.push('-i', inputFileName);
+              if (vfFilter) thumbArgs.push('-vf', vfFilter);
+              thumbArgs.push('-vframes', '1', '-f', 'image2', 'thumb_alt.jpg');
+              await ffmpeg.exec(thumbArgs);
+              const thumbOutput = await ffmpeg.readFile('thumb_alt.jpg');
+              const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
+              const thumbFileName = `${userId}-${timestamp}.jpg`;
+              finalThumbnailUrl = await uploadToR2(thumbBlobFromFFmpeg, 'thumbnails', thumbFileName);
+              console.log('[Upload] Thumbnail gerada com FFmpeg (alternativo) e enviada.');
+            } catch (thumbErr2) {
+              console.error('[Upload] Falha total na thumbnail FFmpeg:', thumbErr2);
+            }
           }
 
           // Limpeza FFmpeg
