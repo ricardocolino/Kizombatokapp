@@ -75,10 +75,17 @@ const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelect, onClose, maxSelec
       try {
         setLoading(true);
         
-        // Request permissions
-        const permission = await Media.requestPermissions();
-        if (permission.photos !== 'granted') {
-          alert('Permissão de fotos negada');
+        // Check and request permissions
+        let permission = await Media.checkPermissions();
+        console.log('Current media permissions:', permission);
+        
+        if (permission.photos !== 'granted' && permission.photos !== 'limited') {
+          permission = await Media.requestPermissions();
+        }
+
+        if (permission.photos !== 'granted' && permission.photos !== 'limited') {
+          // If still not granted, it might be because it was denied before
+          alert('Permissão de fotos negada. Por favor, ative nas configurações do seu telemóvel para aceder à galeria.');
           onClose();
           return;
         }
@@ -97,6 +104,8 @@ const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelect, onClose, maxSelec
         setAssets(fetchedAssets);
       } catch (err) {
         console.error('Error loading media:', err);
+        alert('Erro ao carregar a galeria. Verifique as permissões.');
+        onClose();
       } finally {
         setLoading(false);
       }

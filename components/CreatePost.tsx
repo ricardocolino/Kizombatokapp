@@ -89,22 +89,51 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     if (Capacitor.isNativePlatform()) {
       try {
         // Request Camera and Microphone for recording
-        // CameraPreview plugin handles its own permissions usually, 
-        // but we can be explicit if needed.
+        // This is the "como antes" part - requesting camera and microphone explicitly
+        console.log('Requesting camera/mic permissions...');
+        
+        // Use getUserMedia trick to trigger OS prompt for both camera and mic
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stream.getTracks().forEach(track => track.stop());
+        } catch (e) {
+          console.warn("Erro ao pedir permissões via getUserMedia:", e);
+        }
+
+        const camStatus = await CameraPreview.requestPermissions();
+        console.log('Camera permissions:', camStatus);
         
         // Request Media permissions for the library
-        const mediaPerms = await Media.requestPermissions();
-        if (mediaPerms.photos !== 'granted') {
+        console.log('Requesting media permissions...');
+        let mediaPerms = await Media.checkPermissions();
+        if (mediaPerms.photos !== 'granted' && mediaPerms.photos !== 'limited') {
+          mediaPerms = await Media.requestPermissions();
+        }
+        console.log('Media permissions:', mediaPerms);
+        
+        if (mediaPerms.photos !== 'granted' && mediaPerms.photos !== 'limited') {
           console.warn('Photos permission not granted');
         }
       } catch (err) {
         console.error('Error requesting permissions:', err);
       }
+    } else {
+      try {
+        // Browser permission prompt
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (e) {
+        console.warn("Erro ao pedir permissões no browser:", e);
+      }
     }
   };
 
   useEffect(() => {
-    requestPermissions();
+    // Small delay to ensure bridge is ready
+    const timer = setTimeout(() => {
+      requestPermissions();
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   const startCamera = React.useCallback(async () => {
