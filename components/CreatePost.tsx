@@ -6,8 +6,7 @@ import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
-import MediaLibrary from './MediaLibrary';
-import { Media } from '@capacitor-community/media';
+import { FilePicker } from '@capawesome/capacitor-file-picker';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -43,7 +42,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const [isEducation, setIsEducation] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
-  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -102,18 +100,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
         const camStatus = await CameraPreview.requestPermissions();
         console.log('Camera permissions:', camStatus);
-        
-        // Request Media permissions for the library
-        console.log('Requesting media permissions...');
-        let mediaPerms = await Media.checkPermissions();
-        if (mediaPerms.photos !== 'granted' && mediaPerms.photos !== 'limited') {
-          mediaPerms = await Media.requestPermissions();
-        }
-        console.log('Media permissions:', mediaPerms);
-        
-        if (mediaPerms.photos !== 'granted' && mediaPerms.photos !== 'limited') {
-          console.warn('Photos permission not granted');
-        }
       } catch (err) {
         console.error('Error requesting permissions:', err);
       }
@@ -387,8 +373,37 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       setTrimStart(0);
       setTrimEnd(15);
       setError(null);
-      setShowMediaLibrary(false);
       stopCamera();
+    }
+  };
+
+  const openGallery = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      nativeVideoInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const result = await FilePicker.pickMedia({
+        multiple: uploadType === 'post',
+        limit: uploadType === 'post' ? 5 : 1,
+      });
+
+      if (result.files.length > 0) {
+        const selectedFiles: File[] = [];
+        for (const file of result.files) {
+          if (file.path) {
+            const response = await fetch(Capacitor.convertFileSrc(file.path));
+            const blob = await response.blob();
+            const fileName = file.name || `media_${Date.now()}.${file.mimeType.split('/')[1] || 'jpg'}`;
+            selectedFiles.push(new File([blob], fileName, { type: file.mimeType }));
+          }
+        }
+        handleMediaLibrarySelect(selectedFiles);
+      }
+    } catch (err) {
+      console.error('Error picking media:', err);
+      // User might have canceled, ignore
     }
   };
 
@@ -764,14 +779,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
-      {showMediaLibrary && (
-        <MediaLibrary 
-          onClose={() => setShowMediaLibrary(false)}
-          onSelect={handleMediaLibrarySelect}
-          maxSelections={uploadType === 'post' ? 5 : 1}
-        />
-      )}
-
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -944,7 +951,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                 />
                 <div className="w-12 h-12 flex items-center justify-center">
                   <button 
-                    onClick={() => setShowMediaLibrary(true)}
+                    onClick={openGallery}
                     className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform"
                   >
                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
