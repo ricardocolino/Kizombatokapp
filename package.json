@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1005.0",
     "@capacitor-community/camera-preview": "^7.0.5",
+    "@capacitor-community/media": "^9.1.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/camera": "^8.0.1",
     "@capacitor/cli": "^8.1.0",

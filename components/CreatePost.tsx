@@ -6,6 +6,8 @@ import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
+import MediaLibrary from './MediaLibrary';
+import { Media } from '@capacitor-community/media';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -41,6 +43,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const [isEducation, setIsEducation] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -80,6 +83,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     }
     setShowCamera(false);
     setIsFlashOn(false);
+  }, []);
+
+  const requestPermissions = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // Request Camera and Microphone for recording
+        // CameraPreview plugin handles its own permissions usually, 
+        // but we can be explicit if needed.
+        
+        // Request Media permissions for the library
+        const mediaPerms = await Media.requestPermissions();
+        if (mediaPerms.photos !== 'granted') {
+          console.warn('Photos permission not granted');
+        }
+      } catch (err) {
+        console.error('Error requesting permissions:', err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    requestPermissions();
   }, []);
 
   const startCamera = React.useCallback(async () => {
@@ -320,8 +345,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     }
   }, [recordingSeconds, isRecording, maxDuration, stopRecording]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const handleMediaLibrarySelect = (files: File[]) => {
     if (files.length > 0) {
       const selectedFiles = files.slice(0, 5);
       const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
@@ -334,6 +358,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       setTrimStart(0);
       setTrimEnd(15);
       setError(null);
+      setShowMediaLibrary(false);
+      stopCamera();
     }
   };
 
@@ -389,8 +415,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       };
 
       video.onloadedmetadata = () => {
-        // Seek to a small offset to ensure a frame is loaded
-        const captureTime = isFinite(video.duration) ? Math.min(0.1, video.duration / 2) : 0.1;
+        // Seek to a slightly later time to avoid black frames at the very start
+        const captureTime = isFinite(video.duration) ? Math.min(1.0, video.duration / 2) : 1.0;
         video.currentTime = captureTime;
       };
 
@@ -603,7 +629,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            await ffmpeg.exec(['-i', '/output.mp4', '-ss', '0.1', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+            // Seek to 1.0s to avoid black frames at the start
+            await ffmpeg.exec(['-i', '/output.mp4', '-ss', '1.0', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
             const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
             
@@ -708,6 +735,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
   return (
     <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
+      {showMediaLibrary && (
+        <MediaLibrary 
+          onClose={() => setShowMediaLibrary(false)}
+          onSelect={handleMediaLibrarySelect}
+          maxSelections={uploadType === 'post' ? 5 : 1}
+        />
+      )}
+
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -879,18 +914,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                   onChange={handleNativeVideoChange} 
                 />
                 <div className="w-12 h-12 flex items-center justify-center">
-                  <label className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform">
+                  <button 
+                    onClick={() => setShowMediaLibrary(true)}
+                    className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform"
+                  >
                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
                       <ImageIcon size={24} />
                     </div>
                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept={uploadType === 'story' ? "video/*,image/*" : "video/*"} 
-                      onChange={handleFileChange} 
-                    />
-                  </label>
+                  </button>
                 </div>
                 
                 <button 
