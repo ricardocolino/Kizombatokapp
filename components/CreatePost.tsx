@@ -460,18 +460,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
       video.onloadedmetadata = () => {
         // Seek to a slightly later time to avoid black frames at the very start
-        const captureTime = isFinite(video.duration) ? Math.min(1.0, video.duration / 2) : 1.0;
+        // Try to seek to 0.5s or 10% of duration
+        const captureTime = isFinite(video.duration) && video.duration > 0 
+          ? Math.min(0.5, video.duration / 4) 
+          : 0.1;
         video.currentTime = captureTime;
+        video.play().catch(() => {}); // Force frame loading
       };
 
       video.onseeked = () => {
-        attemptCapture();
+        video.pause();
+        // Give it a bit more time to render the frame
+        setTimeout(() => {
+          attemptCapture();
+        }, 500);
       };
 
       video.onerror = (e) => {
-        console.error('[Thumbnail] Erro no elemento vídeo:', e);
+        console.error('[Thumbnail] Erro no elemento vídeo:', e, video.error);
         cleanup();
-        reject(new Error('Video error during thumbnail generation'));
+        reject(new Error(`Video error during thumbnail generation: ${video.error?.message || 'Unknown error'}`));
       };
 
       video.src = URL.createObjectURL(file);
@@ -489,17 +497,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           } catch (err) {
             console.error(`[Thumbnail] Tentativa ${attempt} falhou:`, err);
             if (attempt === maxRetries) {
-              // Última tentativa: criar thumbnail preta genérica
+              console.warn('[Thumbnail] Todas as tentativas falharam, gerando fallback...');
+              // Última tentativa: criar thumbnail cinza genérica para distinguir de frame preto
               const canvas = document.createElement('canvas');
               canvas.width = 1080;
               canvas.height = 1920;
               const ctx = canvas.getContext('2d');
               if (ctx) {
-                ctx.fillStyle = '#000000';
+                ctx.fillStyle = '#1a1a1a'; // Cinza escuro
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#ffffff';
-                ctx.font = '30px Arial';
-                ctx.fillText('Vídeo', canvas.width/2 - 50, canvas.height/2);
+                ctx.font = 'bold 60px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('VÍDEO', canvas.width/2, canvas.height/2);
               }
               
               canvas.toBlob((blob) => {
@@ -673,8 +683,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
           // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
           try {
-            // Seek to 1.0s to avoid black frames at the start
-            await ffmpeg.exec(['-i', '/output.mp4', '-ss', '1.0', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+            // Seek to 0.5s to avoid black frames at the start
+            await ffmpeg.exec(['-ss', '0.5', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
             const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
             const thumbBlobFromFFmpeg = new Blob([thumbOutput], { type: 'image/jpeg' });
             
