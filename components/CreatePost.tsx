@@ -40,6 +40,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [isEducation, setIsEducation] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
+  const [isFromGallery, setIsFromGallery] = useState(false);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -220,6 +221,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     if (file) {
       setMediaFiles([file]);
       setPreviewUrls([URL.createObjectURL(file)]);
+      setIsFromGallery(true);
       stopCamera();
     }
   };
@@ -298,6 +300,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
             const videoBlob = await response.blob();
             setMediaFiles([videoBlob]);
             setPreviewUrls([URL.createObjectURL(videoBlob)]);
+            setIsFromGallery(false);
             setTrimStart(0);
             setTrimEnd(recordingSeconds);
             stopCamera();
@@ -327,6 +330,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       
       setMediaFiles(selectedFiles);
       setPreviewUrls(newPreviewUrls);
+      setIsFromGallery(true);
       setTrimStart(0);
       setTrimEnd(15);
       setError(null);
@@ -482,8 +486,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
 
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         const needsRotation = recordedFacingMode === 'rear';
-        // Forçar FFmpeg para todos os vídeos para garantir compressão (vídeos leves como TikTok)
-        const needsFFmpeg = true; 
+        // Vídeos da galeria não passam pelo FFmpeg, vídeos gravados sim (para compressão TikTok)
+        const needsFFmpeg = !isFromGallery; 
 
         if (needsFFmpeg) {
           console.log('[Upload] Iniciando processamento FFmpeg...');
@@ -693,6 +697,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
+    setIsFromGallery(false);
 
     // Resetar para câmera frontal e desligar flash
     setFacingMode('user');
