@@ -80,14 +80,11 @@ const MediaLibrary: React.FC<MediaLibraryProps> = ({ onSelect, onClose, maxSelec
         console.log('Current media permissions:', permission);
         
         if (permission.photos !== 'granted' && permission.photos !== 'limited') {
-          permission = await Media.requestPermissions();
-        }
-
-        if (permission.photos !== 'granted' && permission.photos !== 'limited') {
-          // If still not granted, it might be because it was denied before
-          alert('Permissão de fotos negada. Por favor, ative nas configurações do seu telemóvel para aceder à galeria.');
-          onClose();
-          return;
+          try {
+            permission = await Media.requestPermissions();
+          } catch {
+            // Em Android 13+, ignorar erro e tentar carregar mesmo assim
+          }
         }
 
         // Get albums
