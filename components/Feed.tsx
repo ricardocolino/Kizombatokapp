@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
+import { ChevronLeft } from 'lucide-react';
 import { Post, Profile } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -12,6 +13,8 @@ interface FeedProps {
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
   initialPostId?: string | null;
   isPaused?: boolean;
+  feedFilter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null;
+  onClearFilter?: () => void;
 }
 
 export interface PostMetadata {
@@ -25,7 +28,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, initialPostId, isPaused }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, initialPostId, isPaused, feedFilter, onClearFilter }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +138,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       pageRef.current = currentPage;
       
       // GERAR CHAVE ÚNICA PARA ESTE FEED (Apenas para a primeira página)
-      const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}`;
+      const filterKey = feedFilter ? `${feedFilter.type}_${feedFilter.userId}` : 'none';
+      const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}_${filterKey}`;
       
       if (!isNextPage) {
         // VERIFICAR CACHE PRIMEIRO
@@ -159,7 +163,40 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (feedType === 'following' && user) {
+      if (feedFilter) {
+        if (feedFilter.type === 'user') {
+          query = query.eq('user_id', feedFilter.userId);
+        } else if (feedFilter.type === 'liked') {
+          const { data: reactions } = await supabase
+            .from('reactions')
+            .select('post_id')
+            .eq('user_id', feedFilter.userId)
+            .eq('type', 'like');
+          
+          const likedPostIds = reactions?.map(r => r.post_id) || [];
+          if (likedPostIds.length > 0) {
+            query = query.in('id', likedPostIds);
+          } else {
+            setPosts([]);
+            setLoading(false);
+            return;
+          }
+        } else if (feedFilter.type === 'reposted') {
+          const { data: reposts } = await supabase
+            .from('reposts')
+            .select('post_id')
+            .eq('user_id', feedFilter.userId);
+          
+          const repostedPostIds = reposts?.map(r => r.post_id) || [];
+          if (repostedPostIds.length > 0) {
+            query = query.in('id', repostedPostIds);
+          } else {
+            setPosts([]);
+            setLoading(false);
+            return;
+          }
+        }
+      } else if (feedType === 'following' && user) {
         const { data: follows } = await supabase
           .from('follows')
           .select('following_id')
@@ -216,12 +253,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     } finally {
       if (!isNextPage) setTimeout(() => setLoading(false), 800);
     }
-  }, [feedType, user, initialPostId, fetchBatchMetadata]);
+  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter]);
 
   useEffect(() => {
     fetchPosts();
     setDisplayLimit(20); // Reset limit when feed type or initial post changes
-  }, [initialPostId, feedType, user, fetchPosts]);
+  }, [initialPostId, feedType, user, fetchPosts, feedFilter]);
 
   // Intersection Observer for Infinite Scroll
   useEffect(() => {
@@ -305,30 +342,48 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   return (
     <div className="h-full w-full bg-black relative overflow-hidden">
-      {/* Feed Tabs */}
-      <div className="absolute top-8 sm:top-12 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
-        <button 
-          onClick={() => setFeedType('following')}
-          className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
-        >
-          A seguir
-          {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
-        </button>
-        <button 
-          onClick={() => setFeedType('for_you')}
-          className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-110' : 'text-white/60'}`}
-        >
-          Para ti
-          {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
-        </button>
-        <button 
-          onClick={() => setFeedType('education')}
-          className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'education' ? 'text-white scale-110' : 'text-white/60'}`}
-        >
-          Educação
-          {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
-        </button>
-      </div>
+      {/* Feed Tabs or Filter Header */}
+      {!feedFilter ? (
+        <div className="absolute top-8 sm:top-12 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
+          <button 
+            onClick={() => setFeedType('following')}
+            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
+          >
+            A seguir
+            {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setFeedType('for_you')}
+            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-110' : 'text-white/60'}`}
+          >
+            Para ti
+            {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setFeedType('education')}
+            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'education' ? 'text-white scale-110' : 'text-white/60'}`}
+          >
+            Educação
+            {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+          </button>
+        </div>
+      ) : (
+        <div className="absolute top-8 sm:top-12 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
+          <button 
+            onClick={onClearFilter}
+            className="p-2 bg-black/20 backdrop-blur-md rounded-full text-white pointer-events-auto active:scale-90 transition-transform"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <div className="flex-1 flex justify-center pr-10">
+            <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg">
+              {feedFilter.type === 'user' && `Vídeos de ${feedFilter.userName}`}
+              {feedFilter.type === 'liked' && `Vídeos curtidos por ${feedFilter.userName}`}
+              {feedFilter.type === 'reposted' && `Vídeos republicados por ${feedFilter.userName}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post) => (

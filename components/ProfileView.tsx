@@ -9,7 +9,7 @@ import { parseMediaUrl } from '../services/mediaUtils';
 interface ProfileViewProps {
   userId: string;
   isOwnProfile?: boolean;
-  onNavigateToPost?: (postId: string) => void;
+  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' }) => void;
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
@@ -569,7 +569,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             {currentGridData.map(post => (
               <div 
                 key={post.id} 
-                onClick={() => onNavigateToPost && onNavigateToPost(post.id)}
+                onClick={() => onNavigateToPost && onNavigateToPost(post.id, { 
+                  userId, 
+                  userName: profile.name || profile.username, 
+                  type: activeTab === 'posts' ? 'user' : (activeTab === 'liked' ? 'liked' : 'reposted') 
+                })}
                 className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer"
               >
                 {post.media_type === 'video' ? (

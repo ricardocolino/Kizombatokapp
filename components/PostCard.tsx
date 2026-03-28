@@ -40,6 +40,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   isPaused
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
   const [uiVisible, setUiVisible] = useState(false);
 
@@ -56,6 +57,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
   useEffect(() => {
     setVideoError(false);
+    setIsLoading(true);
     setIsPlaying(false);
     if (videoRef.current) {
       videoRef.current.load();
@@ -565,11 +567,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             muted={isMuted}
             playsInline
             preload="auto"
+            onLoadStart={() => setIsLoading(true)}
+            onWaiting={() => setIsLoading(true)}
+            onPlaying={() => setIsLoading(false)}
+            onCanPlay={() => setIsLoading(false)}
             onError={(e) => {
               // Só marcamos erro se o src for válido e falhou mesmo
               if (mediaUrl) {
                 console.error("Playback failed for URL:", mediaUrl, e);
                 setVideoError(true);
+                setIsLoading(false);
               }
             }}
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
@@ -583,8 +590,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </span>
           </div>
         )}
+
+        {isLoading && !videoError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/40 backdrop-blur-[2px] z-10">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-zinc-800 border-t-zinc-400 rounded-full animate-spin"></div>
+              <Play size={24} className="text-zinc-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20" fill="currentColor" />
+            </div>
+            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em] mt-6 animate-pulse">A carregar...</p>
+          </div>
+        )}
         
-        {!isPlaying && !videoError && (
+        {!isPlaying && !videoError && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
             <Play size={64} className="text-white opacity-60" fill="white" />
           </div>

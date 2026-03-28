@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
+  const [feedFilter, setFeedFilter] = useState<{ userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -160,7 +161,7 @@ const App: React.FC = () => {
     setActiveTab(Tab.PROFILE);
   };
 
-  const handleNavigateToPost = (postId: string) => {
+  const handleNavigateToPost = (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' }) => {
     if (postId.startsWith('story:')) {
       const userId = postId.replace('story:', '');
       if (user && userId === user.id) {
@@ -171,6 +172,7 @@ const App: React.FC = () => {
       }
       return;
     }
+    setFeedFilter(filter || null);
     setTargetPostId(postId);
     setActiveTab(Tab.HOME);
   };
@@ -178,6 +180,7 @@ const App: React.FC = () => {
   const handleGoHome = () => {
     setViewProfileId(null);
     setTargetPostId(null);
+    setFeedFilter(null);
     setActiveTab(Tab.HOME);
   };
 
@@ -203,6 +206,8 @@ const App: React.FC = () => {
           onNavigateToProfile={handleNavigateToProfile} 
           onRequireAuth={() => setActiveTab(Tab.PROFILE)} 
           initialPostId={targetPostId} 
+          feedFilter={feedFilter}
+          onClearFilter={() => setFeedFilter(null)}
           onViewStories={(userId, allUserIds) => {
             if (user && userId === user.id) {
               setViewingStatsUserId(userId);
