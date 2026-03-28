@@ -35,18 +35,26 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
 
   // Record view
   useEffect(() => {
-    if (currentStory && currentUser && currentStory.user_id !== currentUser.id) {
+    if (currentStory?.id && currentUser?.id && currentStory.user_id !== currentUser.id) {
       const recordView = async () => {
-        await supabase
-          .from('story_views')
-          .upsert({ 
-            story_id: currentStory.id, 
-            user_id: currentUser.id 
-          }, { onConflict: 'story_id,user_id' });
+        try {
+          const { error } = await supabase
+            .from('story_views')
+            .upsert({ 
+              story_id: currentStory.id, 
+              user_id: currentUser.id 
+            }, { onConflict: 'story_id,user_id' });
+          
+          if (error) {
+            console.error('Error recording story view:', error);
+          }
+        } catch (err) {
+          console.error('Failed to record story view:', err);
+        }
       };
       recordView();
     }
-  }, [currentStory, currentUser]);
+  }, [currentStory?.id, currentStory?.user_id, currentUser?.id]);
 
   // Fetch viewers and reactions if owner
   useEffect(() => {

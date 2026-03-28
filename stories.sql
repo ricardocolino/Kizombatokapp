@@ -72,6 +72,11 @@ ON public.story_views FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Usuários podem atualizar suas visualizações" 
+ON public.story_views FOR UPDATE 
+TO authenticated
+USING (auth.uid() = user_id);
+
 -- 9. Políticas para story_reactions
 CREATE POLICY "Reações são visíveis por todos" 
 ON public.story_reactions FOR SELECT 
