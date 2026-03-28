@@ -8,33 +8,29 @@ import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
   userId: string;
+  currentUser: User | null;
   allUserIds?: string[];
   onNavigateToUser?: (userId: string) => void;
   onClose: () => void;
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNavigateToUser, onClose }) => {
+const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserIds = [], onNavigateToUser, onClose }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [viewError, setViewError] = useState<string | null>(null);
   const STORY_DURATION = 5000; // 5 seconds per image story
 
   const currentStory = stories[currentIndex];
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUser(user);
-    });
-  }, []);
 
   // Record view
   useEffect(() => {
     if (currentStory?.id && currentUser?.id && currentStory.user_id !== currentUser.id) {
       const recordView = async () => {
         try {
+          console.log(`Attempting to record view for story ${currentStory.id} by user ${currentUser.id}`);
           const { error } = await supabase
             .from('story_views')
             .upsert({ 
@@ -43,13 +39,20 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
             }, { onConflict: 'story_id,user_id' });
           
           if (error) {
-            console.error('Error recording story view:', error);
+            console.error('Supabase error recording story view:', error);
+            setViewError(`Erro Supabase: ${error.message} (${error.code})`);
+          } else {
+            console.log('Story view recorded successfully');
+            setViewError(null);
           }
         } catch (err) {
           console.error('Failed to record story view:', err);
+          setViewError(`Falha na execução: ${err instanceof Error ? err.message : String(err)}`);
         }
       };
       recordView();
+    } else if (currentStory?.id && !currentUser?.id) {
+      console.warn('Cannot record view: User not authenticated');
     }
   }, [currentStory?.id, currentStory?.user_id, currentUser?.id]);
 
@@ -206,6 +209,11 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
         </div>
         
         <div className="flex items-center gap-2">
+          {viewError && (
+            <div className="px-3 py-1 bg-red-600/80 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-red-500/50">
+              {viewError}
+            </div>
+          )}
           <button onClick={onClose} className="p-2 text-white/80 hover:text-white transition-colors">
             <X size={24} />
           </button>

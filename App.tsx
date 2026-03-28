@@ -288,6 +288,7 @@ const App: React.FC = () => {
       {viewingStoryUserId && (
         <StoryViewer 
           userId={viewingStoryUserId} 
+          currentUser={user}
           allUserIds={allUsersWithStories}
           onNavigateToUser={setViewingStoryUserId}
           onClose={() => {
