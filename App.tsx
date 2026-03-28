@@ -11,13 +11,17 @@ import StoryViewer from './components/StoryViewer';
 import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
-import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
+import LiveList from './components/LiveStream/LiveList';
+import LiveHost from './components/LiveStream/LiveHost';
+import LiveViewer from './components/LiveStream/LiveViewer';
+import { Home, Search, PlusSquare, MessageCircle, User as UserIcon, Radio } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
   HOME = 'home',
   DISCOVER = 'discover',
   CREATE = 'create',
+  LIVE = 'live',
   INBOX = 'inbox',
   PROFILE = 'profile'
 }
@@ -34,6 +38,8 @@ const App: React.FC = () => {
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
   const [feedFilter, setFeedFilter] = useState<{ userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
+  const [isHosting, setIsHosting] = useState(false);
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -243,6 +249,17 @@ const App: React.FC = () => {
           }} 
           initialType={isCreatingStory ? 'story' : 'post'}
         />;
+      case Tab.LIVE:
+        return <LiveList 
+          onJoinLive={(liveId) => {
+            setActiveLiveId(liveId);
+            setIsHosting(false);
+          }}
+          onStartLive={() => {
+            setIsHosting(true);
+            setActiveLiveId(null);
+          }}
+        />;
       case Tab.INBOX:
         return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
       case Tab.PROFILE: {
@@ -310,6 +327,21 @@ const App: React.FC = () => {
         />
       )}
 
+      {isHosting && user && (
+        <LiveHost 
+          currentUser={user} 
+          onClose={() => setIsHosting(false)} 
+        />
+      )}
+
+      {activeLiveId && user && (
+        <LiveViewer 
+          liveId={activeLiveId} 
+          currentUser={user} 
+          onClose={() => setActiveLiveId(null)} 
+        />
+      )}
+
       <main className={`flex-1 overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
         {renderContent()}
       </main>
@@ -337,6 +369,13 @@ const App: React.FC = () => {
           <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">
             <PlusSquare size={22} />
           </div>
+        </button>
+        <button 
+          onClick={() => { setActiveTab(Tab.LIVE); }}
+          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600'}`}
+        >
+          <Radio size={22} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
+          <span className="text-[9px] font-black uppercase tracking-tighter">Live</span>
         </button>
         <button 
           onClick={() => { setActiveTab(Tab.INBOX); }}
