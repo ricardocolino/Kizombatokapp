@@ -11,9 +11,9 @@ import StoryViewer from './components/StoryViewer';
 import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
-import LiveList from './components/LiveStream/LiveList';
-import LiveHost from './components/LiveStream/LiveHost';
-import LiveViewer from './components/LiveStream/LiveViewer';
+import LiveList from './components/LiveList';
+import LiveHost from './components/LiveHost';
+import LiveViewer from './components/LiveViewer';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon, Radio } from 'lucide-react';
 import { appCache } from './services/cache';
 

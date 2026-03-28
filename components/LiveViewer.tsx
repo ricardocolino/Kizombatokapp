@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { X, Users, MessageCircle, Heart } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { motion, AnimatePresence } from 'motion/react';

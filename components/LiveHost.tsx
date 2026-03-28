@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { Camera, Mic, MicOff, CameraOff, X, Users, MessageCircle } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { User } from '@supabase/supabase-js';

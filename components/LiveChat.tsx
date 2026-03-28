@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { Send } from 'lucide-react';
 
 import { User } from '@supabase/supabase-js';
