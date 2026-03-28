@@ -79,3 +79,20 @@ export interface Story {
   expires_at: string;
   profiles?: Profile;
 }
+
+export interface StoryView {
+  id: string;
+  story_id: string;
+  user_id: string;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface StoryReaction {
+  id: string;
+  story_id: string;
+  user_id: string;
+  type: string;
+  created_at: string;
+  profiles?: Profile;
+}

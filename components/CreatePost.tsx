@@ -384,12 +384,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
     }
 
     try {
-      const result = await FilePicker.pickMedia({
-        multiple: uploadType === 'post',
-        limit: uploadType === 'post' ? 5 : 1,
-      });
+      let result;
+      if (uploadType === 'post') {
+        // Para posts, apenas vídeos
+        result = await FilePicker.pickVideos({
+          multiple: true,
+          limit: 5,
+        });
+      } else {
+        // Para stories, vídeos e fotos
+        result = await FilePicker.pickMedia({
+          multiple: false,
+          limit: 1,
+        });
+      }
 
-      if (result.files.length > 0) {
+      if (result.files && result.files.length > 0) {
         const selectedFiles: File[] = [];
         for (const file of result.files) {
           if (file.path) {
