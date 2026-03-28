@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Story, StoryView, StoryReaction } from '../types';
-import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp, Eye } from 'lucide-react';
+import { Story } from '../types';
+import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
@@ -20,9 +20,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [viewers, setViewers] = useState<StoryView[]>([]);
-  const [showViewers, setShowViewers] = useState(false);
-  const [reactions, setReactions] = useState<StoryReaction[]>([]);
   const STORY_DURATION = 5000; // 5 seconds per image story
 
   const currentStory = stories[currentIndex];
@@ -55,64 +52,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
       recordView();
     }
   }, [currentStory?.id, currentStory?.user_id, currentUser?.id]);
-
-  // Fetch viewers and reactions if owner
-  useEffect(() => {
-    if (currentStory?.id && currentUser?.id && currentStory.user_id === currentUser.id) {
-      const fetchStats = async () => {
-        const { data: viewsData } = await supabase
-          .from('story_views')
-          .select('*, profiles:user_id(*)')
-          .eq('story_id', currentStory.id);
-        
-        if (viewsData) setViewers(viewsData);
-
-        const { data: reactionsData } = await supabase
-          .from('story_reactions')
-          .select('*, profiles:user_id(*)')
-          .eq('story_id', currentStory.id);
-        
-        if (reactionsData) setReactions(reactionsData);
-      };
-
-      fetchStats();
-
-      // Realtime subscription for views
-      const viewsChannel = supabase
-        .channel(`story_views_${currentStory.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'story_views',
-            filter: `story_id=eq.${currentStory.id}`
-          },
-          () => fetchStats()
-        )
-        .subscribe();
-
-      // Realtime subscription for reactions
-      const reactionsChannel = supabase
-        .channel(`story_reactions_${currentStory.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'story_reactions',
-            filter: `story_id=eq.${currentStory.id}`
-          },
-          () => fetchStats()
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(viewsChannel);
-        supabase.removeChannel(reactionsChannel);
-      };
-    }
-  }, [currentStory?.id, currentUser?.id]);
 
   const handleReaction = async (type: string) => {
     if (!currentUser || !currentStory) return;
@@ -267,15 +206,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
         </div>
         
         <div className="flex items-center gap-2">
-          {currentUser && currentStory.user_id === currentUser.id && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setShowViewers(true); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10 hover:bg-black/60 transition-all"
-            >
-              <Eye size={16} />
-              <span className="text-xs font-black">{viewers.length}</span>
-            </button>
-          )}
           <button onClick={onClose} className="p-2 text-white/80 hover:text-white transition-colors">
             <X size={24} />
           </button>
@@ -330,51 +260,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
               {reaction.icon}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Viewers Modal */}
-      {showViewers && (
-        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-xl flex items-end justify-center">
-          <div className="w-full max-w-md bg-zinc-900 rounded-t-3xl p-6 flex flex-col gap-6 animate-in slide-in-from-bottom duration-300">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white text-lg font-black uppercase tracking-widest">Visualizações ({viewers.length})</h3>
-              <button onClick={() => setShowViewers(false)} className="p-2 text-white/60 hover:text-white"><X size={24} /></button>
-            </div>
-            
-            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-2">
-              {viewers.length > 0 ? viewers.map((view) => (
-                <div key={view.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
-                      {view.profiles?.avatar_url ? (
-                        <img src={parseMediaUrl(view.profiles.avatar_url)} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white text-sm font-black">
-                          {view.profiles?.username?.[0]?.toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-white text-sm font-black">{view.profiles?.name || `@${view.profiles?.username}`}</span>
-                      <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider">
-                        {new Date(view.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Show reaction if this user reacted */}
-                  {reactions.find(r => r.user_id === view.user_id) && (
-                    <span className="text-xl">{reactions.find(r => r.user_id === view.user_id)?.type}</span>
-                  )}
-                </div>
-              )) : (
-                <div className="py-10 text-center text-zinc-500 font-bold uppercase tracking-widest text-xs">
-                  Ainda não há visualizações
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       )}
 

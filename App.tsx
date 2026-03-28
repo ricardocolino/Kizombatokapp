@@ -8,6 +8,7 @@ import ProfileView from './components/ProfileView';
 import MessageCenter from './components/MessageCenter';
 import Discovery from './components/Discovery';
 import StoryViewer from './components/StoryViewer';
+import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import { Home, Search, PlusSquare, MessageCircle, User as UserIcon } from 'lucide-react';
@@ -24,6 +25,7 @@ export enum Tab {
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
+  const [viewingStatsUserId, setViewingStatsUserId] = useState<string | null>(null);
   const [allUsersWithStories, setAllUsersWithStories] = useState<string[]>([]);
   const [isCreatingStory, setIsCreatingStory] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -161,8 +163,12 @@ const App: React.FC = () => {
   const handleNavigateToPost = (postId: string) => {
     if (postId.startsWith('story:')) {
       const userId = postId.replace('story:', '');
-      setViewingStoryUserId(userId);
-      setAllUsersWithStories([userId]); // Single user context
+      if (user && userId === user.id) {
+        setViewingStatsUserId(userId);
+      } else {
+        setViewingStoryUserId(userId);
+        setAllUsersWithStories([userId]); // Single user context
+      }
       return;
     }
     setTargetPostId(postId);
@@ -198,10 +204,14 @@ const App: React.FC = () => {
           onRequireAuth={() => setActiveTab(Tab.PROFILE)} 
           initialPostId={targetPostId} 
           onViewStories={(userId, allUserIds) => {
-            setViewingStoryUserId(userId);
-            setAllUsersWithStories(allUserIds || [userId]);
+            if (user && userId === user.id) {
+              setViewingStatsUserId(userId);
+            } else {
+              setViewingStoryUserId(userId);
+              setAllUsersWithStories(allUserIds || [userId]);
+            }
           }} 
-          isPaused={!!viewingStoryUserId}
+          isPaused={!!viewingStoryUserId || !!viewingStatsUserId}
         />;
       case Tab.DISCOVER:
         return <Discovery 
@@ -212,8 +222,12 @@ const App: React.FC = () => {
             setActiveTab(Tab.CREATE); 
           }} 
           onViewStories={(userId, allUserIds) => {
-            setViewingStoryUserId(userId);
-            setAllUsersWithStories(allUserIds || [userId]);
+            if (user && userId === user.id) {
+              setViewingStatsUserId(userId);
+            } else {
+              setViewingStoryUserId(userId);
+              setAllUsersWithStories(allUserIds || [userId]);
+            }
           }} 
         />;
       case Tab.CREATE:
@@ -280,6 +294,13 @@ const App: React.FC = () => {
             setViewingStoryUserId(null);
             setAllUsersWithStories([]);
           }} 
+        />
+      )}
+
+      {viewingStatsUserId && (
+        <StoryStats 
+          userId={viewingStatsUserId}
+          onClose={() => setViewingStatsUserId(null)}
         />
       )}
 
