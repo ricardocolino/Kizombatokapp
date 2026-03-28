@@ -58,7 +58,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
 
   // Fetch viewers and reactions if owner
   useEffect(() => {
-    if (currentStory && currentUser && currentStory.user_id === currentUser.id) {
+    if (currentStory?.id && currentUser?.id && currentStory.user_id === currentUser.id) {
       const fetchStats = async () => {
         const { data: viewsData } = await supabase
           .from('story_views')
@@ -74,9 +74,45 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, allUserIds = [], onNa
         
         if (reactionsData) setReactions(reactionsData);
       };
+
       fetchStats();
+
+      // Realtime subscription for views
+      const viewsChannel = supabase
+        .channel(`story_views_${currentStory.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'story_views',
+            filter: `story_id=eq.${currentStory.id}`
+          },
+          () => fetchStats()
+        )
+        .subscribe();
+
+      // Realtime subscription for reactions
+      const reactionsChannel = supabase
+        .channel(`story_reactions_${currentStory.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'story_reactions',
+            filter: `story_id=eq.${currentStory.id}`
+          },
+          () => fetchStats()
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(viewsChannel);
+        supabase.removeChannel(reactionsChannel);
+      };
     }
-  }, [currentStory, currentUser]);
+  }, [currentStory?.id, currentUser?.id]);
 
   const handleReaction = async (type: string) => {
     if (!currentUser || !currentStory) return;

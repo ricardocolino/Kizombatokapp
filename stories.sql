@@ -77,6 +77,11 @@ ON public.story_views FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
+CREATE POLICY "Usuários podem ver suas próprias visualizações" 
+ON public.story_views FOR SELECT 
+TO authenticated
+USING (auth.uid() = user_id);
+
 -- 9. Políticas para story_reactions
 CREATE POLICY "Reações são visíveis por todos" 
 ON public.story_reactions FOR SELECT 
@@ -95,3 +100,7 @@ USING (auth.uid() = user_id);
 -- 10. Índices
 CREATE INDEX IF NOT EXISTS story_views_story_id_idx ON public.story_views(story_id);
 CREATE INDEX IF NOT EXISTS story_reactions_story_id_idx ON public.story_reactions(story_id);
+
+-- 11. Habilitar Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.story_views;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.story_reactions;
