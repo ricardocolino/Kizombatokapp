@@ -57,30 +57,29 @@ ALTER TABLE public.story_views ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.story_reactions ENABLE ROW LEVEL SECURITY;
 
 -- 8. Políticas para story_views
-CREATE POLICY "Visualizações são visíveis pelo dono do story" 
+DROP POLICY IF EXISTS "Visualizações são visíveis pelo dono do story" ON public.story_views;
+DROP POLICY IF EXISTS "Usuários podem registrar suas visualizações" ON public.story_views;
+DROP POLICY IF EXISTS "Usuários podem atualizar suas visualizações" ON public.story_views;
+DROP POLICY IF EXISTS "Usuários podem ver suas próprias visualizações" ON public.story_views;
+
+-- O dono do story pode ver quem visualizou (SELECT)
+CREATE POLICY "Dono do story pode ver visualizações" 
 ON public.story_views FOR SELECT 
 TO authenticated
 USING (
     EXISTS (
         SELECT 1 FROM public.stories 
-        WHERE id = story_id AND user_id = auth.uid()
+        WHERE id = public.story_views.story_id AND user_id = auth.uid()
     )
 );
 
-CREATE POLICY "Usuários podem registrar suas visualizações" 
-ON public.story_views FOR INSERT 
+-- O usuário pode gerenciar suas próprias visualizações (ALL: INSERT, UPDATE, SELECT, DELETE)
+-- Isso é essencial para o comando 'upsert' funcionar
+CREATE POLICY "Usuário gerencia suas próprias visualizações" 
+ON public.story_views FOR ALL 
 TO authenticated
+USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Usuários podem atualizar suas visualizações" 
-ON public.story_views FOR UPDATE 
-TO authenticated
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Usuários podem ver suas próprias visualizações" 
-ON public.story_views FOR SELECT 
-TO authenticated
-USING (auth.uid() = user_id);
 
 -- 9. Políticas para story_reactions
 CREATE POLICY "Reações são visíveis por todos" 
