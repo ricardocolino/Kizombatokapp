@@ -160,7 +160,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser }) => {
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative overflow-hidden">
       {/* Gradient Mask for Top Fade */}
       <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 pointer-events-none" />
       

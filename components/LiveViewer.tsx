@@ -272,9 +272,9 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col justify-end mt-4 mb-20">
+        <div className="flex-1 flex flex-col justify-end mt-4 mb-20 overflow-hidden">
           {showChat && (
-            <div className="h-1/2 pointer-events-auto">
+            <div className="h-[320px] pointer-events-auto">
               <LiveChat liveId={liveId} currentUser={currentUser} />
             </div>
           )}
