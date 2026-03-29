@@ -342,7 +342,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-1 overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
+      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
         {renderContent()}
       </main>
 

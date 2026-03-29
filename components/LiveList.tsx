@@ -33,7 +33,15 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
       if (error) {
         console.error('Error fetching lives:', error);
       } else {
-        setLives(data || []);
+        // Filter to keep only the latest live per host_id
+        const uniqueLives = (data || []).reduce((acc: Live[], current) => {
+          const exists = acc.find(item => item.host_id === current.host_id);
+          if (!exists) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+        setLives(uniqueLives);
       }
       setLoading(false);
     };
@@ -70,7 +78,7 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-black overflow-y-auto p-4 pb-24">
+    <div className="h-full overflow-y-auto bg-black p-4 pb-32">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black uppercase tracking-tighter">LIVES</h1>
         <button 

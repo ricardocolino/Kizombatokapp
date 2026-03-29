@@ -22,8 +22,16 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [viewerCount, setViewerCount] = useState(0);
   const [showChat, setShowChat] = useState(true);
   const videoRef = useRef<HTMLDivElement>(null);
+  const isInitialized = useRef(false);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
+  const audioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
+  const videoTrackRef = useRef<ICameraVideoTrack | null>(null);
+  const liveIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
     const initLive = async () => {
       if (!AGORA_APP_ID) {
         console.error('Agora App ID is missing');
@@ -33,11 +41,14 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
       agoraClient.setClientRole('host');
       setClient(agoraClient);
+      clientRef.current = agoraClient;
 
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
         setLocalAudioTrack(audioTrack);
         setLocalVideoTrack(videoTrack);
+        audioTrackRef.current = audioTrack;
+        videoTrackRef.current = videoTrack;
 
         if (videoRef.current) {
           videoTrack.play(videoRef.current);
@@ -57,6 +68,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
         if (error) throw error;
         setLiveId(data.id);
+        liveIdRef.current = data.id;
 
         // Subscribe to viewer count updates
         const channel = supabase
@@ -75,36 +87,41 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           )
           .subscribe();
 
-        return () => {
-          supabase.removeChannel(channel);
-        };
+        return channel;
       } catch (err) {
         console.error('Error initializing live:', err);
       }
     };
 
-    initLive();
+    let statusChannel: any;
+    initLive().then(channel => {
+      statusChannel = channel;
+    });
 
     return () => {
       const cleanup = async () => {
-        if (localVideoTrack) {
-          localVideoTrack.stop();
-          localVideoTrack.close();
+        if (videoTrackRef.current) {
+          videoTrackRef.current.stop();
+          videoTrackRef.current.close();
         }
-        if (localAudioTrack) {
-          localAudioTrack.stop();
-          localAudioTrack.close();
+        if (audioTrackRef.current) {
+          audioTrackRef.current.stop();
+          audioTrackRef.current.close();
         }
-        if (client) {
-          await client.leave();
+        if (clientRef.current) {
+          await clientRef.current.leave();
         }
-        if (liveId) {
-          await supabase.from('lives').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', liveId);
+        if (liveIdRef.current) {
+          await supabase.from('lives').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', liveIdRef.current);
+        }
+        if (statusChannel) {
+          supabase.removeChannel(statusChannel);
         }
       };
       cleanup();
     };
-  }, [currentUser, client, liveId, localAudioTrack, localVideoTrack]);
+  }, [currentUser.id]);
+ // Only depend on currentUser.id
 
   const toggleMute = () => {
     if (localAudioTrack) {
