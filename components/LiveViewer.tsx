@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { X, Users, MessageCircle, Heart } from 'lucide-react';
+import { X, Users, MessageCircle, Heart, Gift as GiftIcon } from 'lucide-react';
 import LiveChat from './LiveChat';
+import GiftPicker from './GiftPicker';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from '@supabase/supabase-js';
 
@@ -26,12 +27,21 @@ interface LiveData {
   };
 }
 
+interface Gift {
+  id: string;
+  name: string;
+  icon: string;
+  price: number;
+}
+
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [showChat, setShowChat] = useState(true);
+  const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
   const [status, setStatus] = useState<string>('Conectando...');
+  const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
@@ -69,7 +79,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       agoraClient.setClientRole('audience');
       clientRef.current = agoraClient;
 
-      let signalTimeout: any;
+      let signalTimeout: ReturnType<typeof setTimeout> | null = null;
 
       agoraClient.on('user-published', async (user, mediaType) => {
         try {
@@ -118,7 +128,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
     fetchLiveData();
 
-    // Subscribe to viewer count updates
+    // Subscribe to viewer count and status updates
     const channel = supabase
       .channel(`live_status:${liveId}`)
       .on(
@@ -138,6 +148,31 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       )
       .subscribe();
 
+    // Subscribe to gifts
+    const giftsChannel = supabase
+      .channel(`live_gifts:${liveId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_gifts',
+          filter: `live_id=eq.${liveId}`,
+        },
+        async (payload) => {
+          const [profileRes, giftRes] = await Promise.all([
+            supabase.from('profiles').select('username').eq('id', payload.new.sender_id).single(),
+            supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
+          ]);
+
+          if (profileRes.data && giftRes.data) {
+            setActiveGift({ gift: giftRes.data, senderName: profileRes.data.username });
+            setTimeout(() => setActiveGift(null), 4000);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       const cleanup = async () => {
         if (clientRef.current) {
@@ -145,6 +180,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
           clientRef.current.removeAllListeners();
         }
         supabase.removeChannel(channel);
+        supabase.removeChannel(giftsChannel);
         // Decrement viewer count
         await supabase.rpc('decrement_viewer_count', { live_id: liveId });
       };
@@ -185,6 +221,28 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
           </div>
         )}
       </div>
+
+      {/* Gift Overlay Notification */}
+      <AnimatePresence>
+        {activeGift && (
+          <motion.div 
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            className="absolute top-1/4 left-4 z-50 flex items-center gap-3 bg-gradient-to-r from-yellow-500/90 to-orange-600/90 backdrop-blur-md rounded-full pl-1 pr-6 py-1 border border-white/20 shadow-2xl"
+          >
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl shadow-inner">
+              {activeGift.gift.icon}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-white/70 uppercase tracking-wider">Presente!</span>
+              <span className="text-sm font-black text-white leading-none">
+                {activeGift.senderName} enviou {activeGift.gift.name}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay UI */}
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
@@ -241,7 +299,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-end gap-4 pointer-events-auto">
+        <div className="flex items-center justify-end gap-3 pointer-events-auto">
           <button 
             onClick={() => setShowChat(!showChat)}
             className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all ${showChat ? 'bg-white text-black border-white' : 'bg-black/40 border-white/20'}`}
@@ -249,13 +307,30 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
             <MessageCircle size={20} />
           </button>
           <button 
+            onClick={() => setShowGiftPicker(true)}
+            className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-black active:scale-90 transition-transform shadow-lg shadow-yellow-500/20"
+          >
+            <GiftIcon size={20} />
+          </button>
+          <button 
             onClick={sendHeart}
-            className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
+            className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
           >
             <Heart size={20} fill="currentColor" />
           </button>
         </div>
       </div>
+
+      {/* Gift Picker */}
+      <AnimatePresence>
+        {showGiftPicker && (
+          <GiftPicker 
+            liveId={liveId} 
+            currentUser={currentUser} 
+            onClose={() => setShowGiftPicker(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

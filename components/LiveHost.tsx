@@ -3,7 +3,8 @@ import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } f
 import { supabase } from '../supabaseClient';
 import { Camera, Mic, MicOff, CameraOff, X, Users, MessageCircle } from 'lucide-react';
 import LiveChat from './LiveChat';
-import { User } from '@supabase/supabase-js';
+import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { motion, AnimatePresence } from 'motion/react';
 
 const AGORA_APP_ID = import.meta.env.VITE_AGORA_APP_ID || '';
 
@@ -12,8 +13,14 @@ interface LiveHostProps {
   onClose: () => void;
 }
 
+interface Gift {
+  id: string;
+  name: string;
+  icon: string;
+  price: number;
+}
+
 const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
-  const [client, setClient] = useState<IAgoraRTCClient | null>(null);
   const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -21,6 +28,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [showChat, setShowChat] = useState(true);
+  const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
@@ -40,7 +48,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
       const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
       agoraClient.setClientRole('host');
-      setClient(agoraClient);
       clientRef.current = agoraClient;
 
       try {
@@ -87,15 +94,44 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           )
           .subscribe();
 
-        return channel;
+        // Subscribe to gifts
+        const giftsChannel = supabase
+          .channel(`live_gifts:${data.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'live_gifts',
+              filter: `live_id=eq.${data.id}`,
+            },
+            async (payload) => {
+              const [profileRes, giftRes] = await Promise.all([
+                supabase.from('profiles').select('username').eq('id', payload.new.sender_id).single(),
+                supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
+              ]);
+
+              if (profileRes.data && giftRes.data) {
+                setActiveGift({ gift: giftRes.data, senderName: profileRes.data.username });
+                setTimeout(() => setActiveGift(null), 4000);
+              }
+            }
+          )
+          .subscribe();
+
+        return { channel, giftsChannel };
       } catch (err) {
         console.error('Error initializing live:', err);
       }
     };
 
-    let statusChannel: any;
-    initLive().then(channel => {
-      statusChannel = channel;
+    let statusChannel: RealtimeChannel | null = null;
+    let giftsChannel: RealtimeChannel | null = null;
+    initLive().then(res => {
+      if (res) {
+        statusChannel = res.channel;
+        giftsChannel = res.giftsChannel;
+      }
     });
 
     return () => {
@@ -114,13 +150,12 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         if (liveIdRef.current) {
           await supabase.from('lives').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', liveIdRef.current);
         }
-        if (statusChannel) {
-          supabase.removeChannel(statusChannel);
-        }
+        if (statusChannel) supabase.removeChannel(statusChannel);
+        if (giftsChannel) supabase.removeChannel(giftsChannel);
       };
       cleanup();
     };
-  }, [currentUser.id]);
+  }, [currentUser.id, currentUser.user_metadata?.username]);
  // Only depend on currentUser.id
 
   const toggleMute = () => {
@@ -149,6 +184,28 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       <div className="absolute inset-0 bg-zinc-900 overflow-hidden">
         <div ref={videoRef} className="w-full h-full" />
       </div>
+
+      {/* Gift Overlay Notification */}
+      <AnimatePresence>
+        {activeGift && (
+          <motion.div 
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            className="absolute top-1/4 left-4 z-50 flex items-center gap-3 bg-gradient-to-r from-yellow-500/90 to-orange-600/90 backdrop-blur-md rounded-full pl-1 pr-6 py-1 border border-white/20 shadow-2xl"
+          >
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl shadow-inner">
+              {activeGift.gift.icon}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-white/70 uppercase tracking-wider">Presente Recebido!</span>
+              <span className="text-sm font-black text-white leading-none">
+                {activeGift.senderName} enviou {activeGift.gift.name}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay UI */}
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
