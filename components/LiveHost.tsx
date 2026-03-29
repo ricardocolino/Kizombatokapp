@@ -146,7 +146,9 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
       {/* Video Preview */}
-      <div ref={videoRef} className="absolute inset-0 bg-zinc-900" />
+      <div className="absolute inset-0 bg-zinc-900 overflow-hidden">
+        <div ref={videoRef} className="w-full h-full" />
+      </div>
 
       {/* Overlay UI */}
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">

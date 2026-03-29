@@ -27,65 +27,92 @@ interface LiveData {
 }
 
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
-  const [client, setClient] = useState<IAgoraRTCClient | null>(null);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [showChat, setShowChat] = useState(true);
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
+  const [status, setStatus] = useState<string>('Conectando...');
   const videoRef = useRef<HTMLDivElement>(null);
+  const isInitialized = useRef(false);
+  const clientRef = useRef<IAgoraRTCClient | null>(null);
 
   useEffect(() => {
-    const fetchLiveData = async () => {
-      const { data, error } = await supabase
-        .from('lives')
-        .select('*, profiles(username, avatar_url)')
-        .eq('id', liveId)
-        .single();
+    if (isInitialized.current) return;
+    isInitialized.current = true;
 
-      if (error) {
+    const fetchLiveData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('lives')
+          .select('*, profiles(username, avatar_url)')
+          .eq('id', liveId)
+          .single();
+
+        if (error) throw error;
+        setLiveData(data);
+        setViewerCount(data.viewer_count || 0);
+        await initAgora(data.channel_name);
+      } catch (error) {
         console.error('Error fetching live data:', error);
-        onClose();
-        return;
+        setStatus('Erro ao carregar dados da live');
+        setTimeout(onClose, 3000);
       }
-      setLiveData(data);
-      setViewerCount(data.viewer_count || 0);
-      initAgora(data.channel_name);
     };
 
     const initAgora = async (channelName: string) => {
-      if (!AGORA_APP_ID) return;
+      if (!AGORA_APP_ID) {
+        setStatus('Erro: App ID do Agora não configurado');
+        return;
+      }
 
       const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
       agoraClient.setClientRole('audience');
-      setClient(agoraClient);
+      clientRef.current = agoraClient;
+
+      let signalTimeout: any;
 
       agoraClient.on('user-published', async (user, mediaType) => {
-        await agoraClient.subscribe(user, mediaType);
-        if (mediaType === 'video') {
-          const videoTrack = user.videoTrack;
-          if (videoRef.current) {
-            videoTrack?.play(videoRef.current);
+        try {
+          setStatus(`Recebendo ${mediaType === 'video' ? 'vídeo' : 'áudio'}...`);
+          await agoraClient.subscribe(user, mediaType);
+          console.log('Subscribed to user:', user.uid, mediaType);
+          
+          if (mediaType === 'video') {
+            if (videoRef.current) {
+              user.videoTrack?.play(videoRef.current);
+              setStatus(''); // Sinal recebido com sucesso
+              if (signalTimeout) clearTimeout(signalTimeout);
+            }
           }
-        }
-        if (mediaType === 'audio') {
-          const audioTrack = user.audioTrack;
-          audioTrack?.play();
+          if (mediaType === 'audio') {
+            user.audioTrack?.play();
+          }
+        } catch (err) {
+          console.error('Error subscribing to user:', err);
+          setStatus('Erro ao processar sinal do host');
         }
       });
 
       agoraClient.on('user-unpublished', (user) => {
-        if (user.uid === liveData?.host_id) {
-          onClose();
-        }
+        console.log('User unpublished:', user.uid);
+        setStatus('Host parou de transmitir');
       });
 
       try {
+        setStatus('Entrando no canal...');
         await agoraClient.join(AGORA_APP_ID, channelName, null, currentUser?.id || null);
+        setStatus('Aguardando sinal do host...');
         
+        // Timeout de 15 segundos para sinal
+        signalTimeout = setTimeout(() => {
+          setStatus('Sinal do host não detectado. Verifique se o host ainda está online.');
+        }, 15000);
+
         // Increment viewer count
         await supabase.rpc('increment_viewer_count', { live_id: liveId });
       } catch (err) {
         console.error('Error joining live:', err);
+        setStatus('Erro ao entrar no canal de voz/vídeo');
       }
     };
 
@@ -113,8 +140,9 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
     return () => {
       const cleanup = async () => {
-        if (client) {
-          await client.leave();
+        if (clientRef.current) {
+          await clientRef.current.leave();
+          clientRef.current.removeAllListeners();
         }
         supabase.removeChannel(channel);
         // Decrement viewer count
@@ -122,7 +150,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       };
       cleanup();
     };
-  }, [liveId, currentUser, onClose, client, liveData?.host_id]);
+  }, [liveId, currentUser?.id, onClose]);
 
   const sendHeart = () => {
     const id = Date.now();
@@ -136,7 +164,27 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
   return (
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
       {/* Video Container */}
-      <div ref={videoRef} className="absolute inset-0 bg-zinc-900" />
+      <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center overflow-hidden">
+        <div ref={videoRef} className="w-full h-full" />
+        {status && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 z-20 p-6 text-center">
+            <div className="text-white/60 text-sm font-medium flex flex-col items-center gap-4">
+              {!status.includes('Erro') && !status.includes('não detectado') && (
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" />
+              )}
+              <p className="max-w-xs">{status}</p>
+              {(status.includes('Erro') || status.includes('não detectado')) && (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-2 px-4 py-2 bg-white text-black rounded-full text-xs font-bold active:scale-95 transition-transform"
+                >
+                  Tentar Novamente
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Overlay UI */}
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
