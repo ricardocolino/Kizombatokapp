@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Send, Gift as GiftIcon } from 'lucide-react';
+import { Send, Gift as GiftIcon, Smile } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
+import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 
 interface Message {
   id: string;
@@ -24,13 +25,26 @@ interface Gift {
 interface LiveChatProps {
   liveId: string;
   currentUser: User | null;
+  extraActions?: React.ReactNode;
 }
 
-const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser }) => {
+const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchGifts = async () => {
@@ -99,12 +113,13 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser }) => {
     }
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newMessage.trim() || !currentUser) return;
 
     const messageContent = newMessage.trim();
     setNewMessage('');
+    setShowEmojiPicker(false);
 
     const { error } = await supabase.from('live_messages').insert({
       live_id: liveId,
@@ -115,6 +130,10 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser }) => {
     if (error) {
       console.error('Error sending message:', error);
     }
+  };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
   };
 
   const renderMessage = (msg: Message) => {
@@ -175,24 +194,50 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser }) => {
         {messages.map((msg) => renderMessage(msg))}
       </div>
 
-      <form onSubmit={handleSendMessage} className="p-4 flex items-center gap-2 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="flex-1 relative group">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Diz algo..."
-            className="w-full bg-white/10 border border-white/10 rounded-full px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:bg-white/20 focus:border-white/30 transition-all"
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <div ref={emojiPickerRef} className="absolute bottom-20 left-4 z-[100]">
+          <EmojiPicker 
+            onEmojiClick={onEmojiClick} 
+            theme={Theme.DARK}
+            width={300}
+            height={400}
           />
         </div>
-        <button 
-          type="submit"
-          disabled={!newMessage.trim()}
-          className="w-11 h-11 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
-        >
-          <Send size={20} />
-        </button>
-      </form>
+      )}
+
+      <div className="p-4 flex items-center gap-2 bg-gradient-to-t from-black/80 to-transparent">
+        <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2">
+          <div className="flex-1 relative group flex items-center bg-white/10 border border-white/10 rounded-full px-4 py-2 focus-within:bg-white/20 focus-within:border-white/30 transition-all">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Diz algo..."
+              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="p-1 text-white/60 hover:text-white transition-colors"
+            >
+              <Smile size={20} />
+            </button>
+          </div>
+          <button 
+            type="submit"
+            disabled={!newMessage.trim()}
+            className="w-10 h-10 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+        
+        {/* Extra Actions (Like, Gift) */}
+        <div className="flex items-center gap-2">
+          {extraActions}
+        </div>
+      </div>
     </div>
   );
 };

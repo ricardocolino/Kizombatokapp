@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { X, Users, MessageCircle, Heart, Gift as GiftIcon } from 'lucide-react';
+import { X, Users, Heart, Gift as GiftIcon } from 'lucide-react';
 import LiveChat from './LiveChat';
 import GiftPicker from './GiftPicker';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,7 +37,6 @@ interface Gift {
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
-  const [showChat, setShowChat] = useState(true);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
   const [status, setStatus] = useState<string>('Conectando...');
@@ -272,12 +271,29 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col justify-end mt-4 mb-20 overflow-hidden">
-          {showChat && (
-            <div className="h-[320px] pointer-events-auto">
-              <LiveChat liveId={liveId} currentUser={currentUser} />
-            </div>
-          )}
+        <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
+          <div className="h-[320px] pointer-events-auto">
+            <LiveChat 
+              liveId={liveId} 
+              currentUser={currentUser} 
+              extraActions={
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowGiftPicker(true)}
+                    className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-black active:scale-90 transition-transform shadow-lg shadow-yellow-500/20"
+                  >
+                    <GiftIcon size={18} />
+                  </button>
+                  <button 
+                    onClick={sendHeart}
+                    className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
+                  >
+                    <Heart size={18} fill="currentColor" />
+                  </button>
+                </div>
+              }
+            />
+          </div>
         </div>
 
         {/* Floating Hearts */}
@@ -296,28 +312,6 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-end gap-3 pointer-events-auto">
-          <button 
-            onClick={() => setShowChat(!showChat)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all ${showChat ? 'bg-white text-black border-white' : 'bg-black/40 border-white/20'}`}
-          >
-            <MessageCircle size={20} />
-          </button>
-          <button 
-            onClick={() => setShowGiftPicker(true)}
-            className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-black active:scale-90 transition-transform shadow-lg shadow-yellow-500/20"
-          >
-            <GiftIcon size={20} />
-          </button>
-          <button 
-            onClick={sendHeart}
-            className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
-          >
-            <Heart size={20} fill="currentColor" />
-          </button>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { Camera, Mic, MicOff, CameraOff, X, Users, MessageCircle } from 'lucide-react';
+import { Camera, Mic, MicOff, CameraOff, X, Users } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,7 +27,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
-  const [showChat, setShowChat] = useState(true);
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
@@ -230,34 +229,31 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col justify-end mt-4 mb-20 overflow-hidden">
-          {showChat && liveId && (
+        <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
+          {liveId && (
             <div className="h-[320px] pointer-events-auto">
-              <LiveChat liveId={liveId} currentUser={currentUser} />
+              <LiveChat 
+                liveId={liveId} 
+                currentUser={currentUser} 
+                extraActions={
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={toggleMute}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                    >
+                      {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                    </button>
+                    <button 
+                      onClick={toggleVideo}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                    >
+                      {isVideoOff ? <CameraOff size={18} /> : <Camera size={18} />}
+                    </button>
+                  </div>
+                }
+              />
             </div>
           )}
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4 pointer-events-auto">
-          <button 
-            onClick={toggleMute}
-            className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
-          >
-            {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
-          <button 
-            onClick={toggleVideo}
-            className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
-          >
-            {isVideoOff ? <CameraOff size={20} /> : <Camera size={20} />}
-          </button>
-          <button 
-            onClick={() => setShowChat(!showChat)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all ${showChat ? 'bg-white text-black border-white' : 'bg-black/40 border-white/20'}`}
-          >
-            <MessageCircle size={20} />
-          </button>
         </div>
       </div>
     </div>
