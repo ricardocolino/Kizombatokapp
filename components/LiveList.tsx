@@ -112,7 +112,7 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
             >
               {/* Thumbnail Placeholder */}
               <img 
-                src={`https://picsum.photos/seed/${live.id}/400/600`}
+                src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/400/600`}
                 alt={live.title}
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />

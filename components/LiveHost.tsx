@@ -25,6 +25,8 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [liveTitle, setLiveTitle] = useState(`Live de ${currentUser.user_metadata?.username || 'user'}`);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
@@ -39,16 +41,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     if (isInitialized.current) return;
     isInitialized.current = true;
 
-    const initLive = async () => {
-      if (!AGORA_APP_ID) {
-        console.error('Agora App ID is missing');
-        return;
-      }
-
-      const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
-      agoraClient.setClientRole('host');
-      clientRef.current = agoraClient;
-
+    const initTracks = async () => {
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
         setLocalAudioTrack(audioTrack);
@@ -59,6 +52,25 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         if (videoRef.current) {
           videoTrack.play(videoRef.current);
         }
+      } catch (err) {
+        console.error('Error initializing tracks:', err);
+      }
+    };
+
+    initTracks();
+
+    const startLiveSession = async () => {
+      if (!isStarting || !AGORA_APP_ID) return;
+
+      const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+      agoraClient.setClientRole('host');
+      clientRef.current = agoraClient;
+
+      try {
+        const audioTrack = audioTrackRef.current;
+        const videoTrack = videoTrackRef.current;
+
+        if (!audioTrack || !videoTrack) return;
 
         const channelName = `live_${currentUser.id}_${Date.now()}`;
         await agoraClient.join(AGORA_APP_ID, channelName, null, currentUser.id);
@@ -67,7 +79,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         // Create live record in Supabase
         const { data, error } = await supabase.from('lives').insert({
           host_id: currentUser.id,
-          title: `Live de ${currentUser.user_metadata?.username || 'user'}`,
+          title: liveTitle,
           status: 'active',
           channel_name: channelName,
         }).select().single();
@@ -120,18 +132,21 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
         return { channel, giftsChannel };
       } catch (err) {
-        console.error('Error initializing live:', err);
+        console.error('Error starting live:', err);
       }
     };
 
     let statusChannel: RealtimeChannel | null = null;
     let giftsChannel: RealtimeChannel | null = null;
-    initLive().then(res => {
-      if (res) {
-        statusChannel = res.channel;
-        giftsChannel = res.giftsChannel;
-      }
-    });
+
+    if (isStarting) {
+      startLiveSession().then(res => {
+        if (res) {
+          statusChannel = res.channel;
+          giftsChannel = res.giftsChannel;
+        }
+      });
+    }
 
     return () => {
       const cleanup = async () => {
@@ -154,7 +169,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       };
       cleanup();
     };
-  }, [currentUser.id, currentUser.user_metadata?.username]);
+  }, [currentUser.id, currentUser.user_metadata?.username, isStarting, liveTitle]);
  // Only depend on currentUser.id
 
   const toggleMute = () => {
@@ -213,11 +228,15 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10">
             <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
             <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
-            <div className="w-px h-3 bg-white/20 mx-1" />
-            <div className="flex items-center gap-1 text-white/80">
-              <Users size={14} />
-              <span className="text-xs font-bold">{viewerCount}</span>
-            </div>
+            {isStarting && (
+              <>
+                <div className="w-px h-3 bg-white/20 mx-1" />
+                <div className="flex items-center gap-1 text-white/80">
+                  <Users size={14} />
+                  <span className="text-xs font-bold">{viewerCount}</span>
+                </div>
+              </>
+            )}
           </div>
 
           <button 
@@ -228,9 +247,31 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           </button>
         </div>
 
+        {/* Setup Screen */}
+        {!isStarting && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 pointer-events-auto">
+            <div className="w-full max-w-xs space-y-4">
+              <input 
+                type="text"
+                value={liveTitle}
+                onChange={(e) => setLiveTitle(e.target.value)}
+                placeholder="Título da sua live..."
+                className="w-full bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/40 focus:outline-none focus:border-red-600 transition-colors shadow-2xl"
+              />
+              <button 
+                onClick={() => setIsStarting(true)}
+                className="w-full bg-red-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-transform"
+              >
+                Começar Live
+              </button>
+            </div>
+            <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Prepara-te para entrar em direto!</p>
+          </div>
+        )}
+
         {/* Chat Area */}
         <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
-          {liveId && (
+          {isStarting && liveId && (
             <div className="h-[320px] w-full pointer-events-auto">
               <LiveChat 
                 liveId={liveId} 
