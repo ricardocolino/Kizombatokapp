@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Send, Gift as GiftIcon, Smile } from 'lucide-react';
+import { Send, Gift as GiftIcon } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import EmojiPicker, { Theme, EmojiClickData } from 'emoji-picker-react';
 
 interface Message {
   id: string;
@@ -32,19 +31,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const fetchGifts = async () => {
@@ -119,7 +106,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
 
     const messageContent = newMessage.trim();
     setNewMessage('');
-    setShowEmojiPicker(false);
 
     const { error } = await supabase.from('live_messages').insert({
       live_id: liveId,
@@ -130,10 +116,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
     if (error) {
       console.error('Error sending message:', error);
     }
-  };
-
-  const onEmojiClick = (emojiData: EmojiClickData) => {
-    setNewMessage(prev => prev + emojiData.emoji);
   };
 
   const renderMessage = (msg: Message) => {
@@ -168,6 +150,11 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
 
     return (
       <div key={msg.id} className="flex items-start gap-2 max-w-[85%] group animate-in fade-in slide-in-from-bottom-1 duration-300">
+        <img 
+          src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
+          alt={msg.profiles?.username}
+          className="w-8 h-8 rounded-full border border-white/20 object-cover flex-shrink-0 mt-1"
+        />
         <div className="flex-1 bg-black/40 backdrop-blur-md rounded-2xl px-3 py-2 border border-white/10 shadow-lg hover:bg-black/50 transition-colors">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-[11px] font-black text-white/70 tracking-tight">@{msg.profiles?.username || 'user'}</span>
@@ -179,7 +166,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
   };
 
   return (
-    <div className="flex flex-col h-full relative overflow-hidden">
+    <div className="flex flex-col h-full relative overflow-hidden bg-transparent">
       {/* Gradient Mask for Top Fade */}
       <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 pointer-events-none" />
       
@@ -194,19 +181,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
         {messages.map((msg) => renderMessage(msg))}
       </div>
 
-      {/* Emoji Picker */}
-      {showEmojiPicker && (
-        <div ref={emojiPickerRef} className="absolute bottom-20 left-4 z-[100]">
-          <EmojiPicker 
-            onEmojiClick={onEmojiClick} 
-            theme={Theme.DARK}
-            width={300}
-            height={400}
-          />
-        </div>
-      )}
-
-      <div className="p-3 flex items-center gap-2 bg-gradient-to-t from-black/90 to-transparent">
+      <div className="p-3 flex items-center gap-2 bg-gradient-to-t from-black/60 to-transparent">
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
           <div className="flex-1 min-w-0 relative group flex items-center bg-white/10 border border-white/10 rounded-full px-3 py-2 focus-within:bg-white/20 focus-within:border-white/30 transition-all">
             <input
@@ -216,13 +191,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
               placeholder="Diz algo..."
               className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0"
             />
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="flex-shrink-0 p-1 text-white/60 hover:text-white transition-colors"
-            >
-              <Smile size={20} />
-            </button>
           </div>
           <button 
             type="submit"
