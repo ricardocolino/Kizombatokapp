@@ -31,16 +31,12 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [viewerCount, setViewerCount] = useState(0);
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
-  const isInitialized = useRef(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const audioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
   const videoTrackRef = useRef<ICameraVideoTrack | null>(null);
   const liveIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
-
     const initTracks = async () => {
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
@@ -59,10 +55,27 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
     initTracks();
 
-    const startLiveSession = async () => {
-      if (!isStarting || !AGORA_APP_ID) return;
+    return () => {
+      if (videoTrackRef.current) {
+        videoTrackRef.current.stop();
+        videoTrackRef.current.close();
+      }
+      if (audioTrackRef.current) {
+        audioTrackRef.current.stop();
+        audioTrackRef.current.close();
+      }
+    };
+  }, []);
 
-      const agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+  useEffect(() => {
+    if (!isStarting || !AGORA_APP_ID) return;
+
+    let statusChannel: RealtimeChannel | null = null;
+    let giftsChannel: RealtimeChannel | null = null;
+    let agoraClient: IAgoraRTCClient | null = null;
+
+    const startLiveSession = async () => {
+      agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
       agoraClient.setClientRole('host');
       clientRef.current = agoraClient;
 
@@ -70,7 +83,10 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         const audioTrack = audioTrackRef.current;
         const videoTrack = videoTrackRef.current;
 
-        if (!audioTrack || !videoTrack) return;
+        if (!audioTrack || !videoTrack) {
+          console.error('Tracks not ready for publishing');
+          return;
+        }
 
         const channelName = `live_${currentUser.id}_${Date.now()}`;
         await agoraClient.join(AGORA_APP_ID, channelName, null, currentUser.id);
@@ -89,7 +105,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         liveIdRef.current = data.id;
 
         // Subscribe to viewer count updates
-        const channel = supabase
+        statusChannel = supabase
           .channel(`live_status:${data.id}`)
           .on(
             'postgres_changes',
@@ -106,7 +122,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           .subscribe();
 
         // Subscribe to gifts
-        const giftsChannel = supabase
+        giftsChannel = supabase
           .channel(`live_gifts:${data.id}`)
           .on(
             'postgres_changes',
@@ -129,47 +145,28 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
             }
           )
           .subscribe();
-
-        return { channel, giftsChannel };
       } catch (err) {
-        console.error('Error starting live:', err);
+        console.error('Error starting live session:', err);
       }
     };
 
-    let statusChannel: RealtimeChannel | null = null;
-    let giftsChannel: RealtimeChannel | null = null;
-
-    if (isStarting) {
-      startLiveSession().then(res => {
-        if (res) {
-          statusChannel = res.channel;
-          giftsChannel = res.giftsChannel;
-        }
-      });
-    }
+    startLiveSession();
 
     return () => {
-      const cleanup = async () => {
-        if (videoTrackRef.current) {
-          videoTrackRef.current.stop();
-          videoTrackRef.current.close();
-        }
-        if (audioTrackRef.current) {
-          audioTrackRef.current.stop();
-          audioTrackRef.current.close();
-        }
-        if (clientRef.current) {
-          await clientRef.current.leave();
+      const cleanupSession = async () => {
+        if (agoraClient) {
+          await agoraClient.leave();
         }
         if (liveIdRef.current) {
           await supabase.from('lives').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', liveIdRef.current);
+          liveIdRef.current = null;
         }
         if (statusChannel) supabase.removeChannel(statusChannel);
         if (giftsChannel) supabase.removeChannel(giftsChannel);
       };
-      cleanup();
+      cleanupSession();
     };
-  }, [currentUser.id, currentUser.user_metadata?.username, isStarting, liveTitle]);
+  }, [currentUser.id, isStarting, liveTitle]);
  // Only depend on currentUser.id
 
   const toggleMute = () => {
