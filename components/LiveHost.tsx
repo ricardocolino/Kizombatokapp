@@ -169,6 +169,59 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   }, [currentUser.id, isStarting, liveTitle]);
  // Only depend on currentUser.id
 
+  useEffect(() => {
+    if (!isStarting || !liveId) return;
+
+    const handleUnexpectedExit = () => {
+      if (liveIdRef.current) {
+        const currentId = liveIdRef.current;
+        // Mark as ended in Supabase (fire and forget)
+        supabase
+          .from('lives')
+          .update({ 
+            status: 'ended', 
+            ended_at: new Date().toISOString() 
+          })
+          .eq('id', currentId)
+          .then(() => {
+            console.log('Live ended due to unexpected exit');
+          });
+        
+        // Cleanup Agora if possible
+        if (clientRef.current) {
+          clientRef.current.leave().catch(() => {});
+        }
+        
+        onClose();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      // If the app goes to background (e.g. phone call or switching apps), end the live
+      if (document.visibilityState === 'hidden') {
+        handleUnexpectedExit();
+      }
+    };
+
+    const onPageHide = () => {
+      handleUnexpectedExit();
+    };
+
+    const onOffline = () => {
+      handleUnexpectedExit();
+    };
+
+    window.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('offline', onOffline);
+
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [isStarting, liveId, onClose]);
+
   const toggleMute = () => {
     if (localAudioTrack) {
       localAudioTrack.setEnabled(!isMuted);
