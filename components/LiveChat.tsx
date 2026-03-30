@@ -206,20 +206,20 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
         </div>
       )}
 
-      <div className="p-4 flex items-center gap-2 bg-gradient-to-t from-black/80 to-transparent">
-        <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2">
-          <div className="flex-1 relative group flex items-center bg-white/10 border border-white/10 rounded-full px-4 py-2 focus-within:bg-white/20 focus-within:border-white/30 transition-all">
+      <div className="p-3 flex items-center gap-2 bg-gradient-to-t from-black/90 to-transparent">
+        <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
+          <div className="flex-1 min-w-0 relative group flex items-center bg-white/10 border border-white/10 rounded-full px-3 py-2 focus-within:bg-white/20 focus-within:border-white/30 transition-all">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Diz algo..."
-              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none"
+              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0"
             />
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-1 text-white/60 hover:text-white transition-colors"
+              className="flex-shrink-0 p-1 text-white/60 hover:text-white transition-colors"
             >
               <Smile size={20} />
             </button>
@@ -227,16 +227,18 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
           <button 
             type="submit"
             disabled={!newMessage.trim()}
-            className="w-10 h-10 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
+            className="flex-shrink-0 w-9 h-9 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
           >
-            <Send size={18} />
+            <Send size={16} />
           </button>
         </form>
         
-        {/* Extra Actions (Like, Gift) */}
-        <div className="flex items-center gap-2">
-          {extraActions}
-        </div>
+        {/* Extra Actions (Like, Gift, etc.) */}
+        {extraActions && (
+          <div className="flex-shrink-0 flex items-center gap-2">
+            {extraActions}
+          </div>
+        )}
       </div>
     </div>
   );

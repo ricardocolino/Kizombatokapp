@@ -231,23 +231,23 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         {/* Chat Area */}
         <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
           {liveId && (
-            <div className="h-[320px] pointer-events-auto">
+            <div className="h-[320px] w-full max-w-[90%] pointer-events-auto">
               <LiveChat 
                 liveId={liveId} 
                 currentUser={currentUser} 
                 extraActions={
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button 
                       onClick={toggleMute}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
                     >
-                      {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                      {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                     </button>
                     <button 
                       onClick={toggleVideo}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
                     >
-                      {isVideoOff ? <CameraOff size={18} /> : <Camera size={18} />}
+                      {isVideoOff ? <CameraOff size={16} /> : <Camera size={16} />}
                     </button>
                   </div>
                 }

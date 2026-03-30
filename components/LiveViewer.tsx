@@ -272,23 +272,23 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
-          <div className="h-[320px] pointer-events-auto">
+          <div className="h-[320px] w-full max-w-[90%] pointer-events-auto">
             <LiveChat 
               liveId={liveId} 
               currentUser={currentUser} 
               extraActions={
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button 
                     onClick={() => setShowGiftPicker(true)}
-                    className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-black active:scale-90 transition-transform shadow-lg shadow-yellow-500/20"
+                    className="flex-shrink-0 w-9 h-9 bg-yellow-500 rounded-full flex items-center justify-center text-black active:scale-90 transition-transform shadow-lg shadow-yellow-500/20"
                   >
-                    <GiftIcon size={18} />
+                    <GiftIcon size={16} />
                   </button>
                   <button 
                     onClick={sendHeart}
-                    className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
+                    className="flex-shrink-0 w-9 h-9 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
                   >
-                    <Heart size={18} fill="currentColor" />
+                    <Heart size={16} fill="currentColor" />
                   </button>
                 </div>
               }
