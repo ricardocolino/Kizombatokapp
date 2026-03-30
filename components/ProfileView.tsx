@@ -1083,5 +1083,4 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     </div>
   );
 };
-
 export default ProfileView;
