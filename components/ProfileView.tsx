@@ -13,7 +13,8 @@ interface ProfileViewProps {
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
-  const [profile, setProfile] = useState<Profile | null>(null); const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
