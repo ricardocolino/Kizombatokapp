@@ -730,7 +730,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
                 <div className="flex gap-3 mt-2">
                   <button 
-                    onClick={() => { setShowDashboard(false); setShowDeposit(true); }}
+                    onClick={() => window.open('https://kizombatok.vercel.app', '_blank')}
                     className="flex-1 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
                   >
                     <ArrowUpCircle size={16} />
