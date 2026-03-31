@@ -298,8 +298,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     setSaving(true);
     try {
       const usdAmount = depositAmount / 100;
+      
+      // Obter a URL base da API (necessário para o APK Android)
+      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const endpoint = apiUrl 
+        ? `${apiUrl.replace(/\/$/, '')}/api/payments/create` 
+        : '/api/payments/create';
 
-      const response = await fetch('/api/payments/create', {
+      console.log(`>>> [DEPOSIT] Chamando endpoint: ${endpoint}`);
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -319,7 +327,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         try {
           const errorJson = JSON.parse(errorText);
           throw new Error(errorJson.error || "Erro desconhecido no servidor");
-        } catch (e) {
+        } catch {
           throw new Error(`O servidor respondeu com um erro (Status ${response.status}). Verifica os logs do servidor.`);
         }
       }
