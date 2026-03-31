@@ -21,6 +21,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDashboard, setShowDashboard] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState('https://kizombatok.vercel.app');
   const [depositAmount, setDepositAmount] = useState(10);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
@@ -292,6 +293,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         setIsFollowing(true);
         fetchStats();
       }
+    }
+  };
+
+  const handleOpenExternalDeposit = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Passamos o access_token e refresh_token no fragmento da URL (#)
+        // O Supabase no lado do Vercel saberá como lidar com isto
+        const baseUrl = 'https://kizombatok.vercel.app';
+        const authParams = `access_token=${session.access_token}&refresh_token=${session.refresh_token}&expires_in=${session.expires_in}&token_type=bearer&type=recovery`;
+        setIframeUrl(`${baseUrl}/#${authParams}`);
+      } else {
+        setIframeUrl('https://kizombatok.vercel.app');
+      }
+      
+      setShowExternalUrl(true);
+    } catch (err) {
+      console.error("Erro ao obter sessão para o iframe:", err);
+      setIframeUrl('https://kizombatok.vercel.app');
+      setShowExternalUrl(true);
     }
   };
 
@@ -731,7 +754,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
                 <div className="flex gap-3 mt-2">
                   <button 
-                    onClick={() => setShowExternalUrl(true)}
+                    onClick={handleOpenExternalDeposit}
                     className="flex-1 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
                   >
                     <ArrowUpCircle size={16} />
@@ -901,7 +924,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </header>
           <div className="flex-1 relative bg-white">
             <iframe 
-              src="https://kizombatok.vercel.app" 
+              src={iframeUrl} 
               className="w-full h-full border-none"
               title="Carregar Saldo"
               allow="payment"
