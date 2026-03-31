@@ -299,11 +299,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     try {
       const usdAmount = depositAmount / 100;
       
-      // Obter a URL base da API (necessário para o APK Android)
-      const apiUrl = import.meta.env.VITE_API_URL || "";
-      const endpoint = apiUrl 
-        ? `${apiUrl.replace(/\/$/, '')}/api/payments/create` 
-        : '/api/payments/create';
+      // Para pagamentos, usamos o servidor principal (App URL), não o Worker
+      // Isto é necessário porque o Worker não tem as rotas de pagamento
+      const endpoint = 'https://ais-dev-zrifqkgbujknyfw6lb6hhi-7031768075.europe-west2.run.app/api/payments/create';
 
       console.log(`>>> [DEPOSIT] Chamando endpoint: ${endpoint}`);
 
