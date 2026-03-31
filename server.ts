@@ -170,7 +170,8 @@ app.post("/api/payments/create", async (req, res) => {
         price_amount: amount,
         price_currency: "usd",
         pay_currency: currency,
-        ipn_callback_url: `https://kizombatok.vercel.app/api/payments/webhook`,
+        // Usando o URL do projeto atual para o webhook
+        ipn_callback_url: `https://ais-pre-zrifqkgbujknyfw6lb6hhi-7031768075.europe-west2.run.app/api/payments/webhook`,
         order_id: `${userId}_${Date.now()}`,
         order_description: `Deposit for user ${userId}`,
       }),
@@ -181,7 +182,11 @@ app.post("/api/payments/create", async (req, res) => {
     console.log(">>> [API] NOWPayments Response Data:", data);
 
     if (!response.ok) {
-      throw new Error(data.message || "Failed to create payment");
+      console.error(">>> [API] NOWPayments API Error:", data);
+      return res.status(response.status).json({ 
+        error: data.message || "A API de pagamentos recusou o pedido. Talvez o valor seja demasiado baixo.",
+        details: data
+      });
     }
 
     console.log(">>> [API] Saving deposit to Supabase for user:", userId);
