@@ -297,18 +297,37 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const handleDeposit = async () => {
     setSaving(true);
     try {
-      const newBalance = (profile?.balance || 0) + depositAmount;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', userId);
+      // Calcular valor em USD (100 AngoCoins = 1 USD)
+      const usdAmount = depositAmount / 100;
+
+      const response = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          amount: usdAmount,
+          currency: 'usdttrc20' // USDT TRC20 por padrão
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao criar pagamento");
+      }
+
+      // Abrir URL da fatura do NOWPayments
+      if (data.invoice_url) {
+        window.open(data.invoice_url, '_blank');
+        alert("Fatura criada! Completa o pagamento no separador que abriu. O teu saldo será atualizado automaticamente assim que o pagamento for confirmado pela rede USDT.");
+      }
       
-      if (error) throw error;
-      
-      await fetchProfile();
       setShowDeposit(false);
     } catch (err) {
       console.error("Erro no depósito:", err);
+      alert(err instanceof Error ? err.message : "Erro ao processar depósito");
     } finally {
       setSaving(false);
     }

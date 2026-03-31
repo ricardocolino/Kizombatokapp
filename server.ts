@@ -6,6 +6,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -14,6 +16,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
+
+// Initialize Supabase Admin for webhook
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 
 // Global request logger
 app.use((req, _res, next) => {
@@ -131,6 +139,143 @@ app.get("/api/health", (req, res) => {
     r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT),
     realtimeConfigured: !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_REALTIME_APP_ID)
   });
+});
+
+// NOWPayments Integration
+app.post("/api/payments/create", async (req, res) => {
+  const { userId, amount, currency = 'usdttrc20' } = req.body;
+
+  if (!userId || !amount) {
+    return res.status(400).json({ error: "Missing userId or amount" });
+  }
+
+  try {
+    const apiKey = process.env.NOWPAYMENTS_API_KEY;
+    if (!apiKey) {
+      throw new Error("NOWPayments API Key not configured");
+    }
+
+    // Create payment in NOWPayments
+    const response = await fetch("https://api.nowpayments.io/v1/payment", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        price_amount: amount,
+        price_currency: "usd",
+        pay_currency: currency,
+        ipn_callback_url: `https://kizombatok.vercel.app/api/payments/webhook`,
+        order_id: `${userId}_${Date.now()}`,
+        order_description: `Deposit for user ${userId}`,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to create payment");
+    }
+
+    // Save deposit record in Supabase
+    const { error: dbError } = await supabaseAdmin
+      .from('deposits')
+      .insert({
+        user_id: userId,
+        amount: amount,
+        currency: currency,
+        payment_id: data.payment_id,
+        status: 'waiting'
+      });
+
+    if (dbError) {
+      console.error(">>> [API] Database Error saving deposit:", dbError);
+    }
+
+    res.json({ 
+      payment_id: data.payment_id,
+      invoice_url: data.invoice_url || `https://nowpayments.io/payment/?iid=${data.payment_id}`,
+      pay_address: data.pay_address,
+      pay_amount: data.pay_amount
+    });
+  } catch (error) {
+    console.error(">>> [API] NOWPayments Error:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// NOWPayments Webhook
+app.post("/api/payments/webhook", async (req, res) => {
+  const hmac = req.get("x-nowpayments-sig");
+  const notificationsKey = process.env.NOWPAYMENTS_IPN_SECRET;
+
+  if (!notificationsKey) {
+    console.error(">>> [WEBHOOK] IPN Secret not configured");
+    return res.status(500).send("Configuration error");
+  }
+
+  // Verify signature
+  const sortedData = JSON.stringify(req.body, Object.keys(req.body).sort());
+  const checkHmac = crypto
+    .createHmac("sha512", notificationsKey)
+    .update(sortedData)
+    .digest("hex");
+
+  if (hmac !== checkHmac) {
+    console.error(">>> [WEBHOOK] Invalid signature");
+    return res.status(400).send("Invalid signature");
+  }
+
+  const { payment_status, payment_id, price_amount, order_id } = req.body;
+  const userId = order_id.split('_')[0];
+
+  console.log(`>>> [WEBHOOK] Payment ${payment_id} status: ${payment_status}`);
+
+  if (payment_status === 'finished') {
+    try {
+      // 1. Update deposit status
+      const { error: updateError } = await supabaseAdmin
+        .from('deposits')
+        .update({ status: 'finished', updated_at: new Date().toISOString() })
+        .eq('payment_id', payment_id);
+
+      if (updateError) throw updateError;
+
+      // 2. Add balance to user profile
+      // 1 USD = 100 AngoCoins (based on ProfileView.tsx logic)
+      const coinsToAdd = Math.floor(price_amount * 100);
+
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('balance')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const newBalance = (profile.balance || 0) + coinsToAdd;
+
+      const { error: balanceError } = await supabaseAdmin
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+
+      if (balanceError) throw balanceError;
+
+      console.log(`>>> [WEBHOOK] Balance updated for user ${userId}: +${coinsToAdd} coins`);
+    } catch (error) {
+      console.error(">>> [WEBHOOK] Error processing finished payment:", error);
+      return res.status(500).send("Error processing payment");
+    }
+  } else if (payment_status === 'failed' || payment_status === 'expired') {
+    await supabaseAdmin
+      .from('deposits')
+      .update({ status: payment_status, updated_at: new Date().toISOString() })
+      .eq('payment_id', payment_id);
+  }
+
+  res.status(200).send("OK");
 });
 
 // Cloudflare RealtimeKit Session Endpoint
