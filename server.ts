@@ -143,18 +143,22 @@ app.get("/api/health", (req, res) => {
 
 // NOWPayments Integration
 app.post("/api/payments/create", async (req, res) => {
+  console.log(">>> [API] Payment Create Request received:", req.body);
   const { userId, amount, currency = 'usdttrc20' } = req.body;
 
   if (!userId || !amount) {
+    console.error(">>> [API] Payment Error: Missing userId or amount");
     return res.status(400).json({ error: "Missing userId or amount" });
   }
 
   try {
     const apiKey = process.env.NOWPAYMENTS_API_KEY;
     if (!apiKey) {
+      console.error(">>> [API] Payment Error: NOWPAYMENTS_API_KEY not configured");
       throw new Error("NOWPayments API Key not configured");
     }
 
+    console.log(">>> [API] Calling NOWPayments API with amount:", amount);
     // Create payment in NOWPayments
     const response = await fetch("https://api.nowpayments.io/v1/payment", {
       method: "POST",
@@ -173,11 +177,14 @@ app.post("/api/payments/create", async (req, res) => {
     });
 
     const data = await response.json();
+    console.log(">>> [API] NOWPayments Response Status:", response.status);
+    console.log(">>> [API] NOWPayments Response Data:", data);
 
     if (!response.ok) {
       throw new Error(data.message || "Failed to create payment");
     }
 
+    console.log(">>> [API] Saving deposit to Supabase for user:", userId);
     // Save deposit record in Supabase
     const { error: dbError } = await supabaseAdmin
       .from('deposits')
@@ -191,6 +198,7 @@ app.post("/api/payments/create", async (req, res) => {
 
     if (dbError) {
       console.error(">>> [API] Database Error saving deposit:", dbError);
+      // Não falhamos o pedido se apenas o log falhar, mas avisamos
     }
 
     res.json({ 

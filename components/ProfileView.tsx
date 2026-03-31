@@ -297,7 +297,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const handleDeposit = async () => {
     setSaving(true);
     try {
-      // Calcular valor em USD (100 AngoCoins = 1 USD)
       const usdAmount = depositAmount / 100;
 
       const response = await fetch('/api/payments/create', {
@@ -308,17 +307,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         body: JSON.stringify({
           userId,
           amount: usdAmount,
-          currency: 'usdttrc20' // USDT TRC20 por padrão
+          currency: 'usdttrc20'
         }),
       });
 
-      const data = await response.json();
-
+      // Se a resposta não for OK, tentamos ler o texto para depuração
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao criar pagamento");
+        const errorText = await response.text();
+        console.error("Erro do Servidor (Texto):", errorText);
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || "Erro desconhecido no servidor");
+        } catch (e) {
+          throw new Error(`O servidor respondeu com um erro (Status ${response.status}). Verifica os logs do servidor.`);
+        }
       }
 
-      // Abrir URL da fatura do NOWPayments
+      const data = await response.json();
+
       if (data.invoice_url) {
         window.open(data.invoice_url, '_blank');
         alert("Fatura criada! Completa o pagamento no separador que abriu. O teu saldo será atualizado automaticamente assim que o pagamento for confirmado pela rede USDT.");
@@ -326,7 +333,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       setShowDeposit(false);
     } catch (err) {
-      console.error("Erro no depósito:", err);
+      console.error("Erro detalhado no depósito:", err);
       alert(err instanceof Error ? err.message : "Erro ao processar depósito");
     } finally {
       setSaving(false);
