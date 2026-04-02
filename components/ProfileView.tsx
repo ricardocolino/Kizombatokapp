@@ -5,6 +5,7 @@ import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { parseMediaUrl } from '../services/mediaUtils';
+import { Browser } from '@capacitor/browser';
 
 interface ProfileViewProps {
   userId: string;
@@ -22,6 +23,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
+  const [iframeLoading, setIframeLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState(10);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [pendingEarnings, setPendingEarnings] = useState(0);
   const [claiming, setClaiming] = useState(false);
   const PAGE_SIZE = 6;
+
+  // Ouvir mensagens do iframe de pagamentos
+  useEffect(() => {
+    const handlePaymentMessage = async (event: MessageEvent) => {
+      // Verificamos se a mensagem vem do nosso domínio de pagamentos
+      // e se tem o formato que definiste
+      if (event.data && event.data.type === 'OPEN_URL' && event.data.url) {
+        try {
+          console.log("A abrir gateway de pagamento externo:", event.data.url);
+          await Browser.open({ 
+            url: event.data.url,
+            toolbarColor: '#09090b', // Cor zinc-950 da App
+            presentationStyle: 'fullscreen'
+          });
+        } catch (err) {
+          console.error("Erro ao abrir navegador nativo:", err);
+          // Fallback simples se o Browser.open falhar
+          window.open(event.data.url, '_blank');
+        }
+      }
+    };
+
+    window.addEventListener('message', handlePaymentMessage);
+    return () => window.removeEventListener('message', handlePaymentMessage);
+  }, []);
   
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
@@ -306,10 +333,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         finalUrl = `${finalUrl}/#${authParams}`;
       }
       
+      setIframeLoading(true);
       setIframeUrl(finalUrl);
       setShowExternalUrl(true);
     } catch (err) {
-      console.error("Erro ao obter sessão para o iframe:", err);
+      console.error("Erro ao obter sessão para o navegador interno:", err);
+      setIframeLoading(true);
       setIframeUrl('https://angochatpayments.vercel.app');
       setShowExternalUrl(true);
     }
@@ -902,32 +931,44 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       )}
 
-      {/* External URL Modal (Iframe inside App) */}
+      {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <header className="h-16 bg-zinc-950 border-b border-zinc-900 flex items-center px-4 shrink-0 gap-4">
+          <header className="h-20 bg-zinc-950 border-b border-zinc-900 flex items-center px-6 shrink-0 gap-4 pt-4">
             <button 
               onClick={() => setShowExternalUrl(false)}
-              className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-white active:scale-95 transition-all"
+              className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
             >
-              <ChevronLeft size={24} />
+              <ChevronLeft size={28} />
             </button>
             <div className="flex flex-col">
-              <span className="text-xs font-black uppercase tracking-widest text-white">Carregar Angocoins</span>
-              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">Pagamento Seguro</span>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] text-emerald-500 font-black uppercase">Online</span>
+              <span className="text-sm font-black uppercase tracking-widest text-white">Carregar Angocoins</span>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] text-emerald-500 font-black uppercase tracking-tighter">Sistema Online</span>
+              </div>
             </div>
           </header>
           
           <div className="flex-1 relative bg-white">
+            {iframeLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-10">
+                <div className="relative w-20 h-20 mb-6">
+                  <div className="absolute inset-0 border-4 border-amber-500/10 rounded-full" />
+                  <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Coins className="text-amber-500 w-8 h-8 animate-bounce" />
+                  </div>
+                </div>
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] animate-pulse">A preparar pagamento seguro...</span>
+              </div>
+            )}
             <iframe 
               src={iframeUrl} 
+              onLoad={() => setIframeLoading(false)}
               className="w-full h-full border-none"
               title="Carregar Angocoins"
-              // Permissões máximas para evitar bloqueios do NOWPayments
+              // Permissões de topo para garantir que o NOWPayments consiga navegar e abrir o banco
               allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
               sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
             />
