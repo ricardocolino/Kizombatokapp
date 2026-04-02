@@ -5,7 +5,6 @@ import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { parseMediaUrl } from '../services/mediaUtils';
-import { Browser } from '@capacitor/browser';
 
 interface ProfileViewProps {
   userId: string;
@@ -21,6 +20,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showExternalUrl, setShowExternalUrl] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [depositAmount, setDepositAmount] = useState(10);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
@@ -301,18 +302,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       let finalUrl = 'https://angochatpayments.vercel.app';
       
       if (session) {
-        // Passamos o access_token e refresh_token no fragmento da URL (#)
-        // O Supabase no lado do Vercel saberá como lidar com isto
         const authParams = `access_token=${session.access_token}&refresh_token=${session.refresh_token}&expires_in=${session.expires_in}&token_type=bearer&type=recovery`;
         finalUrl = `${finalUrl}/#${authParams}`;
       }
       
-      // Abrir no Browser nativo para evitar problemas de segurança/CORS do Android WebView
-      await Browser.open({ url: finalUrl });
+      setIframeUrl(finalUrl);
+      setShowExternalUrl(true);
     } catch (err) {
-      console.error("Erro ao abrir browser para depósito:", err);
-      // Fallback em caso de erro no plugin
-      await Browser.open({ url: 'https://angochatpayments.vercel.app' });
+      console.error("Erro ao obter sessão para o iframe:", err);
+      setIframeUrl('https://angochatpayments.vercel.app');
+      setShowExternalUrl(true);
     }
   };
 
@@ -899,6 +898,39 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* External URL Modal (Iframe inside App) */}
+      {showExternalUrl && (
+        <div className="fixed inset-0 z-[200] bg-black flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500">
+          <header className="h-16 bg-zinc-950 border-b border-zinc-900 flex items-center px-4 shrink-0 gap-4">
+            <button 
+              onClick={() => setShowExternalUrl(false)}
+              className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-white active:scale-95 transition-all"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <div className="flex flex-col">
+              <span className="text-xs font-black uppercase tracking-widest text-white">Carregar Angocoins</span>
+              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">Pagamento Seguro</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[9px] text-emerald-500 font-black uppercase">Online</span>
+            </div>
+          </header>
+          
+          <div className="flex-1 relative bg-white">
+            <iframe 
+              src={iframeUrl} 
+              className="w-full h-full border-none"
+              title="Carregar Angocoins"
+              // Permissões máximas para evitar bloqueios do NOWPayments
+              allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
+              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
+            />
           </div>
         </div>
       )}
