@@ -21,7 +21,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDashboard, setShowDashboard] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
-  const [iframeUrl, setIframeUrl] = useState('https://kizombatok.vercel.app');
+  const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [depositAmount, setDepositAmount] = useState(10);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
@@ -303,17 +303,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       if (session) {
         // Passamos o access_token e refresh_token no fragmento da URL (#)
         // O Supabase no lado do Vercel saberá como lidar com isto
-        const baseUrl = 'https://kizombatok.vercel.app';
+        const baseUrl = 'https://angochatpayments.vercel.app';
         const authParams = `access_token=${session.access_token}&refresh_token=${session.refresh_token}&expires_in=${session.expires_in}&token_type=bearer&type=recovery`;
         setIframeUrl(`${baseUrl}/#${authParams}`);
       } else {
-        setIframeUrl('https://kizombatok.vercel.app');
+        setIframeUrl('https://angochatpayments.vercel.app');
       }
       
       setShowExternalUrl(true);
     } catch (err) {
       console.error("Erro ao obter sessão para o iframe:", err);
-      setIframeUrl('https://kizombatok.vercel.app');
+      setIframeUrl('https://angochatpayments.vercel.app');
       setShowExternalUrl(true);
     }
   };
