@@ -6,6 +6,7 @@ export interface Profile {
   cover_url: string | null;
   bio: string | null;
   balance: number;
+  redeemable_balance: number;
   created_at: string;
 }
 

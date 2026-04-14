@@ -403,10 +403,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     try {
       // Converter USD para AngoCoins (1 USD = 100 AngoCoins)
       const earningsInCoins = Math.floor(pendingEarnings * 100);
-      const newBalance = (profile?.balance || 0) + earningsInCoins;
+      const newRedeemableBalance = (profile?.redeemable_balance || 0) + earningsInCoins;
       const { error } = await supabase
         .from('profiles')
-        .update({ balance: newBalance })
+        .update({ redeemable_balance: newRedeemableBalance })
         .eq('id', userId);
       
       if (error) throw error;
@@ -416,7 +416,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       await fetchProfile();
       setPendingEarnings(0);
-      alert(`Boa! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para a tua carteira! 🇦🇴💰`);
+      alert(`Boa! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para o teu saldo de resgate! 🇦🇴💰`);
     } catch (err) {
       console.error("Erro ao resgatar ganhos:", err);
       alert("Houve um erro ao resgatar os ganhos. Tenta de novo!");
@@ -763,18 +763,35 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <Wallet size={120} />
                 </div>
                 
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo Disponível</p>
-                    <div className="flex items-baseline gap-2">
-                      <h3 className="text-5xl font-black text-white tracking-tighter">
-                        {profile.balance?.toFixed(0) || '0'}
-                      </h3>
-                      <span className="text-sm font-black text-amber-500 uppercase tracking-widest">AngoCoins</span>
+                <div className="flex flex-col gap-6">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo para Presentes</p>
+                      <div className="flex items-baseline gap-2">
+                        <h3 className="text-4xl font-black text-white tracking-tighter">
+                          {profile.balance?.toFixed(0) || '0'}
+                        </h3>
+                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">AngoCoins</span>
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                      <Coins size={24} />
                     </div>
                   </div>
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
-                    <Coins size={28} />
+
+                  <div className="flex justify-between items-start pt-4 border-t border-zinc-900">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo de Resgate (Ganhos)</p>
+                      <div className="flex items-baseline gap-2">
+                        <h3 className="text-4xl font-black text-emerald-500 tracking-tighter">
+                          {profile.redeemable_balance?.toFixed(0) || '0'}
+                        </h3>
+                        <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">AngoCoins</span>
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                      <TrendingUp size={24} />
+                    </div>
                   </div>
                 </div>
 
