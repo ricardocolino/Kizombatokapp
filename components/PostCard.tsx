@@ -467,10 +467,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     setSendingGift(true);
     try {
       const { error } = await supabase.rpc('send_gift', {
-        sender_id: session.user.id,
-        receiver_id: post.user_id,
-        amount: amount,
-        post_id: post.id
+        p_sender_id: session.user.id,
+        p_receiver_id: post.user_id,
+        p_amount: amount,
+        p_post_id: post.id
       });
 
       if (error) {
@@ -483,9 +483,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         alert(`Enviaste ${amount} AngoCoins para ${post.profiles?.name || post.profiles?.username}! 🔥`);
         setShowGifts(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao enviar presente:", err);
-      alert('Erro ao enviar presente. Tenta novamente.');
+      const errorMsg = err?.message || (typeof err === 'string' ? err : 'Erro desconhecido');
+      alert(`Erro ao enviar presente: ${errorMsg}`);
     } finally {
       setSendingGift(false);
     }

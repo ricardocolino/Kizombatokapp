@@ -39,7 +39,7 @@ BEGIN
     
     -- 5. Adicionar ao host (saldo de resgate)
     UPDATE public.profiles
-    SET redeemable_balance = redeemable_balance + v_price
+    SET redeemable_balance = COALESCE(redeemable_balance, 0) + v_price
     WHERE id = v_host_id;
     
     -- 6. Registar o presente enviado
@@ -55,35 +55,35 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 3. Definir/Atualizar a função send_gift para vídeos (posts)
 CREATE OR REPLACE FUNCTION send_gift(
-    sender_id UUID,
-    receiver_id UUID,
-    amount INTEGER,
-    post_id UUID
+    p_sender_id UUID,
+    p_receiver_id UUID,
+    p_amount INTEGER,
+    p_post_id UUID
 )
 RETURNS VOID AS $$
 DECLARE
     v_sender_balance INTEGER;
 BEGIN
     -- 1. Verificar o saldo do remetente (saldo carregado)
-    SELECT balance INTO v_sender_balance FROM public.profiles WHERE id = sender_id;
+    SELECT balance INTO v_sender_balance FROM public.profiles WHERE id = p_sender_id;
     
-    IF v_sender_balance < amount THEN
+    IF v_sender_balance IS NULL OR v_sender_balance < p_amount THEN
         RAISE EXCEPTION 'insufficient balance';
     END IF;
     
     -- 2. Deduzir do remetente (saldo carregado)
     UPDATE public.profiles
-    SET balance = balance - amount
-    WHERE id = sender_id;
+    SET balance = balance - p_amount
+    WHERE id = p_sender_id;
     
     -- 3. Adicionar ao destinatário (saldo de resgate)
     UPDATE public.profiles
-    SET redeemable_balance = redeemable_balance + amount
-    WHERE id = receiver_id;
+    SET redeemable_balance = COALESCE(redeemable_balance, 0) + p_amount
+    WHERE id = p_receiver_id;
     
     -- 4. Registar a transação (opcional, mas recomendado se houver tabela)
     -- INSERT INTO public.gift_transactions (sender_id, receiver_id, amount, post_id)
-    -- VALUES (sender_id, receiver_id, amount, post_id);
+    -- VALUES (p_sender_id, p_receiver_id, p_amount, p_post_id);
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
