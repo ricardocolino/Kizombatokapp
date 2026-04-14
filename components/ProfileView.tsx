@@ -516,15 +516,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
-            <button 
-              onClick={() => setShowDashboard(true)}
-              className="text-zinc-400 hover:text-red-600 transition-all p-1 flex flex-col items-center"
-            >
-              <BarChart3 size={20} />
-              <span className="text-[8px] font-black uppercase tracking-tighter">Painel</span>
-            </button>
-          )}
-          {isOwnProfile && (
             <button onClick={() => setShowLogoutModal(true)} className="text-zinc-400 hover:text-red-600 transition-all p-1">
               <LogOut size={20}/>
             </button>
@@ -532,77 +523,75 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       </header>
 
-      {/* Banner */}
-      <div className="w-full h-32 bg-zinc-900 relative overflow-hidden">
-        {profile.cover_url ? (
-          <img src={parseMediaUrl(profile.cover_url)} className="w-full h-full object-cover" alt="" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-r from-zinc-800 to-zinc-900" />
-        )}
-      </div>
-
-      {/* Profile Info Section (Estilo X) */}
-      <div className="px-4 pb-4">
-        <div className="flex justify-between items-start">
-          <div className="relative -mt-10">
-            <div className={`w-20 h-20 rounded-full bg-black p-1 ${hasStories ? 'ring-2 ring-red-600' : ''}`}>
-              <div 
-                onClick={() => hasStories && onNavigateToPost && onNavigateToPost('story:' + userId)}
-                className={`w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden border-2 border-black ${hasStories ? 'cursor-pointer' : ''}`}
-              >
-                {profile.avatar_url ? (
-                  <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
-                ) : (
-                  <span className="text-2xl font-black text-white">{profile.username[0].toUpperCase()}</span>
-                )}
-              </div>
+      {/* Profile Info Section (Centralizado) */}
+      <div className="px-4 pb-6 pt-8 flex flex-col items-center text-center">
+        <div className="relative">
+          <div className={`w-24 h-24 rounded-full bg-black p-1 ${hasStories ? 'ring-2 ring-red-600' : ''}`}>
+            <div 
+              onClick={() => hasStories && onNavigateToPost && onNavigateToPost('story:' + userId)}
+              className={`w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden border-2 border-black ${hasStories ? 'cursor-pointer' : ''}`}
+            >
+              {profile.avatar_url ? (
+                <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
+              ) : (
+                <span className="text-3xl font-black text-white">{profile.username[0].toUpperCase()}</span>
+              )}
             </div>
-          </div>
-          <div className="pt-3">
-            {isOwnProfile ? (
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="bg-black border border-zinc-700 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-all"
-              >
-                Editar Perfil
-              </button>
-            ) : (
-              <button 
-                onClick={handleFollowToggle}
-                className={`px-6 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                  isFollowing 
-                    ? 'bg-black border border-zinc-700 text-white' 
-                    : 'bg-white text-black hover:bg-zinc-200'
-                }`}
-              >
-                {isFollowing ? 'A Seguir' : 'Seguir'}
-              </button>
-            )}
           </div>
         </div>
 
-        <div className="mt-3 space-y-1">
-          <h2 className="text-xl font-black text-white leading-tight">{profile.name || profile.username}</h2>
+        <div className="mt-4 space-y-1">
+          <h2 className="text-2xl font-black text-white leading-tight">{profile.name || profile.username}</h2>
           <p className="text-sm text-zinc-500 font-medium">@{profile.username}</p>
         </div>
 
         {profile.bio && (
-          <p className="text-[13px] text-zinc-100 mt-3 leading-relaxed break-words whitespace-pre-wrap">
+          <p className="text-[13px] text-zinc-100 mt-3 leading-relaxed break-words whitespace-pre-wrap max-w-xs">
             {profile.bio}
           </p>
         )}
 
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-zinc-500">
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 text-zinc-500">
           <div className="flex items-center gap-1.5">
             <MapPin size={14} />
             <span className="text-xs">Luanda, Angola 🇦🇴</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Calendar size={14} />
-            <span className="text-xs">Entrou em {new Date(profile.created_at).toLocaleDateString('pt-AO', { month: 'long', year: 'numeric' })}</span>
+            <span className="text-xs">Entrou em {new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
           </div>
         </div>
 
+        <div className="flex gap-3 mt-6 w-full max-w-xs">
+          {isOwnProfile ? (
+            <>
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="flex-1 bg-zinc-900 border border-zinc-800 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+              >
+                Editar Perfil
+              </button>
+              <button 
+                onClick={() => setShowDashboard(true)}
+                className="flex-1 bg-red-600 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <BarChart3 size={14} />
+                Painel
+              </button>
+            </>
+          ) : (
+            <button 
+              onClick={handleFollowToggle}
+              className={`w-full py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                isFollowing 
+                  ? 'bg-zinc-900 border border-zinc-800 text-white' 
+                  : 'bg-white text-black hover:bg-zinc-200'
+              }`}
+            >
+              {isFollowing ? 'A Seguir' : 'Seguir'}
+            </button>
+          )}
+        </div>
         <div className="flex gap-4 mt-4">
           <div className="flex gap-1 items-center">
             <span className="text-sm font-black text-white">{stats.following}</span>

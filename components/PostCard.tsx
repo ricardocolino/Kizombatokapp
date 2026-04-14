@@ -483,9 +483,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         alert(`Enviaste ${amount} AngoCoins para ${post.profiles?.name || post.profiles?.username}! 🔥`);
         setShowGifts(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao enviar presente:", err);
-      const errorMsg = err?.message || (typeof err === 'string' ? err : 'Erro desconhecido');
+      const errorMsg = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Erro desconhecido');
       alert(`Erro ao enviar presente: ${errorMsg}`);
     } finally {
       setSendingGift(false);
