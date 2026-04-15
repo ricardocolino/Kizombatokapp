@@ -227,7 +227,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     });
 
     // Calcular ganhos pendentes (0.01 USD por view)
-    const claimedViews = Number(localStorage.getItem(`claimed_views_${userId}`) || 0);
+    const { data: profileData } = await supabase.from('profiles').select('claimed_views').eq('id', userId).single();
+    const claimedViews = profileData?.claimed_views || 0;
     const unclaimedViews = Math.max(0, totalViews - claimedViews);
     setPendingEarnings(Number((unclaimedViews * 0.01).toFixed(4)));
   }, [userId]);
@@ -391,8 +392,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       if (error) throw error;
       
-      // Marcar estas views como resgatadas
-      localStorage.setItem(`claimed_views_${userId}`, stats.views.toString());
+      // Marcar estas views como resgatadas no banco de dados
+      const { error: updateViewsError } = await supabase
+        .from('profiles')
+        .update({ claimed_views: stats.views })
+        .eq('id', userId);
+      
+      if (updateViewsError) throw updateViewsError;
       
       await fetchProfile();
       setPendingEarnings(0);
@@ -703,7 +709,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {showDashboard && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in slide-in-from-right duration-300">
           {/* Header */}
-          <header className="flex items-center justify-between px-6 h-20 border-b border-zinc-900 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
+          <header className="flex items-center justify-between px-6 h-20 border-b border-zinc-800 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
             <button 
               onClick={() => setShowDashboard(false)}
               className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors flex items-center gap-2"
@@ -714,8 +720,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="flex flex-col items-center">
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">Painel de Controlo</h2>
               <div className="flex items-center gap-1 mt-0.5">
-                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Dados em Tempo Real</span>
+                <div className="w-1 h-1 rounded-full bg-red-600 animate-pulse" />
+                <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">Dados em Tempo Real</span>
               </div>
             </div>
             <button className="p-2 -mr-2 text-zinc-400 hover:text-white transition-colors">
@@ -726,7 +732,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
             {/* Wallet Card - Minimalist */}
             <div className="relative">
-              <div className="bg-zinc-950 border border-zinc-900 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
+              <div className="bg-black border border-zinc-800 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
                 <div className="flex flex-col gap-6">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
@@ -735,25 +741,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                         <h3 className="text-4xl font-black text-white tracking-tighter">
                           {profile.balance?.toFixed(0) || '0'}
                         </h3>
-                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">AngoCoins</span>
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">AngoCoins</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                    <div className="w-12 h-12 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600 border border-red-600/20">
                       <Coins size={24} />
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-start pt-4 border-t border-zinc-900">
+                  <div className="flex justify-between items-start pt-4 border-t border-zinc-800">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo de Resgate (Ganhos)</p>
                       <div className="flex items-baseline gap-2">
-                        <h3 className="text-4xl font-black text-emerald-500 tracking-tighter">
+                        <h3 className="text-4xl font-black text-white tracking-tighter">
                           {profile.redeemable_balance?.toFixed(0) || '0'}
                         </h3>
-                        <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">AngoCoins</span>
+                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                    <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20">
                       <TrendingUp size={24} />
                     </div>
                   </div>
@@ -768,7 +774,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     Carregar
                   </button>
                   <button 
-                    className="flex-1 py-4 bg-zinc-900 text-white border border-zinc-800 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all active:scale-95"
+                    className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-red-700 transition-all active:scale-95"
                   >
                     <Download size={16} />
                     Levantar
@@ -777,20 +783,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
                 {/* Claim Earnings Section */}
                 {pendingEarnings > 0 && (
-                  <div className="mt-4 p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="mt-4 p-5 bg-red-600/10 border border-red-600/20 rounded-3xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Ganhos de Conteúdo</p>
+                        <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">Ganhos de Conteúdo</p>
                         <p className="text-xl font-black text-white mt-0.5">${pendingEarnings.toFixed(2)} <span className="text-[10px] text-zinc-500 font-bold uppercase">USD Pendentes</span></p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                      <div className="w-10 h-10 rounded-full bg-red-600/20 flex items-center justify-center text-red-600">
                         <TrendingUp size={20} />
                       </div>
                     </div>
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 text-white rounded-xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+                      className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 text-white rounded-xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
                     >
                       {claiming ? <Loader2 size={14} className="animate-spin" /> : <Coins size={14} />}
                       Resgatar para a Carteira
@@ -806,7 +812,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <header className="h-20 bg-zinc-950 border-b border-zinc-900 flex items-center px-6 shrink-0 gap-4 pt-4">
+          <header className="h-20 bg-black border-b border-zinc-800 flex items-center px-6 shrink-0 gap-4 pt-4">
             <button 
               onClick={() => setShowExternalUrl(false)}
               className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
@@ -816,8 +822,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="flex flex-col">
               <span className="text-sm font-black uppercase tracking-widest text-white">Carregar Angocoins</span>
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] text-emerald-500 font-black uppercase tracking-tighter">Sistema Online</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                <span className="text-[10px] text-red-600 font-black uppercase tracking-tighter">Sistema Online</span>
               </div>
             </div>
           </header>

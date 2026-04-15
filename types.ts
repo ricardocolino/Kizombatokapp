@@ -7,6 +7,7 @@ export interface Profile {
   bio: string | null;
   balance: number;
   redeemable_balance: number;
+  claimed_views: number;
   created_at: string;
 }
 
