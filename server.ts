@@ -334,7 +334,7 @@ app.post("/api/live/session", async (req, res) => {
 });
 
 // Fallback for non-existent API routes to avoid returning HTML
-app.all("/api/*", (req, res) => {
+app.all("/api/*all", (req, res) => {
   console.warn(`>>> [API FALLBACK] Route not found: ${req.method} ${req.url}`);
   res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
 });
@@ -374,7 +374,7 @@ async function startServer() {
   } else {
     // Serve static files in production
     app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }

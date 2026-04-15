@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -74,7 +74,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [editError, setEditError] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProfile = React.useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
@@ -444,11 +443,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     fileInputRef.current?.click();
   };
 
-  const handleCoverClick = () => {
-    coverInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -462,15 +457,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const folder = type === 'avatar' ? 'avatars' : 'capa';
+      const folder = 'avatars';
 
       const publicUrl = await uploadToR2(file, folder, fileName);
-
-      if (type === 'avatar') {
-        setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
-      } else {
-        setEditForm(prev => ({ ...prev, cover_url: publicUrl }));
-      }
+      setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
     } catch (err: unknown) {
       setEditError(err instanceof Error ? err.message : 'Erro ao carregar a foto.');
     } finally {
@@ -561,8 +551,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 onClick={() => setShowDashboard(true)}
                 className="flex-1 bg-red-600 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <BarChart3 size={14} />
-                Painel
+                <Wallet size={14} />
+                Saldo
               </button>
             </>
           ) : (
@@ -709,23 +699,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {showDashboard && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in slide-in-from-right duration-300">
           {/* Header */}
-          <header className="flex items-center justify-between px-6 h-20 border-b border-zinc-800 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
+          <header className="flex items-center px-6 h-20 border-b border-zinc-800 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
             <button 
               onClick={() => setShowDashboard(false)}
               className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors flex items-center gap-2"
             >
               <ChevronLeft size={24} />
               <span className="text-xs font-black uppercase tracking-widest">Voltar</span>
-            </button>
-            <div className="flex flex-col items-center">
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">Painel de Controlo</h2>
-              <div className="flex items-center gap-1 mt-0.5">
-                <div className="w-1 h-1 rounded-full bg-red-600 animate-pulse" />
-                <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">Dados em Tempo Real</span>
-              </div>
-            </div>
-            <button className="p-2 -mr-2 text-zinc-400 hover:text-white transition-colors">
-              <Share2 size={20} />
             </button>
           </header>
 
@@ -752,11 +732,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <div className="flex justify-between items-start pt-4 border-t border-zinc-800">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo de Resgate (Ganhos)</p>
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-4xl font-black text-white tracking-tighter">
-                          {profile.redeemable_balance?.toFixed(0) || '0'}
-                        </h3>
-                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-baseline gap-2">
+                          <h3 className="text-4xl font-black text-white tracking-tighter">
+                            {profile.redeemable_balance?.toFixed(0) || '0'}
+                          </h3>
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className="w-1 h-1 rounded-full bg-white/30" />
+                          <p className="text-[10px] font-black text-white uppercase tracking-widest">
+                            Equivale a <span className="text-red-600">${(profile.redeemable_balance / 100).toFixed(2)} USD</span> para sacar
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20">
@@ -937,38 +925,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </div>
 
             <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
-              {/* Cover Photo Section */}
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Foto de Capa</label>
-                <input 
-                  type="file"
-                  ref={coverInputRef}
-                  onChange={(e) => handleFileChange(e, 'cover')}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div 
-                  onClick={handleCoverClick}
-                  className="relative w-full h-32 rounded-3xl bg-zinc-900 border border-zinc-800 overflow-hidden cursor-pointer group"
-                >
-                  {editForm.cover_url ? (
-                    <img src={parseMediaUrl(editForm.cover_url)} className="w-full h-full object-cover" alt="" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-900/50">
-                      <Plus className="text-zinc-700" size={24} />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="text-white" size={24} />
-                  </div>
-                </div>
-              </div>
-
               <div className="flex flex-col items-center gap-4">
                 <input 
                   type="file"
                   ref={fileInputRef}
-                  onChange={(e) => handleFileChange(e, 'avatar')}
+                  onChange={handleFileChange}
                   accept="image/*"
                   className="hidden"
                 />
