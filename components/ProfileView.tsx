@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, Eye, MessageCircle, Heart, Users, TrendingUp, Wallet, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { AlertCircle, Plus, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, BarChart3, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download, Share2 } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -33,7 +32,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [postsPage, setPostsPage] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [monthlyStats, setMonthlyStats] = useState<{ month: string, earnings: number, views: number }[]>([]);
   const [pendingEarnings, setPendingEarnings] = useState(0);
   const [claiming, setClaiming] = useState(false);
   const PAGE_SIZE = 6;
@@ -232,24 +230,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     const claimedViews = Number(localStorage.getItem(`claimed_views_${userId}`) || 0);
     const unclaimedViews = Math.max(0, totalViews - claimedViews);
     setPendingEarnings(Number((unclaimedViews * 0.01).toFixed(4)));
-
-    // Gerar estatísticas mensais simuladas baseadas nos dados reais
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const currentMonthIndex = new Date().getMonth();
-    const stats_data = [];
-    
-    for (let i = 5; i >= 0; i--) {
-      const idx = (currentMonthIndex - i + 12) % 12;
-      // Simulação: Earnings crescem conforme as views totais (em USD)
-      const baseEarnings = (totalViews * 0.01) / 6;
-      const randomFactor = 0.5 + Math.random();
-      stats_data.push({
-        month: months[idx],
-        earnings: Number((baseEarnings * randomFactor).toFixed(2)),
-        views: Math.floor((totalViews / 6) * randomFactor)
-      });
-    }
-    setMonthlyStats(stats_data);
   }, [userId]);
 
   const loadAll = React.useCallback(async () => {
@@ -744,14 +724,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </header>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
-            {/* Wallet Card - Modernized */}
-            <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-red-600 rounded-[40px] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-              <div className="relative bg-zinc-950 border border-zinc-900 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                  <Wallet size={120} />
-                </div>
-                
+            {/* Wallet Card - Minimalist */}
+            <div className="relative">
+              <div className="bg-zinc-950 border border-zinc-900 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
                 <div className="flex flex-col gap-6">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
@@ -822,115 +797,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     </button>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* Monthly Results Chart */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Resultados Mensais (USD)</h3>
-                <TrendingUp size={16} className="text-emerald-500" />
-              </div>
-              
-              <div className="h-64 w-full bg-zinc-950 border border-zinc-900 rounded-[40px] p-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyStats}>
-                    <defs>
-                      <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
-                    <XAxis 
-                      dataKey="month" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#52525b', fontSize: 10, fontWeight: 900 }} 
-                      dy={10}
-                    />
-                    <YAxis hide />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '16px', fontSize: '10px', fontWeight: '900' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="earnings" 
-                      stroke="#ef4444" 
-                      strokeWidth={4}
-                      fillOpacity={1} 
-                      fill="url(#colorEarnings)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
-                  <Eye size={20} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white tracking-tighter">{stats.views.toLocaleString()}</p>
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Visualizações</p>
-                </div>
-              </div>
-
-              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
-                  <Heart size={20} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white tracking-tighter">{stats.likes.toLocaleString()}</p>
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Gostos Totais</p>
-                </div>
-              </div>
-
-              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20">
-                  <MessageCircle size={20} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white tracking-tighter">{stats.comments.toLocaleString()}</p>
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Comentários</p>
-                </div>
-              </div>
-
-              <div className="bg-zinc-950 border border-zinc-900 p-6 rounded-[32px] space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                  <Users size={20} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-white tracking-tighter">{stats.followers.toLocaleString()}</p>
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mt-1">Seguidores</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Monthly Breakdown List */}
-            <div className="space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 px-2">Histórico de Ganhos</h3>
-              <div className="bg-zinc-950 border border-zinc-900 rounded-[40px] overflow-hidden">
-                {monthlyStats.slice().reverse().map((m, i) => (
-                  <div key={m.month} className={`flex items-center justify-between p-6 ${i !== monthlyStats.length - 1 ? 'border-b border-zinc-900' : ''}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-[10px] font-black text-zinc-400 uppercase">
-                        {m.month}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-white">${m.earnings.toFixed(2)} USD</p>
-                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-tighter">{m.views.toLocaleString()} views</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-emerald-500">
-                      <TrendingUp size={12} />
-                      <span className="text-[10px] font-black">+{Math.floor(Math.random() * 20) + 5}%</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
