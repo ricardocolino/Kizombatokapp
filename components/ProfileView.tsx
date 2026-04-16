@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download, Plus } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -19,6 +19,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [newWalletAddress, setNewWalletAddress] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
@@ -439,6 +443,81 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
+  const handleSaveWallet = async () => {
+    if (!newWalletAddress.trim()) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ wallet_address: newWalletAddress.trim() })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      await fetchProfile();
+      setShowWalletModal(false);
+      alert("Carteira USDT (BEP-20) guardada com sucesso! 🇦🇴🚀");
+    } catch (err) {
+      console.error("Erro ao guardar carteira:", err);
+      alert("Erro ao guardar carteira. Tenta de novo!");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amount = Number(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Insere um valor válido para levantar.");
+      return;
+    }
+
+    if (amount > (profile?.redeemable_balance || 0)) {
+      alert("Saldo insuficiente para este levantamento.");
+      return;
+    }
+
+    if (!profile?.wallet_address) {
+      alert("Precisas de cadastrar a tua carteira primeiro!");
+      setShowWalletModal(true);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 1. Criar pedido de levantamento
+      const { error: withdrawError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: userId,
+          amount: amount,
+          wallet_address: profile.wallet_address,
+          status: 'pending'
+        });
+
+      if (withdrawError) throw withdrawError;
+
+      // 2. Deduzir do saldo de resgate
+      const newRedeemableBalance = (profile.redeemable_balance || 0) - amount;
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ redeemable_balance: newRedeemableBalance })
+        .eq('id', userId);
+
+      if (balanceError) throw balanceError;
+
+      await fetchProfile();
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+      alert("Pedido de levantamento enviado com sucesso! A administração irá processar o teu pagamento em breve. 🇦🇴💰");
+    } catch (err) {
+      console.error("Erro ao processar levantamento:", err);
+      alert("Erro ao processar levantamento. Tenta de novo!");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -762,11 +841,47 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     Carregar
                   </button>
                   <button 
+                    onClick={() => setShowWithdrawModal(true)}
                     className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-red-700 transition-all active:scale-95"
                   >
                     <Download size={16} />
                     Levantar
                   </button>
+                </div>
+
+                {/* Wallet Address Section */}
+                <div className="mt-2 pt-6 border-t border-zinc-900">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Carteira USDT (BEP-20)</p>
+                    <button 
+                      onClick={() => {
+                        setNewWalletAddress(profile?.wallet_address || '');
+                        setShowWalletModal(true);
+                      }}
+                      className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
+                    >
+                      {profile?.wallet_address ? 'Alterar' : 'Cadastrar'}
+                    </button>
+                  </div>
+                  
+                  {profile?.wallet_address ? (
+                    <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
+                      <p className="text-[10px] font-mono text-zinc-400 truncate pr-4">
+                        {profile.wallet_address}
+                      </p>
+                      <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
+                        <Check size={12} />
+                      </div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setShowWalletModal(true)}
+                      className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
+                    >
+                      <Plus size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Carteira para Saque</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Claim Earnings Section */}
@@ -1041,6 +1156,123 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     Guardar Alterações
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Wallet Modal */}
+      {showWalletModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowWalletModal(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600">
+                    <Wallet size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Configurar Carteira</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">USDT (Rede BEP-20)</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowWalletModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Endereço da Carteira</label>
+                  <input 
+                    type="text" 
+                    value={newWalletAddress}
+                    onChange={(e) => setNewWalletAddress(e.target.value)}
+                    placeholder="Cola aqui o teu endereço BEP-20"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
+                  />
+                </div>
+                <div className="bg-red-600/5 border border-red-600/10 p-4 rounded-2xl">
+                  <p className="text-[9px] text-red-600/80 font-bold uppercase leading-relaxed">
+                    ⚠️ Atenção: Certifica-te que o endereço é da rede BEP-20 (Binance Smart Chain). Endereços errados resultam em perda permanente de fundos.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSaveWallet}
+                disabled={saving || !newWalletAddress.trim()}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Guardar Carteira
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowWithdrawModal(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600">
+                    <Download size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Levantar Ganhos</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Transforma coins em USD</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowWithdrawModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex flex-col gap-2">
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Saldo Disponível</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-black text-white">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
+                    <p className="text-xs font-bold text-zinc-600 uppercase">AngoCoins</p>
+                  </div>
+                  <p className="text-[10px] font-black text-emerald-500 uppercase">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Valor a Levantar (AngoCoins)</label>
+                  <input 
+                    type="number" 
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    placeholder="Ex: 500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
+                  />
+                  {withdrawAmount && (
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">
+                      Receberás ≈ ${(Number(withdrawAmount) / 100).toFixed(2)} USD
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-1">
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Enviar para Carteira</p>
+                  <p className="text-[10px] font-mono text-white truncate">{profile?.wallet_address}</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleWithdraw}
+                disabled={saving || !withdrawAmount || Number(withdrawAmount) <= 0 || Number(withdrawAmount) > (profile?.redeemable_balance || 0)}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Confirmar Levantamento
               </button>
             </div>
           </div>

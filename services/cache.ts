@@ -22,9 +22,17 @@ class AppCache {
 
     if (persistent) {
       try {
+        // Usar replacer para evitar erros de estrutura circular
+        const seen = new WeakSet();
         localStorage.setItem(this.PREFIX + key, JSON.stringify({
           data,
           timestamp: Date.now()
+        }, (k, v) => {
+          if (typeof v === "object" && v !== null) {
+            if (seen.has(v)) return "[Circular]";
+            seen.add(v);
+          }
+          return v;
         }));
       } catch (e) {
         console.warn('Erro ao salvar no localStorage:', e);

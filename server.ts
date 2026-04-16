@@ -321,7 +321,14 @@ app.post("/api/live/session", async (req, res) => {
 
     if (!cfResponse.ok) {
       const errorData = await cfResponse.json();
-      console.error(">>> [Cloudflare Error Details]:", JSON.stringify(errorData, null, 2));
+      const seen = new WeakSet();
+      console.error(">>> [Cloudflare Error Details]:", JSON.stringify(errorData, (k, v) => {
+        if (typeof v === "object" && v !== null) {
+          if (seen.has(v)) return "[Circular]";
+          seen.add(v);
+        }
+        return v;
+      }, 2));
       throw new Error(errorData.errors?.[0]?.message || "Failed to create Cloudflare session");
     }
 

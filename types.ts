@@ -8,6 +8,7 @@ export interface Profile {
   balance: number;
   redeemable_balance: number;
   claimed_views: number;
+  wallet_address: string | null;
   created_at: string;
 }
 

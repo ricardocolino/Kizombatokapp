@@ -770,7 +770,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
         errorMsg = err;
       } else {
         try {
-          errorMsg = JSON.stringify(err);
+          // Usar replacer para evitar erros de estrutura circular (ex: HTMLVideoElement)
+          const seen = new WeakSet();
+          errorMsg = JSON.stringify(err, (key, value) => {
+            if (typeof value === "object" && value !== null) {
+              if (seen.has(value)) return "[Circular]";
+              seen.add(value);
+            }
+            return value;
+          });
         } catch {
           errorMsg = 'Erro complexo não serializável';
         }
