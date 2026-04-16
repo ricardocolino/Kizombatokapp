@@ -229,22 +229,7 @@ app.post("/api/payments/webhook", async (req, res) => {
   }
 
   // Verify signature
-  let sortedData = "";
-  try {
-    const seen = new WeakSet();
-    sortedData = JSON.stringify(req.body, (key, value) => {
-      if (typeof value === "object" && value !== null) {
-        if (seen.has(value)) return "[Circular]";
-        seen.add(value);
-      }
-      return value;
-    }, Object.keys(req.body).sort());
-  } catch (e) {
-    console.error(">>> [WEBHOOK] Error stringifying body for signature:", e);
-    // Fallback to simple stringify if sorting fails or circular
-    sortedData = JSON.stringify(req.body);
-  }
-  
+  const sortedData = JSON.stringify(req.body, Object.keys(req.body).sort());
   const checkHmac = crypto
     .createHmac("sha512", notificationsKey)
     .update(sortedData)
@@ -336,14 +321,7 @@ app.post("/api/live/session", async (req, res) => {
 
     if (!cfResponse.ok) {
       const errorData = await cfResponse.json();
-      const seen = new WeakSet();
-      console.error(">>> [Cloudflare Error Details]:", JSON.stringify(errorData, (k, v) => {
-        if (typeof v === "object" && v !== null) {
-          if (seen.has(v)) return "[Circular]";
-          seen.add(v);
-        }
-        return v;
-      }, 2));
+      console.error(">>> [Cloudflare Error Details]:", JSON.stringify(errorData, null, 2));
       throw new Error(errorData.errors?.[0]?.message || "Failed to create Cloudflare session");
     }
 
