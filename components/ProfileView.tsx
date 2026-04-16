@@ -21,7 +21,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDashboard, setShowDashboard] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
@@ -466,14 +465,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   };
 
   const handleWithdraw = async () => {
-    const amount = Number(withdrawAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Insere um valor válido para levantar.");
-      return;
-    }
-
-    if (amount > (profile?.redeemable_balance || 0)) {
-      alert("Saldo insuficiente para este levantamento.");
+    const amount = profile?.redeemable_balance || 0;
+    if (amount <= 0) {
+      alert("Não tens saldo suficiente para levantar.");
       return;
     }
 
@@ -508,7 +502,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
       await fetchProfile();
       setShowWithdrawModal(false);
-      setWithdrawAmount('');
       alert("Pedido de levantamento enviado com sucesso! A administração irá processar o teu pagamento em breve. 🇦🇴💰");
     } catch (err) {
       console.error("Erro ao processar levantamento:", err);
@@ -1244,22 +1237,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <p className="text-[10px] font-black text-emerald-500 uppercase">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Valor a Levantar (AngoCoins)</label>
-                  <input 
-                    type="number" 
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    placeholder="Ex: 500"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
-                  />
-                  {withdrawAmount && (
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">
-                      Receberás ≈ ${(Number(withdrawAmount) / 100).toFixed(2)} USD
-                    </p>
-                  )}
-                </div>
-
                 <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-1">
                   <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Enviar para Carteira</p>
                   <p className="text-[10px] font-mono text-white truncate">{profile?.wallet_address}</p>
@@ -1268,7 +1245,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
               <button 
                 onClick={handleWithdraw}
-                disabled={saving || !withdrawAmount || Number(withdrawAmount) <= 0 || Number(withdrawAmount) > (profile?.redeemable_balance || 0)}
+                disabled={saving || (profile?.redeemable_balance || 0) <= 0}
                 className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
