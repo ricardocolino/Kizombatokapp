@@ -487,7 +487,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
       };
 
       video.onerror = (e) => {
-        console.error('[Thumbnail] Erro no elemento vídeo:', e, video.error);
+        console.error('[Thumbnail] Erro no elemento vídeo:', e.type, video.error);
         cleanup();
         reject(new Error(`Video error during thumbnail generation: ${video.error?.message || 'Unknown error'}`));
       };

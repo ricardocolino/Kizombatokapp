@@ -108,7 +108,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       // para evitar ganhos automáticos confusos e garantir que o utilizador
       // veja o progresso dos seus vídeos.
     } catch (e) {
-      console.error("Erro ao incrementar views:", e);
+      console.error("Erro ao incrementar views:", (e as Error).message || e);
       viewCountedRef.current = false;
     }
   }, [post.id, post.user_id]);
@@ -136,7 +136,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         }).catch((err) => {
           // Se falhou por interrupção (ex: scroll rápido), não logamos como erro grave
           if (err.name !== 'AbortError') {
-            console.error("Playback failed:", err);
+            console.error("Playback failed:", err.message || err);
             // Não marcamos videoError aqui para permitir novas tentativas ao scrollar
           }
           setIsPlaying(false);
@@ -484,7 +484,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         setShowGifts(false);
       }
     } catch (err: unknown) {
-      console.error("Erro ao enviar presente:", err);
+      console.error("Erro ao enviar presente:", err instanceof Error ? err.message : err);
       const errorMsg = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Erro desconhecido');
       alert(`Erro ao enviar presente: ${errorMsg}`);
     } finally {
@@ -561,12 +561,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
           <video
             ref={videoRef}
-            src={mediaUrl}
             className="w-full h-full object-cover"
             style={{ filter: post.filter ? post.filter.split('|')[0] : undefined }}
             loop
             muted={isMuted}
             playsInline
+            crossOrigin="anonymous"
             preload="auto"
             onLoadStart={() => setIsLoading(true)}
             onWaiting={() => setIsLoading(true)}
@@ -575,13 +575,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onError={(e) => {
               // Só marcamos erro se o src for válido e falhou mesmo
               if (mediaUrl) {
-                console.error("Playback failed for URL:", mediaUrl, e);
+                console.error("Playback failed for URL:", mediaUrl, e.type);
                 setVideoError(true);
                 setIsLoading(false);
               }
             }}
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
-          />
+          >
+            <source src={mediaUrl} type="video/mp4" />
+            <source src={mediaUrl} />
+          </video>
 
         {/* Text Overlay */}
         {post.text_overlay && (

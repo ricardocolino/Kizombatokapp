@@ -229,7 +229,22 @@ app.post("/api/payments/webhook", async (req, res) => {
   }
 
   // Verify signature
-  const sortedData = JSON.stringify(req.body, Object.keys(req.body).sort());
+  let sortedData = "";
+  try {
+    const seen = new WeakSet();
+    sortedData = JSON.stringify(req.body, (key, value) => {
+      if (typeof value === "object" && value !== null) {
+        if (seen.has(value)) return "[Circular]";
+        seen.add(value);
+      }
+      return value;
+    }, Object.keys(req.body).sort());
+  } catch (e) {
+    console.error(">>> [WEBHOOK] Error stringifying body for signature:", e);
+    // Fallback to simple stringify if sorting fails or circular
+    sortedData = JSON.stringify(req.body);
+  }
+  
   const checkHmac = crypto
     .createHmac("sha512", notificationsKey)
     .update(sortedData)
