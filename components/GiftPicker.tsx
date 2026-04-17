@@ -78,7 +78,7 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl rounded-t-3xl border-t border-white/10 z-[110] p-6 pb-10"
+      className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-[32px] rounded-t-[32px] border-t border-white/10 z-[110] p-6 pb-10"
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/10">

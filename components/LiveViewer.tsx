@@ -247,7 +247,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
         {/* Header */}
         <div className="flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10">
+          <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
             <img 
               src={liveData?.profiles?.avatar_url || `https://picsum.photos/seed/${liveData?.host_id}/100/100`}
               alt={liveData?.profiles?.username}
@@ -264,7 +264,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
           <button 
             onClick={onClose}
-            className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform"
+            className="w-10 h-10 bg-white/5 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform"
           >
             <X size={20} />
           </button>

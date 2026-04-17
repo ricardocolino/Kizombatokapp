@@ -275,7 +275,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
         {/* Header */}
         <div className="flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10">
+          <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
             <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
             <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
             {isStarting && (
@@ -291,7 +291,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
           <button 
             onClick={handleEndLive}
-            className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform"
+            className="w-10 h-10 bg-white/5 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/10 active:scale-90 transition-transform"
           >
             <X size={20} />
           </button>
@@ -330,13 +330,13 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button 
                       onClick={toggleMute}
-                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-white/5 backdrop-blur-xl border-white/20'}`}
                     >
                       {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                     </button>
                     <button 
                       onClick={toggleVideo}
-                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-black/40 border-white/20'}`}
+                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-white/5 backdrop-blur-xl border-white/20'}`}
                     >
                       {isVideoOff ? <CameraOff size={16} /> : <Camera size={16} />}
                     </button>

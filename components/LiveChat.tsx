@@ -126,22 +126,22 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
       const gift = gifts[giftId];
       
       return (
-        <div key={msg.id} className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/30 to-orange-600/30 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-lg animate-in slide-in-from-left duration-300">
+        <div key={msg.id} className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-sm animate-in slide-in-from-left duration-300">
           <div className="relative">
             <img 
               src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
               alt={msg.profiles?.username}
-              className="w-8 h-8 rounded-full border-2 border-yellow-400 object-cover shadow-sm"
+              className="w-8 h-8 rounded-full border border-yellow-400/50 object-cover shadow-sm"
             />
             <div className="absolute -bottom-1 -right-1 bg-yellow-400 rounded-full p-0.5">
               <GiftIcon size={8} className="text-black" />
             </div>
           </div>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="text-[10px] font-black text-yellow-300 uppercase leading-none mb-0.5">Enviou {gift?.name || 'Presente'}</span>
-            <span className="text-xs font-black text-white leading-none">@{msg.profiles?.username}</span>
+            <span className="text-[10px] font-black text-yellow-300/90 uppercase leading-none mb-0.5">Enviou {gift?.name || 'Presente'}</span>
+            <span className="text-xs font-black text-white leading-none drop-shadow-md">@{msg.profiles?.username}</span>
           </div>
-          <div className="text-2xl drop-shadow-lg transform hover:scale-125 transition-transform">
+          <div className="text-2xl drop-shadow-2xl transform hover:scale-125 transition-transform">
             {gift?.icon || '🎁'}
           </div>
         </div>
@@ -155,11 +155,11 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
           alt={msg.profiles?.username}
           className="w-8 h-8 rounded-full border border-white/20 object-cover flex-shrink-0 mt-1"
         />
-        <div className="flex-1 bg-black/40 backdrop-blur-md rounded-2xl px-3 py-2 border border-white/10 shadow-lg hover:bg-black/50 transition-colors">
+        <div className="flex-1 bg-white/5 backdrop-blur-[2px] rounded-2xl px-3 py-2 border border-white/5 shadow-sm hover:bg-white/10 transition-colors">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-[11px] font-black text-white/70 tracking-tight">@{msg.profiles?.username || 'user'}</span>
+            <span className="text-[11px] font-black text-white/90 tracking-tight drop-shadow-md">@{msg.profiles?.username || 'user'}</span>
           </div>
-          <p className="text-[13px] text-white leading-snug break-words font-medium drop-shadow-sm">{msg.content}</p>
+          <p className="text-[13px] text-white leading-snug break-words font-medium drop-shadow-md">{msg.content}</p>
         </div>
       </div>
     );
@@ -167,9 +167,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
 
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-transparent">
-      {/* Gradient Mask for Top Fade */}
-      <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 pointer-events-none" />
-      
       <div 
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide"
@@ -181,9 +178,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
         {messages.map((msg) => renderMessage(msg))}
       </div>
 
-      <div className="p-3 flex items-center gap-2 bg-gradient-to-t from-black/60 to-transparent">
+      <div className="p-3 flex items-center gap-2">
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
-          <div className="flex-1 min-w-0 relative group flex items-center bg-white/10 border border-white/10 rounded-full px-3 py-2 focus-within:bg-white/20 focus-within:border-white/30 transition-all">
+          <div className="flex-1 min-w-0 relative group flex items-center bg-white/5 backdrop-blur-[4px] border border-white/10 rounded-full px-3 py-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-sm">
             <input
               type="text"
               value={newMessage}
