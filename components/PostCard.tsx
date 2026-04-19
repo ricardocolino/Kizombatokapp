@@ -168,6 +168,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [handlePlay, handlePause, isPaused]);
 
   useEffect(() => {
+    if (isPaused) {
+      handlePause();
+    }
+  }, [isPaused, handlePause]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 

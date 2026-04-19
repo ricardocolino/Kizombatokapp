@@ -279,7 +279,7 @@ const App: React.FC = () => {
               setAllUsersWithStories(allUserIds || [userId]);
             }
           }} 
-          isPaused={!!viewingStoryUserId || !!viewingStatsUserId}
+          isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
         />;
       case Tab.DISCOVER:
         return <Discovery 
