@@ -210,16 +210,16 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       <div 
         key={msg.id} 
         onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
-        className="flex items-start gap-2.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-1.5 cursor-pointer active:opacity-70 transition-all"
+        className="flex items-start gap-1.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5 cursor-pointer active:opacity-70 transition-all"
       >
         <img 
           src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
           alt={msg.profiles?.username}
-          className="w-8 h-8 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm"
+          className="w-7 h-7 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm"
         />
-        <div className="flex-1 flex flex-col min-w-0 bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-2xl border border-white/5">
-          <span className="text-[11px] font-black text-zinc-400 tracking-wide mb-0.5 truncate">@{msg.profiles?.username || 'user'}</span>
-          <span className="text-[13px] text-white leading-normal break-words font-medium whitespace-pre-wrap">{msg.content}</span>
+        <div className="flex-1 flex flex-col min-w-0 px-0.5">
+          <span className="text-[11px] font-black text-zinc-300 tracking-wide mb-0 truncate drop-shadow-md">@{msg.profiles?.username || 'user'}</span>
+          <span className="text-[13px] text-white leading-snug break-words font-black whitespace-pre-wrap drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">{msg.content}</span>
         </div>
       </div>
     );
