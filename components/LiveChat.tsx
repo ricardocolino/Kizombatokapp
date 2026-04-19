@@ -111,7 +111,10 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
             }
           }
 
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => {
+            const updated = [...prev, newMessage];
+            return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
+          });
         }
       )
       .subscribe();
@@ -207,16 +210,16 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       <div 
         key={msg.id} 
         onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
-        className="flex items-start gap-1 max-w-[95%] group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5 cursor-pointer active:opacity-70 transition-all"
+        className="flex items-start gap-2.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-1.5 cursor-pointer active:opacity-70 transition-all"
       >
         <img 
           src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
           alt={msg.profiles?.username}
-          className="w-6 h-6 rounded-full border border-black/5 object-cover flex-shrink-0 mt-0.5"
+          className="w-8 h-8 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm"
         />
-        <div className="flex-1 px-1 transition-colors">
-          <span className="text-[12px] font-black text-black/70 tracking-tight mr-1">@{msg.profiles?.username || 'user'}:</span>
-          <span className="text-[12px] text-black leading-tight break-words font-medium">{msg.content}</span>
+        <div className="flex-1 flex flex-col min-w-0 bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-2xl border border-white/5">
+          <span className="text-[11px] font-black text-zinc-400 tracking-wide mb-0.5 truncate">@{msg.profiles?.username || 'user'}</span>
+          <span className="text-[13px] text-white leading-normal break-words font-medium whitespace-pre-wrap">{msg.content}</span>
         </div>
       </div>
     );
@@ -239,22 +242,22 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
       <div className="p-3 flex items-center gap-2">
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
-          <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-[4px] border rounded-full px-3 py-1.5 transition-all shadow-sm ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-black/5 border-black/10 focus-within:bg-black/10 focus-within:border-black/20'}`}>
+          <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-md border rounded-full px-4 py-2 transition-all shadow-lg ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-white/10 border-white/20 focus-within:bg-white/20 focus-within:border-white/30'}`}>
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               disabled={isSilenced}
-              placeholder={isSilenced ? "Foste silenciado nesta live" : "Diz algo..."}
-              className="flex-1 bg-transparent border-none text-sm text-black placeholder:text-black/40 focus:outline-none min-w-0 disabled:opacity-50"
+              placeholder={isSilenced ? "Silenziado" : "Diz algo..."}
+              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0 disabled:opacity-50 font-medium"
             />
           </div>
           <button 
             type="submit"
             disabled={!newMessage.trim() || isSilenced}
-            className="flex-shrink-0 w-9 h-9 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
+            className="flex-shrink-0 w-10 h-10 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/30"
           >
-            <Send size={16} />
+            <Send size={18} />
           </button>
         </form>
         
