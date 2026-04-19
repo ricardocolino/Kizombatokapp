@@ -3,6 +3,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
+import { motion, AnimatePresence } from 'motion/react';
 import Feed from './components/Feed';
 import ProfileView from './components/ProfileView';
 import MessageCenter from './components/MessageCenter';
@@ -14,8 +15,9 @@ import Auth from './components/Auth';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Home, Search, PlusSquare, MessageCircle, User as UserIcon, Radio } from 'lucide-react';
+import { Home, Search, PlusSquare, MessageCircle, User as UserIcon, Radio, Bell } from 'lucide-react';
 import { appCache } from './services/cache';
+import { parseMediaUrl } from './services/mediaUtils';
 
 export enum Tab {
   HOME = 'home',
@@ -40,6 +42,11 @@ const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
+  const [liveNotification, setLiveNotification] = useState<{
+    hostName: string;
+    avatarUrl: string;
+    liveId: string;
+  } | null>(null);
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -84,6 +91,56 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Monitora notificações de live
+  useEffect(() => {
+    if (!user) return;
+
+    const livesChannel = supabase
+      .channel('live_start_notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'lives' },
+        async (payload) => {
+          const live = payload.new;
+          if (live.host_id === user.id) return;
+
+          // Verificar se o utilizador segue o host
+          const { data: follow } = await supabase
+            .from('follows')
+            .select('*')
+            .eq('follower_id', user.id)
+            .eq('following_id', live.host_id)
+            .single();
+
+          if (follow) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, username, avatar_url')
+              .eq('id', live.host_id)
+              .single();
+
+            if (profile) {
+              setLiveNotification({
+                hostName: profile.name || `@${profile.username}`,
+                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${live.host_id}/100/100`,
+                liveId: live.id
+              });
+              
+              // Esconder após 8 segundos
+              setTimeout(() => {
+                setLiveNotification(null);
+              }, 8000);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(livesChannel);
+    };
+  }, [user]);
 
   // Monitora notificações quando o utilizador está logado
   useEffect(() => {
@@ -298,6 +355,52 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+      {/* Live Notification Toast */}
+      <AnimatePresence>
+        {liveNotification && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 16, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-4 right-4 z-[1000] pointer-events-none"
+          >
+            <div 
+              onClick={() => {
+                setActiveLiveId(liveNotification.liveId);
+                setLiveNotification(null);
+                setIsHosting(false);
+              }}
+              className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-2xl pointer-events-auto active:scale-95 transition-transform"
+            >
+              <div className="relative shrink-0">
+                <img 
+                  src={parseMediaUrl(liveNotification.avatarUrl)} 
+                  className="w-12 h-12 rounded-full object-cover border-2 border-red-600" 
+                  referrerPolicy="no-referrer"
+                  alt={liveNotification.hostName}
+                />
+                <div className="absolute -bottom-1 -right-1 bg-red-600 rounded-full p-1 border-2 border-black">
+                  <Radio size={10} className="text-white" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em] leading-none mb-1">Live Agora</p>
+                <p className="text-sm font-bold text-white truncate">
+                  {liveNotification.hostName} <span className="text-white/60 font-medium lowercase">está em direto</span>
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Assiste agora</p>
+                </div>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40">
+                <Bell size={20} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
       {apiStatus && (
         <div className="fixed top-2 left-2 z-[9999] bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-[10px] font-black uppercase shadow-2xl">
