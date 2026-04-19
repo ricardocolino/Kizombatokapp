@@ -21,7 +21,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDashboard, setShowDashboard] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showAirTMModal, setShowAirTMModal] = useState(false);
+  const [withdrawalMethod, setWithdrawalMethod] = useState<'usdt' | 'airtm'>('usdt');
   const [newWalletAddress, setNewWalletAddress] = useState('');
+  const [newAirTMEmail, setNewAirTMEmail] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
@@ -464,6 +467,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
+  const handleSaveAirTM = async () => {
+    if (!newAirTMEmail.trim()) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ airtm_email: newAirTMEmail.trim() })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      await fetchProfile();
+      setShowAirTMModal(false);
+      alert("E-mail AirTM guardado com sucesso! 🇦🇴🚀");
+    } catch (err) {
+      console.error("Erro ao guardar e-mail AirTM:", err);
+      alert("Erro ao guardar e-mail AirTM. Tenta de novo!");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleWithdraw = async () => {
     const amount = profile?.redeemable_balance || 0;
     if (amount <= 0) {
@@ -471,9 +496,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       return;
     }
 
-    if (!profile?.wallet_address) {
+    if (withdrawalMethod === 'usdt' && !profile?.wallet_address) {
       alert("Precisas de cadastrar a tua carteira primeiro!");
       setShowWalletModal(true);
+      return;
+    }
+
+    if (withdrawalMethod === 'airtm' && !profile?.airtm_email) {
+      alert("Precisas de cadastrar o teu e-mail AirTM primeiro!");
+      setShowAirTMModal(true);
       return;
     }
 
@@ -485,7 +516,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         .insert({
           user_id: userId,
           amount: amount,
-          wallet_address: profile.wallet_address,
+          wallet_address: withdrawalMethod === 'usdt' ? profile.wallet_address : null,
+          airtm_email: withdrawalMethod === 'airtm' ? profile.airtm_email : null,
+          method: withdrawalMethod,
           status: 'pending'
         });
 
@@ -842,39 +875,77 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   </button>
                 </div>
 
-                {/* Wallet Address Section */}
-                <div className="mt-2 pt-6 border-t border-zinc-900">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Carteira USDT (BEP-20)</p>
-                    <button 
-                      onClick={() => {
-                        setNewWalletAddress(profile?.wallet_address || '');
-                        setShowWalletModal(true);
-                      }}
-                      className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
-                    >
-                      {profile?.wallet_address ? 'Alterar' : 'Cadastrar'}
-                    </button>
-                  </div>
-                  
-                  {profile?.wallet_address ? (
-                    <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
-                      <p className="text-[10px] font-mono text-zinc-400 truncate pr-4">
-                        {profile.wallet_address}
-                      </p>
-                      <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
-                        <Check size={12} />
-                      </div>
+                {/* Wallet & AirTM Section */}
+                <div className="mt-2 pt-6 border-t border-zinc-900 space-y-4">
+                  {/* USDT */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Carteira USDT (BEP-20)</p>
+                      <button 
+                        onClick={() => {
+                          setNewWalletAddress(profile?.wallet_address || '');
+                          setShowWalletModal(true);
+                        }}
+                        className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
+                      >
+                        {profile?.wallet_address ? 'Alterar' : 'Cadastrar'}
+                      </button>
                     </div>
-                  ) : (
-                    <button 
-                      onClick={() => setShowWalletModal(true)}
-                      className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
-                    >
-                      <Plus size={16} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Carteira para Saque</span>
-                    </button>
-                  )}
+                    
+                    {profile?.wallet_address ? (
+                      <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
+                        <p className="text-[10px] font-mono text-zinc-400 truncate pr-4">
+                          {profile.wallet_address}
+                        </p>
+                        <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
+                          <Check size={12} />
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => setShowWalletModal(true)}
+                        className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
+                      >
+                        <Plus size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Carteira USDT</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* AirTM */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">E-mail AirTM</p>
+                      <button 
+                        onClick={() => {
+                          setNewAirTMEmail(profile?.airtm_email || '');
+                          setShowAirTMModal(true);
+                        }}
+                        className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
+                      >
+                        {profile?.airtm_email ? 'Alterar' : 'Cadastrar'}
+                      </button>
+                    </div>
+                    
+                    {profile?.airtm_email ? (
+                      <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
+                        <p className="text-[10px] text-zinc-400 truncate pr-4">
+                          {profile.airtm_email}
+                        </p>
+                        <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
+                          <Check size={12} />
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => setShowAirTMModal(true)}
+                        className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
+                      >
+                        <Plus size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Adicionar E-mail AirTM</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Claim Earnings Section */}
@@ -1219,7 +1290,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   </div>
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Levantar Ganhos</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Transforma coins em USD</p>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Escolhe o teu método preferido</p>
                   </div>
                 </div>
                 <button onClick={() => setShowWithdrawModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
@@ -1228,6 +1299,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
 
               <div className="space-y-6">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setWithdrawalMethod('usdt')}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${withdrawalMethod === 'usdt' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-500'}`}
+                  >
+                    USDT (BEP-20)
+                  </button>
+                  <button 
+                    onClick={() => setWithdrawalMethod('airtm')}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${withdrawalMethod === 'airtm' ? 'bg-white text-black font-black' : 'bg-zinc-900 text-zinc-500'}`}
+                  >
+                    AirTM
+                  </button>
+                </div>
+
                 <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex flex-col gap-2">
                   <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Saldo Disponível</p>
                   <div className="flex items-baseline gap-2">
@@ -1238,8 +1324,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 </div>
 
                 <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-1">
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Enviar para Carteira</p>
-                  <p className="text-[10px] font-mono text-white truncate">{profile?.wallet_address}</p>
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">
+                    {withdrawalMethod === 'usdt' ? 'Enviar para Carteira' : 'Enviar para E-mail AirTM'}
+                  </p>
+                  <p className="text-[10px] font-mono text-white truncate">
+                    {withdrawalMethod === 'usdt' ? profile?.wallet_address : profile?.airtm_email}
+                  </p>
+                  {withdrawalMethod === 'airtm' && !profile?.airtm_email && (
+                    <p className="text-[8px] text-red-500 font-bold uppercase">E-mail não cadastrado</p>
+                  )}
+                  {withdrawalMethod === 'usdt' && !profile?.wallet_address && (
+                    <p className="text-[8px] text-red-500 font-bold uppercase">Carteira não cadastrada</p>
+                  )}
                 </div>
               </div>
 
@@ -1250,6 +1346,57 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Confirmar Levantamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* AirTM Modal */}
+      {showAirTMModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowAirTMModal(false)} />
+          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+                    <Wallet size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Configurar AirTM</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Levantamentos via E-mail</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAirTMModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">E-mail AirTM</label>
+                  <input 
+                    type="email" 
+                    value={newAirTMEmail}
+                    onChange={(e) => setNewAirTMEmail(e.target.value)}
+                    placeholder="teu-email@exemplo.com"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
+                  />
+                </div>
+                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                  <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed text-center">
+                    Garante que este e-mail está associado à tua conta AirTM.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSaveAirTM}
+                disabled={saving || !newAirTMEmail.trim()}
+                className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                Guardar E-mail AirTM
               </button>
             </div>
           </div>
