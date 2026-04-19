@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { X, Users, Heart, Gift as GiftIcon } from 'lucide-react';
+import { X, Users, Heart, Gift as GiftIcon, Plus } from 'lucide-react';
 import LiveChat from './LiveChat';
 import GiftPicker from './GiftPicker';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,6 +37,8 @@ interface Gift {
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
+  const [isFollowingHost, setIsFollowingHost] = useState(false);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
   const [status, setStatus] = useState<string>('Conectando...');
@@ -60,6 +62,34 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         if (error) throw error;
         setLiveData(data);
         setViewerCount(data.viewer_count || 0);
+        setLikesCount(data.likes_count || 0);
+
+        // Check if following host
+        if (currentUser) {
+          const { data: followData } = await supabase
+            .from('follows')
+            .select('*')
+            .eq('follower_id', currentUser.id)
+            .eq('following_id', data.host_id)
+            .single();
+          setIsFollowingHost(!!followData);
+        }
+
+        // Check for block signals in history
+        if (currentUser) {
+          const { data: blockMsgs } = await supabase
+            .from('live_messages')
+            .select('content')
+            .eq('live_id', liveId)
+            .ilike('content', `__MOD_BLOCK:${currentUser.id}__`);
+          
+          if (blockMsgs && blockMsgs.length > 0) {
+            alert('Foste bloqueado desta live e não podes entrar.');
+            onClose();
+            return;
+          }
+        }
+
         await initAgora(data.channel_name);
       } catch (error) {
         console.error('Error fetching live data:', error);
@@ -140,6 +170,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         },
         (payload) => {
           setViewerCount(payload.new.viewer_count || 0);
+          setLikesCount(payload.new.likes_count || 0);
           if (payload.new.status === 'ended') {
             onClose();
           }
@@ -172,6 +203,26 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       )
       .subscribe();
 
+    // Subscribe to moderation/block signals
+    const modChannel = supabase
+      .channel(`live_mod:${liveId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_messages',
+          filter: `live_id=eq.${liveId}`,
+        },
+        (payload) => {
+          if (currentUser && payload.new.content === `__MOD_BLOCK:${currentUser.id}__`) {
+            alert('Foste removido desta live pelo host.');
+            onClose();
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       const cleanup = async () => {
         if (clientRef.current) {
@@ -180,20 +231,46 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         }
         supabase.removeChannel(channel);
         supabase.removeChannel(giftsChannel);
+        supabase.removeChannel(modChannel);
         // Decrement viewer count
         await supabase.rpc('decrement_viewer_count', { live_id: liveId });
       };
       cleanup();
     };
-  }, [liveId, currentUser?.id, onClose]);
+  }, [liveId, currentUser, onClose]);
 
   const sendHeart = () => {
+    // Increment heart count in DB
+    supabase.rpc('increment_likes', { live_id: liveId });
+
     const id = Date.now();
     const x = Math.random() * 100 - 50;
     setHearts((prev) => [...prev, { id, x }]);
     setTimeout(() => {
       setHearts((prev) => prev.filter((h) => h.id !== id));
     }, 2000);
+  };
+
+  const handleFollowHost = async () => {
+    if (!currentUser || !liveData) return;
+    
+    try {
+      if (isFollowingHost) {
+        await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', currentUser.id)
+          .eq('following_id', liveData.host_id);
+        setIsFollowingHost(false);
+      } else {
+        await supabase
+          .from('follows')
+          .insert({ follower_id: currentUser.id, following_id: liveData.host_id });
+        setIsFollowingHost(true);
+      }
+    } catch (err) {
+      console.error('Error toggling host follow:', err);
+    }
   };
 
   return (
@@ -255,11 +332,26 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
             />
             <div className="flex flex-col">
               <span className="text-xs font-black text-white">@{liveData?.profiles?.username || 'host'}</span>
-              <div className="flex items-center gap-1 text-white/60">
-                <Users size={10} />
-                <span className="text-[10px] font-bold">{viewerCount}</span>
+              <div className="flex items-center gap-2 text-white/60">
+                <div className="flex items-center gap-1">
+                  <Users size={10} />
+                  <span className="text-[10px] font-bold">{viewerCount}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Heart size={10} fill="currentColor" className="text-red-500" />
+                  <span className="text-[10px] font-bold">{likesCount}</span>
+                </div>
               </div>
             </div>
+            
+            {currentUser && liveData && liveData.host_id !== currentUser.id && !isFollowingHost && (
+              <button 
+                onClick={handleFollowHost}
+                className="ml-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all active:scale-90"
+              >
+                <Plus size={14} strokeWidth={3} />
+              </button>
+            )}
           </div>
 
           <button 

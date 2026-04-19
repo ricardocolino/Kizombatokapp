@@ -7,7 +7,9 @@ interface UserActionModalProps {
   userId: string;
   username: string;
   avatarUrl?: string;
+  bio?: string;
   isHost: boolean;
+  liveId: string;
   onClose: () => void;
   currentUser: { id: string } | null;
 }
@@ -16,7 +18,9 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
   userId, 
   username, 
   avatarUrl, 
+  bio,
   isHost, 
+  liveId,
   onClose,
   currentUser
 }) => {
@@ -41,8 +45,20 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
         
         setIsFollowing(!!followData);
 
-        // In a real app, you'd check moderator/silence status in specific tables
-        // For this demo, we'll just use local state or mock it
+        // Check if target user is silenced in this live
+        const { data: silenceMsgs } = await supabase
+          .from('live_messages')
+          .select('content')
+          .eq('live_id', liveId)
+          .or(`content.eq.__MOD_SILENCE:${userId}__,content.eq.__MOD_UNSILENCE:${userId}__`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (silenceMsgs && silenceMsgs.length > 0) {
+          setIsSilenced(silenceMsgs[0].content.includes('SILENCE'));
+        }
+
+        // In a real app, you'd check moderator status in specific tables
       } catch (err) {
         console.error('Error checking status:', err);
       } finally {
@@ -51,7 +67,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
     };
 
     checkStatus();
-  }, [userId, currentUser]);
+  }, [userId, currentUser, liveId]);
 
   const handleFollow = async () => {
     if (!currentUser) return;
@@ -80,15 +96,39 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
     // Logic to update moderator status in DB would go here
   };
 
-  const handleSilence = () => {
-    setIsSilenced(!isSilenced);
-    // Logic to silence user would go here
+  const handleSilence = async () => {
+    if (!currentUser || !isHost) return;
+    
+    const nextSilenced = !isSilenced;
+    setIsSilenced(nextSilenced);
+
+    try {
+      // Send a system message to the chat
+      await supabase.from('live_messages').insert({
+        live_id: liveId,
+        user_id: currentUser.id,
+        content: nextSilenced ? `__MOD_SILENCE:${userId}__` : `__MOD_UNSILENCE:${userId}__`
+      });
+    } catch (err) {
+      console.error('Error silencing user:', err);
+    }
   };
 
   const handleBlock = async () => {
-    if (confirm(`Tens a certeza que queres bloquear @${username}?`)) {
-      // Logic to block user
-      onClose();
+    if (!currentUser || !isHost) return;
+    
+    if (confirm(`Tens a certeza que queres bloquear @${username} desta live?`)) {
+      try {
+        // Send a system message to the chat
+        await supabase.from('live_messages').insert({
+          live_id: liveId,
+          user_id: currentUser.id,
+          content: `__MOD_BLOCK:${userId}__`
+        });
+        onClose();
+      } catch (err) {
+        console.error('Error blocking user:', err);
+      }
     }
   };
 
@@ -128,7 +168,14 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
           </div>
 
           <h3 className="text-xl font-black text-white mb-1 uppercase tracking-tighter">@{username}</h3>
-          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-8">Utilizador de Angola 🇦🇴</p>
+          
+          {bio ? (
+            <p className="text-sm text-zinc-300 font-medium mb-6 leading-relaxed max-w-[240px]">
+              {bio}
+            </p>
+          ) : (
+            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-8">Utilizador de Angola 🇦🇴</p>
+          )}
 
           <div className="w-full space-y-3">
             {userId !== currentUser?.id && (

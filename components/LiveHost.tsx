@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { Camera, Mic, MicOff, CameraOff, X, Users } from 'lucide-react';
+import { Camera, Mic, MicOff, CameraOff, X, Users, Heart } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,6 +29,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [liveTitle, setLiveTitle] = useState(`Live de ${currentUser.user_metadata?.username || 'user'}`);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
@@ -117,6 +118,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
             },
             (payload) => {
               setViewerCount(payload.new.viewer_count || 0);
+              setLikesCount(payload.new.likes_count || 0);
             }
           )
           .subscribe();
@@ -285,6 +287,11 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                   <Users size={14} />
                   <span className="text-xs font-bold">{viewerCount}</span>
                 </div>
+                <div className="w-px h-3 bg-white/20 mx-1" />
+                <div className="flex items-center gap-1 text-white/80">
+                  <Heart size={14} fill="currentColor" className="text-red-500" />
+                  <span className="text-xs font-bold">{likesCount}</span>
+                </div>
               </>
             )}
           </div>
@@ -326,6 +333,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
               <LiveChat 
                 liveId={liveId} 
                 currentUser={currentUser} 
+                isHost={true}
                 extraActions={
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button 

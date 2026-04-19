@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.lives (
     status TEXT NOT NULL CHECK (status IN ('active', 'ended')),
     channel_name TEXT NOT NULL UNIQUE,
     viewer_count INTEGER DEFAULT 0,
+    likes_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     ended_at TIMESTAMP WITH TIME ZONE
 );
@@ -73,6 +74,15 @@ RETURNS VOID AS $$
 BEGIN
     UPDATE public.lives
     SET viewer_count = GREATEST(0, viewer_count - 1)
+    WHERE id = live_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION increment_likes(live_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.lives
+    SET likes_count = likes_count + 1
     WHERE id = live_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

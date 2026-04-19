@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Send, Gift as GiftIcon } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
+import UserActionModal from './UserActionModal';
+import { AnimatePresence } from 'motion/react';
 
 interface Message {
   id: string;
@@ -25,12 +27,15 @@ interface LiveChatProps {
   liveId: string;
   currentUser: User | null;
   extraActions?: React.ReactNode;
+  isHost?: boolean;
 }
 
-const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }) => {
+const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, isHost = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isSilenced, setIsSilenced] = useState(false);
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
+  const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string, bio?: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,12 +55,25 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
         .select('*, profiles(username, avatar_url)')
         .eq('live_id', liveId)
         .order('created_at', { ascending: true })
-        .limit(50);
+        .limit(100);
 
       if (error) {
         console.error('Error fetching messages:', error);
       } else {
-        setMessages(data || []);
+        const msgs = data || [];
+        // Check if current user is silenced by scanning history
+        if (currentUser) {
+          const modMsgs = msgs.filter(m => m.content.startsWith('__MOD_'));
+          const mySilences = modMsgs.filter(m => 
+            m.content === `__MOD_SILENCE:${currentUser.id}__` || 
+            m.content === `__MOD_UNSILENCE:${currentUser.id}__`
+          );
+          if (mySilences.length > 0) {
+            const lastStatus = mySilences[mySilences.length - 1].content;
+            setIsSilenced(lastStatus.startsWith('__MOD_SILENCE'));
+          }
+        }
+        setMessages(msgs);
       }
     };
 
@@ -84,6 +102,15 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
             profiles: profileData,
           } as Message;
 
+          // React to mod actions
+          if (currentUser && newMessage.content.startsWith('__MOD_')) {
+            if (newMessage.content === `__MOD_SILENCE:${currentUser.id}__`) {
+              setIsSilenced(true);
+            } else if (newMessage.content === `__MOD_UNSILENCE:${currentUser.id}__`) {
+              setIsSilenced(false);
+            }
+          }
+
           setMessages((prev) => [...prev, newMessage]);
         }
       )
@@ -92,7 +119,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [liveId]);
+  }, [liveId, currentUser]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -118,15 +145,43 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
     }
   };
 
+  const handleUserClick = async (userId: string, username: string, avatarUrl?: string) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('bio')
+        .eq('id', userId)
+        .single();
+      
+      setSelectedUser({
+        id: userId,
+        username,
+        avatarUrl,
+        bio: data?.bio || undefined
+      });
+    } catch (err) {
+      console.error('Error fetching user bio:', err);
+      // Fallback if bio fetch fails
+      setSelectedUser({ id: userId, username, avatarUrl });
+    }
+  };
+
   const renderMessage = (msg: Message) => {
     const isGift = msg.content.startsWith('GIFT_SENT:');
+    const isModAction = msg.content.startsWith('__MOD_');
+
+    if (isModAction) return null;
     
     if (isGift) {
       const giftId = msg.content.split(':')[1];
       const gift = gifts[giftId];
       
       return (
-        <div key={msg.id} className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-sm animate-in slide-in-from-left duration-300">
+        <div 
+          key={msg.id} 
+          onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
+          className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-sm animate-in slide-in-from-left duration-300 cursor-pointer active:scale-95 transition-all"
+        >
           <div className="relative">
             <img 
               src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
@@ -149,21 +204,25 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
     }
 
     return (
-      <div key={msg.id} className="flex items-start gap-2 max-w-[85%] group animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <div 
+        key={msg.id} 
+        onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
+        className="flex items-start gap-1 max-w-[95%] group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5 cursor-pointer active:opacity-70 transition-all"
+      >
         <img 
           src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
           alt={msg.profiles?.username}
-          className="w-8 h-8 rounded-full border border-white/20 object-cover flex-shrink-0 mt-1"
+          className="w-6 h-6 rounded-full border border-black/5 object-cover flex-shrink-0 mt-0.5"
         />
-        <div className="flex-1 bg-white/5 backdrop-blur-[2px] rounded-2xl px-3 py-2 border border-white/5 shadow-sm hover:bg-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-[11px] font-black text-white/90 tracking-tight drop-shadow-md">@{msg.profiles?.username || 'user'}</span>
-          </div>
-          <p className="text-[13px] text-white leading-snug break-words font-medium drop-shadow-md">{msg.content}</p>
+        <div className="flex-1 px-1 transition-colors">
+          <span className="text-[12px] font-black text-black/70 tracking-tight mr-1">@{msg.profiles?.username || 'user'}:</span>
+          <span className="text-[12px] text-black leading-tight break-words font-medium">{msg.content}</span>
         </div>
       </div>
     );
   };
+
+  const filteredMessages = messages.filter(m => !m.content.startsWith('__MOD_'));
 
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-transparent">
@@ -175,23 +234,24 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
           WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%)'
         }}
       >
-        {messages.map((msg) => renderMessage(msg))}
+        {filteredMessages.map((msg) => renderMessage(msg))}
       </div>
 
       <div className="p-3 flex items-center gap-2">
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
-          <div className="flex-1 min-w-0 relative group flex items-center bg-white/5 backdrop-blur-[4px] border border-white/10 rounded-full px-3 py-1.5 focus-within:bg-white/10 focus-within:border-white/20 transition-all shadow-sm">
+          <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-[4px] border rounded-full px-3 py-1.5 transition-all shadow-sm ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-black/5 border-black/10 focus-within:bg-black/10 focus-within:border-black/20'}`}>
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Diz algo..."
-              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0"
+              disabled={isSilenced}
+              placeholder={isSilenced ? "Foste silenciado nesta live" : "Diz algo..."}
+              className="flex-1 bg-transparent border-none text-sm text-black placeholder:text-black/40 focus:outline-none min-w-0 disabled:opacity-50"
             />
           </div>
           <button 
             type="submit"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isSilenced}
             className="flex-shrink-0 w-9 h-9 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/20"
           >
             <Send size={16} />
@@ -205,6 +265,21 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions }
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {selectedUser && (
+          <UserActionModal 
+            userId={selectedUser.id}
+            username={selectedUser.username}
+            avatarUrl={selectedUser.avatarUrl}
+            bio={selectedUser.bio}
+            isHost={isHost}
+            liveId={liveId}
+            onClose={() => setSelectedUser(null)}
+            currentUser={currentUser}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
