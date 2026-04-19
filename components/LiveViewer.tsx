@@ -240,8 +240,17 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
   }, [liveId, currentUser, onClose]);
 
   const sendHeart = () => {
+    // Optimistic update: increment locally first for immediate feedback
+    setLikesCount(prev => prev + 1);
+
     // Increment heart count in DB
-    supabase.rpc('increment_likes', { live_id: liveId });
+    supabase.rpc('increment_likes', { live_id: liveId }).then(({ error }) => {
+      if (error) {
+        console.error('Error incrementing likes in DB:', error);
+        // If it fails, we revert the local count slightly or just log it
+        // Reverting in a high-freq action like hearts is usually not worth it
+      }
+    });
 
     const id = Date.now();
     const x = Math.random() * 100 - 50;

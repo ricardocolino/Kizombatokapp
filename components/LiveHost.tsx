@@ -103,6 +103,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
 
         if (error) throw error;
         setLiveId(data.id);
+        setLikesCount(data.likes_count || 0);
         liveIdRef.current = data.id;
 
         // Subscribe to viewer count updates
