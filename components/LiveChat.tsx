@@ -12,6 +12,7 @@ interface Message {
   created_at: string;
   profiles?: {
     username: string;
+    name: string | null;
     avatar_url: string;
   };
 }
@@ -32,6 +33,7 @@ interface LiveChatProps {
 
 const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, isHost = false }) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [notices, setNotices] = useState<{ id: string; content: string; type: 'join' | 'like' }[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSilenced, setIsSilenced] = useState(false);
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
@@ -52,7 +54,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from('live_messages')
-        .select('*, profiles(username, avatar_url)')
+        .select('*, profiles(username, name, avatar_url)')
         .eq('live_id', liveId)
         .order('created_at', { ascending: true })
         .limit(100);
@@ -93,7 +95,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         async (payload) => {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('username, avatar_url')
+            .select('username, name, avatar_url')
             .eq('id', payload.new.user_id)
             .single();
 
@@ -117,6 +119,24 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
           });
         }
       )
+      .on('broadcast', { event: 'system_notice' }, (payload) => {
+        const id = Date.now().toString() + Math.random().toString();
+        const content = payload.payload.type === 'join' 
+          ? `entrou na live`
+          : `curtiu a live`;
+        
+        const displayName = payload.payload.name || `@${payload.payload.username}`;
+        
+        setNotices(prev => [...prev, { 
+          id, 
+          content: `${displayName} ${content}`,
+          type: payload.payload.type 
+        }].slice(-3)); // Show max 3 latest notices
+
+        setTimeout(() => {
+          setNotices(prev => prev.filter(n => n.id !== id));
+        }, 4000);
+      })
       .subscribe();
 
     return () => {
@@ -197,7 +217,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
           </div>
           <div className="flex-1 flex flex-col justify-center">
             <span className="text-[10px] font-black text-yellow-300/90 uppercase leading-none mb-0.5">Enviou {gift?.name || 'Presente'}</span>
-            <span className="text-xs font-black text-white leading-none drop-shadow-md">@{msg.profiles?.username}</span>
+            <span className="text-xs font-black text-white leading-none drop-shadow-md">
+              {msg.profiles?.name || `@${msg.profiles?.username}`}
+            </span>
           </div>
           <div className="text-2xl drop-shadow-2xl transform hover:scale-125 transition-transform">
             {gift?.icon || '🎁'}
@@ -218,7 +240,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
           className="w-7 h-7 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm"
         />
         <div className="flex-1 flex flex-col min-w-0 px-0.5">
-          <span className="text-[11px] font-black text-zinc-300 tracking-wide mb-0 truncate drop-shadow-md">@{msg.profiles?.username || 'user'}</span>
+          <span className="text-[11px] font-black text-zinc-300 tracking-wide mb-0 truncate drop-shadow-md">
+            {msg.profiles?.name || `@${msg.profiles?.username || 'user'}`}
+          </span>
           <span className="text-[13px] text-white leading-snug break-words font-black whitespace-pre-wrap drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">{msg.content}</span>
         </div>
       </div>
@@ -238,6 +262,18 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         }}
       >
         {filteredMessages.map((msg) => renderMessage(msg))}
+        
+        {/* System Notices (Join/Like) */}
+        <div className="space-y-1.5 pt-2">
+          {notices.map(notice => (
+            <div key={notice.id} className="flex items-center gap-1.5 animate-in slide-in-from-left duration-500 fade-in">
+              <div className={`w-1.5 h-1.5 rounded-full ${notice.type === 'join' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
+              <span className={`text-[11px] font-black tracking-tight ${notice.type === 'join' ? 'text-emerald-400' : 'text-red-400'} drop-shadow-md drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]`}>
+                {notice.content}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="p-3 flex items-center gap-2">

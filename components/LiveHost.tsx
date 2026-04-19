@@ -137,12 +137,13 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
             },
             async (payload) => {
               const [profileRes, giftRes] = await Promise.all([
-                supabase.from('profiles').select('username').eq('id', payload.new.sender_id).single(),
+                supabase.from('profiles').select('username, name').eq('id', payload.new.sender_id).single(),
                 supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
               ]);
 
               if (profileRes.data && giftRes.data) {
-                setActiveGift({ gift: giftRes.data, senderName: profileRes.data.username });
+                const displayName = profileRes.data.name || `@${profileRes.data.username}`;
+                setActiveGift({ gift: giftRes.data, senderName: displayName });
                 setTimeout(() => setActiveGift(null), 4000);
               }
             }

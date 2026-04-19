@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { X, Users, Heart, Gift as GiftIcon, Plus } from 'lucide-react';
 import LiveChat from './LiveChat';
 import GiftPicker from './GiftPicker';
@@ -46,10 +47,15 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
   const videoRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
+  const broadcastChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
+
+    // Initialize broadcast channel
+    const broadcastChannel = supabase.channel(`live_messages:${liveId}`);
+    broadcastChannelRef.current = broadcastChannel;
 
     const fetchLiveData = async () => {
       try {
@@ -149,6 +155,19 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
         // Increment viewer count
         await supabase.rpc('increment_viewer_count', { live_id: liveId });
+
+        // Send Join Notice
+        if (currentUser && broadcastChannelRef.current) {
+          broadcastChannelRef.current.send({
+            type: 'broadcast',
+            event: 'system_notice',
+            payload: { 
+              type: 'join', 
+              username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User',
+              name: currentUser.user_metadata?.name || null
+            }
+          });
+        }
       } catch (err) {
         console.error('Error joining live:', err);
         setStatus('Erro ao entrar no canal de voz/vídeo');
@@ -191,12 +210,13 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         },
         async (payload) => {
           const [profileRes, giftRes] = await Promise.all([
-            supabase.from('profiles').select('username').eq('id', payload.new.sender_id).single(),
+            supabase.from('profiles').select('username, name').eq('id', payload.new.sender_id).single(),
             supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
           ]);
 
           if (profileRes.data && giftRes.data) {
-            setActiveGift({ gift: giftRes.data, senderName: profileRes.data.username });
+            const displayName = profileRes.data.name || `@${profileRes.data.username}`;
+            setActiveGift({ gift: giftRes.data, senderName: displayName });
             setTimeout(() => setActiveGift(null), 4000);
           }
         }
@@ -251,6 +271,19 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         // Reverting in a high-freq action like hearts is usually not worth it
       }
     });
+
+    // Send Like Notice broadcast
+    if (currentUser && broadcastChannelRef.current) {
+      broadcastChannelRef.current.send({
+        type: 'broadcast',
+        event: 'system_notice',
+        payload: { 
+          type: 'like', 
+          username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User',
+          name: currentUser.user_metadata?.name || null
+        }
+      });
+    }
 
     const id = Date.now();
     const x = Math.random() * 100 - 50;
