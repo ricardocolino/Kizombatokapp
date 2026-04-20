@@ -10,10 +10,11 @@ import { FilePicker } from '@capawesome/capacitor-file-picker';
 
 interface CreatePostProps {
   onCreated: () => void;
+  onStartLive?: () => void;
   initialType?: 'post' | 'story';
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post' }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initialType = 'post' }) => {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1019,6 +1020,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, initialType = 'post'
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   Story
+                </button>
+                <button 
+                  onClick={onStartLive}
+                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-red-500"
+                >
+                  Live
                 </button>
               </div>
             </div>

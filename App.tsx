@@ -308,6 +308,10 @@ const App: React.FC = () => {
             setIsCreatingStory(false);
             setActiveTab(Tab.HOME); 
           }} 
+          onStartLive={() => {
+            setIsHosting(true);
+            setActiveLiveId(null);
+          }}
           initialType={isCreatingStory ? 'story' : 'post'}
         />;
       case Tab.LIVE:
