@@ -64,7 +64,9 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       if (profile) {
         updated.username = profile.username;
         updated.name = profile.name || profile.username;
-        updated.avatarUrl = profile.avatar_url;
+        if (profile.avatar_url) {
+          updated.avatarUrl = profile.avatar_url;
+        }
       }
 
       return { ...prev, [userId]: updated };
