@@ -546,8 +546,52 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initial
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão expirada. Por favor, faz login novamente.');
       
-      const timestamp = Date.now();
       const userId = session.user.id;
+
+      // 🔹 1. Verificar Limite Diário (3 uploads por dia)
+      const startOfToday = new Date();
+      startOfToday.setUTCHours(0, 0, 0, 0);
+      
+      // Contar posts de hoje
+      const { count: postCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', startOfToday.toISOString());
+      
+      // Contar stories de hoje
+      const { count: storyCount } = await supabase
+        .from('stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', startOfToday.toISOString());
+      
+      const totalToday = (postCount || 0) + (storyCount || 0);
+      
+      if (totalToday >= 3) {
+        setUploading(false);
+        setError('Superaste o limite de 3 uploads diários. Na banda, a qualidade brilha mais que a quantidade. Volta amanhã!');
+        return;
+      }
+
+      // 🔹 2. Verificar Duração Máxima (90s)
+      if (mediaFiles[0].type.startsWith('video/')) {
+        const video = document.createElement('video');
+        const duration: number = await new Promise((resolve) => {
+          video.onloadedmetadata = () => resolve(video.duration);
+          video.onerror = () => resolve(0);
+          video.src = URL.createObjectURL(mediaFiles[0]);
+        });
+        URL.revokeObjectURL(video.src);
+        
+        if (duration > 95) { // 90s + tolerância de 5s para metadados/transcodificação
+          setUploading(false);
+          setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+          return;
+        }
+      }
+
+      const timestamp = Date.now();
       const isVideo = mediaFiles[0].type.startsWith('video/');
 
       let finalMediaBlob: Blob | (File | Blob) = mediaFiles[0];
@@ -944,18 +988,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initial
             <div className="absolute bottom-56 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
               <div className="flex gap-3">
                 <button 
-                  onClick={() => setMaxDuration(15)}
+                  onClick={() => { setMaxDuration(15); setTrimEnd(15); }}
                   disabled={isRecording}
                   className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 15 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
                 >
                   15s
                 </button>
                 <button 
-                  onClick={() => setMaxDuration(60)}
+                  onClick={() => { setMaxDuration(60); setTrimEnd(60); }}
                   disabled={isRecording}
                   className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 60 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
                 >
                   60s
+                </button>
+                <button 
+                  onClick={() => { setMaxDuration(90); setTrimEnd(90); }}
+                  disabled={isRecording}
+                  className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-xl ${maxDuration === 90 ? 'bg-white text-black scale-110' : 'bg-black/40 text-white/60 border border-white/10'}`}
+                >
+                  90s
                 </button>
               </div>
             </div>
