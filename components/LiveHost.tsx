@@ -20,6 +20,14 @@ interface Gift {
   price: number;
 }
 
+interface RankedUser {
+  userId: string;
+  username: string;
+  name: string;
+  avatarUrl: string;
+  points: number;
+}
+
 const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
@@ -30,12 +38,38 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+  const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const audioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
   const videoTrackRef = useRef<ICameraVideoTrack | null>(null);
   const liveIdRef = useRef<string | null>(null);
+
+  const updatePoints = (userId: string, points: number, profile?: { username: string; name: string | null; avatar_url: string }) => {
+    setRanking(prev => {
+      const existing = prev[userId] || {
+        userId,
+        username: profile?.username || 'user',
+        name: profile?.name || profile?.username || 'User',
+        avatarUrl: profile?.avatar_url || `https://picsum.photos/seed/${userId}/100/100`,
+        points: 0
+      };
+      
+      const updated = {
+        ...existing,
+        points: existing.points + points
+      };
+
+      if (profile) {
+        updated.username = profile.username;
+        updated.name = profile.name || profile.username;
+        updated.avatarUrl = profile.avatar_url;
+      }
+
+      return { ...prev, [userId]: updated };
+    });
+  };
 
   useEffect(() => {
     const initTracks = async () => {
@@ -72,6 +106,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     if (!isStarting || !AGORA_APP_ID) return;
 
     let statusChannel: RealtimeChannel | null = null;
+    let messagesChannel: RealtimeChannel | null = null;
     let giftsChannel: RealtimeChannel | null = null;
     let agoraClient: IAgoraRTCClient | null = null;
 
@@ -122,6 +157,42 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
               setLikesCount(payload.new.likes_count || 0);
             }
           )
+          .on('broadcast', { event: 'system_notice' }, (payload) => {
+            if (payload.payload.type === 'like' && payload.payload.userId) {
+              updatePoints(payload.payload.userId, 1, {
+                username: payload.payload.username,
+                name: payload.payload.name,
+                avatar_url: payload.payload.avatarUrl
+              });
+            }
+          })
+          .subscribe();
+
+        // Subscribe to messages for points
+        messagesChannel = supabase
+          .channel(`live_msg_points:${data.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'live_messages',
+              filter: `live_id=eq.${data.id}`,
+            },
+            async (payload) => {
+              // Points for comments (only non-system messages)
+              if (!payload.new.content.startsWith('__MOD_') && !payload.new.content.startsWith('GIFT_SENT:')) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('username, name, avatar_url')
+                  .eq('id', payload.new.user_id)
+                  .single();
+                if (profile) {
+                  updatePoints(payload.new.user_id, 5, profile);
+                }
+              }
+            }
+          )
           .subscribe();
 
         // Subscribe to gifts
@@ -137,13 +208,17 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
             },
             async (payload) => {
               const [profileRes, giftRes] = await Promise.all([
-                supabase.from('profiles').select('username, name').eq('id', payload.new.sender_id).single(),
+                supabase.from('profiles').select('username, name, avatar_url').eq('id', payload.new.sender_id).single(),
                 supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
               ]);
 
               if (profileRes.data && giftRes.data) {
                 const displayName = profileRes.data.name || `@${profileRes.data.username}`;
                 setActiveGift({ gift: giftRes.data, senderName: displayName });
+                
+                // Points for gifts
+                updatePoints(payload.new.sender_id, giftRes.data.price * 10, profileRes.data);
+                
                 setTimeout(() => setActiveGift(null), 4000);
               }
             }
@@ -166,6 +241,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           liveIdRef.current = null;
         }
         if (statusChannel) supabase.removeChannel(statusChannel);
+        if (messagesChannel) supabase.removeChannel(messagesChannel);
         if (giftsChannel) supabase.removeChannel(giftsChannel);
       };
       cleanupSession();
@@ -279,22 +355,56 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
         {/* Header */}
         <div className="flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
-            <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
+              <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
+              {isStarting && (
+                <>
+                  <div className="w-px h-3 bg-white/20 mx-1" />
+                  <div className="flex items-center gap-1 text-white/80">
+                    <Users size={14} />
+                    <span className="text-xs font-bold">{viewerCount}</span>
+                  </div>
+                  <div className="w-px h-3 bg-white/20 mx-1" />
+                  <div className="flex items-center gap-1 text-white/80">
+                    <Heart size={14} fill="currentColor" className="text-red-500" />
+                    <span className="text-xs font-bold">{likesCount}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Top Viewers Ranking */}
             {isStarting && (
-              <>
-                <div className="w-px h-3 bg-white/20 mx-1" />
-                <div className="flex items-center gap-1 text-white/80">
-                  <Users size={14} />
-                  <span className="text-xs font-bold">{viewerCount}</span>
-                </div>
-                <div className="w-px h-3 bg-white/20 mx-1" />
-                <div className="flex items-center gap-1 text-white/80">
-                  <Heart size={14} fill="currentColor" className="text-red-500" />
-                  <span className="text-xs font-bold">{likesCount}</span>
-                </div>
-              </>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[180px] px-1">
+                {Object.values(ranking)
+                  .sort((a, b) => b.points - a.points)
+                  .slice(0, 5)
+                  .map((rankedUser, index) => (
+                    <div key={rankedUser.userId} className="flex-shrink-0 flex flex-col items-center gap-0.5">
+                      <div className="relative group">
+                        <div className={`absolute -top-1 -right-1 z-20 w-3.5 h-3.5 ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-zinc-300' : index === 2 ? 'bg-orange-400' : 'bg-white/20'} rounded-full flex items-center justify-center text-[7px] font-black text-black border border-black/20`}>
+                          {index + 1}
+                        </div>
+                        <img 
+                          src={rankedUser.avatarUrl} 
+                          className={`w-7 h-7 rounded-full border-2 ${index === 0 ? 'border-yellow-400' : 'border-white/10'} object-cover`}
+                          alt={rankedUser.username}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[6px] font-black text-white/90 truncate max-w-[28px] uppercase leading-tight">
+                          {rankedUser.name.split(' ')[0]}
+                        </span>
+                        <span className="text-[5px] font-black text-yellow-500 leading-none">
+                          {rankedUser.points}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
             )}
           </div>
 

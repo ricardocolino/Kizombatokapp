@@ -35,12 +35,21 @@ interface Gift {
   price: number;
 }
 
+interface RankedUser {
+  userId: string;
+  username: string;
+  name: string;
+  avatarUrl: string;
+  points: number;
+}
+
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [isFollowingHost, setIsFollowingHost] = useState(false);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
+  const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
   const [status, setStatus] = useState<string>('Conectando...');
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
@@ -48,6 +57,32 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
   const isInitialized = useRef(false);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const broadcastChannelRef = useRef<RealtimeChannel | null>(null);
+
+  const updatePoints = (userId: string, points: number, profile?: { username: string; name: string | null; avatar_url: string }) => {
+    setRanking(prev => {
+      const existing = prev[userId] || {
+        userId,
+        username: profile?.username || 'user',
+        name: profile?.name || profile?.username || 'User',
+        avatarUrl: profile?.avatar_url || `https://picsum.photos/seed/${userId}/100/100`,
+        points: 0
+      };
+      
+      const updated = {
+        ...existing,
+        points: existing.points + points
+      };
+
+      // Ensure we keep the latest profile if provided
+      if (profile) {
+        updated.username = profile.username;
+        updated.name = profile.name || profile.username;
+        updated.avatarUrl = profile.avatar_url;
+      }
+
+      return { ...prev, [userId]: updated };
+    });
+  };
 
   useEffect(() => {
     if (isInitialized.current) return;
@@ -163,8 +198,10 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
             event: 'system_notice',
             payload: { 
               type: 'join', 
+              userId: currentUser.id,
               username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User',
-              name: currentUser.user_metadata?.name || null
+              name: currentUser.user_metadata?.name || null,
+              avatarUrl: currentUser.user_metadata?.avatar_url || null
             }
           });
         }
@@ -176,7 +213,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
 
     fetchLiveData();
 
-    // Subscribe to viewer count and status updates
+    // Subscribe to status and system notices
     const channel = supabase
       .channel(`live_status:${liveId}`)
       .on(
@@ -195,9 +232,51 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
           }
         }
       )
+      .on('broadcast', { event: 'system_notice' }, (payload) => {
+        if (payload.payload.type === 'like' && payload.payload.userId) {
+          updatePoints(payload.payload.userId, 1, {
+            username: payload.payload.username,
+            name: payload.payload.name,
+            avatar_url: payload.payload.avatarUrl
+          });
+        }
+      })
       .subscribe();
 
-    // Subscribe to gifts
+    // Subscribe to messages for points
+    const messagesChannel = supabase
+      .channel(`live_msg_points:${liveId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_messages',
+          filter: `live_id=eq.${liveId}`,
+        },
+        async (payload) => {
+          // If it's a block message, handle it
+          if (currentUser && payload.new.content === `__MOD_BLOCK:${currentUser.id}__`) {
+            alert('Foste removido desta live pelo host.');
+            onClose();
+          }
+
+          // Points for comments (only non-system messages)
+          if (!payload.new.content.startsWith('__MOD_') && !payload.new.content.startsWith('GIFT_SENT:')) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('username, name, avatar_url')
+              .eq('id', payload.new.user_id)
+              .single();
+            if (profile) {
+              updatePoints(payload.new.user_id, 5, profile);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to gifts for points
     const giftsChannel = supabase
       .channel(`live_gifts:${liveId}`)
       .on(
@@ -210,34 +289,18 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         },
         async (payload) => {
           const [profileRes, giftRes] = await Promise.all([
-            supabase.from('profiles').select('username, name').eq('id', payload.new.sender_id).single(),
+            supabase.from('profiles').select('username, name, avatar_url').eq('id', payload.new.sender_id).single(),
             supabase.from('gift_types').select('*').eq('id', payload.new.gift_type_id).single()
           ]);
 
           if (profileRes.data && giftRes.data) {
             const displayName = profileRes.data.name || `@${profileRes.data.username}`;
             setActiveGift({ gift: giftRes.data, senderName: displayName });
+            
+            // Points for gifts: price * 10
+            updatePoints(payload.new.sender_id, giftRes.data.price * 10, profileRes.data);
+            
             setTimeout(() => setActiveGift(null), 4000);
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to moderation/block signals
-    const modChannel = supabase
-      .channel(`live_mod:${liveId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'live_messages',
-          filter: `live_id=eq.${liveId}`,
-        },
-        (payload) => {
-          if (currentUser && payload.new.content === `__MOD_BLOCK:${currentUser.id}__`) {
-            alert('Foste removido desta live pelo host.');
-            onClose();
           }
         }
       )
@@ -250,8 +313,8 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
           clientRef.current.removeAllListeners();
         }
         supabase.removeChannel(channel);
+        supabase.removeChannel(messagesChannel);
         supabase.removeChannel(giftsChannel);
-        supabase.removeChannel(modChannel);
         // Decrement viewer count
         await supabase.rpc('decrement_viewer_count', { live_id: liveId });
       };
@@ -279,11 +342,20 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
         event: 'system_notice',
         payload: { 
           type: 'like', 
+          userId: currentUser.id,
           username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User',
-          name: currentUser.user_metadata?.name || null
+          name: currentUser.user_metadata?.name || null,
+          avatarUrl: currentUser.user_metadata?.avatar_url || null
         }
       });
     }
+
+    // Also update current user's locally tracked points for immediate feedback
+    updatePoints(currentUser?.id || 'anonymous', 1, currentUser?.user_metadata ? {
+      username: currentUser.user_metadata.username,
+      name: currentUser.user_metadata.name,
+      avatar_url: currentUser.user_metadata.avatar_url
+    } : undefined);
 
     const id = Date.now();
     const x = Math.random() * 100 - 50;
@@ -366,34 +438,66 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       <div className="absolute inset-0 flex flex-col z-10 p-4 pointer-events-none">
         {/* Header */}
         <div className="flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
-            <img 
-              src={liveData?.profiles?.avatar_url || `https://picsum.photos/seed/${liveData?.host_id}/100/100`}
-              alt={liveData?.profiles?.username}
-              className="w-8 h-8 rounded-full border border-white/20 object-cover"
-            />
-            <div className="flex flex-col">
-              <span className="text-xs font-black text-white">@{liveData?.profiles?.username || 'host'}</span>
-              <div className="flex items-center gap-2 text-white/60">
-                <div className="flex items-center gap-1">
-                  <Users size={10} />
-                  <span className="text-[10px] font-bold">{viewerCount}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Heart size={10} fill="currentColor" className="text-red-500" />
-                  <span className="text-[10px] font-bold">{likesCount}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
+              <img 
+                src={liveData?.profiles?.avatar_url || `https://picsum.photos/seed/${liveData?.host_id}/100/100`}
+                alt={liveData?.profiles?.username}
+                className="w-8 h-8 rounded-full border border-white/20 object-cover"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-white">@{liveData?.profiles?.username || 'host'}</span>
+                <div className="flex items-center gap-2 text-white/60">
+                  <div className="flex items-center gap-1">
+                    <Users size={10} />
+                    <span className="text-[10px] font-bold">{viewerCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Heart size={10} fill="currentColor" className="text-red-500" />
+                    <span className="text-[10px] font-bold">{likesCount}</span>
+                  </div>
                 </div>
               </div>
+              
+              {currentUser && liveData && liveData.host_id !== currentUser.id && !isFollowingHost && (
+                <button 
+                  onClick={handleFollowHost}
+                  className="ml-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all active:scale-90"
+                >
+                  <Plus size={14} strokeWidth={3} />
+                </button>
+              )}
             </div>
-            
-            {currentUser && liveData && liveData.host_id !== currentUser.id && !isFollowingHost && (
-              <button 
-                onClick={handleFollowHost}
-                className="ml-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all active:scale-90"
-              >
-                <Plus size={14} strokeWidth={3} />
-              </button>
-            )}
+
+            {/* Top Viewers Ranking */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[180px] px-1">
+              {Object.values(ranking)
+                .sort((a, b) => b.points - a.points)
+                .slice(0, 5)
+                .map((rankedUser, index) => (
+                  <div key={rankedUser.userId} className="flex-shrink-0 flex flex-col items-center gap-0.5">
+                    <div className="relative group">
+                      <div className={`absolute -top-1 -right-1 z-20 w-3.5 h-3.5 ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-zinc-300' : index === 2 ? 'bg-orange-400' : 'bg-white/20'} rounded-full flex items-center justify-center text-[7px] font-black text-black border border-black/20`}>
+                        {index + 1}
+                      </div>
+                      <img 
+                        src={rankedUser.avatarUrl} 
+                        className={`w-7 h-7 rounded-full border-2 ${index === 0 ? 'border-yellow-400' : 'border-white/10'} object-cover`}
+                        alt={rankedUser.username}
+                      />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[6px] font-black text-white/90 truncate max-w-[28px] uppercase leading-tight">
+                        {rankedUser.name.split(' ')[0]}
+                      </span>
+                      <span className="text-[5px] font-black text-yellow-500 leading-none">
+                        {rankedUser.points}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
           </div>
 
           <button 
