@@ -279,6 +279,10 @@ const App: React.FC = () => {
               setAllUsersWithStories(allUserIds || [userId]);
             }
           }} 
+          onJoinLive={(liveId) => {
+            setActiveLiveId(liveId);
+            setIsHosting(false);
+          }}
           isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
         />;
       case Tab.DISCOVER:

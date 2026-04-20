@@ -18,6 +18,7 @@ interface PostCardProps {
   onToggleMute: () => void;
   onRequireAuth?: () => void;
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
+  onJoinLive?: (liveId: string) => void;
   isPaused?: boolean;
 }
 
@@ -37,6 +38,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onToggleMute, 
   onRequireAuth,
   onViewStories,
+  onJoinLive,
   isPaused
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -641,13 +643,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="relative mb-1 sm:mb-2">
             <div 
               onClick={() => {
-                if (metadata.hasStories && onViewStories) {
+                if (metadata.isLive && onJoinLive) {
+                  onJoinLive(metadata.isLive);
+                } else if (metadata.hasStories && onViewStories) {
                   onViewStories(post.user_id, [post.user_id]);
                 } else {
                   onNavigateToProfile(post.user_id);
                 }
               }}
-              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.hasStories ? 'border-red-600' : 'border-white'}`}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-red-600 animate-pulse' : (metadata.hasStories ? 'border-red-600' : 'border-white')}`}
             >
                {post.profiles?.avatar_url ? (
                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
@@ -655,7 +659,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                  <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
                )}
             </div>
-            {!metadata.isFollowing && !metadata.isOwnPost && (
+            {metadata.isLive && (
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[7px] font-black px-1 rounded-sm border border-black uppercase tracking-tighter">
+                Live
+              </div>
+            )}
+            {!metadata.isLive && !metadata.isFollowing && !metadata.isOwnPost && (
               <button 
                 onClick={handleFollow}
                 className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
