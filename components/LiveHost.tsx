@@ -39,6 +39,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [errorLimit, setErrorLimit] = useState<string | null>(null);
+  const [liveDuration, setLiveDuration] = useState(0);
   const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
@@ -253,6 +254,20 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
  // Only depend on currentUser.id
 
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (isStarting && liveId) {
+      timer = setInterval(() => {
+        setLiveDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      setLiveDuration(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isStarting, liveId]);
+
+  useEffect(() => {
     if (!isStarting || !liveId) return;
 
     // 3 hours limit (3 * 60 * 60 * 1000 ms)
@@ -338,6 +353,13 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const toggleMute = () => {
     if (localAudioTrack) {
       localAudioTrack.setEnabled(!isMuted);
@@ -406,6 +428,10 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                   <div className="flex items-center gap-1 text-white/80">
                     <Heart size={14} fill="currentColor" className="text-red-500" />
                     <span className="text-xs font-bold">{likesCount}</span>
+                  </div>
+                  <div className="w-px h-3 bg-white/20 mx-1" />
+                  <div className="flex items-center gap-1 text-white/80">
+                    <span className="text-[10px] font-mono font-bold">{formatDuration(liveDuration)}</span>
                   </div>
                 </>
               )}
