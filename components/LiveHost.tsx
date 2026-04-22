@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { Camera, Mic, MicOff, CameraOff, X, Users, Heart } from 'lucide-react';
+import { Mic, MicOff, X, Users, Heart } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,10 +29,8 @@ interface RankedUser {
 }
 
 const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
-  const [localVideoTrack, setLocalVideoTrack] = useState<ICameraVideoTrack | null>(null);
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [liveTitle, setLiveTitle] = useState(`Live de ${currentUser.user_metadata?.username || 'user'}`);
   const [liveId, setLiveId] = useState<string | null>(null);
@@ -80,7 +78,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
         setLocalAudioTrack(audioTrack);
-        setLocalVideoTrack(videoTrack);
         audioTrackRef.current = audioTrack;
         videoTrackRef.current = videoTrack;
 
@@ -367,13 +364,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     }
   };
 
-  const toggleVideo = () => {
-    if (localVideoTrack) {
-      localVideoTrack.setEnabled(!isVideoOff);
-      setIsVideoOff(!isVideoOff);
-    }
-  };
-
   const handleEndLive = async () => {
     if (window.confirm('Queres mesmo encerrar a live?')) {
       onClose();
@@ -414,26 +404,31 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl rounded-full px-3 py-1.5 border border-white/10">
-              <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
+            <div className="flex flex-col items-center bg-white/5 backdrop-blur-xl rounded-2xl px-3 py-1.5 border border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
+                {isStarting && (
+                  <>
+                    <div className="w-px h-3 bg-white/20 mx-1" />
+                    <div className="flex items-center gap-1 text-white/80">
+                      <Users size={14} />
+                      <span className="text-xs font-bold">{viewerCount}</span>
+                    </div>
+                    <div className="w-px h-3 bg-white/20 mx-1" />
+                    <div className="flex items-center gap-1 text-white/80">
+                      <Heart size={14} fill="currentColor" className="text-red-500" />
+                      <span className="text-xs font-bold">{likesCount}</span>
+                    </div>
+                  </>
+                )}
+              </div>
               {isStarting && (
-                <>
-                  <div className="w-px h-3 bg-white/20 mx-1" />
-                  <div className="flex items-center gap-1 text-white/80">
-                    <Users size={14} />
-                    <span className="text-xs font-bold">{viewerCount}</span>
-                  </div>
-                  <div className="w-px h-3 bg-white/20 mx-1" />
-                  <div className="flex items-center gap-1 text-white/80">
-                    <Heart size={14} fill="currentColor" className="text-red-500" />
-                    <span className="text-xs font-bold">{likesCount}</span>
-                  </div>
-                  <div className="w-px h-3 bg-white/20 mx-1" />
-                  <div className="flex items-center gap-1 text-white/80">
-                    <span className="text-[10px] font-mono font-bold">{formatDuration(liveDuration)}</span>
-                  </div>
-                </>
+                <div className="mt-0.5 flex items-center justify-center">
+                  <span className="text-[8px] font-mono font-black text-white/40 tracking-[0.2em] bg-black/20 px-1.5 rounded-sm">
+                    {formatDuration(liveDuration)}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -529,12 +524,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                       className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-white/5 backdrop-blur-xl border-white/20'}`}
                     >
                       {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
-                    </button>
-                    <button 
-                      onClick={toggleVideo}
-                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isVideoOff ? 'bg-red-600 border-red-600' : 'bg-white/5 backdrop-blur-xl border-white/20'}`}
-                    >
-                      {isVideoOff ? <CameraOff size={16} /> : <Camera size={16} />}
                     </button>
                   </div>
                 }
