@@ -394,6 +394,13 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
       {/* Video Container */}
       <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center overflow-hidden">
         <div ref={videoRef} className="w-full h-full" />
+        
+        {/* Tap to Like Hit Area */}
+        <div 
+          className="absolute inset-0 z-[5] cursor-pointer" 
+          onClick={sendHeart}
+        />
+
         {status && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 z-20 p-6 text-center">
             <div className="text-white/60 text-sm font-medium flex flex-col items-center gap-4">

@@ -38,6 +38,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+  const [errorLimit, setErrorLimit] = useState<string | null>(null);
   const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
@@ -254,6 +255,13 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   useEffect(() => {
     if (!isStarting || !liveId) return;
 
+    // 3 hours limit (3 * 60 * 60 * 1000 ms)
+    const MAX_DURATION = 3 * 60 * 60 * 1000;
+    const durationTimer = setTimeout(() => {
+      alert('Atingiste o limite de 3 horas de live. A transmissão será encerrada.');
+      onClose();
+    }, MAX_DURATION);
+
     const handleUnexpectedExit = () => {
       if (liveIdRef.current) {
         const currentId = liveIdRef.current;
@@ -298,11 +306,37 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     window.addEventListener('offline', onOffline);
 
     return () => {
+      clearTimeout(durationTimer);
       window.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('offline', onOffline);
     };
   }, [isStarting, liveId, onClose]);
+
+  const handleStartAttempt = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const { count, error } = await supabase
+        .from('lives')
+        .select('*', { count: 'exact', head: true })
+        .eq('host_id', currentUser.id)
+        .gte('created_at', today.toISOString());
+
+      if (error) throw error;
+
+      if (count !== null && count >= 3) {
+        setErrorLimit('Atingiste o limite diário de 3 lives. Tenta novamente amanhã.');
+        return;
+      }
+
+      setIsStarting(true);
+    } catch (err) {
+      console.error('Error checking live limits:', err);
+      setIsStarting(true); // Fallback to allow starting if check fails
+    }
+  };
 
   const toggleMute = () => {
     if (localAudioTrack) {
@@ -422,21 +456,35 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         {!isStarting && (
           <div className="flex-1 flex flex-col items-center justify-center gap-6 pointer-events-auto">
             <div className="w-full max-w-xs space-y-4">
-              <input 
-                type="text"
-                value={liveTitle}
-                onChange={(e) => setLiveTitle(e.target.value)}
-                placeholder="Título da sua live..."
-                className="w-full bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/40 focus:outline-none focus:border-red-600 transition-colors shadow-2xl"
-              />
-              <button 
-                onClick={() => setIsStarting(true)}
-                className="w-full bg-red-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-transform"
-              >
-                Começar Live
-              </button>
+              {errorLimit ? (
+                <div className="bg-red-600/20 backdrop-blur-xl border border-red-600/50 rounded-2xl p-6 text-center text-white space-y-4">
+                  <p className="text-sm font-bold leading-relaxed">{errorLimit}</p>
+                  <button 
+                    onClick={onClose}
+                    className="w-full bg-red-600 text-white text-xs font-black uppercase py-3 rounded-xl active:scale-95 transition-transform"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input 
+                    type="text"
+                    value={liveTitle}
+                    onChange={(e) => setLiveTitle(e.target.value)}
+                    placeholder="Título da sua live..."
+                    className="w-full bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/40 focus:outline-none focus:border-red-600 transition-colors shadow-2xl"
+                  />
+                  <button 
+                    onClick={handleStartAttempt}
+                    className="w-full bg-red-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-transform"
+                  >
+                    Começar Live
+                  </button>
+                </>
+              )}
             </div>
-            <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Prepara-te para entrar em direto!</p>
+            {!errorLimit && <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Prepara-te para entrar em direto!</p>}
           </div>
         )}
 
