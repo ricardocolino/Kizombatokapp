@@ -490,22 +490,36 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   };
 
   const handleWithdraw = async () => {
-    const amount = profile?.redeemable_balance || 0;
-    if (amount <= 0) {
+    const amountCoins = profile?.redeemable_balance || 0;
+    const amountUSD = amountCoins / 100;
+
+    if (amountCoins <= 0) {
       alert("Não tens saldo suficiente para levantar.");
       return;
     }
 
-    if (withdrawalMethod === 'usdt' && !profile?.wallet_address) {
-      alert("Precisas de cadastrar a tua carteira primeiro!");
-      setShowWalletModal(true);
-      return;
+    if (withdrawalMethod === 'usdt') {
+      if (amountUSD < 1) {
+        alert("O valor mínimo para levantamento via USDT (BEP-20) é $1.00 USD (100 AngoCoins).");
+        return;
+      }
+      if (!profile?.wallet_address) {
+        alert("Precisas de cadastrar a tua carteira primeiro!");
+        setShowWalletModal(true);
+        return;
+      }
     }
 
-    if (withdrawalMethod === 'airtm' && !profile?.airtm_email) {
-      alert("Precisas de cadastrar o teu e-mail AirTM primeiro!");
-      setShowAirTMModal(true);
-      return;
+    if (withdrawalMethod === 'airtm') {
+      if (amountUSD < 0.5) {
+        alert("O valor mínimo para levantamento via AirTM é $0.50 USD (50 AngoCoins).");
+        return;
+      }
+      if (!profile?.airtm_email) {
+        alert("Precisas de cadastrar o teu e-mail AirTM primeiro!");
+        setShowAirTMModal(true);
+        return;
+      }
     }
 
     setSaving(true);
@@ -515,7 +529,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         .from('withdrawals')
         .insert({
           user_id: userId,
-          amount: amount,
+          amount: amountCoins,
           wallet_address: withdrawalMethod === 'usdt' ? profile.wallet_address : null,
           airtm_email: withdrawalMethod === 'airtm' ? profile.airtm_email : null,
           method: withdrawalMethod,
@@ -525,7 +539,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       if (withdrawError) throw withdrawError;
 
       // 2. Deduzir do saldo de resgate
-      const newRedeemableBalance = (profile.redeemable_balance || 0) - amount;
+      const newRedeemableBalance = (profile.redeemable_balance || 0) - amountCoins;
       const { error: balanceError } = await supabase
         .from('profiles')
         .update({ redeemable_balance: newRedeemableBalance })
@@ -1321,6 +1335,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <p className="text-xs font-bold text-zinc-600 uppercase">AngoCoins</p>
                   </div>
                   <p className="text-[10px] font-black text-emerald-500 uppercase">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
+                  
+                  {/* Min Amount Indicator */}
+                  <div className="mt-2 flex items-center justify-center gap-1.5 py-1 px-3 bg-red-600/10 border border-red-600/20 rounded-full">
+                    <div className="w-1 h-1 rounded-full bg-red-600 animate-pulse" />
+                    <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">
+                      Mínimo: {withdrawalMethod === 'usdt' ? '$1.00 USD' : '$0.50 USD'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-1">
@@ -1341,7 +1363,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
               <button 
                 onClick={handleWithdraw}
-                disabled={saving || (profile?.redeemable_balance || 0) <= 0}
+                disabled={saving || (profile?.redeemable_balance || 0) < (withdrawalMethod === 'usdt' ? 100 : 50)}
                 className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
