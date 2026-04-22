@@ -524,6 +524,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
     setSaving(true);
     try {
+      // 0. Verificar se já fez levantamento hoje
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const { count, error: countError } = await supabase
+        .from('withdrawals')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', today.toISOString());
+
+      if (countError) throw countError;
+
+      if (count !== null && count > 0) {
+        alert("Apenas podes realizar um levantamento por dia. Tenta de novo amanhã! 🇦🇴⏳");
+        setShowWithdrawModal(false);
+        return;
+      }
+
       // 1. Criar pedido de levantamento
       const { error: withdrawError } = await supabase
         .from('withdrawals')
