@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, Download, Plus } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -231,11 +231,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       comments: totalComments
     });
 
-    // Calcular ganhos pendentes (0.01 USD por view)
+    // Calcular ganhos pendentes (0.01 USD por 100 views)
     const { data: profileData } = await supabase.from('profiles').select('claimed_views').eq('id', userId).single();
     const claimedViews = profileData?.claimed_views || 0;
     const unclaimedViews = Math.max(0, totalViews - claimedViews);
-    setPendingEarnings(Number((unclaimedViews * 0.01).toFixed(4)));
+    setPendingEarnings(Number((unclaimedViews * 0.0001).toFixed(6)));
   }, [userId]);
 
   const loadAll = React.useCallback(async () => {
@@ -846,164 +846,158 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
-            {/* Wallet Card - Minimalist */}
-            <div className="relative">
-              <div className="bg-black border border-zinc-800 p-8 rounded-[40px] flex flex-col gap-6 overflow-hidden">
-                <div className="flex flex-col gap-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo para Presentes</p>
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-4xl font-black text-white tracking-tighter">
-                          {profile.balance?.toFixed(0) || '0'}
-                        </h3>
-                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">AngoCoins</span>
-                      </div>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600 border border-red-600/20">
-                      <Coins size={24} />
-                    </div>
-                  </div>
+          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10 no-scrollbar pb-32">
+            {/* 1. Ganhos Section (Priority) */}
+            <section className="space-y-6">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Meus Ganhos</h2>
+                <div className="h-0.5 w-8 bg-red-600 rounded-full" />
+              </div>
 
-                  <div className="flex justify-between items-start pt-4 border-t border-zinc-800">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo de Resgate (Ganhos)</p>
-                      <div className="flex flex-col">
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-4xl font-black text-white tracking-tighter">
-                            {profile.redeemable_balance?.toFixed(0) || '0'}
-                          </h3>
-                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <div className="w-1 h-1 rounded-full bg-white/30" />
-                          <p className="text-[10px] font-black text-white uppercase tracking-widest">
-                            Equivale a <span className="text-red-600">${(profile.redeemable_balance / 100).toFixed(2)} USD</span> para sacar
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20">
-                      <TrendingUp size={24} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-2">
-                  <button 
-                    onClick={handleOpenExternalDeposit}
-                    className="flex-1 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all active:scale-95"
-                  >
-                    <ArrowUpCircle size={16} />
-                    Carregar
-                  </button>
-                  <button 
-                    onClick={() => setShowWithdrawModal(true)}
-                    className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-red-700 transition-all active:scale-95"
-                  >
-                    <Download size={16} />
-                    Levantar
-                  </button>
-                </div>
-
-                {/* Wallet & AirTM Section */}
-                <div className="mt-2 pt-6 border-t border-zinc-900 space-y-4">
-                  {/* USDT */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Carteira USDT (BEP-20)</p>
-                      <button 
-                        onClick={() => {
-                          setNewWalletAddress(profile?.wallet_address || '');
-                          setShowWalletModal(true);
-                        }}
-                        className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
-                      >
-                        {profile?.wallet_address ? 'Alterar' : 'Cadastrar'}
-                      </button>
-                    </div>
-                    
-                    {profile?.wallet_address ? (
-                      <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
-                        <p className="text-[10px] font-mono text-zinc-400 truncate pr-4">
-                          {profile.wallet_address}
-                        </p>
-                        <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
-                          <Check size={12} />
-                        </div>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setShowWalletModal(true)}
-                        className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
-                      >
-                        <Plus size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Carteira USDT</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* AirTM */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">E-mail AirTM</p>
-                      <button 
-                        onClick={() => {
-                          setNewAirTMEmail(profile?.airtm_email || '');
-                          setShowAirTMModal(true);
-                        }}
-                        className="text-[9px] font-black text-red-600 uppercase tracking-widest hover:text-red-500 transition-colors"
-                      >
-                        {profile?.airtm_email ? 'Alterar' : 'Cadastrar'}
-                      </button>
-                    </div>
-                    
-                    {profile?.airtm_email ? (
-                      <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between group">
-                        <p className="text-[10px] text-zinc-400 truncate pr-4">
-                          {profile.airtm_email}
-                        </p>
-                        <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-white transition-colors">
-                          <Check size={12} />
-                        </div>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setShowAirTMModal(true)}
-                        className="w-full py-4 border-2 border-dashed border-zinc-800 rounded-2xl flex items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 hover:border-zinc-700 transition-all"
-                      >
-                        <Plus size={16} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Adicionar E-mail AirTM</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Claim Earnings Section */}
+              <div className="flex flex-col gap-6">
+                {/* Pending Earnings (Current/Active) */}
                 {pendingEarnings > 0 && (
-                  <div className="mt-4 p-5 bg-red-600/10 border border-red-600/20 rounded-3xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="p-6 bg-red-600/10 border border-red-600/20 rounded-[32px] flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">Ganhos de Conteúdo</p>
-                        <p className="text-xl font-black text-white mt-0.5">${pendingEarnings.toFixed(2)} <span className="text-[10px] text-zinc-500 font-bold uppercase">USD Pendentes</span></p>
+                        <p className="text-[9px] font-black text-red-600 uppercase tracking-widest leading-none mb-1">Ganhos Pendentes</p>
+                        <p className="text-3xl font-black text-white tracking-tighter">
+                          ${pendingEarnings.toFixed(2)}
+                        </p>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-red-600/20 flex items-center justify-center text-red-600">
-                        <TrendingUp size={20} />
+                      <div className="w-12 h-12 rounded-2xl bg-red-600/20 flex items-center justify-center text-red-600 border border-red-600/30">
+                        <TrendingUp size={24} />
                       </div>
                     </div>
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 text-white rounded-xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
+                      className="w-full py-4 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
                     >
                       {claiming ? <Loader2 size={14} className="animate-spin" /> : <Coins size={14} />}
-                      Resgatar para a Carteira
+                      Resgatar para o meu Saldo
                     </button>
                   </div>
                 )}
+
+                {/* Redeemable Balance (Already Claimed) */}
+                <div className="flex items-center justify-between p-2">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Saldo de Resgate</p>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-4xl font-black text-white tracking-tighter">
+                        {profile.redeemable_balance?.toFixed(0) || '0'}
+                      </h3>
+                      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">AngoCoins</span>
+                    </div>
+                    <p className="text-[10px] font-bold text-zinc-400">
+                      Disponível para saque: <span className="text-red-500 font-black">${((profile.redeemable_balance || 0) / 100).toFixed(2)} USD</span>
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowWithdrawModal(true)}
+                    className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white active:scale-95 transition-all shadow-xl"
+                  >
+                    <Download size={24} />
+                  </button>
+                </div>
               </div>
-            </div>
+            </section>
+
+            {/* 2. Wallet & AirTM Section (Minimalist Rows) */}
+            <section className="space-y-6 pt-4 border-t border-zinc-900/50">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Métodos de Recebimento</h2>
+                <div className="h-0.5 w-8 bg-zinc-800 rounded-full" />
+              </div>
+
+              <div className="space-y-4">
+                {/* USDT Row */}
+                <div 
+                  onClick={() => {
+                    setNewWalletAddress(profile?.wallet_address || '');
+                    setShowWalletModal(true);
+                  }}
+                  className="group flex items-center justify-between p-5 bg-zinc-900/30 border border-zinc-900 rounded-[28px] hover:bg-zinc-900/50 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-red-600 transition-colors">
+                      <Wallet size={20} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">USDT (BEP-20)</span>
+                      <span className="text-[9px] text-zinc-500 font-bold truncate max-w-[150px]">
+                        {profile?.wallet_address ? profile.wallet_address : 'Não configurado'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-zinc-800 group-hover:text-zinc-600 transition-colors" />
+                </div>
+
+                {/* AirTM Row */}
+                <div 
+                  onClick={() => {
+                    setNewAirTMEmail(profile?.airtm_email || '');
+                    setShowAirTMModal(true);
+                  }}
+                  className="group flex items-center justify-between p-5 bg-zinc-900/30 border border-zinc-900 rounded-[28px] hover:bg-zinc-900/50 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-red-600 transition-colors">
+                      <Download size={20} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">AirTM</span>
+                      <span className="text-[9px] text-zinc-500 font-bold">
+                        {profile?.airtm_email ? profile.airtm_email : 'Não configurado'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-zinc-800 group-hover:text-zinc-600 transition-colors" />
+                </div>
+              </div>
+            </section>
+
+            {/* 3. Gift Balance Section */}
+            <section className="space-y-6 pt-4 border-t border-zinc-900/50">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo para Presentes</h2>
+                <div className="h-0.5 w-8 bg-amber-500 rounded-full" />
+              </div>
+
+              <div className="bg-zinc-950 p-8 rounded-[40px] border border-zinc-900 flex flex-col gap-8 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-5xl font-black text-white tracking-tighter">
+                        {profile.balance?.toFixed(0) || '0'}
+                      </h3>
+                      <span className="text-xs font-black text-amber-500 uppercase tracking-widest">AC</span>
+                    </div>
+                    <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none">AngoCoins para enviar gifts</p>
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+                    <Coins size={28} />
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button 
+                    onClick={handleOpenExternalDeposit}
+                    className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-black"
+                  >
+                    <ArrowUpCircle size={16} />
+                    Carregar Saldo
+                  </button>
+                  <button 
+                    onClick={() => setShowWithdrawModal(true)}
+                    className="flex-1 py-4 bg-zinc-900 text-zinc-400 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-zinc-800 shadow-xl active:scale-95 transition-all"
+                  >
+                    Levantar
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
