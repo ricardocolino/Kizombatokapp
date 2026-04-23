@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { Heart, MessageCircle, Share2, Repeat, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -45,6 +45,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [isLoading, setIsLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
   const [uiVisible, setUiVisible] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
@@ -200,6 +203,30 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       video.removeEventListener('canplay', handleCanPlay);
     };
   }, []);
+
+  const handleScrubStart = () => {
+    setIsScrubbing(true);
+  };
+
+  const handleScrubMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isScrubbing || !videoRef.current || !duration) return;
+    const rect = scrubRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    setCurrentTime(progress * duration);
+  };
+
+  const handleScrubEnd = () => {
+    if (videoRef.current && isScrubbing) {
+      videoRef.current.currentTime = currentTime;
+      setIsScrubbing(false);
+      if (!isPaused) handlePlay();
+    }
+  };
+
+  const scrubRef = useRef<HTMLDivElement>(null);
 
   const fetchComments = async () => {
     const cacheKey = `post_comments_${post.id}`;
@@ -551,7 +578,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           onClick={() => toggleCommentLike(c.id, !!c.liked_by_me)}
           className="flex flex-col items-center gap-0.5 pt-1.5 group/like"
         >
-          <Heart 
+          <ThumbsUp 
             size={16} 
             className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-700 hover:text-zinc-500'}`} 
           />
@@ -576,6 +603,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             muted={isMuted}
             playsInline
             preload="auto"
+            onTimeUpdate={() => {
+              if (videoRef.current && !isScrubbing) {
+                setCurrentTime(videoRef.current.currentTime);
+              }
+            }}
+            onLoadedMetadata={() => {
+              if (videoRef.current) {
+                setDuration(videoRef.current.duration);
+              }
+            }}
             onLoadStart={() => setIsLoading(true)}
             onWaiting={() => setIsLoading(true)}
             onPlaying={() => setIsLoading(false)}
@@ -676,7 +713,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
           <button onClick={toggleLike} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-              <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
           </button>
@@ -713,23 +750,48 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         </div>
       )}
 
-      {/* Caption Area */}
-      {uiVisible && (
-        <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
-          <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
-            <span 
-              onClick={() => onNavigateToProfile(post.user_id)}
-              className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
-            >
-              {post.profiles?.name || `@${post.profiles?.username}`}
-              <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
-            </span>
-          </h3>
-          <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
-            {post.content}
-          </p>
-        </div>
-      )}
+        {/* Caption Area */}
+        {uiVisible && (
+          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
+            <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
+              <span 
+                onClick={() => onNavigateToProfile(post.user_id)}
+                className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
+              >
+                {post.profiles?.name || `@${post.profiles?.username}`}
+                <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
+              </span>
+            </h3>
+            <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
+              {post.content}
+            </p>
+          </div>
+        )}
+
+        {/* Progress Bar Container */}
+        {uiVisible && duration > 0 && (
+          <div 
+            className="absolute bottom-0 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
+            onTouchStart={handleScrubStart}
+            onTouchMove={handleScrubMove}
+            onTouchEnd={handleScrubEnd}
+            onMouseDown={handleScrubStart}
+            onMouseMove={handleScrubMove}
+            onMouseUp={handleScrubEnd}
+            onMouseLeave={handleScrubEnd}
+          >
+            <div ref={scrubRef} className="w-full h-1.5 bg-white/20 relative overflow-hidden group hover:h-2 transition-all">
+              <div 
+                className="absolute top-0 left-0 h-full bg-red-600 transition-all"
+                style={{ width: `${(currentTime / duration) * 100}%` }}
+              />
+              <div 
+                className={`absolute top-1/2 -translate-y-1/2 h-3 w-3 bg-white rounded-full transition-opacity ${isScrubbing ? 'opacity-100' : 'opacity-0 focus:opacity-100 group-hover:opacity-100'}`}
+                style={{ left: `calc(${(currentTime / duration) * 100}% - 6px)` }}
+              />
+            </div>
+          </div>
+        )}
 
       {/* Professional Comments Drawer */}
       {showComments && (

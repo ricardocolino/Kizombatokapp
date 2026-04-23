@@ -42,10 +42,12 @@ const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
-  const [liveNotification, setLiveNotification] = useState<{
-    hostName: string;
+  const [realtimeNotification, setRealtimeNotification] = useState<{
+    userName: string;
     avatarUrl: string;
-    liveId: string;
+    type: 'live' | 'post' | 'story';
+    targetId: string;
+    userId: string;
   } | null>(null);
 
   useEffect(() => {
@@ -92,12 +94,12 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Monitora notificações de live
+  // Monitora notificações em tempo real (lives, posts, stories)
   useEffect(() => {
     if (!user) return;
 
-    const livesChannel = supabase
-      .channel('live_start_notifications')
+    const subscription = supabase
+      .channel('realtime_notifications')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'lives' },
@@ -121,16 +123,85 @@ const App: React.FC = () => {
               .single();
 
             if (profile) {
-              setLiveNotification({
-                hostName: profile.name || `@${profile.username}`,
+              setRealtimeNotification({
+                userName: profile.name || `@${profile.username}`,
                 avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${live.host_id}/100/100`,
-                liveId: live.id
+                type: 'live',
+                targetId: live.id,
+                userId: live.host_id
               });
               
-              // Esconder após 8 segundos
-              setTimeout(() => {
-                setLiveNotification(null);
-              }, 8000);
+              setTimeout(() => setRealtimeNotification(null), 8000);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'posts' },
+        async (payload) => {
+          const post = payload.new;
+          if (post.user_id === user.id) return;
+
+          const { data: follow } = await supabase
+            .from('follows')
+            .select('*')
+            .eq('follower_id', user.id)
+            .eq('following_id', post.user_id)
+            .single();
+
+          if (follow) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, username, avatar_url')
+              .eq('id', post.user_id)
+              .single();
+
+            if (profile) {
+              setRealtimeNotification({
+                userName: profile.name || `@${profile.username}`,
+                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${post.user_id}/100/100`,
+                type: 'post',
+                targetId: post.id,
+                userId: post.user_id
+              });
+              
+              setTimeout(() => setRealtimeNotification(null), 8000);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'stories' },
+        async (payload) => {
+          const story = payload.new;
+          if (story.user_id === user.id) return;
+
+          const { data: follow } = await supabase
+            .from('follows')
+            .select('*')
+            .eq('follower_id', user.id)
+            .eq('following_id', story.user_id)
+            .single();
+
+          if (follow) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, username, avatar_url')
+              .eq('id', story.user_id)
+              .single();
+
+            if (profile) {
+              setRealtimeNotification({
+                userName: profile.name || `@${profile.username}`,
+                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${story.user_id}/100/100`,
+                type: 'story',
+                targetId: `story:${story.user_id}`,
+                userId: story.user_id
+              });
+              
+              setTimeout(() => setRealtimeNotification(null), 8000);
             }
           }
         }
@@ -138,7 +209,7 @@ const App: React.FC = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(livesChannel);
+      supabase.removeChannel(subscription);
     };
   }, [user]);
 
@@ -365,8 +436,8 @@ const App: React.FC = () => {
     <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
       {/* Live Notification Toast */}
       <AnimatePresence>
-        {liveNotification && (
-          <motion.div
+        {realtimeNotification && (
+          <motion.div 
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 16, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
@@ -374,31 +445,41 @@ const App: React.FC = () => {
           >
             <div 
               onClick={() => {
-                setActiveLiveId(liveNotification.liveId);
-                setLiveNotification(null);
+                if (realtimeNotification.type === 'live') {
+                  setActiveLiveId(realtimeNotification.targetId);
+                } else {
+                  handleNavigateToPost(realtimeNotification.targetId);
+                }
+                setRealtimeNotification(null);
                 setIsHosting(false);
               }}
-              className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-2xl pointer-events-auto active:scale-95 transition-transform"
+              className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-2xl pointer-events-auto active:scale-95 transition-transform w-full max-w-sm mx-auto"
             >
               <div className="relative shrink-0">
                 <img 
-                  src={parseMediaUrl(liveNotification.avatarUrl)} 
-                  className="w-12 h-12 rounded-full object-cover border-2 border-red-600" 
+                  src={parseMediaUrl(realtimeNotification.avatarUrl)} 
+                  className={`w-12 h-12 rounded-full object-cover border-2 ${realtimeNotification.type === 'live' ? 'border-red-600' : 'border-emerald-500'}`} 
                   referrerPolicy="no-referrer"
-                  alt={liveNotification.hostName}
+                  alt={realtimeNotification.userName}
                 />
-                <div className="absolute -bottom-1 -right-1 bg-red-600 rounded-full p-1 border-2 border-black">
-                  <Radio size={10} className="text-white" />
+                <div className={`absolute -bottom-1 -right-1 rounded-full p-1 border-2 border-black ${realtimeNotification.type === 'live' ? 'bg-red-600' : 'bg-emerald-500'}`}>
+                  {realtimeNotification.type === 'live' ? <Radio size={10} className="text-white" /> : <PlusSquare size={10} className="text-white" />}
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em] leading-none mb-1">Live Agora</p>
+                <p className={`text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1 ${realtimeNotification.type === 'live' ? 'text-red-600' : 'text-emerald-500'}`}>
+                  {realtimeNotification.type === 'live' ? 'Live Agora' : (realtimeNotification.type === 'story' ? 'Novo Story' : 'Novo Vídeo')}
+                </p>
                 <p className="text-sm font-bold text-white truncate">
-                  {liveNotification.hostName} <span className="text-white/60 font-medium lowercase">está em direto</span>
+                  {realtimeNotification.userName} <span className="text-white/60 font-medium lowercase">
+                    {realtimeNotification.type === 'live' ? 'está em direto' : (realtimeNotification.type === 'story' ? 'partilhou um story' : 'partilhou um vídeo')}
+                  </span>
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Assiste agora</p>
+                  <div className={`w-1 h-1 rounded-full animate-pulse ${realtimeNotification.type === 'live' ? 'bg-emerald-500' : 'bg-blue-400'}`} />
+                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                    {realtimeNotification.type === 'live' ? 'Assiste agora' : 'Espia agora'}
+                  </p>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40">
