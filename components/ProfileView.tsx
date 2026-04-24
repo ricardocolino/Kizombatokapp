@@ -383,12 +383,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   };
 
   const handleClaimEarnings = async () => {
-    if (pendingEarnings <= 0) return;
+    const earningsInCoins = Math.floor(pendingEarnings * 100);
+    if (earningsInCoins <= 0) return;
     
     setClaiming(true);
     try {
-      // Converter USD para AngoCoins (1 USD = 100 AngoCoins)
-      const earningsInCoins = Math.floor(pendingEarnings * 100);
       const newRedeemableBalance = (profile?.redeemable_balance || 0) + earningsInCoins;
       const { error } = await supabase
         .from('profiles')
@@ -856,7 +855,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
               <div className="flex flex-col gap-6">
                 {/* Pending Earnings (Current/Active) */}
-                {pendingEarnings > 0 && (
+                {pendingEarnings >= 0.01 && (
                   <div className="p-6 bg-red-600/10 border border-red-600/20 rounded-[32px] flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center justify-between">
                       <div>
