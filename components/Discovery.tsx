@@ -144,8 +144,8 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
-      if (!loading) {
-        setDisplayLimit(prev => prev + 10);
+      if (!loading && displayLimit < 100) {
+        setDisplayLimit(prev => Math.min(100, prev + 10));
       }
     }
   };

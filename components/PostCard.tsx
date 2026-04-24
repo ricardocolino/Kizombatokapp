@@ -11,7 +11,6 @@ import { parseMediaUrl } from '../services/mediaUtils';
 interface PostCardProps {
   post: Post;
   metadata: PostMetadata;
-  followingList: Profile[];
   onUpdateMetadata: (postId: string, updates: Partial<PostMetadata>) => void;
   onNavigateToProfile: (userId: string) => void;
   isMuted: boolean;
@@ -31,7 +30,6 @@ type EnhancedComment = Comment & {
 const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({ 
   post, 
   metadata, 
-  followingList, 
   onUpdateMetadata,
   onNavigateToProfile, 
   isMuted, 
@@ -401,26 +399,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
   };
 
-  const handleShareToUser = async (targetUserId: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      onRequireAuth?.();
-      return;
-    }
-
-    const shareMessage = `Olha este vídeo: ${window.location.origin}/post/${post.id}`;
-    
-    const { error } = await supabase.from('messages').insert({
-      sender_id: session.user.id,
-      receiver_id: targetUserId,
-      content: shareMessage
-    });
-
-    if (!error) {
-      alert('Vídeo partilhado com sucesso!');
-    }
-  };
-
   const handleCopyLink = () => {
     const link = `${window.location.origin}/post/${post.id}`;
     navigator.clipboard.writeText(link);
@@ -733,8 +711,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </button>
 
           <button onClick={toggleRepost} className="flex flex-col items-center group">
-            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-              <Repeat size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.reposted ? 'text-green-500' : 'text-white'}`} />
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110 relative flex items-center justify-center">
+              <Repeat size={28} className="sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all text-white" />
+              {metadata.reposted && (
+                <div className="absolute inset-0 flex items-center justify-center mb-1">
+                  <span className="text-[10px] sm:text-[14px] font-black text-white drop-shadow-md">✓</span>
+                </div>
+              )}
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>

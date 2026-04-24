@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { ChevronLeft } from 'lucide-react';
-import { Post, Profile } from '../types';
+import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
 
@@ -42,7 +42,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
-  const [followingList, setFollowingList] = useState<Profile[]>([]);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,25 +82,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let userLikes: Set<string> = new Set();
       let userFollows: Set<string> = new Set();
       let userReposts: Set<string> = new Set();
-      let currentFollowingList: Profile[] = [];
 
       if (currentUserId) {
-        const [likesRes, followsRes, followingListRes, userRepostsRes] = await Promise.all([
+        const [likesRes, followsRes, userRepostsRes] = await Promise.all([
           supabase.from('reactions').select('post_id').eq('user_id', currentUserId).in('post_id', postIds),
           supabase.from('follows').select('following_id').eq('follower_id', currentUserId).in('following_id', authorIds),
-          supabase.from('follows').select('following_id, profiles:following_id(*)').eq('follower_id', currentUserId),
           supabase.from('reposts').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
         ]);
 
         likesRes.data?.forEach(l => userLikes.add(l.post_id));
         followsRes.data?.forEach(f => userFollows.add(f.following_id));
         userRepostsRes.data?.forEach(r => userReposts.add(r.post_id));
-        
-        if (followingListRes.data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          currentFollowingList = followingListRes.data.map((f: any) => f.profiles).filter(Boolean);
-          setFollowingList(currentFollowingList);
-        }
       }
 
       // 4. Montar o mapa de metadados
@@ -397,7 +388,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             <PostCard 
               post={post} 
               metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-              followingList={followingList}
               onUpdateMetadata={handleUpdateMetadata}
               onNavigateToProfile={onNavigateToProfile} 
               isMuted={isMuted}
