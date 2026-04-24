@@ -63,7 +63,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     setIsLoading(true);
     setIsPlaying(false);
     if (videoRef.current) {
-      videoRef.current.load();
+      videoRef.current.currentTime = 0;
     }
   }, [mediaUrl]);
 
@@ -121,7 +121,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       // Se houve erro anterior, tentamos recarregar
       if (videoError) {
         setVideoError(false);
-        videoRef.current.load();
+        videoRef.current.currentTime = 0;
       }
 
       // Prioridade máxima: Tentar reproduzir imediatamente
@@ -640,7 +640,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 e.stopPropagation();
                 setVideoError(false);
                 if (videoRef.current) {
-                  videoRef.current.load();
+                  videoRef.current.currentTime = 0;
                   handlePlay();
                 }
               }}
