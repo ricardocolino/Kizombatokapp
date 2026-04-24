@@ -459,9 +459,10 @@ const App: React.FC = () => {
         {realtimeNotification && (
           <motion.div 
             key={`${realtimeNotification.type}-${realtimeNotification.targetId}`}
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
+            initial={{ y: -100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -100, opacity: 0, scale: 0.9 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
             className="fixed top-4 left-4 right-4 z-[9999] pointer-events-none flex justify-center"
           >
             <div 
@@ -474,37 +475,51 @@ const App: React.FC = () => {
                 setRealtimeNotification(null);
                 setIsHosting(false);
               }}
-              className="bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] pointer-events-auto active:scale-95 transition-transform w-full max-w-[400px] mx-auto"
+              className="group relative overflow-hidden bg-[#0A0A0A]/95 backdrop-blur-2xl border border-white/20 rounded-[24px] p-3.5 flex items-center gap-3.5 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.05)] pointer-events-auto active:scale-95 transition-all w-full max-w-[420px] mx-auto hover:bg-[#111]/95 cursor-pointer"
             >
+              {/* Background Accent Glow */}
+              <div className={`absolute top-0 left-0 w-1 h-full ${realtimeNotification.type === 'live' ? 'bg-red-600' : 'bg-emerald-500'} opacity-80`} />
+              
               <div className="relative shrink-0">
+                <div className={`absolute -inset-1 rounded-full blur-md opacity-40 animate-pulse ${realtimeNotification.type === 'live' ? 'bg-red-600' : 'bg-emerald-500'}`} />
                 <img 
                   src={parseMediaUrl(realtimeNotification.avatarUrl)} 
-                  className={`w-12 h-12 rounded-full object-cover border-2 ${realtimeNotification.type === 'live' ? 'border-red-600' : 'border-emerald-500'}`} 
+                  className={`relative w-14 h-14 rounded-full object-cover border-2 shadow-2xl ${realtimeNotification.type === 'live' ? 'border-red-600' : 'border-emerald-500'}`} 
                   referrerPolicy="no-referrer"
                   alt={realtimeNotification.userName}
                 />
-                <div className={`absolute -bottom-1 -right-1 rounded-full p-1 border-2 border-black ${realtimeNotification.type === 'live' ? 'bg-red-600' : 'bg-emerald-500'}`}>
-                  {realtimeNotification.type === 'live' ? <Radio size={10} className="text-white" /> : <PlusSquare size={10} className="text-white" />}
+                <div className={`absolute -bottom-1 -right-1 rounded-full p-1.5 border-2 border-[#0A0A0A] shadow-xl ${realtimeNotification.type === 'live' ? 'bg-red-600' : 'bg-emerald-500'}`}>
+                  {realtimeNotification.type === 'live' ? (
+                    <Radio size={12} className="text-white animate-pulse" />
+                  ) : (
+                    <PlusSquare size={12} className="text-white" />
+                  )}
                 </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1 ${realtimeNotification.type === 'live' ? 'text-red-600' : 'text-emerald-500'}`}>
-                  {realtimeNotification.type === 'live' ? 'Live Agora' : (realtimeNotification.type === 'story' ? 'Novo Story' : 'Novo Vídeo')}
-                </p>
-                <p className="text-sm font-bold text-white truncate">
-                  {realtimeNotification.userName} <span className="text-white/60 font-medium lowercase">
-                    {realtimeNotification.type === 'live' ? 'está em direto' : (realtimeNotification.type === 'story' ? 'partilhou um story' : 'partilhou um vídeo')}
-                  </span>
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className={`w-1 h-1 rounded-full animate-pulse ${realtimeNotification.type === 'live' ? 'bg-emerald-500' : 'bg-blue-400'}`} />
-                  <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                    {realtimeNotification.type === 'live' ? 'Assiste agora' : 'Espia agora'}
-                  </p>
+
+              <div className="flex-1 min-w-0 py-0.5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${realtimeNotification.type === 'live' ? 'bg-red-600/10 text-red-500 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                    {realtimeNotification.type === 'live' ? 'Ao Vivo' : (realtimeNotification.type === 'story' ? 'Story' : 'Novo Post')}
+                  </div>
+                  {realtimeNotification.type === 'live' && (
+                    <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                      <div className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
+                      <span className="text-[8px] font-black text-white/40 uppercase tracking-tighter">Direto</span>
+                    </div>
+                  )}
                 </div>
+                
+                <p className="text-[15px] font-bold text-white leading-tight truncate">
+                  {realtimeNotification.userName}
+                </p>
+                <p className="text-[13px] text-zinc-400 font-medium leading-tight truncate mt-0.5 flex items-center gap-1">
+                  {realtimeNotification.type === 'live' ? 'entrou em direto agora mesmo' : (realtimeNotification.type === 'story' ? 'acabou de publicar um story' : 'acabou de publicar um vídeo')}
+                </p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40">
-                <Bell size={20} />
+
+              <div className="w-11 h-11 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/30 group-hover:bg-white/[0.08] group-hover:text-white/60 transition-colors">
+                <ChevronRight size={20} />
               </div>
             </div>
           </motion.div>
