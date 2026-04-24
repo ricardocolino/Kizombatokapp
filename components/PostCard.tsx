@@ -63,7 +63,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     setIsLoading(true);
     setIsPlaying(false);
     if (videoRef.current) {
-      videoRef.current.currentTime = 0;
+      if (videoRef.current.readyState >= 1) {
+        videoRef.current.currentTime = 0;
+      }
     }
   }, [mediaUrl]);
 
@@ -117,11 +119,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [post.id, post.user_id]);
 
   const handlePlay = React.useCallback(() => {
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.paused) {
       // Se houve erro anterior, tentamos recarregar
       if (videoError) {
         setVideoError(false);
-        videoRef.current.currentTime = 0;
+        if (videoRef.current.readyState >= 1) {
+          videoRef.current.currentTime = 0;
+        }
       }
 
       // Prioridade máxima: Tentar reproduzir imediatamente
@@ -153,7 +157,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !isPaused) {
-            // Prioridade máxima: Tentar reproduzir assim que houver interseção
             handlePlay();
           } else {
             handlePause();
@@ -161,7 +164,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         });
       },
       { 
-        threshold: [0.1, 0.5, 0.9], // Múltiplos pontos de verificação
+        threshold: 0.6, 
         rootMargin: '0px' 
       }
     );
@@ -580,7 +583,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             loop
             muted={isMuted}
             playsInline
-            preload="auto"
+            preload="metadata"
             onTimeUpdate={() => {
               if (videoRef.current && !isScrubbing) {
                 setCurrentTime(videoRef.current.currentTime);
