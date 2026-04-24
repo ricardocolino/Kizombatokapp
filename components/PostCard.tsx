@@ -892,32 +892,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <button onClick={() => setShowShare(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
             </div>
 
-            {/* Share to Following */}
-            <div className="mb-8">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Enviar para amigos</p>
-              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
-                {followingList.map(friend => (
-                  <button 
-                    key={friend.id}
-                    onClick={() => handleShareToUser(friend.id)}
-                    className="flex flex-col items-center gap-2 shrink-0 group"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden group-active:scale-90 transition-transform">
-                      {friend.avatar_url ? (
-                        <img src={parseMediaUrl(friend.avatar_url)} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-zinc-600 font-black uppercase text-xs">{friend.name?.[0] || friend.username?.[0]}</div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-zinc-400 font-medium truncate w-14 text-center">{friend.name || friend.username}</span>
-                  </button>
-                ))}
-                {followingList.length === 0 && (
-                  <p className="text-[10px] text-zinc-600 italic">Segue alguém para partilhares vídeos diretamente!</p>
-                )}
-              </div>
-            </div>
-
             {/* Social Share Options */}
             <div className="grid grid-cols-4 gap-4 mb-8">
               <button onClick={() => handleSocialShare('whatsapp')} className="flex flex-col items-center gap-2 group">
