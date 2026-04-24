@@ -98,41 +98,43 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    const subscription = supabase
-      .channel('realtime_notifications')
+    console.log(">>> [REALTIME] Subscribing to notifications for user:", user.id);
+
+    const channel = supabase.channel(`notifications-${user.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'lives' },
         async (payload) => {
-          const live = payload.new;
-          if (live.host_id === user.id) return;
+          try {
+            const live = payload.new;
+            if (!live || live.host_id === user.id) return;
 
-          // Verificar se o utilizador segue o host
-          const { data: follow } = await supabase
-            .from('follows')
-            .select('*')
-            .eq('follower_id', user.id)
-            .eq('following_id', live.host_id)
-            .single();
+            const { data: follow } = await supabase
+              .from('follows')
+              .select('id')
+              .eq('follower_id', user.id)
+              .eq('following_id', live.host_id)
+              .maybeSingle();
 
-          if (follow) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('name, username, avatar_url')
-              .eq('id', live.host_id)
-              .single();
+            if (follow) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('name, username, avatar_url')
+                .eq('id', live.host_id)
+                .maybeSingle();
 
-            if (profile) {
-              setRealtimeNotification({
-                userName: profile.name || `@${profile.username}`,
-                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${live.host_id}/100/100`,
-                type: 'live',
-                targetId: live.id,
-                userId: live.host_id
-              });
-              
-              setTimeout(() => setRealtimeNotification(null), 8000);
+              if (profile) {
+                setRealtimeNotification({
+                  userName: profile.name || `@${profile.username}`,
+                  avatarUrl: profile.avatar_url || '',
+                  type: 'live',
+                  targetId: live.id,
+                  userId: live.host_id
+                });
+              }
             }
+          } catch (err) {
+            console.error("Error in live notification listener:", err);
           }
         }
       )
@@ -140,34 +142,36 @@ const App: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'posts' },
         async (payload) => {
-          const post = payload.new;
-          if (post.user_id === user.id) return;
+          try {
+            const post = payload.new;
+            if (!post || post.user_id === user.id) return;
 
-          const { data: follow } = await supabase
-            .from('follows')
-            .select('*')
-            .eq('follower_id', user.id)
-            .eq('following_id', post.user_id)
-            .single();
+            const { data: follow } = await supabase
+              .from('follows')
+              .select('id')
+              .eq('follower_id', user.id)
+              .eq('following_id', post.user_id)
+              .maybeSingle();
 
-          if (follow) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('name, username, avatar_url')
-              .eq('id', post.user_id)
-              .single();
+            if (follow) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('name, username, avatar_url')
+                .eq('id', post.user_id)
+                .maybeSingle();
 
-            if (profile) {
-              setRealtimeNotification({
-                userName: profile.name || `@${profile.username}`,
-                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${post.user_id}/100/100`,
-                type: 'post',
-                targetId: post.id,
-                userId: post.user_id
-              });
-              
-              setTimeout(() => setRealtimeNotification(null), 8000);
+              if (profile) {
+                setRealtimeNotification({
+                  userName: profile.name || `@${profile.username}`,
+                  avatarUrl: profile.avatar_url || '',
+                  type: 'post',
+                  targetId: post.id,
+                  userId: post.user_id
+                });
+              }
             }
+          } catch (err) {
+            console.error("Error in post notification listener:", err);
           }
         }
       )
@@ -175,43 +179,59 @@ const App: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'stories' },
         async (payload) => {
-          const story = payload.new;
-          if (story.user_id === user.id) return;
+          try {
+            const story = payload.new;
+            if (!story || story.user_id === user.id) return;
 
-          const { data: follow } = await supabase
-            .from('follows')
-            .select('*')
-            .eq('follower_id', user.id)
-            .eq('following_id', story.user_id)
-            .single();
+            const { data: follow } = await supabase
+              .from('follows')
+              .select('id')
+              .eq('follower_id', user.id)
+              .eq('following_id', story.user_id)
+              .maybeSingle();
 
-          if (follow) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('name, username, avatar_url')
-              .eq('id', story.user_id)
-              .single();
+            if (follow) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('name, username, avatar_url')
+                .eq('id', story.user_id)
+                .maybeSingle();
 
-            if (profile) {
-              setRealtimeNotification({
-                userName: profile.name || `@${profile.username}`,
-                avatarUrl: profile.avatar_url || `https://picsum.photos/seed/${story.user_id}/100/100`,
-                type: 'story',
-                targetId: `story:${story.user_id}`,
-                userId: story.user_id
-              });
-              
-              setTimeout(() => setRealtimeNotification(null), 8000);
+              if (profile) {
+                setRealtimeNotification({
+                  userName: profile.name || `@${profile.username}`,
+                  avatarUrl: profile.avatar_url || '',
+                  type: 'story',
+                  targetId: `story:${story.user_id}`,
+                  userId: story.user_id
+                });
+              }
             }
+          } catch (err) {
+            console.error("Error in story notification listener:", err);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`>>> [REALTIME] Notifications status: ${status}`);
+      });
 
     return () => {
-      supabase.removeChannel(subscription);
+      console.log(">>> [REALTIME] Unsubscribing notifications");
+      supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Efeito para limpar notificações automaticamente
+  useEffect(() => {
+    if (!realtimeNotification) return;
+
+    const timer = setTimeout(() => {
+      setRealtimeNotification(null);
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, [realtimeNotification]);
 
   // Monitora notificações quando o utilizador está logado
   useEffect(() => {
@@ -434,14 +454,15 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
-      {/* Live Notification Toast */}
-      <AnimatePresence>
+      {/* Global Realtime Notification Toast */}
+      <AnimatePresence mode="wait">
         {realtimeNotification && (
           <motion.div 
+            key={`${realtimeNotification.type}-${realtimeNotification.targetId}`}
             initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 16, opacity: 1 }}
+            animate={{ y: 0, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="fixed top-0 left-4 right-4 z-[1000] pointer-events-none"
+            className="fixed top-4 left-4 right-4 z-[9999] pointer-events-none flex justify-center"
           >
             <div 
               onClick={() => {
@@ -453,7 +474,7 @@ const App: React.FC = () => {
                 setRealtimeNotification(null);
                 setIsHosting(false);
               }}
-              className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-2xl pointer-events-auto active:scale-95 transition-transform w-full max-w-sm mx-auto"
+              className="bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] pointer-events-auto active:scale-95 transition-transform w-full max-w-[400px] mx-auto"
             >
               <div className="relative shrink-0">
                 <img 
