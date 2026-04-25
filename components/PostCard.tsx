@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, Volume2, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -983,11 +983,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         </div>
       )}
 
-      <div className="absolute top-0 left-0 w-full p-5 pt-12 flex justify-end items-start bg-gradient-to-b from-black/70 to-transparent z-30 pointer-events-none">
-        <button onClick={onToggleMute} className="p-3 bg-black/30 backdrop-blur-2xl rounded-2xl text-white border border-white/10 pointer-events-auto hover:bg-black/50 transition-colors">
-          {isMuted ? <VolumeX size={20}/> : <Volume2 size={20}/>}
-        </button>
-      </div>
+      {isMuted && (
+        <div className="absolute top-0 left-0 w-full p-5 pt-12 flex justify-end items-start bg-gradient-to-b from-black/70 to-transparent z-30 pointer-events-none">
+          <button onClick={onToggleMute} className="p-3 bg-black/30 backdrop-blur-2xl rounded-2xl text-white border border-white/10 pointer-events-auto hover:bg-black/50 transition-colors">
+            <VolumeX size={20}/>
+          </button>
+        </div>
+      )}
     </div>
   );
 });
