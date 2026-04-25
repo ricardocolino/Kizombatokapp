@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Coins, Loader2, AlertCircle } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Flower2, Heart, Star, Flame, Trophy, Gem } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -736,9 +736,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {!metadata.isOwnPost && (
             <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
               <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-amber-500 drop-shadow-xl" />
+                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
               </div>
-              <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase drop-shadow-md tracking-widest">Presente</span>
+              <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Presente</span>
             </button>
           )}
         </div>
@@ -954,17 +954,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
 
             <div className="grid grid-cols-3 gap-4 mb-8">
-              {[1, 5, 10, 20, 50, 100].map(amount => (
+              {[
+                { amount: 1, icon: <Flower2 size={20} />, label: 'Flor' },
+                { amount: 5, icon: <Heart size={20} />, label: 'Coração' },
+                { amount: 10, icon: <Star size={20} />, label: 'Estrela' },
+                { amount: 20, icon: <Flame size={20} />, label: 'Fogo' },
+                { amount: 50, icon: <Trophy size={20} />, label: 'Troféu' },
+                { amount: 100, icon: <Gem size={20} />, label: 'Diamante' }
+              ].map(({ amount, icon, label }) => (
                 <button 
                   key={amount}
                   onClick={() => handleSendGift(amount)}
                   disabled={sendingGift}
-                  className="flex flex-col items-center gap-3 p-4 bg-zinc-900/50 border border-zinc-800 rounded-3xl hover:border-amber-500/50 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex flex-col items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-2xl hover:border-amber-500/50 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
-                    <Coins size={20} />
+                    {icon}
                   </div>
-                  <span className="text-xs font-black text-white">{amount} AC</span>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-black text-white uppercase tracking-tighter">{label}</span>
+                    <span className="text-[9px] font-bold text-amber-500 uppercase">{amount} AC</span>
+                  </div>
                 </button>
               ))}
             </div>
