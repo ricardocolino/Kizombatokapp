@@ -42,6 +42,8 @@
             scroll-snap-align: start;
             scroll-snap-stop: always;
             height: 100%; /* Ajustado de 100vh para 100% para caber no main do App.tsx */
+            contain: content;
+            will-change: transform;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;

@@ -83,8 +83,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePause = React.useCallback(() => {
+    if (playTimeoutRef.current) {
+      clearTimeout(playTimeoutRef.current);
+      playTimeoutRef.current = null;
+    }
     if (videoRef.current) {
       videoRef.current.pause();
     }
@@ -157,20 +162,29 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !isPaused) {
-            handlePlay();
+            // Debounce playback: only play if visible for 150ms
+            // This prevents "clumping" during fast scrolls
+            if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+            playTimeoutRef.current = setTimeout(() => {
+              handlePlay();
+              playTimeoutRef.current = null;
+            }, 150);
           } else {
             handlePause();
           }
         });
       },
       { 
-        threshold: 0.6, 
+        threshold: 0.7, // Higher threshold for more intentional landing
         rootMargin: '0px' 
       }
     );
 
     if (containerRef.current) observerRef.current.observe(containerRef.current);
-    return () => observerRef.current?.disconnect();
+    return () => {
+      observerRef.current?.disconnect();
+      if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+    };
   }, [handlePlay, handlePause, isPaused]);
 
   useEffect(() => {
@@ -183,24 +197,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const video = videoRef.current;
     if (!video) return;
 
-    const handleCanPlay = () => {
-      // Se o observer já marcou como visível mas o vídeo não estava pronto, tentamos agora
-      if (observerRef.current && containerRef.current) {
-        // Verificação manual rápida de visibilidade se necessário
-      }
-    }
+    const handlePlaying = () => setIsPlaying(true);
+    const handlePauseEvent = () => setIsPlaying(false);
+    const handleCanPlay = () => setIsLoading(false);
 
-    video.addEventListener('playing', () => {
-      setIsPlaying(true);
-    });
-    video.addEventListener('pause', () => {
-      setIsPlaying(false);
-    });
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('pause', handlePauseEvent);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('waiting', () => setIsLoading(true));
 
     return () => {
-      video.removeEventListener('playing', () => setIsPlaying(true));
-      video.removeEventListener('pause', () => setIsPlaying(false));
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('pause', handlePauseEvent);
       video.removeEventListener('canplay', handleCanPlay);
     };
   }, []);
@@ -572,7 +580,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden">
+    <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden will-change-transform">
       {/* Video Content */}
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
           <video
