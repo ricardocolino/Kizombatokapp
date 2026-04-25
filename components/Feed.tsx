@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, PlusSquare } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -124,11 +124,15 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }));
   }, []);
 
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const fetchPosts = React.useCallback(async (isNextPage = false) => {
     try {
       if (!isNextPage) {
         setLoading(true);
         setError(null);
+      } else {
+        setLoadingMore(true);
       }
       
       const currentPage = isNextPage ? pageRef.current + 1 : 0;
@@ -248,7 +252,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const message = error instanceof Error ? error.message : 'Erro ao carregar os vídeos. Verifica a tua ligação.';
       setError(message);
     } finally {
-      if (!isNextPage) setTimeout(() => setLoading(false), 800);
+      if (!isNextPage) {
+        setTimeout(() => setLoading(false), 800);
+      } else {
+        setLoadingMore(false);
+      }
     }
   }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter]);
 
@@ -257,18 +265,16 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     setDisplayLimit(20); // Reset limit when feed type or initial post changes
   }, [initialPostId, feedType, user, fetchPosts, feedFilter]);
 
-  // Intersection Observer for Infinite Scroll
+  // Intersection Observer for Infinite Scroll - Only for internal displayLimit
   useEffect(() => {
     if (loading || displayLimit >= posts.length) {
-      if (!loading && hasMore && displayLimit >= posts.length) {
-        fetchPosts(true);
-      }
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
+          // Increment limit internally, but don't fetch from network
           setDisplayLimit(prev => Math.min(prev + 20, posts.length));
         }
       },
@@ -283,7 +289,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
 
     return () => observer.disconnect();
-  }, [loading, displayLimit, posts.length, hasMore, fetchPosts]);
+  }, [loading, displayLimit, posts.length]);
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
@@ -400,7 +406,36 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </div>
         ))}
         
-        {/* Sentinel invisível para carregar mais sem interromper o scroll */}
+        {/* Ver mais vídeos Button - Every 50 videos limit */}
+        {displayLimit >= posts.length && hasMore && !loading && (
+          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-6 px-10 text-center snap-start">
+            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center text-white shadow-2xl border border-zinc-800">
+              <PlusSquare size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black uppercase tracking-tighter">Chegaste ao fim da banda?</h3>
+              <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest leading-loose">
+                Vimos os primeiros {posts.length} vídeos. <br/> Queres ver o que mais está a bater?
+              </p>
+            </div>
+            <button 
+              onClick={() => fetchPosts(true)}
+              disabled={loadingMore}
+              className="mt-4 bg-white text-black px-12 py-4 rounded-full font-black uppercase text-xs tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3"
+            >
+              {loadingMore ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                'Ver mais vídeos'
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Sentinel invisível para carregar internamente os posts já baixados */}
         {displayLimit < posts.length && (
           <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center bg-black">
             <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
