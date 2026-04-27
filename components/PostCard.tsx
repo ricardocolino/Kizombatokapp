@@ -125,6 +125,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handlePlay = React.useCallback(() => {
     if (videoRef.current && videoRef.current.paused) {
+      // Activa o som automaticamente ao dar autoplay, se estiver mutado
+      if (isMuted) {
+        onToggleMute();
+      }
+
       // Se houve erro anterior, tentamos recarregar
       if (videoError) {
         setVideoError(false);
@@ -155,7 +160,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         });
       }
     }
-  }, [videoError, incrementView]);
+  }, [videoError, incrementView, isMuted, onToggleMute]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
