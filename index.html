@@ -36,14 +36,17 @@
         .feed-container {
             scroll-snap-type: y mandatory;
             overflow-y: scroll;
-            height: 100%; /* Ajustado de 100vh para 100% para respeitar o flex container */
+            height: 100%;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
         }
         .feed-item {
             scroll-snap-align: start;
             scroll-snap-stop: always;
-            height: 100%; /* Ajustado de 100vh para 100% para caber no main do App.tsx */
-            contain: content;
+            height: 100%;
+            contain: strict;
             will-change: transform;
+            user-select: none;
         }
         .no-scrollbar::-webkit-scrollbar {
             display: none;

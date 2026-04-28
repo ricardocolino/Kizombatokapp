@@ -47,6 +47,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
 
+  const [isNearScreen, setIsNearScreen] = useState(false);
+  const [isFullyVisible, setIsFullyVisible] = useState(false);
+
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
@@ -66,8 +69,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (videoRef.current.readyState >= 1) {
         videoRef.current.currentTime = 0;
       }
+      // Force stop buffering when URL changes or unmounts
+      if (!isNearScreen) {
+        videoRef.current.src = "";
+        videoRef.current.load();
+      } else {
+        videoRef.current.src = mediaUrl;
+      }
     }
-  }, [mediaUrl]);
+  }, [mediaUrl, isNearScreen]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
@@ -92,13 +102,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
     if (videoRef.current) {
       videoRef.current.pause();
+      // Optimization: if not near screen anymore, release resources
+      if (!isNearScreen) {
+        videoRef.current.src = "";
+        videoRef.current.load();
+      }
     }
     setIsPlaying(false);
     if (viewTimeoutRef.current) {
       clearTimeout(viewTimeoutRef.current);
       viewTimeoutRef.current = null;
     }
-  }, []);
+  }, [isNearScreen]);
 
   const incrementView = React.useCallback(async () => {
     if (viewCountedRef.current) return;
@@ -163,30 +178,48 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [videoError, incrementView, isMuted, onToggleMute]);
 
   useEffect(() => {
+    // Observer for "Near Screen" (Preloading)
+    const nearObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsNearScreen(entry.isIntersecting);
+        });
+      },
+      { rootMargin: '400px' } // Preload when 400px away
+    );
+
+    // Observer for "Visibility" (Playing)
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isPaused) {
-            // Debounce playback: only play if visible for 150ms
-            // This prevents "clumping" during fast scrolls
+          const visible = entry.isIntersecting && entry.intersectionRatio >= 0.6;
+          setIsFullyVisible(visible);
+          
+          if (visible && !isPaused) {
+            // Debounce playback more aggressively during fast scrolls
             if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
             playTimeoutRef.current = setTimeout(() => {
               handlePlay();
               playTimeoutRef.current = null;
-            }, 150);
+            }, 250); // 250ms delay to confirm user stopped scrolling
           } else {
             handlePause();
           }
         });
       },
       { 
-        threshold: 0.7, // Higher threshold for more intentional landing
+        threshold: [0, 0.6, 0.7, 1.0],
         rootMargin: '0px' 
       }
     );
 
-    if (containerRef.current) observerRef.current.observe(containerRef.current);
+    if (containerRef.current) {
+      nearObserver.observe(containerRef.current);
+      observerRef.current.observe(containerRef.current);
+    }
+
     return () => {
+      nearObserver.disconnect();
       observerRef.current?.disconnect();
       if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
     };
@@ -588,20 +621,24 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden will-change-transform">
       {/* Video Content */}
       <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
-          <video
-            ref={videoRef}
-            src={mediaUrl}
-            className="w-full h-full object-cover"
-            style={{ filter: post.filter ? post.filter.split('|')[0] : undefined }}
-            loop
-            muted={isMuted}
-            playsInline
-            preload="metadata"
-            onTimeUpdate={() => {
-              if (videoRef.current && !isScrubbing) {
-                setCurrentTime(videoRef.current.currentTime);
-              }
-            }}
+          {isNearScreen && (
+            <video
+              ref={videoRef}
+              src={mediaUrl}
+              className="w-full h-full object-cover"
+              style={{ 
+                filter: post.filter ? post.filter.split('|')[0] : undefined,
+                opacity: isPlaying ? 1 : 0.9 // Visual feedback
+              }}
+              loop
+              muted={isMuted}
+              playsInline
+              preload={isFullyVisible ? "auto" : "metadata"}
+              onTimeUpdate={() => {
+                if (videoRef.current && !isScrubbing) {
+                  setCurrentTime(videoRef.current.currentTime);
+                }
+              }}
             onLoadedMetadata={() => {
               if (videoRef.current) {
                 setDuration(videoRef.current.duration);
@@ -613,7 +650,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onCanPlay={() => setIsLoading(false)}
             onError={(e) => {
               // Só marcamos erro se o src for válido e falhou mesmo
-              if (mediaUrl) {
+              if (mediaUrl && isNearScreen) {
                 console.error("Playback failed for URL:", mediaUrl, e);
                 setVideoError(true);
                 setIsLoading(false);
@@ -621,6 +658,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
           />
+          )}
+
+          {/* Placeholder/Poster when not near or loading */}
+          {(!isNearScreen || (!isPlaying && post.thumbnail_url)) && (
+            <div className="absolute inset-0 z-0">
+               <img 
+                 src={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : ''} 
+                 className="w-full h-full object-cover blur-[2px] opacity-50 transition-opacity duration-500"
+                 alt=""
+               />
+            </div>
+          )}
 
         {/* Text Overlay */}
         {post.text_overlay && (
