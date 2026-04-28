@@ -161,6 +161,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let query = supabase
         .from('posts')
         .select(`*, profiles!user_id (*)`)
+        .order('is_ready', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to);
 

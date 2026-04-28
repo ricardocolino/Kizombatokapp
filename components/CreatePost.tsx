@@ -796,6 +796,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initial
           thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
+          is_ready: true,
           views: 0,
           created_at: new Date().toISOString()
         });

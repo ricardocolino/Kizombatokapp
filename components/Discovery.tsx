@@ -119,6 +119,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           const { data } = await supabase
             .from('posts')
             .select('*, profiles!user_id(*)')
+            .order('is_ready', { ascending: false })
             .order('views', { ascending: false })
             .limit(limit);
 

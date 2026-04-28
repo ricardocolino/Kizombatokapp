@@ -24,6 +24,7 @@ export interface Post {
   text_overlay: string | null;
   filter: string | null;
   is_education: boolean;
+  is_ready: boolean;
   created_at: string;
   profiles?: Profile;
   _count?: {

@@ -138,6 +138,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       .from('posts')
       .select('*')
       .eq('user_id', userId)
+      .order('is_ready', { ascending: false })
       .order('created_at', { ascending: false })
       .range(from, to);
 
