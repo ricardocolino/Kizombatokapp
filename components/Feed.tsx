@@ -220,7 +220,28 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       if (error) throw error;
       
       let rawPosts = data || [];
-      setHasMore(rawPosts.length === PAGE_SIZE);
+      
+      // Se tivermos um initialPostId e for a primeira página, garantir que ele está nos posts
+      if (currentPage === 0 && initialPostId) {
+        const hasTarget = rawPosts.some(p => p.id === initialPostId);
+        if (!hasTarget) {
+          try {
+            const { data: targetData } = await supabase
+              .from('posts')
+              .select(`*, profiles!user_id (*)`)
+              .eq('id', initialPostId)
+              .maybeSingle(); // Usar maybeSingle para não disparar erro se não encontrar
+            
+            if (targetData) {
+              rawPosts = [targetData, ...rawPosts];
+            }
+          } catch (err) {
+            console.error("Erro ao buscar post alvo:", err);
+          }
+        }
+      }
+
+      setHasMore(rawPosts.length >= PAGE_SIZE);
 
       let sortedPosts = [...rawPosts];
       if (currentPage === 0) {
@@ -231,13 +252,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           }
         }
 
-        const firstFive = sortedPosts.slice(0, 5);
-        const remaining = sortedPosts.slice(5);
-        for (let i = remaining.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+        // Se tivermos initialPostId, não vamos randomizar os primeiros posts para não perder o foco
+        const skipRandom = !!initialPostId;
+        
+        if (!skipRandom) {
+          const firstFive = sortedPosts.slice(0, 5);
+          const remaining = sortedPosts.slice(5);
+          for (let i = remaining.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+          }
+          sortedPosts = [...firstFive, ...remaining];
         }
-        sortedPosts = [...firstFive, ...remaining];
       }
 
       // BUSCAR METADADOS EM LOTE (Apenas para os novos posts)
