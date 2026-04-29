@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -893,110 +893,96 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
       {/* Dashboard Fullscreen View */}
       {showDashboard && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
           {/* Header */}
-          <header className="flex items-center px-6 h-20 border-b border-zinc-800 bg-black/50 backdrop-blur-xl sticky top-0 z-10">
+          <header className="flex items-center px-6 h-16 border-b border-zinc-100 bg-white sticky top-0 z-10 shrink-0">
             <button 
               onClick={() => setShowDashboard(false)}
-              className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors flex items-center gap-2"
+              className="p-2 -ml-2 text-zinc-900 transition-colors flex items-center gap-2"
             >
               <ChevronLeft size={24} />
-              <span className="text-xs font-black uppercase tracking-widest">Voltar</span>
+              <span className="text-xs font-black uppercase tracking-widest">Carteira</span>
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10 no-scrollbar pb-32">
-            {/* 1. Ganhos Section (Priority) */}
-            <section className="space-y-6">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Meus Ganhos</h2>
-                <div className="h-0.5 w-8 bg-red-600 rounded-full" />
-              </div>
-
-              <div className="flex flex-col gap-6">
-                {/* Pending Earnings (Current/Active) */}
-                {pendingEarnings >= 0.01 && (
-                  <div className="p-6 bg-red-600/10 border border-red-600/20 rounded-[32px] flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[9px] font-black text-red-600 uppercase tracking-widest leading-none mb-1">Ganhos Pendentes</p>
-                        <p className="text-3xl font-black text-white tracking-tighter">
-                          ${pendingEarnings.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="w-12 h-12 rounded-2xl bg-red-600/20 flex items-center justify-center text-red-600 border border-red-600/30">
-                        <TrendingUp size={24} />
-                      </div>
-                    </div>
+          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-12 no-scrollbar pb-32">
+            {/* 1. Ganhos Section */}
+            <section className="space-y-8">
+              <div className="pb-4 border-b border-zinc-100">
+                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Meus Ganhos</h2>
+                <div className="flex items-baseline justify-between mt-4">
+                  <div>
+                    <h3 className="text-4xl font-black tracking-tighter">
+                      ${pendingEarnings.toFixed(2)}
+                    </h3>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Pendentes por visualizações</p>
+                  </div>
+                  {pendingEarnings >= 0.01 && (
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="w-full py-4 bg-red-600 hover:bg-red-700 disabled:bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
+                      className="text-[11px] font-black underline uppercase tracking-widest"
                     >
-                      {claiming ? <Loader2 size={14} className="animate-spin" /> : <Coins size={14} />}
-                      Resgatar para o meu Saldo
+                      {claiming ? 'A Processar...' : 'Resgatar'}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
 
-                {/* Redeemable Balance (Already Claimed) */}
-                <div className="flex items-center justify-between p-2">
-                  <div className="space-y-1">
-                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Saldo de Resgate</p>
+              <div>
+                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo Disponível</h2>
+                <div className="flex items-baseline justify-between mt-4">
+                  <div>
                     <div className="flex items-baseline gap-2">
-                      <h3 className="text-4xl font-black text-white tracking-tighter">
-                        {profile.redeemable_balance?.toFixed(0) || '0'}
-                      </h3>
-                      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">AngoCoins</span>
+                       <h3 className="text-4xl font-black tracking-tighter">
+                         {profile.redeemable_balance?.toFixed(0) || '0'}
+                       </h3>
+                       <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
                     </div>
-                    <p className="text-[10px] font-bold text-zinc-400">
-                      Disponível para saque: <span className="text-red-500 font-black">${((profile.redeemable_balance || 0) / 100).toFixed(2)} USD</span>
+                    <p className="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-widest">
+                       Equivalente a <span className="text-black font-black">${((profile.redeemable_balance || 0) / 100).toFixed(2)} USD</span>
                     </p>
                   </div>
                   <button 
                     onClick={() => setShowWithdrawModal(true)}
-                    className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white active:scale-95 transition-all shadow-xl"
+                    className="h-10 w-10 flex items-center justify-center text-black border border-zinc-200 rounded-lg"
                   >
-                    <Download size={24} />
+                    <Download size={20} />
                   </button>
                 </div>
               </div>
             </section>
 
             {/* 2. Gift Balance Section */}
-            <section className="space-y-6 pt-4 border-t border-zinc-900/50">
+            <section className="space-y-6">
               <div className="flex flex-col gap-1">
-                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Saldo para Presentes</h2>
-                <div className="h-0.5 w-8 bg-amber-500 rounded-full" />
+                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo de Presentes</h2>
               </div>
 
-              <div className="bg-zinc-950 p-8 rounded-[40px] border border-zinc-900 flex flex-col gap-8 shadow-2xl">
+              <div className="py-6 border-y border-zinc-100">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-baseline gap-2">
-                      <h3 className="text-5xl font-black text-white tracking-tighter">
+                      <h3 className="text-4xl font-black tracking-tighter">
                         {profile.balance?.toFixed(0) || '0'}
                       </h3>
-                      <span className="text-xs font-black text-amber-500 uppercase tracking-widest">AC</span>
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
                     </div>
-                    <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none">AngoCoins para enviar gifts</p>
-                  </div>
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
-                    <Coins size={28} />
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Para enviares presentes à banda</p>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex gap-4 mt-8">
                   <button 
                     onClick={handleOpenExternalDeposit}
-                    className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-black"
+                    className="flex-1 h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
                   >
                     <ArrowUpCircle size={16} />
-                    Carregar Saldo
+                    Carregar
                   </button>
                   <button 
                     onClick={() => setShowWithdrawModal(true)}
-                    className="flex-1 py-4 bg-zinc-900 text-zinc-400 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-zinc-800 shadow-xl active:scale-95 transition-all"
+                    className="flex-1 h-14 border border-zinc-200 text-black rounded-xl font-black uppercase tracking-widest text-[10px]"
                   >
                     Levantar
                   </button>
@@ -1004,57 +990,50 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
             </section>
 
-            {/* 3. Wallet & AirTM Section (Minimalist Rows) - NOW LAST */}
-            <section className="space-y-6 pt-4 border-t border-zinc-900/50">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Métodos de Recebimento</h2>
-                <div className="h-0.5 w-8 bg-zinc-800 rounded-full" />
-              </div>
-
-              <div className="space-y-4">
-                {/* USDT Row */}
-                <div 
+            {/* 3. Métodos - List style */}
+            <section className="space-y-6">
+              <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Métodos de Recebimento</h2>
+              
+              <div className="divide-y divide-zinc-100 border-y border-zinc-100">
+                {/* USDT */}
+                <button 
                   onClick={() => {
                     setNewWalletAddress(profile?.wallet_address || '');
                     setShowWalletModal(true);
                   }}
-                  className="group flex items-center justify-between p-5 bg-zinc-900/30 border border-zinc-900 rounded-[28px] hover:bg-zinc-900/50 transition-all cursor-pointer"
+                  className="w-full flex items-center justify-between py-6 group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-red-600 transition-colors">
-                      <Wallet size={20} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-white uppercase tracking-widest">USDT (BEP-20)</span>
-                      <span className="text-[9px] text-zinc-500 font-bold truncate max-w-[150px]">
-                        {profile?.wallet_address ? profile.wallet_address : 'Não configurado'}
+                    <Wallet size={20} className="text-zinc-900" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-[12px] font-black uppercase tracking-widest">USDT (BEP-20)</span>
+                      <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">
+                        {profile?.wallet_address || 'Configurar endereço'}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight size={16} className="text-zinc-800 group-hover:text-zinc-600 transition-colors" />
-                </div>
+                  <ChevronRight size={18} className="text-zinc-300" />
+                </button>
 
-                {/* AirTM Row */}
-                <div 
+                {/* AirTM */}
+                <button 
                   onClick={() => {
                     setNewAirTMEmail(profile?.airtm_email || '');
                     setShowAirTMModal(true);
                   }}
-                  className="group flex items-center justify-between p-5 bg-zinc-900/30 border border-zinc-900 rounded-[28px] hover:bg-zinc-900/50 transition-all cursor-pointer"
+                  className="w-full flex items-center justify-between py-6 group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-blue-500 transition-colors">
-                      <Download size={20} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-white uppercase tracking-widest">AirTM</span>
-                      <span className="text-[9px] text-zinc-500 font-bold">
-                        {profile?.airtm_email ? profile.airtm_email : 'Não configurado'}
+                    <Download size={20} className="text-zinc-900" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-[12px] font-black uppercase tracking-widest">AirTM</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {profile?.airtm_email || 'Configurar e-mail'}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight size={16} className="text-zinc-800 group-hover:text-zinc-600 transition-colors" />
-                </div>
+                  <ChevronRight size={18} className="text-zinc-300" />
+                </button>
               </div>
             </section>
           </div>
@@ -1063,34 +1042,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
       {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
-        <div className="fixed inset-0 z-[200] bg-black flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <header className="h-20 bg-black border-b border-zinc-800 flex items-center px-6 shrink-0 gap-4 pt-4">
+        <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500 text-black">
+          <header className="h-20 bg-white border-b border-zinc-100 flex items-center px-6 shrink-0 gap-4 pt-4">
             <button 
               onClick={() => setShowExternalUrl(false)}
-              className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
+              className="w-12 h-12 rounded-xl bg-zinc-50 flex items-center justify-center text-black active:scale-90 transition-all border border-zinc-100"
             >
               <ChevronLeft size={28} />
             </button>
             <div className="flex flex-col">
-              <span className="text-sm font-black uppercase tracking-widest text-white">Carregar Angocoins</span>
+              <span className="text-sm font-black uppercase tracking-widest">Pagamento Seguro</span>
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
-                <span className="text-[10px] text-red-600 font-black uppercase tracking-tighter">Sistema Online</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
+                <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">AngoChat Payments</span>
               </div>
             </div>
           </header>
           
           <div className="flex-1 relative bg-white">
             {iframeLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-10">
-                <div className="relative w-20 h-20 mb-6">
-                  <div className="absolute inset-0 border-4 border-amber-500/10 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Coins className="text-amber-500 w-8 h-8 animate-bounce" />
-                  </div>
-                </div>
-                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] animate-pulse">A preparar pagamento seguro...</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
+                <Loader2 className="text-zinc-900 animate-spin mb-4" size={32} />
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest animate-pulse">A carregar gateway...</span>
               </div>
             )}
             <iframe 
@@ -1098,7 +1071,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               onLoad={() => setIframeLoading(false)}
               className="w-full h-full border-none"
               title="Carregar Angocoins"
-              // Permissões de topo para garantir que o NOWPayments consiga navegar e abrir o banco
               allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
               sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
             />
@@ -1109,33 +1081,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Deposit Modal */}
       {showDeposit && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowDeposit(false)} />
-          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowDeposit(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                    <ArrowUpCircle size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Carregar AngoCoins</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Aumenta o teu saldo na banda</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest">Carregar AngoCoins</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Escolhe o valor</p>
                 </div>
-                <button onClick={() => setShowDeposit(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setShowDeposit(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[40, 100, 500, 1000, 5000, 10000].map(amount => (
                   <button 
                     key={amount}
                     onClick={() => setDepositAmount(amount)}
-                    className={`py-4 rounded-2xl font-black text-[10px] transition-all border ${
+                    className={`py-4 rounded-xl font-black text-[10px] transition-all border ${
                       depositAmount === amount 
-                        ? 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-500/20' 
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        ? 'bg-black border-black text-white' 
+                        : 'bg-zinc-50 border-zinc-100 text-zinc-400 hover:border-zinc-200'
                     }`}
                   >
                     {amount} AC
@@ -1143,22 +1110,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 ))}
               </div>
 
-              <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex flex-col gap-2">
-                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total a Pagar</p>
+              <div className="py-6 border-y border-zinc-100 flex flex-col gap-2">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total a Pagar</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-black text-white">${(depositAmount / 100).toFixed(2)}</p>
-                  <p className="text-xs font-bold text-zinc-600 uppercase">USD</p>
+                  <p className="text-3xl font-black">${(depositAmount / 100).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-zinc-400 uppercase">USD</p>
                 </div>
-                <p className="text-[9px] text-zinc-700 font-medium mt-2">Pagamento seguro via Stripe / PayPal</p>
               </div>
 
               <button 
                 onClick={handleDeposit}
                 disabled={saving}
-                className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3"
+                className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3"
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                Confirmar Depósito
+                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar Depósito'}
               </button>
             </div>
           </div>
@@ -1313,49 +1278,38 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowWalletModal(false)} />
-          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowWalletModal(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600">
-                    <Wallet size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Configurar Carteira</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">USDT (Rede BEP-20)</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar Carteira</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">USDT (Rede BEP-20)</p>
                 </div>
-                <button onClick={() => setShowWalletModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setShowWalletModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Endereço da Carteira</label>
-                  <input 
-                    type="text" 
-                    value={newWalletAddress}
-                    onChange={(e) => setNewWalletAddress(e.target.value)}
-                    placeholder="Cola aqui o teu endereço BEP-20"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
-                  />
-                </div>
-                <div className="bg-red-600/5 border border-red-600/10 p-4 rounded-2xl">
-                  <p className="text-[9px] text-red-600/80 font-bold uppercase leading-relaxed">
-                    ⚠️ Atenção: Certifica-te que o endereço é da rede BEP-20 (Binance Smart Chain). Endereços errados resultam em perda permanente de fundos.
-                  </p>
-                </div>
+                <input 
+                  type="text" 
+                  value={newWalletAddress}
+                  onChange={(e) => setNewWalletAddress(e.target.value)}
+                  placeholder="Endereço BEP-20"
+                  className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300"
+                />
+                <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed">
+                  ⚠️ Certifica-te que o endereço é da rede BEP-20.
+                </p>
               </div>
 
               <button 
                 onClick={handleSaveWallet}
                 disabled={saving || !newWalletAddress.trim()}
-                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                Guardar Carteira
+                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar Carteira'}
               </button>
             </div>
           </div>
@@ -1365,79 +1319,65 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Withdraw Modal */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-[110] flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setShowWithdrawModal(false)} />
-          <div className="relative bg-zinc-950 border-t border-zinc-900 w-full rounded-t-[40px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowWithdrawModal(false)} />
+          <div className="relative bg-white border-t border-zinc-100 w-full rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 text-black">
             <div className="p-8 flex flex-col gap-8 pb-12">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-red-600/10 flex items-center justify-center text-red-600 border border-red-600/20">
-                    <Download size={28} />
-                  </div>
-                  <div className="flex flex-col">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white leading-none mb-1">Levantar Ganhos</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Escolhe como queres receber</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest leading-none mb-1">Levantar Ganhos</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Escolhe o método</p>
                 </div>
-                <button onClick={() => setShowWithdrawModal(false)} className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setShowWithdrawModal(false)} className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="space-y-6">
-                {/* Method Selector (AirTM First) */}
-                <div className="flex p-1.5 bg-zinc-900 rounded-2xl gap-1">
+              <div className="space-y-8">
+                {/* Method Selector */}
+                <div className="flex border-b border-zinc-100">
                   <button 
                     onClick={() => setWithdrawalMethod('airtm')}
-                    className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all duration-300 ${withdrawalMethod === 'airtm' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex-1 py-4 text-[10px] font-black uppercase transition-all relative ${withdrawalMethod === 'airtm' ? 'text-black' : 'text-zinc-300'}`}
                   >
                     AirTM
+                    {withdrawalMethod === 'airtm' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />}
                   </button>
                   <button 
                     onClick={() => setWithdrawalMethod('usdt')}
-                    className={`flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase transition-all duration-300 ${withdrawalMethod === 'usdt' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex-1 py-4 text-[10px] font-black uppercase transition-all relative ${withdrawalMethod === 'usdt' ? 'text-black' : 'text-zinc-300'}`}
                   >
                     USDT (BEP-20)
+                    {withdrawalMethod === 'usdt' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />}
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-6">
-                  {/* Saldo Grid */}
-                  <div className="flex items-center justify-between bg-zinc-900/30 p-6 rounded-[32px] border border-zinc-900">
-                    <div className="flex flex-col">
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Saldo Disponível</p>
+                <div className="space-y-8">
+                  {/* Saldo Information */}
+                  <div className="flex items-center justify-between py-4">
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Disponível</p>
                       <div className="flex items-baseline gap-2">
-                        <p className="text-4xl font-black text-white tracking-tighter leading-none mt-1">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
-                        <p className="text-[10px] font-bold text-zinc-600 uppercase">AC</p>
+                        <p className="text-4xl font-black tracking-tighter leading-none">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase">AC</p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <p className="text-[10px] font-black text-emerald-500 uppercase leading-none mb-1">Valor em USD</p>
-                      <p className="text-xl font-black text-white leading-none mt-1">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-zinc-400 uppercase mb-2">Valor</p>
+                      <p className="text-xl font-black">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
                     </div>
                   </div>
                   
-                  {/* Min Amount Indicator */}
-                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-red-600/10 border border-red-600/20 rounded-2xl self-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
-                    <span className="text-[9px] font-black text-red-600 uppercase tracking-tight">
-                      Mínimo exigido: {withdrawalMethod === 'usdt' ? '$1.00 USD' : '$0.50 USD'}
-                    </span>
-                  </div>
-
                   {/* Destination Info */}
-                  <div className="bg-zinc-900/50 border border-zinc-900 p-6 rounded-[32px] flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">
-                        {withdrawalMethod === 'usdt' ? 'Carteira de Destino' : 'E-mail AirTM de Destino'}
-                      </p>
-                      <div className={`w-2 h-2 rounded-full ${((withdrawalMethod === 'usdt' && profile?.wallet_address) || (withdrawalMethod === 'airtm' && profile?.airtm_email)) ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                    </div>
-                    <p className="text-xs font-mono text-white truncate bg-zinc-950 p-4 rounded-xl border border-zinc-800/50">
+                  <div className="space-y-4">
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+                      Destino:
+                    </p>
+                    <p className="text-sm font-medium text-black break-all pb-2 border-b border-zinc-100">
                       {(withdrawalMethod === 'usdt' ? profile?.wallet_address : profile?.airtm_email) || 'Não configurado'}
                     </p>
                     {((withdrawalMethod === 'airtm' && !profile?.airtm_email) || (withdrawalMethod === 'usdt' && !profile?.wallet_address)) && (
-                      <p className="text-[9px] text-red-500 font-bold uppercase text-center mt-1">
-                        ⚠️ Precisas de configurar este método primeiro no teu perfil
+                      <p className="text-[9px] text-zinc-400 font-bold uppercase">
+                        ⚠️ Precisas de configurar este método primeiro
                       </p>
                     )}
                   </div>
@@ -1447,10 +1387,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <button 
                 onClick={handleWithdraw}
                 disabled={saving || (profile?.redeemable_balance || 0) < (withdrawalMethod === 'usdt' ? 100 : 50)}
-                className="w-full py-5 bg-red-600 hover:bg-red-700 text-white rounded-[24px] font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-30 disabled:bg-zinc-800 disabled:text-zinc-500 shadow-2xl shadow-red-600/20"
+                className="w-full h-16 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-10"
               >
-                {saving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-                Confirmar Levantamento Agora
+                {saving ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Levantamento'}
               </button>
             </div>
           </div>
@@ -1459,49 +1398,35 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* AirTM Modal */}
       {showAirTMModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowAirTMModal(false)} />
-          <div className="relative bg-zinc-950 border border-zinc-900 w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowAirTMModal(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white">
-                    <Wallet size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Configurar AirTM</h3>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Levantamentos via E-mail</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar AirTM</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">E-mail de Levantamento</p>
                 </div>
-                <button onClick={() => setShowAirTMModal(false)} className="p-2 text-zinc-500 hover:text-white transition-colors">
+                <button onClick={() => setShowAirTMModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">E-mail AirTM</label>
-                  <input 
-                    type="email" 
-                    value={newAirTMEmail}
-                    onChange={(e) => setNewAirTMEmail(e.target.value)}
-                    placeholder="teu-email@exemplo.com"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
-                  />
-                </div>
-                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
-                  <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed text-center">
-                    Garante que este e-mail está associado à tua conta AirTM.
-                  </p>
-                </div>
+                <input 
+                  type="email" 
+                  value={newAirTMEmail}
+                  onChange={(e) => setNewAirTMEmail(e.target.value)}
+                  placeholder="teu-email@exemplo.com"
+                  className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300"
+                />
               </div>
 
               <button 
                 onClick={handleSaveAirTM}
                 disabled={saving || !newAirTMEmail.trim()}
-                className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                Guardar E-mail AirTM
+                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar E-mail'}
               </button>
             </div>
           </div>
