@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Users, Play, TrendingUp, UserCheck } from 'lucide-react';
+import { Play, TrendingUp, UserCheck } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 
 interface Live {
@@ -22,25 +22,23 @@ interface LiveListProps {
 const LiveCard = ({ live, onClick }: { live: Live; onClick: () => void }) => (
   <div 
     onClick={onClick}
-    className="relative aspect-square bg-zinc-900 overflow-hidden group cursor-pointer active:scale-95 transition-transform"
+    className="flex flex-col items-center gap-2 p-3 cursor-pointer active:scale-95 transition-transform group"
   >
-    <img 
-      src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/400/400`}
-      alt={live.title}
-      className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-    />
-    
-    <div className="absolute top-2 left-2 bg-red-600 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
-      <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
-      <span className="text-[7px] font-black text-white italic tracking-tighter">AO VIVO</span>
-    </div>
-
-    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
-      <p className="text-[9px] font-black text-white truncate lowercase tracking-tighter">@{live.profiles?.username}</p>
-      <div className="flex items-center gap-1 opacity-60">
-        <Users size={8} className="text-white" />
-        <span className="text-[7px] font-bold text-white tracking-widest">{live.viewer_count || 0}</span>
+    <div className="relative">
+      <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950">
+        <img 
+          src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/200/200`}
+          alt={live.profiles?.username}
+          className="w-full h-full rounded-full object-cover"
+        />
       </div>
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 px-1.5 py-0.5 rounded-sm ring-1 ring-black">
+        <span className="text-[6px] font-black text-white italic tracking-tighter">AO VIVO</span>
+      </div>
+    </div>
+    <div className="text-center mt-1">
+      <p className="text-[10px] font-black text-white truncate max-w-[80px] lowercase tracking-tighter">@{live.profiles?.username}</p>
+      <p className="text-[8px] text-zinc-500 truncate max-w-[90px] font-bold uppercase tracking-tight">{live.title}</p>
     </div>
   </div>
 );
@@ -110,12 +108,6 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
 
   return (
     <div className="h-full overflow-y-auto bg-black pb-32 no-scrollbar">
-      {/* Header Mobile Title */}
-      <div className="px-6 py-8 border-b border-zinc-900/50">
-        <h1 className="text-3xl font-black italic tracking-tighter text-white">LIVES <span className="text-red-600">DIRECTO</span></h1>
-        <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-[0.2em] mt-1">Explora o que está a acontecer em Angola</p>
-      </div>
-
       {lives.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-20 gap-4 text-center">
           <div className="w-12 h-12 bg-zinc-950 border border-zinc-900 rounded-2xl flex items-center justify-center">
@@ -135,7 +127,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
                 <UserCheck size={14} className="text-red-600" />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Pessoas que Segues</h2>
               </div>
-              <div className="grid grid-cols-2 gap-[1px] bg-zinc-900/30 border-y border-zinc-900/50">
+              <div className="grid grid-cols-3 gap-2 px-4">
                 {followingLives.map(live => (
                   <LiveCard key={live.id} live={live} onClick={() => onJoinLive(live.id)} />
                 ))}
@@ -150,7 +142,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
               <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Sugestões para Ti</h2>
             </div>
             {suggestedLives.length > 0 ? (
-              <div className="grid grid-cols-3 gap-[1px] bg-zinc-900/30">
+              <div className="grid grid-cols-3 gap-2 px-4">
                 {suggestedLives.map(live => (
                   <LiveCard key={live.id} live={live} onClick={() => onJoinLive(live.id)} />
                 ))}

@@ -639,16 +639,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </button>
 
               {showMenu && (
-                <div className="fixed inset-0 z-[100] bg-white flex flex-col text-zinc-950">
+                <div className="fixed inset-0 z-[100] bg-white flex flex-col text-zinc-950 opacity-100">
                   {/* Menu Header */}
-                  <div className="flex items-center justify-between px-6 h-16 border-b border-zinc-100">
-                    <div className="flex items-center gap-2">
-                       <div className="w-8 h-8 font-black text-red-600 italic text-xl">AC</div>
-                       <span className="font-extrabold text-lg tracking-tighter text-zinc-900 lowercase">angochat</span>
-                    </div>
+                  <div className="flex items-center justify-end px-6 h-16 border-b border-zinc-100">
                     <button 
                       onClick={() => setShowMenu(false)}
-                      className="w-10 h-10 flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-900 border border-zinc-200"
+                      className="w-10 h-10 flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-900 border border-zinc-200 hover:bg-zinc-200 transition-colors"
                     >
                       <X size={20} />
                     </button>
