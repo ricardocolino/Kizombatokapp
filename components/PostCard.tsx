@@ -603,21 +603,21 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const renderCommentItem = (c: EnhancedComment, isReply: boolean = false) => {
     const isPostAuthor = c.user_id === post.user_id;
     return (
-      <div key={c.id} className={`relative flex gap-3 items-start py-3 px-2 rounded-2xl transition-colors hover:bg-zinc-900/30 group ${isReply ? 'ml-10' : ''}`}>
+      <div key={c.id} className={`relative flex gap-3 items-start py-3 px-2 rounded-2xl transition-colors hover:bg-zinc-50 group ${isReply ? 'ml-10' : ''}`}>
         {isReply && (
-          <div className="absolute -left-5 top-0 bottom-0 w-px bg-zinc-800 flex items-center">
-            <div className="absolute top-1/2 left-0 w-4 h-px bg-zinc-800" />
+          <div className="absolute -left-5 top-0 bottom-0 w-px bg-zinc-100 flex items-center">
+            <div className="absolute top-1/2 left-0 w-4 h-px bg-zinc-100" />
           </div>
         )}
 
         <div 
           onClick={() => onNavigateToProfile(c.user_id)}
-          className={`${isReply ? 'w-7 h-7' : 'w-10 h-10'} rounded-full bg-zinc-900 shrink-0 overflow-hidden border border-zinc-800 shadow-lg cursor-pointer hover:brightness-110 active:scale-95 transition-all`}
+          className={`${isReply ? 'w-7 h-7' : 'w-10 h-10'} rounded-full bg-zinc-100 shrink-0 overflow-hidden border border-zinc-100 shadow-sm cursor-pointer hover:brightness-95 active:scale-95 transition-all`}
         >
           {c.profiles?.avatar_url ? (
             <img src={parseMediaUrl(c.profiles.avatar_url)} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center font-black text-zinc-500 uppercase text-[10px]">{c.profiles?.name?.[0] || c.profiles?.username?.[0]}</div>
+            <div className="w-full h-full flex items-center justify-center font-black text-zinc-400 uppercase text-[10px]">{c.profiles?.name?.[0] || c.profiles?.username?.[0]}</div>
           )}
         </div>
 
@@ -625,21 +625,21 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="flex items-center gap-2 mb-0.5">
             <span 
               onClick={() => onNavigateToProfile(c.user_id)}
-              className="text-[12px] font-black text-zinc-400 cursor-pointer hover:text-white transition-colors flex items-center gap-1"
+              className="text-[12px] font-black text-zinc-500 cursor-pointer hover:text-black transition-colors flex items-center gap-1"
             >
               {c.profiles?.name || `@${c.profiles?.username}`}
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
             </span>
-            {isPostAuthor && <span className="text-[8px] bg-red-600/20 text-red-500 font-black px-1.5 py-0.5 rounded uppercase border border-red-500/20">Autor</span>}
+            {isPostAuthor && <span className="text-[8px] bg-black text-white font-black px-1.5 py-0.5 rounded uppercase">Autor</span>}
           </div>
-          <p className="text-[14px] text-zinc-100 leading-normal tracking-tight">
-            {isReply && <span className="text-red-500 font-black mr-1 text-[12px]">@resposta</span>}
+          <p className="text-[14px] text-zinc-800 leading-normal tracking-tight">
+            {isReply && <span className="text-zinc-400 font-bold mr-1 text-[12px]">@resposta</span>}
             {c.content}
           </p>
           <div className="flex items-center gap-4 mt-2">
             <button 
               onClick={() => handleReply(c)}
-              className="text-[10px] text-zinc-600 font-black uppercase tracking-widest hover:text-white transition-colors flex items-center gap-1"
+              className="text-[10px] text-zinc-400 font-black uppercase tracking-widest hover:text-black transition-colors flex items-center gap-1"
             >
               <CornerDownRight size={10} />
               Responder
@@ -653,9 +653,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         >
           <ThumbsUp 
             size={16} 
-            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-700 hover:text-zinc-500'}`} 
+            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-200 hover:text-zinc-400'}`} 
           />
-          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-red-500' : 'text-zinc-700'}`}>{c.likes_count || 0}</span>
+          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-red-500' : 'text-zinc-300'}`}>{c.likes_count || 0}</span>
         </button>
       </div>
     );
@@ -892,15 +892,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Professional Comments Drawer */}
       {showComments && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
-          <div className="relative bg-zinc-950 rounded-t-[40px] h-[72%] flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-900/50">
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
+          <div className="relative bg-white rounded-t-3xl h-[75%] flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-100">
                <div className="flex flex-col">
-                 <span className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Comentários</span>
-                 <span className="text-sm font-black text-white tracking-tighter">{metadata.commentsCount} Comentários</span>
+                 <span className="text-[10px] font-black uppercase text-zinc-400 tracking-[0.2em]">Comentários</span>
+                 <span className="text-sm font-black tracking-tighter">{metadata.commentsCount} Comentários</span>
                </div>
-               <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors"><X size={20}/></button>
+               <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="p-2 bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors"><X size={20}/></button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
@@ -917,7 +917,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       <div className="ml-20 mt-1 mb-4">
                         <button 
                           onClick={() => toggleThread(parent.id)}
-                          className="flex items-center gap-1.5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.15em] hover:text-red-500 transition-colors"
+                          className="flex items-center gap-1.5 text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] hover:text-black transition-colors"
                         >
                           {isExpanded ? (
                             <>
@@ -938,22 +938,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               })}
               {comments.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 opacity-30 grayscale">
-                  <MessageCircle size={48} className="text-zinc-500 mb-4" />
-                  <p className="text-xs uppercase font-black tracking-[0.3em]">Ainda não há comentários...</p>
+                  <MessageCircle size={48} className="text-zinc-300 mb-4" />
+                  <p className="text-xs uppercase font-black tracking-[0.3em] text-zinc-400">Ainda não há comentários...</p>
                 </div>
               )}
             </div>
 
-            <div className="bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-900/50 p-4 pb-8">
+            <div className="bg-white border-t border-zinc-100 p-4 pb-12 sm:pb-8">
               {replyingTo && (
-                <div className="mb-3 px-4 py-2.5 bg-red-600/5 rounded-xl flex items-center justify-between border border-red-600/10">
+                <div className="mb-3 px-4 py-2.5 bg-zinc-50 rounded-xl flex items-center justify-between border border-zinc-100">
                    <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse" />
+                     <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                       A responder a <span className="text-red-600">@{replyingTo.profiles?.username}</span>
+                       A responder a <span className="text-black">@{replyingTo.profiles?.username}</span>
                      </p>
                    </div>
-                   <button onClick={() => setReplyingTo(null)} className="text-zinc-500 hover:text-white transition-colors"><X size={14}/></button>
+                   <button onClick={() => setReplyingTo(null)} className="text-zinc-400 hover:text-black transition-colors"><X size={14}/></button>
                 </div>
               )}
               <form onSubmit={postComment} className="flex gap-3">
@@ -962,14 +962,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={replyingTo ? `Diz algo para @${replyingTo.profiles?.username}...` : "Comenta este vídeo..."}
-                    className="w-full bg-zinc-900/50 rounded-2xl px-5 py-3.5 text-sm outline-none border border-zinc-800/50 focus:border-red-600/50 transition-all placeholder:text-zinc-600"
+                    placeholder={replyingTo ? `Diz algo para @${replyingTo.profiles?.username}...` : "Adicionar comentário..."}
+                    className="w-full bg-zinc-50 rounded-full px-6 py-3.5 text-sm outline-none border border-zinc-100 focus:border-zinc-200 transition-all placeholder:text-zinc-300 text-black"
                   />
                 </div>
                 <button 
                   type="submit" 
                   disabled={!newComment.trim()}
-                  className={`p-3.5 rounded-2xl text-white transition-all shadow-xl active:scale-90 ${newComment.trim() ? 'bg-red-600' : 'bg-zinc-800 text-zinc-600'}`}
+                  className={`p-3.5 rounded-full text-white transition-all active:scale-90 ${newComment.trim() ? 'bg-black' : 'bg-zinc-100 text-zinc-300'}`}
                 >
                   <Send size={20} />
                 </button>
