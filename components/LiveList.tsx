@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Users, Play } from 'lucide-react';
+import { Users, Play, TrendingUp, UserCheck } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
 
 interface Live {
   id: string;
@@ -14,16 +15,55 @@ interface Live {
 }
 
 interface LiveListProps {
+  currentUser: User | null;
   onJoinLive: (liveId: string) => void;
-  onStartLive: () => void;
 }
 
-const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
+const LiveCard = ({ live, onClick }: { live: Live; onClick: () => void }) => (
+  <div 
+    onClick={onClick}
+    className="relative aspect-square bg-zinc-900 overflow-hidden group cursor-pointer active:scale-95 transition-transform"
+  >
+    <img 
+      src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/400/400`}
+      alt={live.title}
+      className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+    />
+    
+    <div className="absolute top-2 left-2 bg-red-600 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+      <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
+      <span className="text-[7px] font-black text-white italic tracking-tighter">AO VIVO</span>
+    </div>
+
+    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
+      <p className="text-[9px] font-black text-white truncate lowercase tracking-tighter">@{live.profiles?.username}</p>
+      <div className="flex items-center gap-1 opacity-60">
+        <Users size={8} className="text-white" />
+        <span className="text-[7px] font-bold text-white tracking-widest">{live.viewer_count || 0}</span>
+      </div>
+    </div>
+  </div>
+);
+
+const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
   const [lives, setLives] = useState<Live[]>([]);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchLives = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // 1. Fetch Followings
+      if (currentUser) {
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUser.id);
+        setFollowingIds(follows?.map(f => f.following_id) || []);
+      }
+
+      // 2. Fetch Lives
       const { data, error } = await supabase
         .from('lives')
         .select('*, profiles(username, avatar_url)')
@@ -33,12 +73,9 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
       if (error) {
         console.error('Error fetching lives:', error);
       } else {
-        // Filter to keep only the latest live per host_id
         const uniqueLives = (data || []).reduce((acc: Live[], current) => {
           const exists = acc.find(item => item.host_id === current.host_id);
-          if (!exists) {
-            acc.push(current);
-          }
+          if (!exists) acc.push(current);
           return acc;
         }, []);
         setLives(uniqueLives);
@@ -46,28 +83,19 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
       setLoading(false);
     };
 
-    fetchLives();
+    fetchData();
 
-    // Subscribe to changes
     const channel = supabase
-      .channel('lives_list')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lives',
-        },
-        () => {
-          fetchLives();
-        }
-      )
+      .channel('lives_list_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lives' }, () => {
+        fetchData();
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentUser]);
 
   if (loading) {
     return (
@@ -77,73 +105,62 @@ const LiveList: React.FC<LiveListProps> = ({ onJoinLive, onStartLive }) => {
     );
   }
 
+  const followingLives = lives.filter(l => followingIds.includes(l.host_id));
+  const suggestedLives = lives.filter(l => !followingIds.includes(l.host_id));
+
   return (
-    <div className="h-full overflow-y-auto bg-black p-4 pb-32">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black uppercase tracking-tighter">LIVES</h1>
-        <button 
-          onClick={onStartLive}
-          className="bg-red-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-red-600/20"
-        >
-          Começar Live
-        </button>
+    <div className="h-full overflow-y-auto bg-black pb-32 no-scrollbar">
+      {/* Header Mobile Title */}
+      <div className="px-6 py-8 border-b border-zinc-900/50">
+        <h1 className="text-3xl font-black italic tracking-tighter text-white">LIVES <span className="text-red-600">DIRECTO</span></h1>
+        <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-[0.2em] mt-1">Explora o que está a acontecer em Angola</p>
       </div>
 
       {lives.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 gap-4">
-          <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center">
-            <Play size={24} className="text-zinc-700" />
+        <div className="flex flex-col items-center justify-center p-20 gap-4 text-center">
+          <div className="w-12 h-12 bg-zinc-950 border border-zinc-900 rounded-2xl flex items-center justify-center">
+            <Play size={20} className="text-zinc-800" />
           </div>
-          <p className="text-sm font-bold">Nenhuma live ativa no momento.</p>
-          <button 
-            onClick={onStartLive}
-            className="text-red-600 text-xs font-black uppercase tracking-widest"
-          >
-            Sê o primeiro a entrar em direto!
-          </button>
+          <div>
+            <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Silêncio no Ar</p>
+            <p className="text-[10px] text-zinc-600 mt-1">Ninguém em directo neste momento.</p>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
-          {lives.map((live) => (
-            <div 
-              key={live.id}
-              onClick={() => onJoinLive(live.id)}
-              className="relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-pointer border border-white/5 active:scale-95 transition-transform"
-            >
-              {/* Thumbnail Placeholder */}
-              <img 
-                src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/400/600`}
-                alt={live.title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-              {/* Live Tag */}
-              <div className="absolute top-3 left-3 bg-red-600 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-lg">
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-white">LIVE</span>
+        <div className="flex flex-col">
+          {/* Section 1: Following */}
+          {followingLives.length > 0 && (
+            <div className="py-6">
+              <div className="px-6 mb-4 flex items-center gap-2">
+                <UserCheck size={14} className="text-red-600" />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Pessoas que Segues</h2>
               </div>
-
-              {/* Viewer Count */}
-              <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-md flex items-center gap-1 border border-white/10">
-                <Users size={10} className="text-white/80" />
-                <span className="text-[8px] font-black text-white">{live.viewer_count || 0}</span>
-              </div>
-
-              {/* Host Info */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
-                <img 
-                  src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/100/100`}
-                  alt={live.profiles?.username}
-                  className="w-8 h-8 rounded-full border border-white/20 object-cover shadow-lg"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-white truncate">@{live.profiles?.username || 'user'}</p>
-                  <p className="text-[9px] text-white/60 truncate">{live.title}</p>
-                </div>
+              <div className="grid grid-cols-2 gap-[1px] bg-zinc-900/30 border-y border-zinc-900/50">
+                {followingLives.map(live => (
+                  <LiveCard key={live.id} live={live} onClick={() => onJoinLive(live.id)} />
+                ))}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Section 2: Suggestions */}
+          <div className="py-6">
+            <div className="px-6 mb-4 flex items-center gap-2">
+              <TrendingUp size={14} className="text-zinc-600" />
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Sugestões para Ti</h2>
+            </div>
+            {suggestedLives.length > 0 ? (
+              <div className="grid grid-cols-3 gap-[1px] bg-zinc-900/30">
+                {suggestedLives.map(live => (
+                  <LiveCard key={live.id} live={live} onClick={() => onJoinLive(live.id)} />
+                ))}
+              </div>
+            ) : (
+              <div className="px-6 py-4">
+                <p className="text-[10px] text-zinc-700 italic">Sem outras sugestões agora...</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

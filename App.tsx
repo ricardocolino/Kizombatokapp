@@ -247,13 +247,10 @@ const App: React.FC = () => {
         />;
       case Tab.LIVE:
         return <LiveList 
+          currentUser={user}
           onJoinLive={(liveId) => {
             setActiveLiveId(liveId);
             setIsHosting(false);
-          }}
-          onStartLive={() => {
-            setIsHosting(true);
-            setActiveLiveId(null);
           }}
         />;
       case Tab.INBOX:
