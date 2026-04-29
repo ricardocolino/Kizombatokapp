@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download, MoreVertical } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -632,31 +632,88 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           {isOwnProfile && (
             <div className="relative">
               <button 
-                onClick={() => setShowMenu(!showMenu)} 
-                className="text-zinc-400 hover:text-white transition-all p-1"
+                onClick={() => setShowMenu(true)} 
+                className="text-white hover:opacity-70 transition-all p-1"
               >
-                <MoreVertical size={20}/>
+                <Menu size={24}/>
               </button>
 
               {showMenu && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setShowMenu(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-20 py-1 overflow-hidden">
+                <div className="fixed inset-0 z-[100] bg-white flex flex-col text-zinc-950">
+                  {/* Menu Header */}
+                  <div className="flex items-center justify-between px-6 h-16 border-b border-zinc-100">
+                    <div className="flex items-center gap-2">
+                       <div className="w-8 h-8 font-black text-red-600 italic text-xl">AC</div>
+                       <span className="font-extrabold text-lg tracking-tighter text-zinc-900 lowercase">angochat</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowMenu(false)}
+                      className="w-10 h-10 flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-900 border border-zinc-200"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  {/* Profile Section in Menu */}
+                  <div className="px-6 py-6 border-b border-zinc-100 mb-6">
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center overflow-hidden">
+                          {profile.avatar_url ? (
+                            <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" />
+                          ) : (
+                             <span className="font-bold text-zinc-400">{profile.username[0].toUpperCase()}</span>
+                          )}
+                        </div>
+                        <span className="font-semibold text-sm text-zinc-800">Conta Pessoal</span>
+                      </div>
+                      <ChevronDown size={18} className="text-zinc-400" />
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="flex-1 px-6 space-y-6 overflow-y-auto">
+                    {[
+                      { icon: <Layers size={22} />, label: 'Minhas Coleções' },
+                      { icon: <CheckCircle2 size={22} />, label: 'Estatísticas' },
+                      { icon: <Box size={22} />, label: 'Novidades (OTA)' },
+                      { icon: <Smartphone size={22} />, label: 'Pré-visualizar App' },
+                      { icon: <Settings size={22} />, label: 'Configurações' },
+                      { icon: <CreditCard size={22} />, label: 'Faturamento & Saldo' },
+                    ].map((item, idx) => (
+                      <button 
+                        key={idx}
+                        className="w-full flex items-center gap-4 text-zinc-800 group"
+                      >
+                         <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
+                            {item.icon}
+                         </div>
+                         <span className="text-lg font-medium tracking-tight">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Menu Footer with Logout */}
+                  <div className="p-8 border-t border-zinc-100 mt-auto">
+                    <div className="flex items-center justify-center gap-2 mb-8 scale-75 opacity-20">
+                       <div className="w-12 h-12 bg-red-600 rounded-lg"></div>
+                       <div className="w-4 h-12 bg-red-600 rounded-lg"></div>
+                       <div className="w-2 h-12 bg-red-600 rounded-lg"></div>
+                    </div>
                     <button
                       onClick={() => {
                         setShowMenu(false);
                         setShowLogoutModal(true);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-zinc-800 transition-colors uppercase tracking-widest"
+                      className="w-full h-14 bg-zinc-100 hover:bg-zinc-200 transition-colors rounded-xl flex items-center justify-center gap-2 font-bold text-zinc-900 border border-zinc-200"
                     >
-                      <LogOut size={16} />
-                      Sair da Conta
+                      Log out
+                      <div className="rotate-0">
+                         <LogOut size={18} strokeWidth={2.5} />
+                      </div>
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           )}
