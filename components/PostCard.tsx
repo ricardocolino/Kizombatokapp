@@ -46,12 +46,58 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [netSpeed, setNetSpeed] = useState<'slow' | 'normal'>('normal');
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
 
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
+
+  // Detect network speed to adjust resolution (144p to 240p)
+  useEffect(() => {
+    interface NetworkInfo {
+      effectiveType: string;
+      saveData: boolean;
+      addEventListener: (type: string, listener: () => void) => void;
+      removeEventListener: (type: string, listener: () => void) => void;
+    }
+    const nav = navigator as unknown as { connection?: NetworkInfo; mozConnection?: NetworkInfo; webkitConnection?: NetworkInfo };
+    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
+
+    if (conn) {
+      const updateConnection = () => {
+        const type = conn.effectiveType;
+        // Consider slow if type is 2g, 3g or if saveData is on
+        const isSlow = type === 'slow-2g' || type === '2g' || type === '3g' || conn.saveData;
+        setNetSpeed(isSlow ? 'slow' : 'normal');
+      };
+      
+      conn.addEventListener('change', updateConnection);
+      updateConnection();
+      return () => conn.removeEventListener('change', updateConnection);
+    }
+  }, []);
+
+  const optimizedUrl = useMemo(() => {
+    if (!mediaUrl) return '';
+    if (!mediaUrl.startsWith('http')) return mediaUrl;
+    
+    // Target resolutions: 144p (slow) or 240p (normal)
+    const res = netSpeed === 'slow' ? '144p' : '240p';
+    const width = netSpeed === 'slow' ? 256 : 426;
+
+    try {
+      const url = new URL(mediaUrl);
+      url.searchParams.set('res', res);
+      url.searchParams.set('w', width.toString());
+      // Common CDN parameter for quality
+      url.searchParams.set('quality', netSpeed === 'slow' ? 'low' : 'medium');
+      return url.toString();
+    } catch {
+      return mediaUrl;
+    }
+  }, [mediaUrl, netSpeed]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -74,10 +120,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         videoRef.current.src = "";
         videoRef.current.load();
       } else {
-        videoRef.current.src = mediaUrl;
+        videoRef.current.src = optimizedUrl;
       }
     }
-  }, [mediaUrl, isNearScreen]);
+  }, [optimizedUrl, isNearScreen]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
@@ -624,16 +670,19 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {isNearScreen && (
             <video
               ref={videoRef}
-              src={mediaUrl}
-              className="w-full h-full object-cover"
+              src={optimizedUrl}
+              className="w-full h-full object-cover bg-black"
               style={{ 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: isPlaying ? 1 : 0.9 // Visual feedback
+                opacity: isPlaying ? 1 : 0,
+                transition: 'opacity 0.3s ease-in-out'
               }}
               loop
               muted={isMuted}
               playsInline
               preload={isFullyVisible ? "auto" : "metadata"}
+              disablePictureInPicture
+              disableRemotePlayback
               onTimeUpdate={() => {
                 if (videoRef.current && !isScrubbing) {
                   setCurrentTime(videoRef.current.currentTime);
@@ -650,8 +699,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onCanPlay={() => setIsLoading(false)}
             onError={(e) => {
               // Só marcamos erro se o src for válido e falhou mesmo
-              if (mediaUrl && isNearScreen) {
-                console.error("Playback failed for URL:", mediaUrl, e);
+              if (optimizedUrl && isNearScreen) {
+                console.error("Playback failed for URL:", optimizedUrl, e);
                 setVideoError(true);
                 setIsLoading(false);
               }
