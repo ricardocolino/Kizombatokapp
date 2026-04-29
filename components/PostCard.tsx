@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Flower2, Heart, Star, Flame, Trophy, Gem, Image, Smile, AtSign } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Image, Smile, AtSign } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -894,11 +894,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       {showComments && (
         <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
-          <div className="relative bg-white rounded-t-3xl h-[75%] flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
+          <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
                <div className="flex flex-col">
-                 <span className="text-[11px] font-black uppercase text-zinc-400 tracking-[0.25em] leading-tight">Comentários</span>
-                 <span className="text-xl font-black tracking-tighter leading-tight">{metadata.commentsCount} Comentários</span>
+                 <span className="text-sm font-black tracking-tighter leading-tight">{metadata.commentsCount} Comentários</span>
                </div>
                <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="w-10 h-10 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors">
                  <X size={20} strokeWidth={2.5} />
@@ -1053,58 +1052,63 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Gifts Drawer */}
       {showGifts && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
-          <div className="relative bg-zinc-950 rounded-t-[40px] p-8 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
+        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
+          <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-3">
                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
                    <Gift size={24} />
                  </div>
                  <div>
-                   <h3 className="text-sm font-black uppercase tracking-widest text-white">Enviar Presente</h3>
+                   <h3 className="text-sm font-black uppercase tracking-widest">Enviar Presente</h3>
                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Apoia o criador com AngoCoins</p>
                  </div>
                </div>
-               <button onClick={() => !sendingGift && setShowGifts(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
+               <button onClick={() => !sendingGift && setShowGifts(false)} className="w-10 h-10 flex items-center justify-center bg-zinc-50 rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
+                 <X size={20} strokeWidth={2.5}/>
+               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-3 gap-6 mb-8">
               {[
-                { amount: 1, icon: <Flower2 size={20} />, label: 'Flor' },
-                { amount: 5, icon: <Heart size={20} />, label: 'Coração' },
-                { amount: 10, icon: <Star size={20} />, label: 'Estrela' },
-                { amount: 20, icon: <Flame size={20} />, label: 'Fogo' },
-                { amount: 50, icon: <Trophy size={20} />, label: 'Troféu' },
-                { amount: 100, icon: <Gem size={20} />, label: 'Diamante' }
-              ].map(({ amount, icon, label }) => (
+                { amount: 1, img: "https://cdn-icons-png.flaticon.com/512/1087/1087420.png", label: 'Flor' },
+                { amount: 5, img: "https://cdn-icons-png.flaticon.com/512/2107/2107845.png", label: 'Coração' },
+                { amount: 10, img: "https://cdn-icons-png.flaticon.com/512/1828/1828884.png", label: 'Estrela' },
+                { amount: 20, img: "https://cdn-icons-png.flaticon.com/512/426/426833.png", label: 'Fogo' },
+                { amount: 50, img: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png", label: 'Troféu' },
+                { amount: 100, img: "https://cdn-icons-png.flaticon.com/512/1071/1071985.png", label: 'Diamante' }
+              ].map(({ amount, img, label }) => (
                 <button 
                   key={amount}
                   onClick={() => handleSendGift(amount)}
                   disabled={sendingGift}
-                  className="flex flex-col items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-2xl hover:border-amber-500/50 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex flex-col items-center gap-3 p-4 bg-zinc-50 border border-zinc-100 rounded-3xl hover:border-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
-                    {icon}
+                  <div className="w-14 h-14 flex items-center justify-center">
+                    <img src={img} alt={label} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                   <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-black text-white uppercase tracking-tighter">{label}</span>
-                    <span className="text-[9px] font-bold text-amber-500 uppercase">{amount} AC</span>
+                    <span className="text-[11px] font-black uppercase tracking-tighter">{label}</span>
+                    <span className="text-[10px] font-black text-amber-500 uppercase">{amount} AC</span>
                   </div>
                 </button>
               ))}
             </div>
 
             {sendingGift && (
-              <div className="flex items-center justify-center py-4 gap-3 text-amber-500">
+              <div className="flex items-center justify-center py-4 gap-3 text-amber-600">
                 <Loader2 size={20} className="animate-spin" />
                 <span className="text-[10px] font-black uppercase tracking-widest">A enviar presente...</span>
               </div>
             )}
 
-            <p className="text-[9px] text-zinc-600 text-center uppercase tracking-widest font-bold">
-              O valor será descontado do teu saldo e enviado para o autor.
-            </p>
+            <div className="bg-zinc-50 p-4 rounded-2xl">
+              <p className="text-[9px] text-zinc-500 text-center uppercase tracking-widest font-black leading-relaxed">
+                O valor será descontado do teu saldo e enviado para o autor. <br/>
+                AngoChat • Apoio ao Criador
+              </p>
+            </div>
           </div>
         </div>
       )}

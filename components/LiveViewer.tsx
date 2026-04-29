@@ -428,15 +428,27 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
             initial={{ x: -100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 100, opacity: 0 }}
-            className="absolute top-1/4 left-4 z-50 flex items-center gap-3 bg-gradient-to-r from-yellow-500/90 to-orange-600/90 backdrop-blur-md rounded-full pl-1 pr-6 py-1 border border-white/20 shadow-2xl"
+            className="absolute top-1/4 left-4 z-50 flex items-center gap-3 bg-white/95 backdrop-blur-xl rounded-full pl-1 pr-6 py-1 border border-amber-200 shadow-2xl"
           >
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl shadow-inner">
-              {activeGift.gift.icon}
+            <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center text-2xl shadow-sm overflow-hidden border border-amber-100">
+              {(() => {
+                const mapping: Record<string, string> = {
+                  '🌹': 'https://cdn-icons-png.flaticon.com/512/1087/1087420.png',
+                  '☕': 'https://cdn-icons-png.flaticon.com/512/924/924514.png',
+                  '❤️': 'https://cdn-icons-png.flaticon.com/512/2107/2107845.png',
+                  '💎': 'https://cdn-icons-png.flaticon.com/512/1071/1071985.png',
+                  '🚀': 'https://cdn-icons-png.flaticon.com/512/1356/1356479.png',
+                  '🏰': 'https://cdn-icons-png.flaticon.com/512/2509/2509748.png',
+                  '🦁': 'https://cdn-icons-png.flaticon.com/512/616/616412.png',
+                };
+                const img = mapping[activeGift.gift.icon];
+                return img ? <img src={img} className="w-7 h-7 object-contain" referrerPolicy="no-referrer" /> : activeGift.gift.icon;
+              })()}
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white/70 uppercase tracking-wider">Presente!</span>
-              <span className="text-sm font-black text-white leading-none">
-                {activeGift.senderName} enviou {activeGift.gift.name}
+              <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-tight">Presente Especial!</span>
+              <span className="text-sm font-black text-zinc-900 leading-tight">
+                {activeGift.senderName} <span className="text-zinc-500 font-bold">enviou</span> {activeGift.gift.name}
               </span>
             </div>
           </motion.div>

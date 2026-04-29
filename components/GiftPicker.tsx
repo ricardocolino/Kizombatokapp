@@ -18,6 +18,19 @@ interface GiftPickerProps {
   onGiftSent?: (gift: Gift) => void;
 }
 
+const getGiftImage = (icon: string) => {
+  const mapping: Record<string, string> = {
+    '🌹': 'https://cdn-icons-png.flaticon.com/512/1087/1087420.png',
+    '☕': 'https://cdn-icons-png.flaticon.com/512/924/924514.png',
+    '❤️': 'https://cdn-icons-png.flaticon.com/512/2107/2107845.png',
+    '💎': 'https://cdn-icons-png.flaticon.com/512/1071/1071985.png',
+    '🚀': 'https://cdn-icons-png.flaticon.com/512/1356/1356479.png',
+    '🏰': 'https://cdn-icons-png.flaticon.com/512/2509/2509748.png',
+    '🦁': 'https://cdn-icons-png.flaticon.com/512/616/616412.png',
+  };
+  return mapping[icon] || null;
+};
+
 const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, onGiftSent }) => {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [balance, setBalance] = useState<number>(0);
@@ -78,55 +91,67 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-[32px] rounded-t-[32px] border-t border-white/10 z-[110] p-6 pb-10"
+      className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] shadow-[0_-8px_30px_rgba(0,0,0,0.1)] z-[110] p-6 pb-12 text-black"
     >
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1.5 border border-white/10">
-          <Coins size={16} className="text-yellow-500" />
-          <span className="text-sm font-black text-white">{balance}</span>
+        <div className="flex items-center gap-2 bg-amber-50 rounded-full px-3 py-1.5 border border-amber-100">
+          <Coins size={16} className="text-amber-500" />
+          <span className="text-sm font-black text-amber-700">{balance}</span>
         </div>
-        <h3 className="text-white font-black text-lg">Enviar Presente</h3>
+        <h3 className="font-black text-lg">Enviar Presente</h3>
         <button 
           onClick={onClose}
-          className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+          className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
         >
-          <X size={18} />
+          <X size={20} strokeWidth={2.5} />
         </button>
       </div>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-4 max-h-64 overflow-y-auto scrollbar-hide">
-          {gifts.map((gift) => (
-            <button
-              key={gift.id}
-              onClick={() => handleSendGift(gift)}
-              disabled={sending !== null}
-              className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-90 ${sending === gift.id ? 'bg-red-600/20 scale-95' : 'hover:bg-white/5'}`}
-            >
-              <div className="text-3xl mb-1">{gift.icon}</div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider truncate w-full text-center">{gift.name}</span>
-                <div className="flex items-center gap-1">
-                  <Coins size={10} className="text-yellow-500" />
-                  <span className="text-xs font-black text-white">{gift.price}</span>
+        <div className="grid grid-cols-4 gap-4 max-h-72 overflow-y-auto no-scrollbar">
+          {gifts.map((gift) => {
+            const giftImg = getGiftImage(gift.icon);
+            return (
+              <button
+                key={gift.id}
+                onClick={() => handleSendGift(gift)}
+                disabled={sending !== null}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-90 ${sending === gift.id ? 'bg-amber-50 scale-95' : 'hover:bg-zinc-50'}`}
+              >
+                <div className="w-12 h-12 flex items-center justify-center mb-1">
+                  {giftImg ? (
+                    <img src={giftImg} alt={gift.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="text-3xl">{gift.icon}</div>
+                  )}
                 </div>
-              </div>
-            </button>
-          ))}
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] text-zinc-500 font-black uppercase tracking-wider truncate w-full text-center">{gift.name}</span>
+                  <div className="flex items-center gap-1">
+                    <Coins size={10} className="text-amber-500" />
+                    <span className="text-[11px] font-black">{gift.price}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-8 flex flex-col items-center gap-4">
         <button 
-          className="text-xs font-bold text-red-500 hover:text-red-400 transition-colors"
-          onClick={() => window.location.href = '/profile'} // Assumindo que há uma página de recarga no perfil
+          className="w-full py-4 bg-zinc-900 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
+          onClick={() => window.location.href = '/profile'}
         >
           Recarregar Moedas
         </button>
+        <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">
+          AngoChat • Apoio ao Criador
+        </p>
       </div>
     </motion.div>
   );
