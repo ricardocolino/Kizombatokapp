@@ -2,14 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Profile } from '../types';
+import { Profile, Story } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
-import { Bell, Camera, Hand } from 'lucide-react';
+import { Bell, Camera, Hand, TrendingUp, Plus } from 'lucide-react';
 
 interface MessageCenterProps {
   currentUser: User | null;
   onNavigateToPost: (postId: string) => void;
   onNavigateToProfile: (userId: string) => void;
+  onNavigateToCreate: (isStory?: boolean) => void;
+  onViewStories: (userId: string, allUserIds?: string[]) => void;
 }
 
 type NotificationType = 'like' | 'follow' | 'comment' | 'mention' | 'message';
@@ -24,8 +26,9 @@ interface NotificationItem {
   read?: boolean;
 }
 
-const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile }) => {
+const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile, onNavigateToCreate, onViewStories }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = React.useCallback(async () => {
@@ -64,6 +67,30 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         .eq('receiver_id', currentUser.id)
         .order('created_at', { ascending: false })
         .limit(20);
+
+      // 5. Fetch Stories of followed users
+      const { data: followsForStories } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUser.id);
+      
+      const followingIds = followsForStories?.map(f => f.following_id) || [];
+      
+      if (followingIds.length > 0) {
+        const { data: storiesData } = await supabase
+          .from('stories')
+          .select('*, profiles:user_id(*)')
+          .in('user_id', followingIds)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false });
+        
+        // Agrupar por usuário (apenas o mais recente)
+        const uniqueStories: Record<string, Story> = {};
+        storiesData?.forEach(s => {
+          if (!uniqueStories[s.user_id]) uniqueStories[s.user_id] = s;
+        });
+        setStories(Object.values(uniqueStories));
+      }
 
       const aggregated: NotificationItem[] = [
         ...(follows?.map(f => ({
@@ -136,6 +163,49 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
   return (
     <div className="h-full flex flex-col bg-black overflow-hidden text-white">
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
+        {/* Stories Section moved from Discovery */}
+        <div className="px-4 py-6 border-b border-zinc-900/50 bg-zinc-950/20">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
+            <TrendingUp size={14} className="text-zinc-600" />
+            Historys de quem segues
+          </h3>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+            {/* Add Story Button */}
+            <div 
+              onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
+              className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
+            >
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
+                <Plus size={20} className="text-zinc-600" />
+              </div>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">Teu Story</span>
+            </div>
+            {stories.map(story => (
+              <div 
+                key={story.id} 
+                onClick={() => onViewStories && onViewStories(story.user_id, stories.map(s => s.user_id))}
+                className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
+              >
+                <div className="w-14 h-14 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-zinc-900">
+                    {story.profiles?.avatar_url ? (
+                      <img src={parseMediaUrl(story.profiles.avatar_url)} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center font-black text-zinc-600 text-sm">
+                        {story.profiles?.username?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[9px] font-bold text-zinc-400 max-w-[60px] truncate text-center uppercase tracking-tighter">@{story.profiles?.username}</span>
+              </div>
+            ))}
+            {stories.length === 0 && !loading && (
+              <p className="text-[10px] text-zinc-700 italic flex items-center py-6">Nenhum history disponível agora...</p>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
             <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>

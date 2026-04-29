@@ -232,18 +232,6 @@ const App: React.FC = () => {
         return <Discovery 
           onNavigateToPost={handleNavigateToPost} 
           onNavigateToProfile={handleNavigateToProfile} 
-          onNavigateToCreate={(isStory) => { 
-            setIsCreatingStory(!!isStory);
-            setActiveTab(Tab.CREATE); 
-          }} 
-          onViewStories={(userId, allUserIds) => {
-            if (user && userId === user.id) {
-              setViewingStatsUserId(userId);
-            } else {
-              setViewingStoryUserId(userId);
-              setAllUsersWithStories(allUserIds || [userId]);
-            }
-          }} 
         />;
       case Tab.CREATE:
         return <CreatePost 
@@ -269,7 +257,25 @@ const App: React.FC = () => {
           }}
         />;
       case Tab.INBOX:
-        return <MessageCenter currentUser={user} onNavigateToPost={handleNavigateToPost} onNavigateToProfile={handleNavigateToProfile} />;
+        return (
+          <MessageCenter 
+            currentUser={user} 
+            onNavigateToPost={handleNavigateToPost} 
+            onNavigateToProfile={handleNavigateToProfile}
+            onNavigateToCreate={(isStory) => { 
+                setIsCreatingStory(!!isStory);
+                setActiveTab(Tab.CREATE); 
+            }} 
+            onViewStories={(userId, allUserIds) => {
+                if (user && userId === user.id) {
+                setViewingStatsUserId(userId);
+                } else {
+                setViewingStoryUserId(userId);
+                setAllUsersWithStories(allUserIds || [userId]);
+                }
+            }} 
+          />
+        );
       case Tab.PROFILE: {
         const targetId = viewProfileId || user?.id;
         return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;

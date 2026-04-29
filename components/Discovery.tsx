@@ -1,21 +1,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Post, Profile, Story } from '../types';
-import { Search, TrendingUp, AlertCircle, UserCheck, Plus } from 'lucide-react';
+import { Post, Profile } from '../types';
+import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface DiscoveryProps {
   onNavigateToPost?: (postId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
-  onNavigateToCreate?: (isStory?: boolean) => void;
-  onViewStories?: (userId: string, allUserIds?: string[]) => void;
 }
 
-const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile, onNavigateToCreate, onViewStories }) => {
+const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
-  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
@@ -28,37 +25,6 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       try {
         setLoading(true);
         const trimmedQuery = query.trim();
-
-        // 🔹 0. Buscar stories de quem sigo
-        if (!trimmedQuery) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const { data: follows } = await supabase
-              .from('follows')
-              .select('following_id')
-              .eq('follower_id', session.user.id);
-            
-            const followingIds = follows?.map(f => f.following_id) || [];
-            
-            if (followingIds.length > 0) {
-              const { data: storiesData } = await supabase
-                .from('stories')
-                .select('*, profiles:user_id(*)')
-                .in('user_id', followingIds)
-                .gt('expires_at', new Date().toISOString())
-                .order('created_at', { ascending: false });
-              
-              if (active) {
-                // Agrupar por usuário (apenas o mais recente)
-                const uniqueStories: Record<string, Story> = {};
-                storiesData?.forEach(s => {
-                  if (!uniqueStories[s.user_id]) uniqueStories[s.user_id] = s;
-                });
-                setStories(Object.values(uniqueStories));
-              }
-            }
-          }
-        }
 
         // 🔹 1. Buscar usuários primeiro
         let matchedUsers: Profile[] = [];
@@ -203,47 +169,13 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         </div>
       )}
 
+      {/* Post Grid Section */}
       {!searchQuery && (
         <div className="px-4 py-6 border-b border-zinc-900/50">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
+           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
             <TrendingUp size={14} className="text-zinc-600" />
-            Historys de quem segues
+            Tendências em Angola
           </h3>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-            {/* Add Story Button */}
-            <div 
-              onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
-              className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
-            >
-              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
-                <Plus size={24} className="text-zinc-600" />
-              </div>
-              <span className="text-[10px] font-bold text-zinc-500">Teu Story</span>
-            </div>
-            {stories.map(story => (
-              <div 
-                key={story.id} 
-                onClick={() => onViewStories && onViewStories(story.user_id, stories.map(s => s.user_id))}
-                className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
-              >
-                <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-zinc-900">
-                    {story.profiles?.avatar_url ? (
-                      <img src={parseMediaUrl(story.profiles.avatar_url)} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center font-black text-zinc-600 text-lg">
-                        {story.profiles?.username?.[0]?.toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-zinc-400 max-w-[70px] truncate">@{story.profiles?.username}</span>
-              </div>
-            ))}
-            {stories.length === 0 && (
-              <p className="text-[10px] text-zinc-700 italic flex items-center py-6">Nenhum history disponível agora...</p>
-            )}
-          </div>
         </div>
       )}
 
