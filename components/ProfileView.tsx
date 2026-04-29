@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Calendar, MapPin, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, TrendingUp, Coins, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 
@@ -748,16 +748,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </p>
         )}
 
-        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3 text-zinc-500">
-          <div className="flex items-center gap-1.5">
-            <MapPin size={14} />
-            <span className="text-xs">Luanda, Angola 🇦🇴</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Calendar size={14} />
-            <span className="text-xs">Entrou em {new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
-          </div>
-        </div>
 
         <div className="flex gap-3 mt-6 w-full max-w-xs">
           {isOwnProfile ? (
