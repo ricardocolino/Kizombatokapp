@@ -16,6 +16,7 @@ interface FeedProps {
   isPaused?: boolean;
   feedFilter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null;
   onClearFilter?: () => void;
+  refreshTrigger?: number;
 }
 
 export interface PostMetadata {
@@ -30,7 +31,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -252,17 +253,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           }
         }
 
-        // Se tivermos initialPostId, não vamos randomizar os primeiros posts para não perder o foco
-        const skipRandom = !!initialPostId;
-        
-        if (!skipRandom) {
-          const firstFive = sortedPosts.slice(0, 5);
-          const remaining = sortedPosts.slice(5);
-          for (let i = remaining.length - 1; i > 0; i--) {
+        // Se não tivermos initialPostId, vamos randomizar todo o feed para que o primeiro vídeo seja sempre aleatório
+        if (!initialPostId) {
+          for (let i = sortedPosts.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            [sortedPosts[i], sortedPosts[j]] = [sortedPosts[j], sortedPosts[i]];
           }
-          sortedPosts = [...firstFive, ...remaining];
         }
       }
 
@@ -288,9 +284,15 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter]);
 
   useEffect(() => {
+    // Se o refreshTrigger mudar, limpamos o cache para este feed específico para garantir novo random
+    if (refreshTrigger) {
+      const filterKey = feedFilter ? `${feedFilter.type}_${feedFilter.userId}` : 'none';
+      const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}_${filterKey}`;
+      appCache.clear(); // Limpa tudo para garantir fresh start
+    }
     fetchPosts();
-    setDisplayLimit(15); // Reset limit when feed type or initial post changes
-  }, [initialPostId, feedType, user, fetchPosts, feedFilter]);
+    setDisplayLimit(15); 
+  }, [initialPostId, feedType, user, fetchPosts, feedFilter, refreshTrigger]);
 
   // Intersection Observer for Infinite Scroll - Only for internal displayLimit
   useEffect(() => {

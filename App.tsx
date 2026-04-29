@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
+  const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -188,6 +189,7 @@ const App: React.FC = () => {
     setTargetPostId(null);
     setFeedFilter(null);
     setActiveTab(Tab.HOME);
+    setHomeRefreshTrigger(prev => prev + 1);
   };
 
   const handleDub = () => {
@@ -214,6 +216,7 @@ const App: React.FC = () => {
           initialPostId={targetPostId} 
           feedFilter={feedFilter}
           onClearFilter={() => setFeedFilter(null)}
+          refreshTrigger={homeRefreshTrigger}
           onViewStories={(userId, allUserIds) => {
             if (user && userId === user.id) {
               setViewingStatsUserId(userId);
