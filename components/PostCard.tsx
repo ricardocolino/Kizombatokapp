@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Flower2, Heart, Star, Flame, Trophy, Gem } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Flower2, Heart, Star, Flame, Trophy, Gem, Image, Smile, AtSign } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -895,15 +895,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white rounded-t-3xl h-[75%] flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-50">
                <div className="flex flex-col">
-                 <span className="text-[10px] font-black uppercase text-zinc-400 tracking-[0.2em]">Comentários</span>
-                 <span className="text-sm font-black tracking-tighter">{metadata.commentsCount} Comentários</span>
+                 <span className="text-[11px] font-black uppercase text-zinc-400 tracking-[0.25em] leading-tight">Comentários</span>
+                 <span className="text-xl font-black tracking-tighter leading-tight">{metadata.commentsCount} Comentários</span>
                </div>
-               <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="p-2 bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors"><X size={20}/></button>
+               <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="w-10 h-10 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors">
+                 <X size={20} strokeWidth={2.5} />
+               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar">
               {parentComments.map(parent => {
                 const replies = comments.filter(c => c.parent_id === parent.id).reverse();
                 const isExpanded = expandedThreads[parent.id];
@@ -944,11 +946,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               )}
             </div>
 
-            <div className="bg-white border-t border-zinc-100 p-4 pb-12 sm:pb-8">
+            <div className="bg-white border-t border-zinc-100 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,20px))] sm:pb-8 flex flex-col gap-3">
               {replyingTo && (
-                <div className="mb-3 px-4 py-2.5 bg-zinc-50 rounded-xl flex items-center justify-between border border-zinc-100">
+                <div className="px-4 py-2 bg-zinc-50 rounded-xl flex items-center justify-between border border-zinc-100">
                    <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
+                     <div className="w-1.5 h-1.5 bg-black rounded-full" />
                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                        A responder a <span className="text-black">@{replyingTo.profiles?.username}</span>
                      </p>
@@ -956,22 +958,33 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                    <button onClick={() => setReplyingTo(null)} className="text-zinc-400 hover:text-black transition-colors"><X size={14}/></button>
                 </div>
               )}
-              <form onSubmit={postComment} className="flex gap-3">
-                <div className="flex-1 relative">
+              <form onSubmit={postComment} className="flex items-center gap-3">
+                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3 flex items-center gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
                   <input 
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={replyingTo ? `Diz algo para @${replyingTo.profiles?.username}...` : "Adicionar comentário..."}
-                    className="w-full bg-zinc-50 rounded-full px-6 py-3.5 text-sm outline-none border border-zinc-100 focus:border-zinc-200 transition-all placeholder:text-zinc-300 text-black"
+                    placeholder="Adicionar comentário..."
+                    className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400"
                   />
+                  <div className="flex items-center gap-2 text-zinc-400">
+                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
+                      <Image size={18} />
+                    </button>
+                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
+                      <Smile size={18} />
+                    </button>
+                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
+                      <AtSign size={18} />
+                    </button>
+                  </div>
                 </div>
                 <button 
                   type="submit" 
                   disabled={!newComment.trim()}
-                  className={`p-3.5 rounded-full text-white transition-all active:scale-90 ${newComment.trim() ? 'bg-black' : 'bg-zinc-100 text-zinc-300'}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${newComment.trim() ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-300'}`}
                 >
-                  <Send size={20} />
+                  <Send size={18} />
                 </button>
               </form>
             </div>

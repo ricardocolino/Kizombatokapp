@@ -286,8 +286,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   useEffect(() => {
     // Se o refreshTrigger mudar, limpamos o cache para este feed específico para garantir novo random
     if (refreshTrigger) {
-      const filterKey = feedFilter ? `${feedFilter.type}_${feedFilter.userId}` : 'none';
-      const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}_${filterKey}`;
       appCache.clear(); // Limpa tudo para garantir fresh start
     }
     fetchPosts();

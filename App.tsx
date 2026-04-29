@@ -356,11 +356,11 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'}`}>
+      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-20`}>
         {renderContent()}
       </main>
 
-      <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-50">
+      <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-10">
         <button 
           onClick={handleGoHome}
           onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
