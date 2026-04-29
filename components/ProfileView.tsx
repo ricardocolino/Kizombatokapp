@@ -905,29 +905,37 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-12 no-scrollbar pb-32">
+          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-12 no-scrollbar pb-32 focus:outline-none">
+            {/* Valor Total Disponível */}
+            <div className="flex flex-col items-center justify-center text-center py-6 animate-in fade-in zoom-in duration-500">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">Total Disponível em USD</p>
+              <h1 className="text-5xl font-black tracking-tighter">
+                ${((profile.redeemable_balance || 0) / 100).toFixed(2)}
+              </h1>
+            </div>
+
             {/* 1. Ganhos Section */}
             <section className="space-y-8">
-              <div className="pb-4 border-b border-zinc-100">
-                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Meus Ganhos</h2>
-                <div className="flex items-baseline justify-between mt-4">
-                  <div>
-                    <h3 className="text-4xl font-black tracking-tighter">
-                      ${pendingEarnings.toFixed(2)}
-                    </h3>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Pendentes por visualizações</p>
-                  </div>
-                  {pendingEarnings >= 0.01 && (
+              {pendingEarnings >= 0.01 && (
+                <div className="pb-4 border-b border-zinc-100 animate-in slide-in-from-bottom-4 duration-500">
+                  <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Meus Ganhos</h2>
+                  <div className="flex items-baseline justify-between mt-4">
+                    <div>
+                      <h3 className="text-4xl font-black tracking-tighter">
+                        ${pendingEarnings.toFixed(2)}
+                      </h3>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Pendentes por visualizações</p>
+                    </div>
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="text-[11px] font-black underline uppercase tracking-widest"
+                      className="text-[11px] font-black underline uppercase tracking-widest hover:text-red-500 transition-colors"
                     >
                       {claiming ? 'A Processar...' : 'Resgatar'}
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo Disponível</h2>
