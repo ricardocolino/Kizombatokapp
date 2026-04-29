@@ -637,84 +637,73 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               >
                 <Menu size={24}/>
               </button>
-
-              {showMenu && (
-                <div className="fixed inset-0 z-[100] bg-white flex flex-col text-zinc-950 opacity-100">
-                  {/* Menu Header */}
-                  <div className="flex items-center justify-end px-6 h-16 border-b border-zinc-100">
-                    <button 
-                      onClick={() => setShowMenu(false)}
-                      className="w-10 h-10 flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-900 border border-zinc-200 hover:bg-zinc-200 transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  {/* Profile Section in Menu */}
-                  <div className="px-6 py-6 border-b border-zinc-100 mb-6">
-                    <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center overflow-hidden">
-                          {profile.avatar_url ? (
-                            <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" />
-                          ) : (
-                             <span className="font-bold text-zinc-400">{profile.username[0].toUpperCase()}</span>
-                          )}
-                        </div>
-                        <span className="font-semibold text-sm text-zinc-800">Conta Pessoal</span>
-                      </div>
-                      <ChevronDown size={18} className="text-zinc-400" />
-                    </div>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="flex-1 px-6 space-y-6 overflow-y-auto">
-                    {[
-                      { icon: <Layers size={22} />, label: 'Minhas Coleções' },
-                      { icon: <CheckCircle2 size={22} />, label: 'Estatísticas' },
-                      { icon: <Box size={22} />, label: 'Novidades (OTA)' },
-                      { icon: <Smartphone size={22} />, label: 'Pré-visualizar App' },
-                      { icon: <Settings size={22} />, label: 'Configurações' },
-                      { icon: <CreditCard size={22} />, label: 'Faturamento & Saldo' },
-                    ].map((item, idx) => (
-                      <button 
-                        key={idx}
-                        className="w-full flex items-center gap-4 text-zinc-800 group"
-                      >
-                         <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
-                            {item.icon}
-                         </div>
-                         <span className="text-lg font-medium tracking-tight">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Menu Footer with Logout */}
-                  <div className="p-8 border-t border-zinc-100 mt-auto">
-                    <div className="flex items-center justify-center gap-2 mb-8 scale-75 opacity-20">
-                       <div className="w-12 h-12 bg-red-600 rounded-lg"></div>
-                       <div className="w-4 h-12 bg-red-600 rounded-lg"></div>
-                       <div className="w-2 h-12 bg-red-600 rounded-lg"></div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setShowLogoutModal(true);
-                      }}
-                      className="w-full h-14 bg-zinc-100 hover:bg-zinc-200 transition-colors rounded-xl flex items-center justify-center gap-2 font-bold text-zinc-900 border border-zinc-200"
-                    >
-                      Log out
-                      <div className="rotate-0">
-                         <LogOut size={18} strokeWidth={2.5} />
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
       </header>
+
+      {showMenu && (
+        <div className="fixed inset-0 z-[999] bg-white flex flex-col text-zinc-950">
+          <div className="flex items-center justify-end px-6 h-16 border-b border-zinc-100">
+            <button 
+              onClick={() => setShowMenu(false)}
+              className="w-10 h-10 flex items-center justify-center bg-zinc-100 rounded-lg text-zinc-900 border border-zinc-200 hover:bg-zinc-200 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="px-6 py-6 border-b border-zinc-100 mb-6">
+            <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center overflow-hidden">
+                  {profile.avatar_url ? (
+                    <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" />
+                  ) : (
+                      <span className="font-bold text-zinc-400">{profile.username[0].toUpperCase()}</span>
+                  )}
+                </div>
+                <span className="font-semibold text-sm text-zinc-800">Conta Pessoal</span>
+              </div>
+              <ChevronDown size={18} className="text-zinc-400" />
+            </div>
+          </div>
+
+          <div className="flex-1 px-6 space-y-6 overflow-y-auto">
+            {[
+              { icon: <Layers size={22} />, label: 'Minhas Coleções' },
+              { icon: <CheckCircle2 size={22} />, label: 'Estatísticas' },
+              { icon: <Box size={22} />, label: 'Novidades (OTA)' },
+              { icon: <Smartphone size={22} />, label: 'Pré-visualizar App' },
+              { icon: <Settings size={22} />, label: 'Configurações' },
+              { icon: <CreditCard size={22} />, label: 'Faturamento & Saldo' },
+            ].map((item, idx) => (
+              <button key={idx} className="w-full flex items-center gap-4 text-zinc-800 group">
+                  <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
+                  <span className="text-lg font-medium tracking-tight">{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="p-8 border-t border-zinc-100 mt-auto">
+            <div className="flex items-center justify-center gap-2 mb-8 scale-75 opacity-20">
+                <div className="w-12 h-12 bg-red-600 rounded-lg"></div>
+                <div className="w-4 h-12 bg-red-600 rounded-lg"></div>
+                <div className="w-2 h-12 bg-red-600 rounded-lg"></div>
+            </div>
+            <button
+              onClick={() => {
+                setShowMenu(false);
+                setShowLogoutModal(true);
+              }}
+              className="w-full h-14 bg-zinc-100 hover:bg-zinc-200 transition-colors rounded-xl flex items-center justify-center gap-2 font-bold text-zinc-900 border border-zinc-200"
+            >
+              Log out
+              <LogOut size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Profile Info Section (Centralizado) */}
       <div className="px-4 pb-6 pt-8 flex flex-col items-center text-center">
