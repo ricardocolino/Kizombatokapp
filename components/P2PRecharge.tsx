@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { P2PRequest, Profile } from '../types';
 import { supabase } from '../supabaseClient';
-import { X, Clock, AlertCircle, ChevronRight, Loader2, ShieldCheck, User, Search, Repeat, CheckCircle2 } from 'lucide-react';
+import { X, Clock, AlertCircle, ChevronRight, Loader2, ShieldCheck, User, Search, Repeat, CheckCircle2, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface P2PRechargeProps {
@@ -9,6 +9,24 @@ interface P2PRechargeProps {
   onClose: () => void;
   onBalanceUpdate: () => void;
 }
+
+const CopyButton = ({ text }: { text: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button 
+      onClick={handleCopy} 
+      className={`p-2 rounded-xl transition-all ${copied ? 'bg-green-100 text-green-600' : 'bg-white/50 hover:bg-white text-zinc-400 hover:text-zinc-600 shadow-sm'}`}
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+};
 
 const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalanceUpdate }) => {
   const [activeTab, setActiveTab] = useState<'user' | 'cashier'>('user');
@@ -499,21 +517,34 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                         <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados do Pagamento</h4>
                            <div className="space-y-4">
-                              <div className="grid grid-cols-1 gap-3">
-                                <div>
-                                  <span className="text-[9px] font-black uppercase text-amber-700/50 block">Titular da Conta</span>
-                                  <span className="text-sm font-black uppercase">{selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'Aguardando...'}</span>
-                                </div>
-                                { selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-white/40 rounded-2xl border border-amber-200/50">
                                   <div>
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block">IBAN</span>
-                                    <span className="text-xs font-mono font-bold">{selectedRequest.cashier.cashier_info[0].payment_info.iban}</span>
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block">Titular da Conta</span>
+                                    <span className="text-sm font-black uppercase">{selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'Aguardando...'}</span>
+                                  </div>
+                                  {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.holder_name} />
+                                  )}
+                                </div>
+                                
+                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
+                                  <div className="flex items-center justify-between p-3 bg-white/40 rounded-2xl border border-amber-200/50">
+                                    <div className="overflow-hidden">
+                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block">IBAN</span>
+                                      <span className="text-xs font-mono font-bold truncate block">{selectedRequest.cashier.cashier_info[0].payment_info.iban}</span>
+                                    </div>
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.iban} />
                                   </div>
                                 )}
-                                { selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
-                                  <div>
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block">Multicaixa Express</span>
-                                    <span className="text-sm font-black">{selectedRequest.cashier.cashier_info[0].payment_info.express_number}</span>
+
+                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
+                                  <div className="flex items-center justify-between p-3 bg-white/40 rounded-2xl border border-amber-200/50">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block">Multicaixa Express</span>
+                                      <span className="text-sm font-black">{selectedRequest.cashier.cashier_info[0].payment_info.express_number}</span>
+                                    </div>
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.express_number} />
                                   </div>
                                 )}
                               </div>
