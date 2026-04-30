@@ -99,7 +99,8 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const handleAcceptRequest = async (request: P2PRequest) => {
     if (!isCaixa) return;
     setLoading(true);
-    const { error } = await supabase
+    
+    const { data: updatedData, error } = await supabase
       .from('p2p_requests')
       .update({ 
         cashier_id: currentUser.id,
@@ -107,25 +108,19 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         updated_at: new Date().toISOString()
       })
       .eq('id', request.id)
-      .eq('status', 'pending'); // Rigorous check
+      .eq('status', 'pending')
+      .select(`
+        *, 
+        user:profiles!user_id(*), 
+        cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+      `);
 
-    if (!error) {
-      const { data } = await supabase.from('p2p_requests')
-        .select(`
-          *, 
-          user:profiles!user_id(*), 
-          cashier:profiles!cashier_id(*, cashier_info:caixas(*))
-        `)
-        .eq('id', request.id)
-        .single();
-      
-      if (data) {
-        setSelectedRequest(data as unknown as P2PRequest);
-        await fetchRequests();
-      }
+    if (!error && updatedData && updatedData.length > 0) {
+      setSelectedRequest(updatedData[0] as unknown as P2PRequest);
+      await fetchRequests();
     } else {
       console.error("Error accepting request:", error);
-      alert("Não foi possível aceitar este pedido. Pode já ter sido aceite por outro caixa.");
+      alert("Não foi possível aceitar este pedido. Verifica se já não foi aceite por outro caixa ou se as regras RLS do Supabase estão configuradas.");
     }
     setLoading(false);
   };
