@@ -106,6 +106,11 @@ export interface Caixa {
   status: 'active' | 'inactive' | 'suspended';
   rating: number;
   total_transactions: number;
+  payment_info: {
+    iban?: string;
+    holder_name?: string;
+    express_number?: string;
+  };
   created_at: string;
   profiles?: Profile;
 }

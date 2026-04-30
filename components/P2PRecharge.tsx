@@ -32,7 +32,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from('p2p_requests').select('*, user:profiles!user_id(*), cashier:profiles!cashier_id(*)');
+    let query = supabase.from('p2p_requests').select(`
+      *, 
+      user:profiles!user_id(*), 
+      cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+    `);
     
     if (activeTab === 'user') {
       query = query.eq('user_id', currentUser.id);
@@ -455,12 +459,26 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                         <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
                            <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados do Pagamento</h4>
                            <div className="space-y-4">
-                              <div>
-                                <span className="text-[9px] font-black uppercase text-amber-700/50 block">Método Recomendado</span>
-                                <span className="text-sm font-black">Transferência Express / Multicaixa</span>
+                              <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                  <span className="text-[9px] font-black uppercase text-amber-700/50 block">Titular da Conta</span>
+                                  <span className="text-sm font-black uppercase">{(selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.holder_name || 'Aguardando...'}</span>
+                                </div>
+                                { (selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.iban && (
+                                  <div>
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block">IBAN</span>
+                                    <span className="text-xs font-mono font-bold">{(selectedRequest.cashier as any).cashier_info[0].payment_info.iban}</span>
+                                  </div>
+                                )}
+                                { (selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.express_number && (
+                                  <div>
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block">Multicaixa Express</span>
+                                    <span className="text-sm font-black">{(selectedRequest.cashier as any).cashier_info[0].payment_info.express_number}</span>
+                                  </div>
+                                )}
                               </div>
-                              <p className="text-xs font-medium leading-relaxed opacity-80">
-                                Envia o valor equivalente aos {selectedRequest.amount} AC para o caixa e clica em confirmar. O sistema garante a retenção dos coins.
+                              <p className="text-[10px] font-medium leading-relaxed opacity-80 pt-2 border-t border-amber-100">
+                                Envia o valor equivalente aos {selectedRequest.amount} AC para os dados acima. O sistema garante a entrega dos coins após confirmação.
                               </p>
                            </div>
                         </div>

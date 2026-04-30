@@ -29,7 +29,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDeposit, setShowDeposit] = useState(false);
   const [showP2P, setShowP2P] = useState(false);
   const [isCashier, setIsCashier] = useState(false);
+  const [cashierData, setCashierData] = useState<Caixa | null>(null);
   const [isApplyingCaixa, setIsApplyingCaixa] = useState(false);
+  const [cashierForm, setCashierForm] = useState({
+    iban: '',
+    holder_name: '',
+    express_number: ''
+  });
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -100,13 +106,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       // Check for cashier status if it's the own profile
       if (isOwnProfile) {
-        const { data: cashierData } = await supabase
+        const { data: cData } = await supabase
           .from('caixas')
           .select('*')
           .eq('id', userId)
           .eq('status', 'active')
           .maybeSingle();
-        setIsCashier(!!cashierData);
+        setIsCashier(!!cData);
+        if (cData) {
+          setCashierData(cData as unknown as Caixa);
+        }
       }
     }
   }, [userId, isOwnProfile]);
@@ -463,6 +472,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
   const handleBecomeCaixa = async () => {
     if (!profile) return;
+    
+    if (!cashierForm.holder_name) {
+      alert("Precisas de preencher o nome do titular da conta.");
+      return;
+    }
+
+    if (!cashierForm.iban && !cashierForm.express_number) {
+      alert("Precisas de fornecer um IBAN ou um número Multicaixa Express.");
+      return;
+    }
+
     setIsApplyingCaixa(true);
     try {
       const { error } = await supabase
@@ -471,7 +491,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           id: userId,
           status: 'active',
           rating: 5.0,
-          total_transactions: 0
+          total_transactions: 0,
+          payment_info: {
+            iban: cashierForm.iban,
+            holder_name: cashierForm.holder_name,
+            express_number: cashierForm.express_number
+          }
         });
 
       if (error) throw error;
@@ -1167,12 +1192,50 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <p className="text-xs text-zinc-600 font-medium leading-relaxed">
                       Como caixa, ajudas outros utilizadores a carregar saldo via Express ou Transferência e recebes comissões por cada transação processada.
                     </p>
+                    
+                    <div className="space-y-4 pt-2">
+                       <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">Nome do Titular</label>
+                        <input 
+                          type="text"
+                          placeholder="Nome completo na conta"
+                          value={cashierForm.holder_name}
+                          onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
+                          className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">IBAN (Opcional se tiveres Express)</label>
+                          <input 
+                            type="text"
+                            placeholder="AO06 0000..."
+                            value={cashierForm.iban}
+                            onChange={(e) => setCashierForm({...cashierForm, iban: e.target.value})}
+                            className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
+                          />
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">Nº Multicaixa Express (Opcional)</label>
+                          <input 
+                            type="text"
+                            placeholder="9XXXXXXXX"
+                            value={cashierForm.express_number}
+                            onChange={(e) => setCashierForm({...cashierForm, express_number: e.target.value})}
+                            className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <button 
                       onClick={handleBecomeCaixa}
                       disabled={isApplyingCaixa}
-                      className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                      className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all mt-4"
                     >
-                      {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Ativar Modo Caixa'}
+                      {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Confirmar e Ativar Modo Caixa'}
                     </button>
                   </div>
                 ) : (
@@ -1180,18 +1243,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
-                        <span className="text-xl font-black">0</span>
+                        <span className="text-xl font-black">{cashierData?.total_transactions || 0}</span>
                       </div>
                       <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
-                        <span className="text-xl font-black">5.0 ★</span>
+                        <span className="text-xl font-black">{cashierData?.rating || 5.0} ★</span>
                       </div>
                     </div>
+
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-amber-500">Teus Dados de Recebimento</h4>
+                      <div className="space-y-1 text-left">
+                        <p className="text-[10px] font-bold">{cashierData?.payment_info.holder_name}</p>
+                        {cashierData?.payment_info.iban && <p className="text-[9px] text-zinc-400 font-mono">{cashierData.payment_info.iban}</p>}
+                        {cashierData?.payment_info.express_number && <p className="text-[9px] text-zinc-400 font-mono">Express: {cashierData.payment_info.express_number}</p>}
+                      </div>
+                    </div>
+
                     <button 
-                      onClick={() => {
-                        setShowDashboard(false);
-                        setShowP2P(true);
-                      }}
+                      onClick={() => setShowP2P(true)}
                       className="w-full py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
                     >
                       Abrir Painel de Caixa
