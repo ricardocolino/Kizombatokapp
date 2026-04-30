@@ -40,12 +40,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
   const checkCaixaStatus = useCallback(async () => {
     const { data } = await supabase
-      .from('caixas')
-      .select('*')
+      .from('profiles')
+      .select('is_cashier')
       .eq('id', currentUser.id)
-      .eq('status', 'active')
       .single();
-    setIsCaixa(!!data);
+    setIsCaixa(!!data?.is_cashier);
   }, [currentUser.id]);
 
   const fetchRequests = useCallback(async () => {
@@ -53,7 +52,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     const selectStr = `
       *, 
       user:profiles!user_id(*), 
-      cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+      cashier:profiles!cashier_id(*)
     `;
     
     let query = supabase.from('p2p_requests').select(selectStr);
@@ -132,7 +131,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       .select(`
         *, 
         user:profiles!user_id(*), 
-        cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+        cashier:profiles!cashier_id(*)
       `);
 
     if (!error && updatedData && updatedData.length > 0) {
@@ -156,7 +155,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       .select(`
         *, 
         user:profiles!user_id(*), 
-        cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+        cashier:profiles!cashier_id(*)
       `)
       .single();
 
@@ -523,46 +522,46 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                              </div>
                              
                              <div className="space-y-3">
-                                {/* Nome do Titular */}
+                              {/* Nome do Titular */}
+                              <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                <div className="flex-1 overflow-hidden pr-3">
+                                  <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
+                                  <span className="text-sm font-black uppercase block truncate">
+                                    {selectedRequest.cashier?.holder_name || 'NOME NÃO DEFINIDO'}
+                                  </span>
+                                </div>
+                                {selectedRequest.cashier?.holder_name && (
+                                  <CopyButton text={selectedRequest.cashier.holder_name} />
+                                )}
+                              </div>
+                              
+                              {/* IBAN */}
+                              {selectedRequest.cashier?.iban && (
                                 <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
                                   <div className="flex-1 overflow-hidden pr-3">
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
-                                    <span className="text-sm font-black uppercase block truncate">
-                                      {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'NOME NÃO DEFINIDO'}
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
+                                    <span className="text-xs font-mono font-bold block truncate tracking-tight">
+                                      {selectedRequest.cashier.iban}
                                     </span>
                                   </div>
-                                  {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
-                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.holder_name} />
-                                  )}
+                                  <CopyButton text={selectedRequest.cashier.iban} />
                                 </div>
-                                
-                                {/* IBAN */}
-                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
-                                  <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                    <div className="flex-1 overflow-hidden pr-3">
-                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
-                                      <span className="text-xs font-mono font-bold block truncate tracking-tight">
-                                        {selectedRequest.cashier.cashier_info[0].payment_info.iban}
-                                      </span>
-                                    </div>
-                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.iban} />
-                                  </div>
-                                )}
+                              )}
 
-                                {/* Multicaixa Express */}
-                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
-                                  <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                    <div className="flex-1 overflow-hidden pr-3">
-                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
-                                      <span className="text-sm font-black block truncate">
-                                        {selectedRequest.cashier.cashier_info[0].payment_info.express_number}
-                                      </span>
-                                    </div>
-                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.express_number} />
+                              {/* Multicaixa Express */}
+                              {selectedRequest.cashier?.express_number && (
+                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                  <div className="flex-1 overflow-hidden pr-3">
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
+                                    <span className="text-sm font-black block truncate">
+                                      {selectedRequest.cashier.express_number}
+                                    </span>
                                   </div>
-                                )}
+                                  <CopyButton text={selectedRequest.cashier.express_number} />
+                                </div>
+                              )}
 
-                                {!selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
+                              {!selectedRequest.cashier?.holder_name && (
                                   <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
                                     <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
                                     <p className="text-[10px] text-red-600 font-bold leading-tight uppercase">

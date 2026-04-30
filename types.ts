@@ -10,6 +10,12 @@ export interface Profile {
   claimed_views: number;
   wallet_address: string | null;
   airtm_email: string | null;
+  iban: string | null;
+  holder_name: string | null;
+  express_number: string | null;
+  is_cashier: boolean;
+  cashier_rating: number;
+  cashier_transactions: number;
   created_at: string;
 }
 
@@ -101,20 +107,6 @@ export interface StoryReaction {
   profiles?: Profile;
 }
 
-export interface Caixa {
-  id: string;
-  status: 'active' | 'inactive' | 'suspended';
-  rating: number;
-  total_transactions: number;
-  payment_info: {
-    iban?: string;
-    holder_name?: string;
-    express_number?: string;
-  };
-  created_at: string;
-  profiles?: Profile;
-}
-
 export interface P2PRequest {
   id: string;
   user_id: string;
@@ -129,5 +121,5 @@ export interface P2PRequest {
   created_at: string;
   updated_at: string;
   user?: Profile;
-  cashier?: Profile & { cashier_info?: Caixa[] };
+  cashier?: Profile;
 }

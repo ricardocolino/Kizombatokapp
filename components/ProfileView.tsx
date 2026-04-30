@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Profile, Post, Caixa } from '../types';
+import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown, Repeat } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -29,7 +29,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [showDeposit, setShowDeposit] = useState(false);
   const [showP2P, setShowP2P] = useState(false);
   const [isCashier, setIsCashier] = useState(false);
-  const [cashierData, setCashierData] = useState<Caixa | null>(null);
   const [isApplyingCaixa, setIsApplyingCaixa] = useState(false);
   const [cashierForm, setCashierForm] = useState({
     iban: '',
@@ -106,15 +105,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       // Check for cashier status if it's the own profile
       if (isOwnProfile) {
-        const { data: cData } = await supabase
-          .from('caixas')
-          .select('*')
-          .eq('id', userId)
-          .eq('status', 'active')
-          .maybeSingle();
-        setIsCashier(!!cData);
-        if (cData) {
-          setCashierData(cData as unknown as Caixa);
+        setIsCashier(!!data.is_cashier);
+        if (data.is_cashier) {
+          setCashierForm({
+            iban: data.iban || '',
+            holder_name: data.holder_name || '',
+            express_number: data.express_number || ''
+          });
         }
       }
     }
@@ -486,18 +483,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     setIsApplyingCaixa(true);
     try {
       const { error } = await supabase
-        .from('caixas')
-        .insert({
-          id: userId,
-          status: 'active',
-          rating: 5.0,
-          total_transactions: 0,
-          payment_info: {
-            iban: cashierForm.iban,
-            holder_name: cashierForm.holder_name,
-            express_number: cashierForm.express_number
-          }
-        });
+        .from('profiles')
+        .update({
+          is_cashier: true,
+          iban: cashierForm.iban,
+          holder_name: cashierForm.holder_name,
+          express_number: cashierForm.express_number,
+          cashier_rating: 5.0,
+          cashier_transactions: 0
+        })
+        .eq('id', userId);
 
       if (error) throw error;
       
@@ -1243,20 +1238,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
-                        <span className="text-xl font-black">{cashierData?.total_transactions || 0}</span>
+                        <span className="text-xl font-black">{profile?.cashier_transactions || 0}</span>
                       </div>
                       <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
                         <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
-                        <span className="text-xl font-black">{cashierData?.rating || 5.0} ★</span>
+                        <span className="text-xl font-black">{profile?.cashier_rating?.toFixed(1) || '5.0'} ★</span>
                       </div>
                     </div>
 
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
                       <h4 className="text-[9px] font-black uppercase tracking-widest text-amber-500">Teus Dados de Recebimento</h4>
                       <div className="space-y-1 text-left">
-                        <p className="text-[10px] font-bold">{cashierData?.payment_info.holder_name}</p>
-                        {cashierData?.payment_info.iban && <p className="text-[9px] text-zinc-400 font-mono">{cashierData.payment_info.iban}</p>}
-                        {cashierData?.payment_info.express_number && <p className="text-[9px] text-zinc-400 font-mono">Express: {cashierData.payment_info.express_number}</p>}
+                        <p className="text-[10px] font-bold">{profile?.holder_name}</p>
+                        {profile?.iban && <p className="text-[9px] text-zinc-400 font-mono">{profile.iban}</p>}
+                        {profile?.express_number && <p className="text-[9px] text-zinc-400 font-mono">Express: {profile.express_number}</p>}
                       </div>
                     </div>
 
