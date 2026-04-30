@@ -89,7 +89,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       status: 'pending'
     });
 
-    if (!error) {
+    if (error) {
+      console.error("Erro ao criar pedido:", error);
+      alert("Erro ao criar pedido: " + error.message);
+    } else {
       setAmount('');
       fetchRequests();
     }
