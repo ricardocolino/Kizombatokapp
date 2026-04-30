@@ -155,41 +155,31 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const handleCompleteRequest = async (request: P2PRequest) => {
     setLoading(true);
     try {
-      // 1. Verificar saldos atuais
-      const { data: userData } = await supabase.from('profiles').select('balance').eq('id', request.user_id).single();
-      const { data: cashierData } = await supabase.from('profiles').select('balance').eq('id', request.cashier_id!).single();
+      // Chamada à função RPC que criamos no SQL
+      const { error } = await supabase.rpc('complete_p2p_transaction', { 
+        request_id: request.id 
+      });
+
+      if (error) {
+        // Tratar erros específicos vindos do SQL (RAISE EXCEPTION)
+        if (error.message.includes('insufficient balance')) {
+          alert("Erro: O Caixa não tem saldo de AngoCoins suficiente!");
+        } else {
+          console.error("Erro RPC:", error);
+          alert("Erro ao processar libertação: " + error.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Sucesso
+      setSelectedRequest(null);
+      await fetchRequests();
+      onBalanceUpdate();
       
-      if (userData && cashierData) {
-        if (cashierData.balance < request.amount) {
-          alert("Atenção Caixa: O teu saldo é insuficiente para completar esta libertação automática!");
-          setLoading(false);
-          return;
-        }
-        
-        // 2. Transferência
-        const { error: userErr } = await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
-        const { error: cashierErr } = await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
-        
-        if (userErr || cashierErr) {
-          console.error("Erro na transferência:", userErr || cashierErr);
-          throw new Error("RLS_ERROR");
-        }
-      }
-
-      // 3. Marcar como completado
-      const { error } = await supabase
-        .from('p2p_requests')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', request.id);
-
-      if (!error) {
-        setSelectedRequest(null);
-        await fetchRequests();
-        onBalanceUpdate();
-      }
     } catch (err) {
       console.error(err);
-      alert("Houve um erro no processamento automático. Verifique as permissões de SQL.");
+      alert("Erro crítico no sistema de libertação.");
     }
     setLoading(false);
   };
