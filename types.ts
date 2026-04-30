@@ -129,5 +129,5 @@ export interface P2PRequest {
   created_at: string;
   updated_at: string;
   user?: Profile;
-  cashier?: Profile;
+  cashier?: Profile & { cashier_info?: Caixa[] };
 }

@@ -32,19 +32,23 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from('p2p_requests').select(`
+    const selectStr = `
       *, 
       user:profiles!user_id(*), 
       cashier:profiles!cashier_id(*, cashier_info:caixas(*))
-    `);
+    `;
+    
+    let query = supabase.from('p2p_requests').select(selectStr);
     
     if (activeTab === 'user') {
       query = query.eq('user_id', currentUser.id);
     } else {
-      query = query.eq('status', 'pending');
+      // Show pending requests OR requests assigned to this cashier
+      query = query.or(`status.eq.pending,cashier_id.eq.${currentUser.id}`);
     }
 
-    const { data } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) console.error("Error fetching requests:", error);
     if (data) setRequests(data as unknown as P2PRequest[]);
     setLoading(false);
   }, [activeTab, currentUser.id]);
@@ -102,15 +106,26 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         status: 'in_progress',
         updated_at: new Date().toISOString()
       })
-      .eq('id', request.id);
+      .eq('id', request.id)
+      .eq('status', 'pending'); // Rigorous check
 
     if (!error) {
-      fetchRequests();
       const { data } = await supabase.from('p2p_requests')
-        .select('*, user:profiles!user_id(*), cashier:profiles!cashier_id(*)')
+        .select(`
+          *, 
+          user:profiles!user_id(*), 
+          cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+        `)
         .eq('id', request.id)
         .single();
-      if (data) setSelectedRequest(data as unknown as P2PRequest);
+      
+      if (data) {
+        setSelectedRequest(data as unknown as P2PRequest);
+        await fetchRequests();
+      }
+    } else {
+      console.error("Error accepting request:", error);
+      alert("Não foi possível aceitar este pedido. Pode já ter sido aceite por outro caixa.");
     }
     setLoading(false);
   };
@@ -123,7 +138,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       .from('p2p_requests')
       .update({ ...updateData, updated_at: new Date().toISOString() })
       .eq('id', requestId)
-      .select('*, user:profiles!user_id(*), cashier:profiles!cashier_id(*)')
+      .select(`
+        *, 
+        user:profiles!user_id(*), 
+        cashier:profiles!cashier_id(*, cashier_info:caixas(*))
+      `)
       .single();
 
     if (!error && updatedReq && updatedReq.user_confirmed && updatedReq.cashier_confirmed) {
@@ -329,23 +348,28 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Pedidos de Usuários</h3>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Fila de Espera</h3>
                 {requests.length === 0 ? (
                   <div className="py-20 text-center opacity-30">
                     <Search size={48} className="mx-auto mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Procurando pedidos...</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest">Aguardando novos pedidos...</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {requests.map(request => (
-                      <div key={request.id} className="p-6 bg-white border border-zinc-100 rounded-[32px] space-y-5">
+                      <div key={request.id} className={`p-6 bg-white border rounded-[32px] space-y-5 transition-all ${request.cashier_id === currentUser.id ? 'border-amber-500 shadow-lg shadow-amber-500/5' : 'border-zinc-100'}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden border border-zinc-200">
                               {request.user?.avatar_url ? <img src={request.user.avatar_url} className="w-full h-full object-cover" /> : <User size={20} />}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-xs font-black">@{request.user?.username}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black">@{request.user?.username}</span>
+                                {request.cashier_id === currentUser.id && (
+                                  <span className="bg-amber-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Meu Job</span>
+                                )}
+                              </div>
                               <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest text-green-600">Depósito via Express</span>
                             </div>
                           </div>
@@ -353,13 +377,23 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                             <span className="text-2xl font-black tracking-tighter block">{request.amount} AC</span>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleAcceptRequest(request)}
-                          disabled={loading}
-                          className="w-full bg-zinc-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
-                        >
-                          Aceitar e Iniciar Troca
-                        </button>
+                        
+                        {request.status === 'pending' ? (
+                          <button 
+                            onClick={() => handleAcceptRequest(request)}
+                            disabled={loading}
+                            className="w-full bg-black text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+                          >
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : 'Aceitar e Iniciar Troca'}
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => setSelectedRequest(request)}
+                            className="w-full bg-amber-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                          >
+                            Ir para Transação
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -462,18 +496,18 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                               <div className="grid grid-cols-1 gap-3">
                                 <div>
                                   <span className="text-[9px] font-black uppercase text-amber-700/50 block">Titular da Conta</span>
-                                  <span className="text-sm font-black uppercase">{(selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.holder_name || 'Aguardando...'}</span>
+                                  <span className="text-sm font-black uppercase">{selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'Aguardando...'}</span>
                                 </div>
-                                { (selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.iban && (
+                                { selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
                                   <div>
                                     <span className="text-[9px] font-black uppercase text-amber-700/50 block">IBAN</span>
-                                    <span className="text-xs font-mono font-bold">{(selectedRequest.cashier as any).cashier_info[0].payment_info.iban}</span>
+                                    <span className="text-xs font-mono font-bold">{selectedRequest.cashier.cashier_info[0].payment_info.iban}</span>
                                   </div>
                                 )}
-                                { (selectedRequest.cashier as any)?.cashier_info?.[0]?.payment_info?.express_number && (
+                                { selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
                                   <div>
                                     <span className="text-[9px] font-black uppercase text-amber-700/50 block">Multicaixa Express</span>
-                                    <span className="text-sm font-black">{(selectedRequest.cashier as any).cashier_info[0].payment_info.express_number}</span>
+                                    <span className="text-sm font-black">{selectedRequest.cashier.cashier_info[0].payment_info.express_number}</span>
                                   </div>
                                 )}
                               </div>
@@ -498,8 +532,8 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                           </div>
                         </div>
 
-                        {/* Control Buttons */}
-                        {activeTab === 'user' ? (
+                        {/* Control Buttons - Detect role from request IDs, not activeTab */}
+                        {selectedRequest.user_id === currentUser.id ? (
                           <button 
                             onClick={() => handleConfirmAction(selectedRequest.id, 'user')}
                             disabled={selectedRequest.user_confirmed || loading}
@@ -509,7 +543,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                           >
                             {selectedRequest.user_confirmed ? 'Já Confirmaste o Pagamento' : 'Já Paguei (Confirmar)'}
                           </button>
-                        ) : (
+                        ) : selectedRequest.cashier_id === currentUser.id ? (
                           <button 
                             onClick={() => handleConfirmAction(selectedRequest.id, 'cashier')}
                             disabled={selectedRequest.cashier_confirmed || loading}
@@ -517,8 +551,13 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                               selectedRequest.cashier_confirmed ? 'bg-green-100 text-green-600' : 'bg-amber-500 text-white shadow-xl shadow-amber-500/20'
                             }`}
                           >
-                            {selectedRequest.cashier_confirmed ? 'Aguardando Liberação' : 'Recebi o Dinheiro (Confirmar)'}
+                            {selectedRequest.cashier_confirmed ? 'Recebido (Aguardando Liberação)' : 'Recebi o Dinheiro (Confirmar)'}
                           </button>
+                        ) : (
+                           // In case they are neither (e.g. previewing someone else's request somehow)
+                           <div className="p-4 bg-zinc-100 rounded-2xl text-center">
+                             <span className="text-[10px] font-black uppercase text-zinc-400">Só podes visualizar</span>
+                           </div>
                         )}
                       </div>
                     )}

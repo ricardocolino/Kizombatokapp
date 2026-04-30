@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Profile, Post } from '../types';
+import { Profile, Post, Caixa } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown, Repeat } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
