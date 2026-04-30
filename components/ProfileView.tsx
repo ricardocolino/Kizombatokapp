@@ -28,11 +28,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [newAirTMEmail, setNewAirTMEmail] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
   const [showP2P, setShowP2P] = useState(false);
+  const [isCashier, setIsCashier] = useState(false);
+  const [isApplyingCaixa, setIsApplyingCaixa] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState(10);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts' | 'caixa'>('posts');
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -95,8 +97,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         avatar_url: data.avatar_url || '',
         cover_url: data.cover_url || ''
       });
+      
+      // Check for cashier status if it's the own profile
+      if (isOwnProfile) {
+        const { data: cashierData } = await supabase
+          .from('caixas')
+          .select('*')
+          .eq('id', userId)
+          .eq('status', 'active')
+          .maybeSingle();
+        setIsCashier(!!cashierData);
+      }
     }
-  }, [userId]);
+  }, [userId, isOwnProfile]);
 
   const checkFollowStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -448,6 +461,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
+  const handleBecomeCaixa = async () => {
+    if (!profile) return;
+    setIsApplyingCaixa(true);
+    try {
+      const { error } = await supabase
+        .from('caixas')
+        .insert({
+          id: userId,
+          status: 'active',
+          rating: 5.0,
+          total_transactions: 0
+        });
+
+      if (error) throw error;
+      
+      await fetchProfile();
+      alert("Parabéns! Agora és um Caixa Oficial do AngoChat. Podes começar a processar recargas P2P! 🇦🇴🚀");
+    } catch (err) {
+      console.error("Erro ao tornar-se caixa:", err);
+      alert("Houve um erro ao processar o teu pedido. Tenta de novo!");
+    } finally {
+      setIsApplyingCaixa(false);
+    }
+  };
+
   const handleSaveWallet = async () => {
     if (!newWalletAddress.trim()) return;
     setSaving(true);
@@ -787,11 +825,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         {[ 
           { id: 'posts', label: 'Vídeos' }, 
           { id: 'liked', label: 'Curtidas' }, 
-          { id: 'reposts', label: 'Republicados' } 
+          { id: 'reposts', label: 'Republicados' },
+          ...(isOwnProfile ? [{ id: 'caixa', label: 'Caixa' }] : [])
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'reposts')}
+            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'reposts' | 'caixa')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
             <span className={`text-[11px] font-black uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}`}>
@@ -808,6 +847,56 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         {tabLoading ? (
           <div className="absolute inset-0 flex items-center justify-center py-20">
              <Loader2 size={24} className="animate-spin text-zinc-700" />
+          </div>
+        ) : activeTab === 'caixa' ? (
+          <div className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className={`p-8 rounded-[32px] border transition-all ${isCashier ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 border-amber-100'}`}>
+              <div className="flex items-center gap-4 mb-6">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isCashier ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 shadow-sm'}`}>
+                  <Smartphone size={28} />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className={`text-lg font-black tracking-tight ${isCashier ? 'text-white' : 'text-zinc-900'}`}>{isCashier ? 'És um Caixa Oficial' : 'Torna-te um Caixa'}</h3>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${isCashier ? 'text-zinc-400' : 'text-amber-600/60'}`}>
+                    {isCashier ? 'Processa recargas e ganha AC' : 'Ganha comissões em cada recarga'}
+                  </p>
+                </div>
+              </div>
+
+              {!isCashier ? (
+                <div className="space-y-6">
+                  <p className="text-xs text-zinc-600 font-medium leading-relaxed">
+                    Como caixa, ajudas outros utilizadores a carregar saldo via Express ou Transferência e recebes comissões por cada transação processada.
+                  </p>
+                  <button 
+                    onClick={handleBecomeCaixa}
+                    disabled={isApplyingCaixa}
+                    className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                  >
+                    {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Ativar Modo Caixa'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
+                      <span className="text-xl font-black">0</span>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
+                      <span className="text-xl font-black">5.0 ★</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowP2P(true)}
+                    className="w-full py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
+                  >
+                    Abrir Painel de Caixa
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-0.5 p-0.5">
@@ -1011,7 +1100,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
             </section>
 
-            {/* 3. Métodos - List style */}
             <section className="space-y-6">
               <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Métodos de Recebimento</h2>
               
@@ -1055,6 +1143,61 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   </div>
                   <ChevronRight size={18} className="text-zinc-300" />
                 </button>
+              </div>
+            </section>
+
+            {/* Become Caixa Section */}
+            <section className="space-y-6">
+              <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Oportunidade</h2>
+              <div className={`p-8 rounded-[32px] border transition-all ${isCashier ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 border-amber-100'}`}>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isCashier ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 shadow-sm'}`}>
+                    <Smartphone size={28} />
+                  </div>
+                  <div className="flex flex-col">
+                    <h3 className={`text-lg font-black tracking-tight ${isCashier ? 'text-white' : 'text-zinc-900'}`}>{isCashier ? 'És um Caixa Oficial' : 'Torna-te um Caixa'}</h3>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest ${isCashier ? 'text-zinc-400' : 'text-amber-600/60'}`}>
+                      {isCashier ? 'Processa recargas e ganha AC' : 'Ganha comissões em cada recarga'}
+                    </p>
+                  </div>
+                </div>
+
+                {!isCashier ? (
+                  <div className="space-y-6">
+                    <p className="text-xs text-zinc-600 font-medium leading-relaxed">
+                      Como caixa, ajudas outros utilizadores a carregar saldo via Express ou Transferência e recebes comissões por cada transação processada.
+                    </p>
+                    <button 
+                      onClick={handleBecomeCaixa}
+                      disabled={isApplyingCaixa}
+                      className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                    >
+                      {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Ativar Modo Caixa'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
+                        <span className="text-xl font-black">0</span>
+                      </div>
+                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
+                        <span className="text-xl font-black">5.0 ★</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowDashboard(false);
+                        setShowP2P(true);
+                      }}
+                      className="w-full py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
+                    >
+                      Abrir Painel de Caixa
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
           </div>
