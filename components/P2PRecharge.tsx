@@ -85,7 +85,6 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     const { error } = await supabase.from('p2p_requests').insert({
       user_id: currentUser.id,
       amount: Number(amount),
-      type,
       status: 'pending'
     });
 
