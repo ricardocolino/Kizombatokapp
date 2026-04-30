@@ -47,8 +47,8 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     setIsCaixa(!!data?.is_cashier);
   }, [currentUser.id]);
 
-  const fetchRequests = useCallback(async () => {
-    setLoading(true);
+  const fetchRequests = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const selectStr = `
       *, 
       user:profiles!user_id(*), 
@@ -66,8 +66,18 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) console.error("Error fetching requests:", error);
-    if (data) setRequests(data as unknown as P2PRequest[]);
-    setLoading(false);
+    if (data) {
+      const updatedRequests = data as unknown as P2PRequest[];
+      setRequests(updatedRequests);
+      
+      // Update selectedRequest if it exists in the new list
+      setSelectedRequest(prev => {
+        if (!prev) return null;
+        const matching = updatedRequests.find(r => r.id === prev.id);
+        return matching || prev;
+      });
+    }
+    if (!silent) setLoading(false);
   }, [activeTab, currentUser.id]);
 
   useEffect(() => {
@@ -82,10 +92,39 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
     init();
     
+    // Subscribe to all changes in p2p_requests
     const channel = supabase
-      .channel('p2p_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'p2p_requests' }, () => {
-        if (isMounted) fetchRequests();
+      .channel('p2p_realtime_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'p2p_requests' 
+      }, (payload) => {
+        if (!isMounted) return;
+        
+        // Refresh the list silently
+        fetchRequests(true);
+
+        // If the payload is for our selected request, we might want to refresh its specific data 
+        // to get joined fields accurately even if it's not in the current list filter
+        const newRecord = payload.new as { id: string };
+        if (selectedRequest && newRecord.id === selectedRequest.id) {
+          const syncSelected = async () => {
+            const { data } = await supabase
+              .from('p2p_requests')
+              .select(`
+                *, 
+                user:profiles!user_id(*), 
+                cashier:profiles!cashier_id(*)
+              `)
+              .eq('id', newRecord.id)
+              .single();
+            if (data && isMounted) {
+              setSelectedRequest(data as unknown as P2PRequest);
+            }
+          };
+          syncSelected();
+        }
       })
       .subscribe();
 
@@ -93,7 +132,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [activeTab, checkCaixaStatus, fetchRequests]);
+  }, [activeTab, checkCaixaStatus, fetchRequests, selectedRequest]);
 
   const handleCreateRequest = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;

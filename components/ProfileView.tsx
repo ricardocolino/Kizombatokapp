@@ -269,6 +269,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
   useEffect(() => {
     loadAll();
+
+    const channel = supabase
+      .channel(`profile_realtime_${userId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles', 
+        filter: `id=eq.${userId}` 
+      }, (payload) => {
+        setProfile(payload.new as Profile);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId, loadAll]);
 
   useEffect(() => {
