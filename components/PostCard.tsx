@@ -892,7 +892,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Professional Comments Drawer */}
       {showComments && (
-        <div className="fixed inset-0 z-[1000] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
@@ -1041,7 +1041,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Gifts Drawer */}
       {showGifts && (
-        <div className="fixed inset-0 z-[1100] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
           <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between mb-8">
