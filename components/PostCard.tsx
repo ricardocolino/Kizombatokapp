@@ -2,7 +2,7 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Image, Smile, AtSign } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import { PostMetadata } from './Feed';
@@ -892,7 +892,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Professional Comments Drawer */}
       {showComments && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[1000] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
@@ -958,7 +958,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 </div>
               )}
               <form onSubmit={postComment} className="flex items-center gap-3">
-                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3 flex items-center gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
+                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3.5 flex items-center gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
                   <input 
                     ref={inputRef}
                     value={newComment}
@@ -966,24 +966,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     placeholder="Adicionar comentário..."
                     className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400"
                   />
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
-                      <Image size={18} />
-                    </button>
-                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
-                      <Smile size={18} />
-                    </button>
-                    <button type="button" className="hover:text-black w-6 h-6 flex items-center justify-center">
-                      <AtSign size={18} />
-                    </button>
-                  </div>
                 </div>
                 <button 
                   type="submit" 
                   disabled={!newComment.trim()}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${newComment.trim() ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-300'}`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm ${newComment.trim() ? 'bg-black text-white' : 'bg-zinc-50 text-zinc-400'}`}
                 >
-                  <Send size={18} />
+                  <Send size={20} />
                 </button>
               </form>
             </div>
@@ -1052,7 +1041,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Gifts Drawer */}
       {showGifts && (
-        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[1100] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
           <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between mb-8">

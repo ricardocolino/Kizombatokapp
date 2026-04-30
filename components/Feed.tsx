@@ -62,11 +62,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const currentUserId = session?.user.id;
 
       // 1. Buscar contagens de reações, reposts e stories ativos e lives ativas
-      const [reactionsRes, repostsRes, storiesRes, livesRes] = await Promise.all([
+      const [reactionsRes, repostsRes, storiesRes, livesRes, commentsRes] = await Promise.all([
         supabase.from('reactions').select('post_id').in('post_id', postIds),
         supabase.from('reposts').select('post_id').in('post_id', postIds),
         supabase.from('stories').select('user_id').in('user_id', authorIds).gt('expires_at', new Date().toISOString()),
-        supabase.from('lives').select('id, host_id').in('host_id', authorIds).eq('status', 'active')
+        supabase.from('lives').select('id, host_id').in('host_id', authorIds).eq('status', 'active'),
+        supabase.from('comments').select('post_id').in('post_id', postIds)
       ]);
 
       const reactionCounts: Record<string, number> = {};
@@ -74,6 +75,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
       const repostCounts: Record<string, number> = {};
       repostsRes.data?.forEach(r => repostCounts[r.post_id] = (repostCounts[r.post_id] || 0) + 1);
+
+      const commentCounts: Record<string, number> = {};
+      commentsRes.data?.forEach(c => commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1);
 
       const usersWithStories: Set<string> = new Set(storiesRes.data?.map(s => s.user_id));
       const usersLiveMap: Record<string, string> = {};
@@ -101,7 +105,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       postsToFetch.forEach(p => {
         newMetadata[p.id] = {
           likesCount: reactionCounts[p.id] || 0,
-          commentsCount: 0,
+          commentsCount: commentCounts[p.id] || 0,
           repostsCount: repostCounts[p.id] || 0,
           liked: userLikes.has(p.id),
           reposted: userReposts.has(p.id),
