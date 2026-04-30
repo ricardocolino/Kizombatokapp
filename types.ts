@@ -100,3 +100,27 @@ export interface StoryReaction {
   created_at: string;
   profiles?: Profile;
 }
+
+export interface Caixa {
+  id: string;
+  status: 'active' | 'inactive' | 'suspended';
+  rating: number;
+  total_transactions: number;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface P2PRequest {
+  id: string;
+  user_id: string;
+  cashier_id: string | null;
+  type: 'deposit' | 'withdraw';
+  amount: number;
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  payment_method: string | null;
+  proof_url: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: Profile;
+  cashier?: Profile;
+}

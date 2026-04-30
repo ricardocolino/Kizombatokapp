@@ -2,9 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown, Repeat } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
+import P2PRecharge from './P2PRecharge';
 
 interface ProfileViewProps {
   userId: string;
@@ -26,6 +27,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newAirTMEmail, setNewAirTMEmail] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showP2P, setShowP2P] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -961,7 +963,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
             </section>
 
-            {/* 2. Gift Balance Section */}
+            {/* Gift Balance Section */}
             <section className="space-y-6">
               <div className="flex flex-col gap-1">
                 <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo de Presentes</h2>
@@ -980,19 +982,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   </div>
                 </div>
 
-                <div className="flex gap-4 mt-8">
+                <div className="flex flex-col gap-3 mt-8">
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={handleOpenExternalDeposit}
+                      className="flex-1 h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                    >
+                      <ArrowUpCircle size={16} />
+                      Carregar USDT
+                    </button>
+                    <button 
+                      onClick={() => setShowWithdrawModal(true)}
+                      className="flex-1 h-14 border border-zinc-200 text-black rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                    >
+                      <Download size={16} />
+                      Levantar
+                    </button>
+                  </div>
+                  
                   <button 
-                    onClick={handleOpenExternalDeposit}
-                    className="flex-1 h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                    onClick={() => setShowP2P(true)}
+                    className="w-full h-14 bg-amber-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
                   >
-                    <ArrowUpCircle size={16} />
-                    Carregar
-                  </button>
-                  <button 
-                    onClick={() => setShowWithdrawModal(true)}
-                    className="flex-1 h-14 border border-zinc-200 text-black rounded-xl font-black uppercase tracking-widest text-[10px]"
-                  >
-                    Levantar
+                    <Repeat size={16} />
+                    Carregar P2P (Express/Transferência)
                   </button>
                 </div>
               </div>
@@ -1439,6 +1452,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </div>
           </div>
         </div>
+      )}
+      {/* P2P Recharge Modal */}
+      {showP2P && profile && (
+        <P2PRecharge 
+          currentUser={profile} 
+          onClose={() => setShowP2P(false)} 
+          onBalanceUpdate={fetchProfile}
+        />
       )}
     </div>
   );
