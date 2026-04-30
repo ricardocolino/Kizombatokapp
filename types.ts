@@ -116,7 +116,9 @@ export interface P2PRequest {
   cashier_id: string | null;
   type: 'deposit' | 'withdraw';
   amount: number;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  user_confirmed: boolean;
+  cashier_confirmed: boolean;
   payment_method: string | null;
   proof_url: string | null;
   created_at: string;

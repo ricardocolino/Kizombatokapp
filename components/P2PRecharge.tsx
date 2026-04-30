@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { P2PRequest, Profile } from '../types';
 import { supabase } from '../supabaseClient';
-import { X, ArrowUpCircle, ArrowDownCircle, Clock, AlertCircle, Coins, ChevronRight, Loader2, ShieldCheck, User, Search } from 'lucide-react';
+import { X, Clock, AlertCircle, ChevronRight, Loader2, ShieldCheck, User, Search, Repeat, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface P2PRechargeProps {
@@ -95,32 +95,54 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       .from('p2p_requests')
       .update({ 
         cashier_id: currentUser.id,
-        status: 'accepted',
+        status: 'in_progress',
         updated_at: new Date().toISOString()
       })
       .eq('id', request.id);
 
-    if (!error) fetchRequests();
+    if (!error) {
+      fetchRequests();
+      const { data } = await supabase.from('p2p_requests')
+        .select('*, user:profiles!user_id(*), cashier:profiles!cashier_id(*)')
+        .eq('id', request.id)
+        .single();
+      if (data) setSelectedRequest(data as unknown as P2PRequest);
+    }
+    setLoading(false);
+  };
+
+  const handleConfirmAction = async (requestId: string, role: 'user' | 'cashier') => {
+    setLoading(true);
+    const updateData = role === 'user' ? { user_confirmed: true } : { cashier_confirmed: true };
+    
+    const { data: updatedReq, error } = await supabase
+      .from('p2p_requests')
+      .update({ ...updateData, updated_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select('*, user:profiles!user_id(*), cashier:profiles!cashier_id(*)')
+      .single();
+
+    if (!error && updatedReq && updatedReq.user_confirmed && updatedReq.cashier_confirmed) {
+      await handleCompleteRequest(updatedReq as unknown as P2PRequest);
+    } else if (updatedReq) {
+      setSelectedRequest(updatedReq as unknown as P2PRequest);
+      fetchRequests();
+    }
     setLoading(false);
   };
 
   const handleCompleteRequest = async (request: P2PRequest) => {
-    setLoading(true);
+    const { data: userData } = await supabase.from('profiles').select('balance').eq('id', request.user_id).single();
+    const { data: cashierData } = await supabase.from('profiles').select('balance').eq('id', request.cashier_id!).single();
     
-    // If it's a deposit, update user balance
-    if (request.type === 'deposit') {
-      const { data: userData } = await supabase.from('profiles').select('balance').eq('id', request.user_id).single();
-      const { data: cashierData } = await supabase.from('profiles').select('balance').eq('id', request.cashier_id!).single();
-      
-      if (userData && cashierData) {
-        // Simple balance update (transactional in SQL would be better)
-        // In a real app, use a RPC/Function to ensure atomicity
-        await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
-        await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
+    if (userData && cashierData) {
+      if (cashierData.balance < request.amount) {
+        alert("Erro: O caixa não tem saldo suficiente para liberar!");
+        return;
       }
-    } else {
-      // Withdraw: release escrow (user's balance should have been deducted at request creation or kept in status)
-      // For simplicity, let's assume deposit for now as main use case
+      
+      await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
+      await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
     }
 
     const { error } = await supabase
@@ -129,10 +151,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       .eq('id', request.id);
 
     if (!error) {
+      setSelectedRequest(null);
       fetchRequests();
       onBalanceUpdate();
     }
-    setLoading(false);
   };
 
   return (
@@ -158,190 +180,181 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         </div>
 
         {/* Balance Display */}
-        <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 mx-6 mt-6 rounded-[32px] border border-amber-100/50 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-              <Coins size={28} />
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
+          {/* Tab Switcher */}
+          {isCaixa && (
+            <div className="flex p-1.5 bg-zinc-100 mx-6 mt-6 rounded-2xl">
+              <button 
+                onClick={() => setActiveTab('user')}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'user' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
+              >
+                Minhas Trocas
+              </button>
+              <button 
+                onClick={() => setActiveTab('cashier')}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cashier' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
+              >
+                Painel de Caixa
+              </button>
             </div>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/60 block mb-1">Teu Saldo Atual</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black tracking-tighter">{currentUser.balance}</span>
-                <span className="text-xs font-black text-amber-600 uppercase">AC</span>
-              </div>
-            </div>
-          </div>
-          <button className="px-5 py-2.5 bg-white rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200 shadow-sm">Atividade</button>
-        </div>
+          )}
 
-        {/* Tab Switcher */}
-        {isCaixa && (
-          <div className="flex p-1.5 bg-zinc-100 mx-6 mt-6 rounded-2xl">
-            <button 
-              onClick={() => setActiveTab('user')}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'user' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-            >
-              Minhas Trocas
-            </button>
-            <button 
-              onClick={() => setActiveTab('cashier')}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'cashier' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-            >
-              Painel de Caixa
-            </button>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto no-scrollbar p-6">
           {activeTab === 'user' ? (
-            <div className="space-y-8">
-              {/* Request Form */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Nova Transação</h3>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setType('deposit')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 transition-all ${type === 'deposit' ? 'border-amber-500 bg-amber-500 text-white' : 'border-zinc-100 text-zinc-400 grayscale'}`}
-                  >
-                    <ArrowUpCircle size={20} />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Carregar</span>
-                  </button>
-                  <button 
-                    onClick={() => setType('withdraw')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 transition-all ${type === 'withdraw' ? 'border-red-500 bg-red-500 text-white' : 'border-zinc-100 text-zinc-400 grayscale'}`}
-                  >
-                    <ArrowDownCircle size={20} />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Levantar</span>
-                  </button>
+            <div className="space-y-4">
+              {/* Saldo Card */}
+              <div className="p-8 bg-zinc-900 mx-6 mt-6 rounded-[32px] text-white overflow-hidden relative">
+                <div className="absolute -right-4 -top-4 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+                <div className="relative z-10">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2 block">Teu Saldo Disponível</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-black tracking-tighter">{currentUser.balance}</span>
+                    <span className="text-sm font-black text-amber-500">AC</span>
+                  </div>
                 </div>
-                
-                <div className="relative">
-                  <input 
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Quantidade de AngoCoins..."
-                    className="w-full bg-zinc-50 rounded-2xl px-6 py-5 text-lg font-black tracking-tighter outline-none border border-zinc-100 focus:border-amber-500 transition-all placeholder:font-normal placeholder:tracking-normal"
-                  />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-zinc-400">AC</div>
-                </div>
-
-                <button 
-                  onClick={handleCreateRequest}
-                  disabled={!amount || isSubmitting}
-                  className="w-full bg-black text-white py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] shadow-xl shadow-black/10 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? 'A Criar Pedido...' : 'Encontrar um Caixa'}
-                </button>
               </div>
 
-              {/* History */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Pedidos Ativos</h3>
-                {loading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 size={24} className="animate-spin text-amber-500" />
+              {/* P2P Content */}
+              <div className="px-6 space-y-8">
+                {/* Request Form */}
+                <div className="bg-white p-6 rounded-[32px] border border-zinc-100 shadow-sm space-y-5">
+                   <div className="flex gap-2 p-1 bg-zinc-100 rounded-2xl">
+                    <button 
+                      onClick={() => setType('deposit')}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${type === 'deposit' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
+                    >
+                      Carregar
+                    </button>
+                    <button 
+                      onClick={() => setType('withdraw')}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${type === 'withdraw' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
+                    >
+                      Levantar
+                    </button>
                   </div>
-                ) : requests.length === 0 ? (
-                  <div className="p-10 bg-zinc-50 rounded-3xl border-2 border-dashed border-zinc-100 flex flex-col items-center justify-center text-center">
-                    <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest">Sem pedidos ativos no momento</p>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Quantidade</label>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="Ex: 500"
+                        className="w-full bg-zinc-50 rounded-2xl px-6 py-5 text-2xl font-black tracking-tighter outline-none border border-zinc-100 focus:border-black transition-all"
+                      />
+                      <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-amber-600">AC</div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {requests.map(request => (
-                      <div key={request.id} className="p-5 bg-white border border-zinc-100 rounded-3xl flex items-center justify-between hover:border-amber-200 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${request.type === 'deposit' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                            {request.type === 'deposit' ? <ArrowUpCircle size={24} /> : <ArrowDownCircle size={24} />}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-black tracking-tighter">{request.amount} AC</span>
-                              <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' :
-                                request.status === 'accepted' ? 'bg-amber-100 text-amber-600' :
-                                'bg-green-100 text-green-600'
-                              }`}>
-                                {request.status}
-                              </div>
+
+                  <button 
+                    onClick={handleCreateRequest}
+                    disabled={!amount || isSubmitting}
+                    className="w-full bg-black text-white py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'A Processar...' : 'Criar Pedido P2P'}
+                  </button>
+                </div>
+
+                {/* History List */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Pedidos em Curso</h3>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin text-amber-500" /></div>
+                  ) : requests.length === 0 ? (
+                    <div className="py-20 text-center opacity-30">
+                      <Clock size={48} className="mx-auto mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Sem pedidos ativos</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {requests.map(request => (
+                        <button 
+                          key={request.id} 
+                          onClick={() => setSelectedRequest(request)}
+                          className="w-full p-6 bg-white border border-zinc-100 rounded-[32px] flex items-center justify-between text-left hover:border-black transition-all"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-100 text-amber-600'}`}>
+                              {request.status === 'pending' ? <Clock size={24} /> : <AlertCircle size={24} />}
                             </div>
-                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
-                              {request.cashier ? `Caixa: @${request.cashier.username}` : 'Aguardando Caixa...'}
-                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-black tracking-tighter">{request.amount} AC</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${
+                                  request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-500 text-white'
+                                }`}>
+                                  {request.status === 'pending' ? 'Aguardando' : 'Em Progresso'}
+                                </span>
+                              </div>
+                              <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
+                                {request.status === 'pending' ? 'À procura de um caixa...' : `Com @${request.cashier?.username}`}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        {request.status === 'accepted' && (
-                          <button 
-                            onClick={() => setSelectedRequest(request)}
-                            className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center"
-                          >
-                            <ChevronRight size={18} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <ChevronRight size={20} className="text-zinc-300" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="bg-amber-500 p-6 rounded-[32px] text-white flex items-center gap-4">
-                <ShieldCheck size={32} />
-                <div>
-                  <h4 className="font-black tracking-tight text-sm uppercase">Modo Caixa Ativo</h4>
-                  <p className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Ganhe comissões processando pedidos</p>
+            /* PAINEL DE CAIXA */
+            <div className="px-6 py-8 space-y-8">
+              <div className="bg-amber-500 p-8 rounded-[40px] text-white shadow-xl shadow-amber-500/20">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <ShieldCheck size={28} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-lg leading-tight uppercase">Modo Operador</h4>
+                    <p className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Processa e Ganha Comissões</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-white/10 p-4 rounded-2xl">
+                     <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Hoje</span>
+                     <span className="text-xl font-black">0 AC</span>
+                   </div>
+                   <div className="bg-white/10 p-4 rounded-2xl">
+                     <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Reputação</span>
+                     <span className="text-xl font-black">5.0 ★</span>
+                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Pedidos Disponíveis</h3>
-                  <div className="flex items-center gap-2 text-[10px] font-black text-amber-600">
-                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                     AO VIVO
-                  </div>
-                </div>
-                
-                {loading ? (
-                   <div className="flex items-center justify-center py-10">
-                    <Loader2 size={24} className="animate-spin text-amber-500" />
-                  </div>
-                ) : requests.length === 0 ? (
-                  <div className="p-16 text-center space-y-4">
-                    <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto text-zinc-200">
-                      <Search size={32} />
-                    </div>
-                    <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest">Procurando novos pedidos...</p>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Pedidos de Usuários</h3>
+                {requests.length === 0 ? (
+                  <div className="py-20 text-center opacity-30">
+                    <Search size={48} className="mx-auto mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Procurando pedidos...</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {requests.map(request => (
-                      <div key={request.id} className="p-6 bg-zinc-50 rounded-[32px] border border-zinc-100 flex flex-col gap-4">
+                      <div key={request.id} className="p-6 bg-white border border-zinc-100 rounded-[32px] space-y-5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden border border-zinc-200">
-                              {request.user?.avatar_url ? (
-                                <img src={request.user.avatar_url} className="w-full h-full object-cover" />
-                              ) : (
-                                <User size={20} className="text-zinc-300" />
-                              )}
+                            <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden border border-zinc-200">
+                              {request.user?.avatar_url ? <img src={request.user.avatar_url} className="w-full h-full object-cover" /> : <User size={20} />}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-xs font-black">@{request.user?.username}</span>
-                              <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">Moeda: Express / Kz</span>
+                              <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest text-green-600">Depósito via Express</span>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end">
-                            <span className="text-xl font-black tracking-tighter">{request.amount} AC</span>
-                            <span className="text-[9px] text-amber-600 font-black uppercase">Depósito</span>
+                          <div className="text-right">
+                            <span className="text-2xl font-black tracking-tighter block">{request.amount} AC</span>
                           </div>
                         </div>
                         <button 
                           onClick={() => handleAcceptRequest(request)}
-                          className="w-full bg-white border border-zinc-200 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-amber-500 transition-all active:scale-95 shadow-sm"
+                          disabled={loading}
+                          className="w-full bg-zinc-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
                         >
-                          Aceitar Pedido
+                          Aceitar e Iniciar Troca
                         </button>
                       </div>
                     ))}
@@ -352,7 +365,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
           )}
         </div>
 
-        {/* Modal de Detalhes da Transação */}
+        {/* ECRÃ DE TRANSAÇÃO (FULLSCREEN MODAL DENTRO) */}
         <AnimatePresence>
           {selectedRequest && (
             <motion.div 
@@ -361,73 +374,144 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               exit={{ x: "100%" }}
               className="absolute inset-0 bg-white z-[130] flex flex-col"
             >
+              {/* Header de Transação */}
               <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-                <button onClick={() => setSelectedRequest(null)} className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400">
-                  <X size={20} strokeWidth={2.5} />
+                <button onClick={() => setSelectedRequest(null)} className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center">
+                  <X size={20} strokeWidth={3} />
                 </button>
-                <span className="text-xs font-black uppercase tracking-widest">Detalhes do Pedido</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">ID: {selectedRequest.id.slice(0,8)}</span>
+                  <span className="text-xs font-black uppercase tracking-widest">Recarga AngoCoins</span>
+                </div>
                 <div className="w-10" />
               </div>
-              
-              <div className="flex-1 overflow-y-auto p-8 space-y-10">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="w-24 h-24 bg-amber-50 rounded-[40px] flex items-center justify-center text-amber-500 border border-amber-100">
-                    <Coins size={48} strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-4xl font-black tracking-tight">{selectedRequest.amount} AC</h3>
-                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-[0.2em] mt-2">Valor da Recarga</p>
-                  </div>
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 no-scrollbar">
+                {/* Progress Steps */}
+                <div className="flex items-center justify-between px-4">
+                  {[
+                    { label: 'Pagar', done: true },
+                    { label: 'Confirmar', done: selectedRequest.status === 'in_progress' },
+                    { label: 'Libertar', done: selectedRequest.status === 'completed' }
+                  ].map((step, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-2">
+                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${step.done ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-300'}`}>
+                         {step.done ? '✓' : idx + 1}
+                       </div>
+                       <span className={`text-[8px] font-black uppercase tracking-widest ${step.done ? 'text-black' : 'text-zinc-300'}`}>{step.label}</span>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="space-y-6">
-                  <div className="p-6 bg-zinc-50 rounded-3xl border border-zinc-100 space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Instruções de Pagamento</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Método</span>
-                        <span className="text-xs font-black">Transferência Express</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Beneficiário</span>
-                        <span className="text-xs font-black">@{selectedRequest.cashier?.username}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">ID Transação</span>
-                        <span className="text-[10px] font-mono text-zinc-400">{selectedRequest.id.split('-')[0]}</span>
+                {/* Status-specific Content */}
+                {selectedRequest.status === 'pending' ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
+                    <div className="relative">
+                      <div className="w-32 h-32 bg-amber-500/10 rounded-full animate-ping absolute inset-0" />
+                      <div className="w-32 h-32 bg-white border-2 border-amber-500 rounded-full flex items-center justify-center relative">
+                        <Search size={48} className="text-amber-500 animate-pulse" />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="p-6 bg-amber-50 border border-amber-100 rounded-3xl space-y-3">
-                    <div className="flex items-center gap-3 text-amber-600">
-                      <AlertCircle size={20} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Importante</span>
+                    <div>
+                      <h3 className="text-2xl font-black tracking-tighter">Procurando Caixa...</h3>
+                      <p className="text-xs text-zinc-400 font-bold uppercase mt-2">O teu pedido de {selectedRequest.amount} AC está na fila.</p>
                     </div>
-                    <p className="text-xs text-amber-900/70 font-medium leading-relaxed">
-                      Efetue o pagamento diretamente ao caixa e aguarde a confirmação dele para receber os seus AngoCoins. Em caso de problemas, utilize o chat de suporte.
-                    </p>
+                    <button className="px-8 py-4 bg-zinc-100 text-zinc-400 rounded-full text-[10px] font-black uppercase tracking-widest">Cancelar Pedido</button>
                   </div>
-                </div>
-
-                {activeTab === 'cashier' ? (
-                  <button 
-                    onClick={() => handleCompleteRequest(selectedRequest)}
-                    className="w-full bg-black text-white py-6 rounded-[32px] text-xs font-black uppercase tracking-[0.3em] shadow-xl shadow-black/20"
-                  >
-                    Confirmar Recebimento
-                  </button>
                 ) : (
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="flex items-center gap-3 py-4 text-amber-600">
-                      <Clock size={20} className="animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Aguardando Confirmação do Caixa</span>
+                  <div className="space-y-8">
+                    {/* Amount Card */}
+                    <div className="p-10 bg-zinc-50 rounded-[40px] text-center space-y-2">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total a Processar</span>
+                       <h2 className="text-5xl font-black tracking-tighter">{selectedRequest.amount} AC</h2>
                     </div>
-                    <button className="w-full py-5 bg-zinc-100 text-zinc-400 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-                      Cancelar Pedido
-                    </button>
+
+                    {/* Parties Info */}
+                    <div className="flex items-center justify-between p-6 bg-white border border-zinc-100 rounded-3xl">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-full bg-zinc-100 overflow-hidden border">
+                          {selectedRequest.user?.avatar_url && <img src={selectedRequest.user.avatar_url} className="w-full h-full object-cover" />}
+                        </div>
+                        <span className="text-[10px] font-black">@{selectedRequest.user?.username}</span>
+                        <span className="text-[8px] text-zinc-400 uppercase font-black">Usuário</span>
+                      </div>
+                      <div className="h-px flex-1 bg-zinc-100 mx-4 relative">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white border flex items-center justify-center rounded-full">
+                           <Repeat size={12} className="text-zinc-300" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-full bg-amber-500 overflow-hidden border border-amber-600">
+                          {selectedRequest.cashier?.avatar_url && <img src={selectedRequest.cashier.avatar_url} className="w-full h-full object-cover" />}
+                        </div>
+                        <span className="text-[10px] font-black">@{selectedRequest.cashier?.username}</span>
+                        <span className="text-[8px] text-amber-600 uppercase font-black">Caixa P2P</span>
+                      </div>
+                    </div>
+
+                    {/* Interaction Section */}
+                    {selectedRequest.status === 'in_progress' && (
+                      <div className="space-y-6">
+                        <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
+                           <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados do Pagamento</h4>
+                           <div className="space-y-4">
+                              <div>
+                                <span className="text-[9px] font-black uppercase text-amber-700/50 block">Método Recomendado</span>
+                                <span className="text-sm font-black">Transferência Express / Multicaixa</span>
+                              </div>
+                              <p className="text-xs font-medium leading-relaxed opacity-80">
+                                Envia o valor equivalente aos {selectedRequest.amount} AC para o caixa e clica em confirmar. O sistema garante a retenção dos coins.
+                              </p>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className={`p-6 rounded-3xl border flex flex-col items-center gap-3 ${selectedRequest.user_confirmed ? 'bg-green-50 border-green-100 text-green-600' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}>
+                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+                              {selectedRequest.user_confirmed ? <CheckCircle2 size={20} /> : <User size={20} />}
+                            </div>
+                            <span className="text-[9px] font-black uppercase text-center">{selectedRequest.user_confirmed ? 'Usuário Confirmou' : 'Usuário Pendente'}</span>
+                          </div>
+                          <div className={`p-6 rounded-3xl border flex flex-col items-center gap-3 ${selectedRequest.cashier_confirmed ? 'bg-green-50 border-green-100 text-green-600' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}>
+                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+                              {selectedRequest.cashier_confirmed ? <CheckCircle2 size={20} /> : <ShieldCheck size={20} />}
+                            </div>
+                            <span className="text-[9px] font-black uppercase text-center">{selectedRequest.cashier_confirmed ? 'Caixa Confirmou' : 'Caixa Pendente'}</span>
+                          </div>
+                        </div>
+
+                        {/* Control Buttons */}
+                        {activeTab === 'user' ? (
+                          <button 
+                            onClick={() => handleConfirmAction(selectedRequest.id, 'user')}
+                            disabled={selectedRequest.user_confirmed || loading}
+                            className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                              selectedRequest.user_confirmed ? 'bg-green-100 text-green-600' : 'bg-black text-white shadow-xl shadow-black/20'
+                            }`}
+                          >
+                            {selectedRequest.user_confirmed ? 'Já Confirmaste o Pagamento' : 'Já Paguei (Confirmar)'}
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleConfirmAction(selectedRequest.id, 'cashier')}
+                            disabled={selectedRequest.cashier_confirmed || loading}
+                            className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                              selectedRequest.cashier_confirmed ? 'bg-green-100 text-green-600' : 'bg-amber-500 text-white shadow-xl shadow-amber-500/20'
+                            }`}
+                          >
+                            {selectedRequest.cashier_confirmed ? 'Aguardando Liberação' : 'Recebi o Dinheiro (Confirmar)'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
+              </div>
+              
+              {/* Floating Chat/Support Bar */}
+              <div className="p-6 bg-zinc-50 border-t border-zinc-100 flex items-center justify-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Problemas?</span>
+                <button className="text-[10px] font-black uppercase text-amber-600 tracking-widest underline decoration-2 underline-offset-4">Suporte AngoChat</button>
               </div>
             </motion.div>
           )}
