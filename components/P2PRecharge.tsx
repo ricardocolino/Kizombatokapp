@@ -143,6 +143,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     if (!error && updatedReq) {
       setSelectedRequest(updatedReq as unknown as P2PRequest);
       fetchRequests();
+
+      // Automática: Se ambos confirmaram, libertar na hora
+      if (updatedReq.user_confirmed && updatedReq.cashier_confirmed && updatedReq.status === 'in_progress') {
+        handleCompleteRequest(updatedReq as unknown as P2PRequest);
+      }
     }
     setLoading(false);
   };
@@ -156,23 +161,22 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       
       if (userData && cashierData) {
         if (cashierData.balance < request.amount) {
-          alert("Erro: O teu saldo de AngoCoins é insuficiente para libertar!");
+          alert("Atenção Caixa: O teu saldo é insuficiente para completar esta libertação automática!");
           setLoading(false);
           return;
         }
         
-        // 2. Transferência (Tenta via client-side, se RLS permitir, senão falhará graciosamente)
-        // Nota: O ideal é usar o RPC fornecido no SQL abaixo
+        // 2. Transferência
         const { error: userErr } = await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
         const { error: cashierErr } = await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
         
         if (userErr || cashierErr) {
-          console.error("Erro na transferência de saldo:", userErr || cashierErr);
-          throw new Error("Falha ao atualizar balanço. Verifica as permissões de acesso.");
+          console.error("Erro na transferência:", userErr || cashierErr);
+          throw new Error("RLS_ERROR");
         }
       }
 
-      // 3. Marcar pedido como completado
+      // 3. Marcar como completado
       const { error } = await supabase
         .from('p2p_requests')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
@@ -182,11 +186,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         setSelectedRequest(null);
         await fetchRequests();
         onBalanceUpdate();
-        alert("Recarga efetuada com sucesso!");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao finalizar transação. Se o problema persistir, contacta o suporte.");
+      alert("Houve um erro no processamento automático. Verifique as permissões de SQL.");
     }
     setLoading(false);
   };
@@ -553,10 +556,12 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                 selectedRequest.user_confirmed ? 'bg-green-100 text-green-600' : 'bg-black text-white shadow-xl shadow-black/20'
                               }`}
                             >
-                              {selectedRequest.user_confirmed ? 'Já Confirmaste o Pagamento ✓' : 'Já Paguei (Confirmar)'}
+                              {selectedRequest.user_confirmed ? 'Pagamento Confirmado ✓' : 'Já Paguei (Confirmar)'}
                             </button>
                             {selectedRequest.user_confirmed && !selectedRequest.cashier_confirmed && (
-                              <p className="text-[10px] text-zinc-400 font-bold uppercase text-center animate-pulse">Aguardando confirmação do caixa...</p>
+                              <div className="p-4 bg-amber-50 rounded-2xl text-center border border-amber-100">
+                                <p className="text-[10px] text-amber-600 font-black uppercase animate-pulse">Aguardando que o Caixa confirme o recebimento...</p>
+                              </div>
                             )}
                           </div>
                         ) : selectedRequest.cashier_id === currentUser.id ? (
@@ -571,14 +576,17 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                               {selectedRequest.cashier_confirmed ? 'Recebimento Confirmado ✓' : 'Recebi o Dinheiro (Confirmar)'}
                             </button>
 
+                            {selectedRequest.cashier_confirmed && !selectedRequest.user_confirmed && (
+                              <div className="p-4 bg-zinc-50 rounded-2xl text-center border border-zinc-100">
+                                <p className="text-[10px] text-zinc-400 font-black uppercase">Aguardando confirmação do Pagamento pelo Usuário...</p>
+                              </div>
+                            )}
+
                             {selectedRequest.user_confirmed && selectedRequest.cashier_confirmed && (
-                              <button 
-                                onClick={() => handleCompleteRequest(selectedRequest)}
-                                disabled={loading}
-                                className="w-full py-6 bg-black text-white rounded-[24px] text-xs font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/30 border-2 border-amber-500 animate-bounce"
-                              >
-                                {loading ? <Loader2 size={18} className="animate-spin mx-auto" /> : '🚀 Libertar AngoCoins Agora'}
-                              </button>
+                              <div className="p-6 bg-black text-white rounded-[24px] text-center space-y-2 animate-pulse">
+                                <Loader2 size={24} className="animate-spin mx-auto text-amber-500" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Libertando AngoCoins Automáticamente...</p>
+                              </div>
                             )}
                           </div>
                         ) : (
