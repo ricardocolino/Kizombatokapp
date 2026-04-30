@@ -140,9 +140,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       `)
       .single();
 
-    if (!error && updatedReq && updatedReq.user_confirmed && updatedReq.cashier_confirmed) {
-      await handleCompleteRequest(updatedReq as unknown as P2PRequest);
-    } else if (updatedReq) {
+    if (!error && updatedReq) {
       setSelectedRequest(updatedReq as unknown as P2PRequest);
       fetchRequests();
     }
@@ -150,29 +148,47 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   };
 
   const handleCompleteRequest = async (request: P2PRequest) => {
-    const { data: userData } = await supabase.from('profiles').select('balance').eq('id', request.user_id).single();
-    const { data: cashierData } = await supabase.from('profiles').select('balance').eq('id', request.cashier_id!).single();
-    
-    if (userData && cashierData) {
-      if (cashierData.balance < request.amount) {
-        alert("Erro: O caixa não tem saldo suficiente para liberar!");
-        return;
-      }
+    setLoading(true);
+    try {
+      // 1. Verificar saldos atuais
+      const { data: userData } = await supabase.from('profiles').select('balance').eq('id', request.user_id).single();
+      const { data: cashierData } = await supabase.from('profiles').select('balance').eq('id', request.cashier_id!).single();
       
-      await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
-      await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
-    }
+      if (userData && cashierData) {
+        if (cashierData.balance < request.amount) {
+          alert("Erro: O teu saldo de AngoCoins é insuficiente para libertar!");
+          setLoading(false);
+          return;
+        }
+        
+        // 2. Transferência (Tenta via client-side, se RLS permitir, senão falhará graciosamente)
+        // Nota: O ideal é usar o RPC fornecido no SQL abaixo
+        const { error: userErr } = await supabase.from('profiles').update({ balance: userData.balance + request.amount }).eq('id', request.user_id);
+        const { error: cashierErr } = await supabase.from('profiles').update({ balance: cashierData.balance - request.amount }).eq('id', request.cashier_id!);
+        
+        if (userErr || cashierErr) {
+          console.error("Erro na transferência de saldo:", userErr || cashierErr);
+          throw new Error("Falha ao atualizar balanço. Verifica as permissões de acesso.");
+        }
+      }
 
-    const { error } = await supabase
-      .from('p2p_requests')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', request.id);
+      // 3. Marcar pedido como completado
+      const { error } = await supabase
+        .from('p2p_requests')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', request.id);
 
-    if (!error) {
-      setSelectedRequest(null);
-      fetchRequests();
-      onBalanceUpdate();
+      if (!error) {
+        setSelectedRequest(null);
+        await fetchRequests();
+        onBalanceUpdate();
+        alert("Recarga efetuada com sucesso!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao finalizar transação. Se o problema persistir, contacta o suporte.");
     }
+    setLoading(false);
   };
 
   return (
@@ -529,25 +545,42 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
                         {/* Control Buttons - Detect role from request IDs, not activeTab */}
                         {selectedRequest.user_id === currentUser.id ? (
-                          <button 
-                            onClick={() => handleConfirmAction(selectedRequest.id, 'user')}
-                            disabled={selectedRequest.user_confirmed || loading}
-                            className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                              selectedRequest.user_confirmed ? 'bg-green-100 text-green-600' : 'bg-black text-white shadow-xl shadow-black/20'
-                            }`}
-                          >
-                            {selectedRequest.user_confirmed ? 'Já Confirmaste o Pagamento' : 'Já Paguei (Confirmar)'}
-                          </button>
+                          <div className="space-y-4">
+                            <button 
+                              onClick={() => handleConfirmAction(selectedRequest.id, 'user')}
+                              disabled={selectedRequest.user_confirmed || loading}
+                              className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                                selectedRequest.user_confirmed ? 'bg-green-100 text-green-600' : 'bg-black text-white shadow-xl shadow-black/20'
+                              }`}
+                            >
+                              {selectedRequest.user_confirmed ? 'Já Confirmaste o Pagamento ✓' : 'Já Paguei (Confirmar)'}
+                            </button>
+                            {selectedRequest.user_confirmed && !selectedRequest.cashier_confirmed && (
+                              <p className="text-[10px] text-zinc-400 font-bold uppercase text-center animate-pulse">Aguardando confirmação do caixa...</p>
+                            )}
+                          </div>
                         ) : selectedRequest.cashier_id === currentUser.id ? (
-                          <button 
-                            onClick={() => handleConfirmAction(selectedRequest.id, 'cashier')}
-                            disabled={selectedRequest.cashier_confirmed || loading}
-                            className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                              selectedRequest.cashier_confirmed ? 'bg-green-100 text-green-600' : 'bg-amber-500 text-white shadow-xl shadow-amber-500/20'
-                            }`}
-                          >
-                            {selectedRequest.cashier_confirmed ? 'Recebido (Aguardando Liberação)' : 'Recebi o Dinheiro (Confirmar)'}
-                          </button>
+                          <div className="space-y-4">
+                            <button 
+                              onClick={() => handleConfirmAction(selectedRequest.id, 'cashier')}
+                              disabled={selectedRequest.cashier_confirmed || loading}
+                              className={`w-full py-5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                                selectedRequest.cashier_confirmed ? 'bg-green-100 text-green-600' : 'bg-amber-500 text-white shadow-xl shadow-amber-500/20'
+                              }`}
+                            >
+                              {selectedRequest.cashier_confirmed ? 'Recebimento Confirmado ✓' : 'Recebi o Dinheiro (Confirmar)'}
+                            </button>
+
+                            {selectedRequest.user_confirmed && selectedRequest.cashier_confirmed && (
+                              <button 
+                                onClick={() => handleCompleteRequest(selectedRequest)}
+                                disabled={loading}
+                                className="w-full py-6 bg-black text-white rounded-[24px] text-xs font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/30 border-2 border-amber-500 animate-bounce"
+                              >
+                                {loading ? <Loader2 size={18} className="animate-spin mx-auto" /> : '🚀 Libertar AngoCoins Agora'}
+                              </button>
+                            )}
+                          </div>
                         ) : (
                            // In case they are neither (e.g. previewing someone else's request somehow)
                            <div className="p-4 bg-zinc-100 rounded-2xl text-center">
