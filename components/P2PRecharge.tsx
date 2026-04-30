@@ -514,68 +514,71 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     {/* Interaction Section */}
                     {selectedRequest.status === 'in_progress' && (
                       <div className="space-y-6">
-                        <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
-                           <div className="flex items-center justify-between">
-                             <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados para Pagamento</h4>
-                             <ShieldCheck size={14} className="text-amber-500" />
-                           </div>
-                           
-                           <div className="space-y-3">
-                              {/* Nome do Titular */}
-                              <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                <div className="flex-1 overflow-hidden pr-3">
-                                  <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
-                                  <span className="text-sm font-black uppercase block truncate">
-                                    {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'NOME NÃO DEFINIDO'}
-                                  </span>
+                        {/* Apenas o Usuário que solicitou vê os dados do Caixa para pagar */}
+                        {selectedRequest.user_id === currentUser.id && (
+                          <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
+                             <div className="flex items-center justify-between">
+                               <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados para Pagamento</h4>
+                               <ShieldCheck size={14} className="text-amber-500" />
+                             </div>
+                             
+                             <div className="space-y-3">
+                                {/* Nome do Titular */}
+                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                  <div className="flex-1 overflow-hidden pr-3">
+                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
+                                    <span className="text-sm font-black uppercase block truncate">
+                                      {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name || 'NOME NÃO DEFINIDO'}
+                                    </span>
+                                  </div>
+                                  {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.holder_name} />
+                                  )}
                                 </div>
-                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
-                                  <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.holder_name} />
+                                
+                                {/* IBAN */}
+                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
+                                  <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                    <div className="flex-1 overflow-hidden pr-3">
+                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
+                                      <span className="text-xs font-mono font-bold block truncate tracking-tight">
+                                        {selectedRequest.cashier.cashier_info[0].payment_info.iban}
+                                      </span>
+                                    </div>
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.iban} />
+                                  </div>
                                 )}
-                              </div>
-                              
-                              {/* IBAN */}
-                              {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.iban && (
-                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                  <div className="flex-1 overflow-hidden pr-3">
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
-                                    <span className="text-xs font-mono font-bold block truncate tracking-tight">
-                                      {selectedRequest.cashier.cashier_info[0].payment_info.iban}
-                                    </span>
+
+                                {/* Multicaixa Express */}
+                                {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
+                                  <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                    <div className="flex-1 overflow-hidden pr-3">
+                                      <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
+                                      <span className="text-sm font-black block truncate">
+                                        {selectedRequest.cashier.cashier_info[0].payment_info.express_number}
+                                      </span>
+                                    </div>
+                                    <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.express_number} />
                                   </div>
-                                  <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.iban} />
-                                </div>
-                              )}
+                                )}
 
-                              {/* Multicaixa Express */}
-                              {selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.express_number && (
-                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                  <div className="flex-1 overflow-hidden pr-3">
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
-                                    <span className="text-sm font-black block truncate">
-                                      {selectedRequest.cashier.cashier_info[0].payment_info.express_number}
-                                    </span>
+                                {!selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
+                                  <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
+                                    <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                                    <p className="text-[10px] text-red-600 font-bold leading-tight uppercase">
+                                      Este caixa ainda não configurou os dados de pagamento. Por favor, utilize o suporte se necessário.
+                                    </p>
                                   </div>
-                                  <CopyButton text={selectedRequest.cashier.cashier_info[0].payment_info.express_number} />
-                                </div>
-                              )}
+                                )}
+                             </div>
 
-                              {!selectedRequest.cashier?.cashier_info?.[0]?.payment_info?.holder_name && (
-                                <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
-                                  <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                                  <p className="text-[10px] text-red-600 font-bold leading-tight uppercase">
-                                    Este caixa ainda não configurou os dados de pagamento. Por favor, utilize o suporte se necessário.
-                                  </p>
-                                </div>
-                              )}
-                           </div>
-
-                           <div className="pt-3 border-t border-amber-100">
-                             <p className="text-[10px] font-medium leading-relaxed opacity-70 text-amber-800">
-                               Efetua a transferência de <span className="font-black">{selectedRequest.amount} AC</span> e anexa o comprovativo no chat se solicitado.
-                             </p>
-                           </div>
-                        </div>
+                             <div className="pt-3 border-t border-amber-100">
+                               <p className="text-[10px] font-medium leading-relaxed opacity-70 text-amber-800">
+                                 Efetua a transferência de <span className="font-black">{selectedRequest.amount} AC</span> e anexa o comprovativo no chat se solicitado.
+                               </p>
+                             </div>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                           <div className={`p-6 rounded-3xl border flex flex-col items-center gap-3 ${selectedRequest.user_confirmed ? 'bg-green-50 border-green-100 text-green-600' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}>
