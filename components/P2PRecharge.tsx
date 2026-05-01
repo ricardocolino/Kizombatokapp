@@ -137,6 +137,14 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const handleCreateRequest = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
     
+    // Verificar se já existe um pedido ativo (não concluído)
+    const activeRequest = requests.find(r => r.status !== 'completed' && r.user_id === currentUser.id);
+    if (activeRequest) {
+      alert("Já tens um pedido em curso. Conclui ou aguarda o pedido anterior.");
+      setSelectedRequest(activeRequest);
+      return;
+    }
+
     setIsSubmitting(true);
     const { data, error } = await supabase.from('p2p_requests').insert({
       user_id: currentUser.id,
@@ -346,10 +354,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
                   <button 
                     onClick={handleCreateRequest}
-                    disabled={!amount || isSubmitting}
+                    disabled={!amount || isSubmitting || (activeTab === 'user' && requests.some(r => r.status !== 'completed' && r.user_id === currentUser.id))}
                     className="w-full bg-black text-white py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] active:scale-95 transition-all disabled:opacity-50"
                   >
-                    {isSubmitting ? 'A Processar...' : 'Criar Pedido P2P'}
+                    {isSubmitting ? 'A Processar...' : (requests.some(r => r.status !== 'completed' && r.user_id === currentUser.id)) ? 'Já tens um pedido ativo' : 'Criar Pedido P2P'}
                   </button>
                 </div>
 
