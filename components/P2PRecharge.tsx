@@ -243,7 +243,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[120] flex flex-col">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       <motion.div 
@@ -251,7 +251,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="relative bg-white rounded-t-[40px] h-[90%] flex flex-col overflow-hidden text-black"
+        className="relative bg-white h-full flex flex-col overflow-hidden text-black"
       >
         {/* Header */}
         <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
@@ -317,17 +317,23 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     </button>
                   </div>
                   
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Quantidade</label>
-                    <div className="relative">
-                      <input 
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="Ex: 500"
-                        className="w-full bg-zinc-50 rounded-2xl px-6 py-5 text-2xl font-black tracking-tighter outline-none border border-zinc-100 focus:border-black transition-all"
-                      />
-                      <div className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-amber-600">AC</div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Escolha o Valor</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[20, 50, 100, 500].map((val) => (
+                        <button
+                          key={val}
+                          onClick={() => setAmount(val.toString())}
+                          className={`py-6 rounded-3xl flex flex-col items-center justify-center border transition-all ${
+                            amount === val.toString() 
+                              ? 'bg-black border-black text-white shadow-xl shadow-black/20 scale-[1.02]' 
+                              : 'bg-zinc-50 border-zinc-100 text-zinc-600 hover:border-zinc-300 active:scale-95'
+                          }`}
+                        >
+                          <span className="text-3xl font-black tracking-tighter">{val}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest opacity-50">AngoCoins</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
