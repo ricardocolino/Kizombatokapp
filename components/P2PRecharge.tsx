@@ -138,17 +138,24 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
     
     setIsSubmitting(true);
-    const { error } = await supabase.from('p2p_requests').insert({
+    const { data, error } = await supabase.from('p2p_requests').insert({
       user_id: currentUser.id,
       amount: Number(amount),
       status: 'pending'
-    });
+    }).select(`
+      *, 
+      user:profiles!user_id(*), 
+      cashier:profiles!cashier_id(*)
+    `).single();
 
     if (error) {
       console.error("Erro ao criar pedido:", error);
       alert("Erro ao criar pedido: " + error.message);
     } else {
       setAmount('');
+      if (data) {
+        setSelectedRequest(data as unknown as P2PRequest);
+      }
       fetchRequests();
     }
     setIsSubmitting(false);
