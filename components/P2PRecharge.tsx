@@ -246,7 +246,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
       }
 
       // Sucesso
-      setSelectedRequest(null);
+      // Removido setSelectedRequest(null) para que o usuário veja a tela de sucesso
       await fetchRequests();
       onBalanceUpdate();
       
@@ -380,16 +380,22 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                           className="w-full p-6 bg-white border border-zinc-100 rounded-[32px] flex items-center justify-between text-left hover:border-black transition-all"
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-100 text-amber-600'}`}>
-                              {request.status === 'pending' ? <Clock size={24} /> : <AlertCircle size={24} />}
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                              request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 
+                              request.status === 'completed' ? 'bg-green-100 text-green-600' : 
+                              'bg-amber-100 text-amber-600'
+                            }`}>
+                              {request.status === 'pending' ? <Clock size={24} /> : request.status === 'completed' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-lg font-black tracking-tighter">{request.amount} AC</span>
                                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${
-                                  request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-500 text-white'
+                                  request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 
+                                  request.status === 'completed' ? 'bg-green-500 text-white' :
+                                  'bg-amber-500 text-white'
                                 }`}>
-                                  {request.status === 'pending' ? 'Aguardando' : 'Em Progresso'}
+                                  {request.status === 'pending' ? 'Aguardando' : request.status === 'completed' ? 'Finalizado ✓' : 'Em Progresso'}
                                 </span>
                               </div>
                               <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
@@ -440,7 +446,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                 ) : (
                   <div className="space-y-4">
                     {requests.map(request => (
-                      <div key={request.id} className={`p-6 bg-white border rounded-[32px] space-y-5 transition-all ${request.cashier_id === currentUser.id ? 'border-amber-500 shadow-lg shadow-amber-500/5' : 'border-zinc-100'}`}>
+                      <div key={request.id} className={`p-6 bg-white border rounded-[32px] space-y-5 transition-all ${
+                        request.status === 'completed' ? 'border-green-100 bg-green-50/30' :
+                        request.cashier_id === currentUser.id ? 'border-amber-500 shadow-lg shadow-amber-500/5' : 
+                        'border-zinc-100'
+                      }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden border border-zinc-200">
@@ -449,7 +459,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-black">@{request.user?.username}</span>
-                                {request.cashier_id === currentUser.id && (
+                                {request.status === 'completed' ? (
+                                  <span className="bg-green-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Finalizado</span>
+                                ) : request.cashier_id === currentUser.id && (
                                   <span className="bg-amber-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Meu Job</span>
                                 )}
                               </div>
@@ -472,9 +484,11 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                         ) : (
                           <button 
                             onClick={() => setSelectedRequest(request)}
-                            className="w-full bg-amber-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                            className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                              request.status === 'completed' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                            }`}
                           >
-                            Ir para Transação
+                            {request.status === 'completed' ? 'Ver Detalhes (Concluído)' : 'Ir para Transação'}
                           </button>
                         )}
                       </div>
@@ -525,7 +539,43 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                 </div>
 
                 {/* Status-specific Content */}
-                {selectedRequest.status === 'pending' ? (
+                {selectedRequest.status === 'completed' ? (
+                  <div className="flex flex-col items-center justify-center py-16 space-y-8 text-center animate-in fade-in zoom-in duration-500">
+                    <div className="relative">
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="w-40 h-40 bg-green-500 rounded-full flex items-center justify-center shadow-2xl shadow-green-500/20"
+                      >
+                        <CheckCircle2 size={72} className="text-white" />
+                      </motion.div>
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="absolute -top-4 -right-4 bg-black text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl"
+                      >
+                        Sucesso
+                      </motion.div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <h3 className="text-3xl font-black tracking-tighter">Transação Concluída!</h3>
+                      <p className="text-sm text-zinc-500 font-medium max-w-[280px] mx-auto leading-relaxed">
+                        Os <span className="font-black text-black">{selectedRequest.amount} AC</span> foram creditados com sucesso. Obrigado por usar o <span className="font-black text-amber-600">AngoChat P2P</span>.
+                      </p>
+                    </div>
+
+                    <div className="w-full space-y-3 pt-6">
+                      <button 
+                        onClick={() => setSelectedRequest(null)}
+                        className="w-full bg-black text-white py-5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-black/10 active:scale-95 transition-all"
+                      >
+                        Fechar Detalhes
+                      </button>
+                    </div>
+                  </div>
+                ) : selectedRequest.status === 'pending' ? (
                   <div className="flex flex-col items-center justify-center py-20 space-y-6 text-center">
                     <div className="relative">
                       <div className="w-32 h-32 bg-amber-500/10 rounded-full animate-ping absolute inset-0" />
