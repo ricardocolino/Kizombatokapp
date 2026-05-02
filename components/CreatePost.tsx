@@ -10,11 +10,22 @@ import { FilePicker } from '@capawesome/capacitor-file-picker';
 
 interface CreatePostProps {
   onCreated: () => void;
+  onBackgroundUpload?: (data: {
+    mediaFile: File | Blob;
+    content: string;
+    uploadType: 'post' | 'story';
+    isEducation: boolean;
+    recordedFacingMode: string;
+    isFromGallery: boolean;
+    trimStart: number;
+    trimEnd: number;
+    recordingSeconds: number;
+  }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initialType = 'post' }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post' }) => {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -539,6 +550,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onStartLive, initial
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
     
+    // Se o pai suportar upload em background, usamos essa via e saímos logo
+    if (onBackgroundUpload) {
+      onBackgroundUpload({
+        mediaFile: mediaFiles[0],
+        content,
+        uploadType,
+        isEducation,
+        recordedFacingMode,
+        isFromGallery,
+        trimStart,
+        trimEnd,
+        recordingSeconds
+      });
+      onCreated();
+      return;
+    }
+
     setUploading(true);
     setError(null);
 

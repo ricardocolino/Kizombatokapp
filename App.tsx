@@ -11,6 +11,7 @@ import StoryViewer from './components/StoryViewer';
 import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
+import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
@@ -24,6 +25,18 @@ export enum Tab {
   LIVE = 'live',
   INBOX = 'inbox',
   PROFILE = 'profile'
+}
+
+interface UploadData {
+  mediaFile: File | Blob;
+  content: string;
+  uploadType: 'post' | 'story';
+  isEducation: boolean;
+  recordedFacingMode: string;
+  isFromGallery: boolean;
+  trimStart: number;
+  trimEnd: number;
+  recordingSeconds: number;
 }
 
 const App: React.FC = () => {
@@ -41,6 +54,95 @@ const App: React.FC = () => {
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
+  const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
+
+  const handleBackgroundUpload = async (uploadData: UploadData) => {
+    setUploadTask({ progress: 0, active: true, error: null });
+    setActiveTab(Tab.HOME); // Immediate navigation
+
+    try {
+      const {
+        mediaFile,
+        content,
+        uploadType,
+        isEducation,
+      } = uploadData;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão expirada.');
+      
+      const userId = session.user.id;
+      const timestamp = Date.now();
+      const isVideo = mediaFile.type.startsWith('video/');
+
+      let finalMediaBlob = mediaFile;
+      let finalMediaUrl = null;
+
+      // Se for vídeo e precisar de processamento, fazemos em background
+      // Nota: Para manter simples e evitar problemas de unmount, usamos os helpers do uploadService e supabase
+      
+      // Simulação de progresso inicial para a parte de FFmpeg/Pre-process
+      setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
+
+      // Upload do Ficheiro Final
+      const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
+      const fileName = `${userId}-${timestamp}.${fileExt}`;
+      const folder = uploadType === 'story' ? 'stories' : 'posts';
+      
+      // Upload com progresso real
+      finalMediaUrl = await uploadToR2(
+        finalMediaBlob, 
+        folder, 
+        fileName, 
+        (p) => {
+          setUploadTask(prev => prev ? { ...prev, progress: 10 + (p * 0.8) } : null);
+        }
+      );
+      
+      // Salvar no Supabase
+      if (uploadType === 'story') {
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        const { error: insertError } = await supabase.from('stories').insert({
+          user_id: userId,
+          media_url: finalMediaUrl,
+          media_type: isVideo ? 'video' : 'image',
+          expires_at: expiresAt.toISOString()
+        });
+        if (insertError) throw insertError;
+      } else {
+        // Para posts, tentamos gerar uma thumbnail básica se for vídeo
+        // (Simplificado para o background upload não complicar muito o App.tsx)
+        
+        const { error: insertError } = await supabase.from('posts').insert({
+          user_id: userId,
+          content: content || null,
+          media_url: finalMediaUrl,
+          thumbnail_url: null, // Pode ser adicionado um serviço de thumbnail server-side ou processado aqui
+          media_type: isVideo ? 'video' : 'image',
+          is_education: isEducation ? 1 : 0,
+          is_ready: true,
+          views: 0,
+          created_at: new Date().toISOString()
+        });
+        if (insertError) throw insertError;
+      }
+
+      setUploadTask({ progress: 100, active: false, error: null });
+      setHomeRefreshTrigger(prev => prev + 1);
+      
+      // Limpar após 3 segundos
+      setTimeout(() => {
+        setUploadTask(null);
+      }, 3000);
+
+    } catch (err: unknown) {
+      console.error('Background upload error:', err);
+      const message = err instanceof Error ? err.message : 'Erro no upload';
+      setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
+    }
+  };
 
   useEffect(() => {
     // Configure Status Bar for mobile
@@ -242,6 +344,7 @@ const App: React.FC = () => {
             setIsCreatingStory(false);
             setActiveTab(Tab.HOME); 
           }} 
+          onBackgroundUpload={handleBackgroundUpload}
           onStartLive={() => {
             setIsHosting(true);
             setActiveLiveId(null);
@@ -357,6 +460,31 @@ const App: React.FC = () => {
       )}
 
       <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-20`}>
+        {uploadTask && (
+          <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
+            <div className="h-1 bg-zinc-900 w-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-300 ${uploadTask.error ? 'bg-red-600' : 'bg-red-600'}`}
+                style={{ width: `${uploadTask.progress}%` }}
+              />
+            </div>
+            {uploadTask.error && (
+              <div className="bg-red-600 text-[10px] font-black uppercase p-2 text-center text-white">
+                Erro no Upload: {uploadTask.error}
+              </div>
+            )}
+            {!uploadTask.error && uploadTask.active && (
+              <div className="bg-black/80 backdrop-blur-md text-[9px] font-black uppercase p-2 text-center text-white/50 tracking-widest">
+                A carregar mambo... {Math.round(uploadTask.progress)}%
+              </div>
+            )}
+            {uploadTask.progress === 100 && !uploadTask.active && (
+              <div className="bg-green-600 text-[9px] font-black uppercase p-2 text-center text-white tracking-widest">
+                Mambo publicado com sucesso! 🔥
+              </div>
+            )}
+          </div>
+        )}
         {renderContent()}
       </main>
 

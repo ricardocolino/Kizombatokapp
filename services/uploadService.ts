@@ -31,9 +31,14 @@ function getUploadEndpoint(): string {
 }
 
 /**
- * Faz upload de um ficheiro para o Cloudflare R2 via Worker ou Servidor.
+ * Faz upload de um ficheiro para o Cloudflare R2 via Worker ou Servidor com suporte a progresso.
  */
-export async function uploadToR2(file: File | Blob, folder: string, fileName?: string): Promise<string> {
+export async function uploadToR2(
+  file: File | Blob, 
+  folder: string, 
+  fileName?: string, 
+  onProgress?: (progress: number) => void
+): Promise<string> {
   const endpoint = getUploadEndpoint();
   
   const formData = new FormData();
@@ -47,34 +52,47 @@ export async function uploadToR2(file: File | Blob, folder: string, fileName?: s
 
   console.log(`>>> [UPLOAD] Tentando enviar para: ${endpoint}`);
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      body: formData,
-    });
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", endpoint, true);
 
-    const contentType = response.headers.get("content-type") || "";
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Erro ${response.status} em ${endpoint}: ${errorText.slice(0, 50)}`);
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          onProgress(percentComplete);
+        }
+      };
     }
 
-    // Se a resposta for HTML em vez de JSON, é porque a URL está errada
-    if (contentType.includes("text/html")) {
-      throw new Error(`Configuração Errada: O endereço [${endpoint}] devolveu uma página HTML em vez de processar o upload. Verifique a VITE_API_URL nas Settings.`);
-    }
+    xhr.onload = () => {
+      const contentType = xhr.getResponseHeader("content-type") || "";
+      
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (!contentType.includes("application/json")) {
+          reject(new Error(`Resposta Inválida: O servidor em [${endpoint}] não enviou JSON.`));
+          return;
+        }
 
-    if (!contentType.includes("application/json")) {
-      throw new Error(`Resposta Inválida: O servidor em [${endpoint}] não enviou JSON.`);
-    }
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (!data.url) {
+            reject(new Error("O servidor não devolveu a URL do ficheiro."));
+          } else {
+            resolve(data.url);
+          }
+        } catch {
+          reject(new Error("Erro ao processar resposta JSON do servidor."));
+        }
+      } else {
+        reject(new Error(`Erro ${xhr.status} em ${endpoint}: ${xhr.responseText.slice(0, 50)}`));
+      }
+    };
 
-    const data = await response.json();
-    if (!data.url) throw new Error("O servidor não devolveu a URL do ficheiro.");
-    return data.url;
-  } catch (error: unknown) {
-    console.error("Erro crítico no uploadToR2:", error);
-    const message = error instanceof Error ? error.message : "Erro de conexão com o servidor de upload";
-    throw new Error(message);
-  }
+    xhr.onerror = () => {
+      reject(new Error("Erro de conexão com o servidor de upload"));
+    };
+
+    xhr.send(formData);
+  });
 }
