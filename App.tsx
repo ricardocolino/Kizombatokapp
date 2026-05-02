@@ -56,6 +56,44 @@ const App: React.FC = () => {
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
 
+  const generateThumbnail = (file: File | Blob): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      
+      video.onloadedmetadata = () => {
+        video.currentTime = Math.min(0.5, video.duration / 2);
+      };
+
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            resolve(blob as Blob);
+            URL.revokeObjectURL(video.src);
+          }, 'image/jpeg', 0.7);
+        }
+      };
+
+      video.onerror = () => {
+        // Fallback: simple black blob if thumbnail fails
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;
+        canvas.height = 100;
+        canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', 0.1);
+        URL.revokeObjectURL(video.src);
+      };
+
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleBackgroundUpload = async (uploadData: UploadData) => {
     setUploadTask({ progress: 0, active: true, error: null });
     setActiveTab(Tab.HOME); // Immediate navigation
@@ -77,12 +115,26 @@ const App: React.FC = () => {
 
       let finalMediaBlob = mediaFile;
       let finalMediaUrl = null;
+      let finalThumbnailUrl = null;
 
       // Se for vídeo e precisar de processamento, fazemos em background
       // Nota: Para manter simples e evitar problemas de unmount, usamos os helpers do uploadService e supabase
       
       // Simulação de progresso inicial para a parte de FFmpeg/Pre-process
-      setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
+      setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
+
+      // Gerar Thumbnail se for vídeo
+      if (isVideo && uploadType === 'post') {
+        try {
+          const thumbBlob = await generateThumbnail(mediaFile);
+          const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
+          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+        } catch (thumbErr) {
+          console.error('Erro ao gerar thumbnail em background:', thumbErr);
+        }
+      }
+
+      setUploadTask(prev => prev ? { ...prev, progress: 15 } : null);
 
       // Upload do Ficheiro Final
       const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
@@ -95,7 +147,7 @@ const App: React.FC = () => {
         folder, 
         fileName, 
         (p) => {
-          setUploadTask(prev => prev ? { ...prev, progress: 10 + (p * 0.8) } : null);
+          setUploadTask(prev => prev ? { ...prev, progress: 15 + (p * 0.8) } : null);
         }
       );
       
@@ -112,14 +164,11 @@ const App: React.FC = () => {
         });
         if (insertError) throw insertError;
       } else {
-        // Para posts, tentamos gerar uma thumbnail básica se for vídeo
-        // (Simplificado para o background upload não complicar muito o App.tsx)
-        
         const { error: insertError } = await supabase.from('posts').insert({
           user_id: userId,
           content: content || null,
           media_url: finalMediaUrl,
-          thumbnail_url: null, // Pode ser adicionado um serviço de thumbnail server-side ou processado aqui
+          thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
           is_ready: true,
