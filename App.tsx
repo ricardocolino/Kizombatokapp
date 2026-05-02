@@ -59,26 +59,31 @@ const App: React.FC = () => {
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
       const video = document.createElement('video');
-      video.preload = 'metadata';
+      video.preload = 'auto';
       video.muted = true;
       video.playsInline = true;
       
-      video.onloadedmetadata = () => {
-        video.currentTime = Math.min(0.5, video.duration / 2);
+      const handleSeeked = () => {
+        // Small delay to ensure the frame is actually rendered by the browser
+        setTimeout(() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+              resolve(blob as Blob);
+              URL.revokeObjectURL(video.src);
+            }, 'image/jpeg', 0.7);
+          }
+          video.removeEventListener('seeked', handleSeeked);
+        }, 200);
       };
 
-      video.onseeked = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            resolve(blob as Blob);
-            URL.revokeObjectURL(video.src);
-          }, 'image/jpeg', 0.7);
-        }
+      video.onloadeddata = () => {
+        video.currentTime = Math.min(0.3, video.duration / 2);
+        video.addEventListener('seeked', handleSeeked);
       };
 
       video.onerror = () => {
@@ -91,6 +96,7 @@ const App: React.FC = () => {
       };
 
       video.src = URL.createObjectURL(file);
+      video.load();
     });
   };
 
