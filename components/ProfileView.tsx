@@ -10,13 +10,12 @@ import P2PRecharge from './P2PRecharge';
 interface ProfileViewProps {
   userId: string;
   isOwnProfile?: boolean;
-  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' }) => void;
+  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' }) => void;
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
@@ -39,7 +38,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState(10);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'reposts' | 'caixa'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts'>('posts');
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -176,27 +175,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     if (page !== 0) setLoadingMore(false);
   }, [userId]);
 
-  const fetchLikedPosts = React.useCallback(async () => {
-    setTabLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('reactions')
-        .select('post_id, posts(*, profiles!user_id(*))')
-        .eq('user_id', userId)
-        .eq('type', 'like')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        const posts = data.map(item => item.posts).filter(Boolean) as Post[];
-        setLikedPosts(posts);
-      }
-    } catch (e) {
-      console.error("Erro ao buscar curtidas:", e);
-    } finally {
-      setTabLoading(false);
-    }
-  }, [userId]);
-
   const fetchRepostedPosts = React.useCallback(async () => {
     setTabLoading(true);
     try {
@@ -288,12 +266,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   }, [userId, loadAll]);
 
   useEffect(() => {
-    if (activeTab === 'liked') {
-      fetchLikedPosts();
-    } else if (activeTab === 'reposts') {
+    if (activeTab === 'reposts') {
       fetchRepostedPosts();
     }
-  }, [activeTab, fetchLikedPosts, fetchRepostedPosts]);
+  }, [activeTab, fetchRepostedPosts]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (activeTab !== 'posts' || !hasMorePosts || loadingMore) return;
@@ -691,7 +667,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
   if (!profile) return <div className="p-20 text-center text-zinc-600 uppercase font-black tracking-widest text-xs">Perfil não encontrado.</div>;
 
-  const currentGridData = activeTab === 'posts' ? userPosts : (activeTab === 'liked' ? likedPosts : repostedPosts);
+  const currentGridData = activeTab === 'posts' ? userPosts : repostedPosts;
 
   return (
     <div 
@@ -746,12 +722,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </div>
 
           <div className="flex-1 px-6 space-y-6 overflow-y-auto">
+            <button 
+              onClick={() => {
+                setIsEditing(true);
+                setShowMenu(false);
+              }} 
+              className="w-full flex items-center gap-4 text-zinc-800 group"
+            >
+              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Settings size={22} />
+              </div>
+              <span className="text-lg font-medium tracking-tight">Editar Perfil</span>
+            </button>
             {[
               { icon: <Layers size={22} />, label: 'Minhas Coleções' },
               { icon: <CheckCircle2 size={22} />, label: 'Estatísticas' },
               { icon: <Box size={22} />, label: 'Novidades (OTA)' },
               { icon: <Smartphone size={22} />, label: 'Pré-visualizar App' },
-              { icon: <Settings size={22} />, label: 'Configurações' },
               { icon: <CreditCard size={22} />, label: 'Faturamento & Saldo' },
             ].map((item, idx) => (
               <button key={idx} className="w-full flex items-center gap-4 text-zinc-800 group">
@@ -814,10 +801,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           {isOwnProfile ? (
             <>
               <button 
-                onClick={() => setIsEditing(true)}
-                className="flex-1 bg-zinc-900 border border-zinc-800 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+                onClick={() => setShowP2P(true)}
+                className="flex-1 bg-amber-500 text-white px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                Editar Perfil
+                <Repeat size={14} />
+                Painel
               </button>
               <button 
                 onClick={() => setShowDashboard(true)}
@@ -860,13 +848,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       <div className="flex border-b border-zinc-900 sticky top-14 bg-black/95 backdrop-blur-md z-40">
         {[ 
           { id: 'posts', label: 'Vídeos' }, 
-          { id: 'liked', label: 'Curtidas' }, 
-          { id: 'reposts', label: 'Republicados' },
-          ...(isOwnProfile ? [{ id: 'caixa', label: 'Caixa' }] : [])
+          { id: 'reposts', label: 'Republicados' }
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'posts' | 'liked' | 'reposts' | 'caixa')}
+            onClick={() => setActiveTab(tab.id as 'posts' | 'reposts')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
             <span className={`text-[11px] font-black uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}`}>
@@ -884,56 +870,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           <div className="absolute inset-0 flex items-center justify-center py-20">
              <Loader2 size={24} className="animate-spin text-zinc-700" />
           </div>
-        ) : activeTab === 'caixa' ? (
-          <div className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`p-8 rounded-[32px] border transition-all ${isCashier ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 border-amber-100'}`}>
-              <div className="flex items-center gap-4 mb-6">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isCashier ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 shadow-sm'}`}>
-                  <Smartphone size={28} />
-                </div>
-                <div className="flex flex-col">
-                  <h3 className={`text-lg font-black tracking-tight ${isCashier ? 'text-white' : 'text-zinc-900'}`}>{isCashier ? 'És um Caixa Oficial' : 'Torna-te um Caixa'}</h3>
-                  <p className={`text-[10px] font-bold uppercase tracking-widest ${isCashier ? 'text-zinc-400' : 'text-amber-600/60'}`}>
-                    {isCashier ? 'Processa recargas e ganha AC' : 'Ganha comissões em cada recarga'}
-                  </p>
-                </div>
-              </div>
-
-              {!isCashier ? (
-                <div className="space-y-6">
-                  <p className="text-xs text-zinc-600 font-medium leading-relaxed">
-                    Como caixa, ajudas outros utilizadores a carregar saldo via Express ou Transferência e recebes comissões por cada transação processada.
-                  </p>
-                  <button 
-                    onClick={handleBecomeCaixa}
-                    disabled={isApplyingCaixa}
-                    className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
-                  >
-                    {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Ativar Modo Caixa'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
-                      <span className="text-xl font-black">0</span>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
-                      <span className="text-xl font-black">5.0 ★</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setShowP2P(true)}
-                    className="w-full py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
-                  >
-                    Abrir Painel de Caixa
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
         ) : (
           <div className="grid grid-cols-3 gap-0.5 p-0.5">
             {currentGridData.map(post => (
@@ -942,7 +878,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 onClick={() => onNavigateToPost && onNavigateToPost(post.id, { 
                   userId, 
                   userName: profile.name || profile.username, 
-                  type: activeTab === 'posts' ? 'user' : (activeTab === 'liked' ? 'liked' : 'reposted') 
+                  type: activeTab === 'posts' ? 'user' : 'reposted' 
                 })}
                 className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer"
               >
@@ -972,8 +908,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
             {currentGridData.length === 0 && (
               <div className="col-span-3 py-24 text-center text-zinc-600 flex flex-col items-center gap-2">
+                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                  <Box size={24} />
+                </div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em]">
-                  {activeTab === 'posts' ? 'Nenhum post ainda' : (activeTab === 'liked' ? 'Sem curtidas' : 'Sem republicados')}
+                  {activeTab === 'posts' ? 'Nenhum post ainda' : 'Sem republicados'}
                 </p>
                 <p className="text-[9px] text-zinc-700 uppercase">A vibe de Angola começa aqui 🇦🇴</p>
               </div>

@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
-  const [feedFilter, setFeedFilter] = useState<{ userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null>(null);
+  const [feedFilter, setFeedFilter] = useState<{ userId: string; userName: string; type: 'user' | 'reposted' } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
@@ -168,7 +168,7 @@ const App: React.FC = () => {
     setActiveTab(Tab.PROFILE);
   };
 
-  const handleNavigateToPost = (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' }) => {
+  const handleNavigateToPost = (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' }) => {
     if (postId.startsWith('story:')) {
       const userId = postId.replace('story:', '');
       if (user && userId === user.id) {

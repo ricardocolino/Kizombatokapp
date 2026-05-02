@@ -14,7 +14,7 @@ interface FeedProps {
   onJoinLive?: (liveId: string) => void;
   initialPostId?: string | null;
   isPaused?: boolean;
-  feedFilter?: { userId: string; userName: string; type: 'user' | 'liked' | 'reposted' } | null;
+  feedFilter?: { userId: string; userName: string; type: 'user' | 'reposted' } | null;
   onClearFilter?: () => void;
   refreshTrigger?: number;
 }
@@ -173,21 +173,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       if (feedFilter) {
         if (feedFilter.type === 'user') {
           query = query.eq('user_id', feedFilter.userId);
-        } else if (feedFilter.type === 'liked') {
-          const { data: reactions } = await supabase
-            .from('reactions')
-            .select('post_id')
-            .eq('user_id', feedFilter.userId)
-            .eq('type', 'like');
-          
-          const likedPostIds = reactions?.map(r => r.post_id) || [];
-          if (likedPostIds.length > 0) {
-            query = query.in('id', likedPostIds);
-          } else {
-            setPosts([]);
-            setLoading(false);
-            return;
-          }
         } else if (feedFilter.type === 'reposted') {
           const { data: reposts } = await supabase
             .from('reposts')
@@ -412,7 +397,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           <div className="flex-1 flex justify-center pr-10">
             <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg">
               {feedFilter.type === 'user' && `Vídeos de ${feedFilter.userName}`}
-              {feedFilter.type === 'liked' && `Vídeos curtidos por ${feedFilter.userName}`}
               {feedFilter.type === 'reposted' && `Vídeos republicados por ${feedFilter.userName}`}
             </span>
           </div>
