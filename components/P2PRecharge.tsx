@@ -291,11 +291,13 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
           </button>
         </div>
 
-        {/* Global Balance View */}
-        <div className="flex flex-col items-center py-8 bg-white border-b border-zinc-100">
-            <span className="text-[10px] font-black uppercase text-amber-600 tracking-widest mb-1">Saldo Disponível (KZ)</span>
-            <span className="text-6xl font-black tracking-tighter">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} <span className="text-xl text-amber-500">KZ</span></span>
-        </div>
+        {/* Global Balance View - Solo na parte inicial */}
+        {!activeTab && (
+          <div className="flex flex-col items-center py-8 bg-white border-b border-zinc-100">
+              <span className="text-[10px] font-black uppercase text-amber-600 tracking-widest mb-1">Saldo Disponível (KZ)</span>
+              <span className="text-6xl font-black tracking-tighter">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} <span className="text-xl text-amber-500">KZ</span></span>
+          </div>
+        )}
 
         {/* Display Area */}
         <div className="flex-1 overflow-y-auto no-scrollbar">
