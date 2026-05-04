@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { P2PRequest, Profile } from '../types';
 import { supabase } from '../supabaseClient';
-import { X, Clock, AlertCircle, ChevronRight, Loader2, ShieldCheck, User, Search, Repeat, CheckCircle2, Copy, Check } from 'lucide-react';
+import { X, Clock, AlertCircle, ChevronRight, Loader2, ShieldCheck, User, Search, Repeat, CheckCircle2, Copy, Check, ArrowUpCircle, ArrowDownCircle, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface P2PRechargeProps {
@@ -281,23 +281,46 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
 
         {/* Balance Display */}
         <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
-          {/* Tab Switcher */}
-          {isCaixa && (
-            <div className="flex p-1.5 bg-zinc-100 mx-6 mt-6 rounded-2xl">
-              <button 
-                onClick={() => setActiveTab('user')}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'user' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-              >
-                Minhas Trocas
-              </button>
-              <button 
-                onClick={() => setActiveTab('cashier')}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cashier' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-              >
-                Painel de Caixa
-              </button>
-            </div>
-          )}
+          
+          {/* Quick Actions Grid */}
+          <div className="grid grid-cols-3 gap-3 px-6 mt-6">
+            <button 
+              onClick={() => {
+                setType('deposit');
+                setActiveTab('user');
+              }}
+              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${type === 'deposit' && activeTab === 'user' ? 'bg-black border-black text-white shadow-xl shadow-black/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
+            >
+              <ArrowUpCircle size={24} strokeWidth={2.5} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Carregar</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                setType('withdraw');
+                setActiveTab('user');
+              }}
+              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${type === 'withdraw' && activeTab === 'user' ? 'bg-black border-black text-white shadow-xl shadow-black/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
+            >
+              <ArrowDownCircle size={24} strokeWidth={2.5} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Levantar</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (isCaixa) {
+                  setActiveTab('cashier');
+                  // we don't change type here as it's for user requests
+                } else {
+                  alert("Torna-te um Caixa Oficial nas definições de faturamento do teu perfil para aceitares pagamentos! 🇦🇴🚀");
+                }
+              }}
+              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${activeTab === 'cashier' ? 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
+            >
+              <CreditCard size={24} strokeWidth={2.5} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">Aceitar<br/>Pagamento</span>
+            </button>
+          </div>
 
           {activeTab === 'user' ? (
             <div className="space-y-4">
@@ -317,23 +340,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               <div className="px-6 space-y-8">
                 {/* Request Form */}
                 <div className="bg-white p-6 rounded-[32px] border border-zinc-100 shadow-sm space-y-5">
-                   <div className="flex gap-2 p-1 bg-zinc-100 rounded-2xl">
-                    <button 
-                      onClick={() => setType('deposit')}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${type === 'deposit' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-                    >
-                      Carregar
-                    </button>
-                    <button 
-                      onClick={() => setType('withdraw')}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${type === 'withdraw' ? 'bg-white shadow-sm text-black' : 'text-zinc-400'}`}
-                    >
-                      Levantar
-                    </button>
-                  </div>
-                  
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Escolha o Valor</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">
+                      {type === 'deposit' ? 'Quanto queres Carregar?' : 'Quanto queres Levantar?'}
+                    </label>
                     <div className="grid grid-cols-2 gap-3">
                       {[20, 50, 100, 500].map((val) => (
                         <button

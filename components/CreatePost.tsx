@@ -61,6 +61,40 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
+  const [todayCount, setTodayCount] = useState<number | null>(null);
+
+  const checkDailyLimit = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const userId = session.user.id;
+      const startOfToday = new Date();
+      startOfToday.setUTCHours(0, 0, 0, 0);
+      
+      const { count: postCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', startOfToday.toISOString());
+        
+      const { count: storyCount } = await supabase
+        .from('stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('created_at', startOfToday.toISOString());
+        
+      setTodayCount((postCount || 0) + (storyCount || 0));
+    } catch (e) {
+      console.error('Erro ao verificar limite diário:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (previewUrls.length > 0) {
+      checkDailyLimit();
+    }
+  }, [previewUrls.length]);
 
   const loadFFmpeg = async (): Promise<FFmpeg> => {
     if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
@@ -970,7 +1004,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                  </div>
                )}
                
-               <button onClick={handleUpload} disabled={uploading || processingVideo} className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}>
+               <button 
+                 onClick={() => {
+                   if (todayCount !== null && todayCount >= 3) {
+                     setError("Já tens 3 publicações por hoje, volta amanhã.");
+                   } else {
+                     handleUpload();
+                   }
+                 }} 
+                 disabled={uploading || processingVideo} 
+                 className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo || (todayCount !== null && todayCount >= 3)) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}
+               >
                  {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>{uploadType === 'story' ? 'Publicar no Story' : 'Publicar Agora'}</span></>}
                </button>
             </div>
