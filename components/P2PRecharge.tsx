@@ -82,6 +82,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     if (!silent) setLoading(false);
   }, [activeTab, currentUser.id]);
 
+  const activeRequests = requests.filter(r => r.status !== 'completed');
+  const completedRequests = requests.filter(r => r.status === 'completed');
+
   useEffect(() => {
     let isMounted = true;
 
@@ -278,17 +281,27 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         className="relative bg-white h-full flex flex-col overflow-hidden text-black"
       >
         {/* Header */}
-        <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex flex-col">
-            <h2 className="text-2xl font-black tracking-tighter">AngoCoins P2P</h2>
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Recarga Segura • Estilo AirTM</p>
+        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-white relative z-20">
+          <div className="flex items-center gap-4">
+            {activeTab && (
+              <button 
+                onClick={() => setActiveTab(null)}
+                className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-600 active:scale-90 transition-all"
+              >
+                <ArrowLeft size={20} strokeWidth={3} />
+              </button>
+            )}
+            <div className="flex flex-col">
+              <h2 className="text-2xl font-black tracking-tighter">AngoCoins P2P</h2>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Recarga Segura • Estilo AirTM</p>
+            </div>
           </div>
 
           {/* Central Exchange Rate / Global Kwanza Balance */}
-          <div className="hidden sm:flex flex-col items-center bg-amber-50 px-6 py-2 rounded-2xl border border-amber-100">
+          <div className="hidden sm:flex flex-col items-center bg-white px-6 py-2 rounded-2xl border border-zinc-100 shadow-sm">
              <span className="text-[8px] font-black uppercase text-amber-600 tracking-widest mb-0.5">Saldo Disponível (KZ)</span>
              <div className="flex items-baseline gap-1.5">
-                <span className="text-lg font-black tracking-tighter">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')}</span>
+                <span className="text-4xl font-black tracking-tighter">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')}</span>
                 <span className="text-[10px] font-black text-amber-500">KZ</span>
              </div>
           </div>
@@ -299,68 +312,70 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         </div>
 
         {/* Mobile Exchange View (Only central) */}
-        <div className="sm:hidden flex flex-col items-center py-4 bg-amber-50/50 border-b border-amber-100/50">
+        <div className="sm:hidden flex flex-col items-center py-6 bg-white border-b border-zinc-100">
             <span className="text-[7px] font-black uppercase text-amber-600 tracking-widest">Saldo Disponível</span>
-            <span className="text-sm font-black">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ</span>
+            <span className="text-2xl font-black">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ</span>
         </div>
 
         {/* Balance Display */}
         <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
           
-          {/* Quick Actions Grid */}
-          <div className="grid grid-cols-3 gap-3 px-6 mt-6">
-            <button 
-              onClick={() => {
-                setType('deposit');
-                setActiveTab('user');
-              }}
-              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${type === 'deposit' && activeTab === 'user' ? 'bg-black border-black text-white shadow-xl shadow-black/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
-            >
-              <ArrowUpCircle size={24} strokeWidth={2.5} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Carregar</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                setType('withdraw');
-                setActiveTab('user');
-              }}
-              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${type === 'withdraw' && activeTab === 'user' ? 'bg-black border-black text-white shadow-xl shadow-black/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
-            >
-              <ArrowDownCircle size={24} strokeWidth={2.5} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Levantar</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                if (isCaixa) {
-                  setActiveTab('cashier');
-                } else {
-                  alert("Torna-te um Caixa Oficial nas definições de faturamento do teu perfil para aceitares pagamentos! 🇦🇴🚀");
-                }
-              }}
-              className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border ${activeTab === 'cashier' ? 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-500/20' : 'bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95'}`}
-            >
-              <CreditCard size={24} strokeWidth={2.5} />
-              <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">Aceitar<br/>Pagamento</span>
-            </button>
-          </div>
-
           <AnimatePresence mode="wait">
           {!activeTab ? (
             <motion.div 
-              key="empty"
+              key="menu"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="px-6 py-20 text-center space-y-6"
+              className="px-6 pt-6"
             >
-              <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto border border-zinc-100">
-                <Search size={32} className="text-zinc-300" />
+              {/* Quick Actions Grid */}
+              <div className="grid grid-cols-3 gap-3">
+                <button 
+                  onClick={() => {
+                    setType('deposit');
+                    setActiveTab('user');
+                  }}
+                  className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95`}
+                >
+                  <ArrowUpCircle size={24} strokeWidth={2.5} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Carregar</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setType('withdraw');
+                    setActiveTab('user');
+                  }}
+                  className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95`}
+                >
+                  <ArrowDownCircle size={24} strokeWidth={2.5} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Levantar</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    if (isCaixa) {
+                      setActiveTab('cashier');
+                    } else {
+                      alert("Torna-te um Caixa Oficial nas definições de faturamento do teu perfil para aceitares pagamentos! 🇦🇴🚀");
+                    }
+                  }}
+                  className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 active:scale-95`}
+                >
+                  <CreditCard size={24} strokeWidth={2.5} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-center leading-tight">Aceitar<br/>Pagamento</span>
+                </button>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-black uppercase tracking-widest">Escolhe uma operação</h3>
-                <p className="text-[10px] text-zinc-400 font-medium max-w-[200px] mx-auto">Clica nos botões acima para carregar saldo, levantar lucros ou trabalhar como caixa.</p>
+
+              <div className="py-20 text-center space-y-6">
+                <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto border border-zinc-100">
+                  <Search size={32} className="text-zinc-300" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black uppercase tracking-widest">Escolhe uma operação</h3>
+                  <p className="text-[10px] text-zinc-400 font-medium max-w-[200px] mx-auto">Clica nos botões acima para carregar saldo, levantar lucros ou trabalhar como caixa.</p>
+                </div>
               </div>
             </motion.div>
           ) : activeTab === 'user' ? (
@@ -433,14 +448,14 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Pedidos em Curso</h3>
                   {loading ? (
                     <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin text-amber-500" /></div>
-                  ) : requests.length === 0 ? (
+                  ) : activeRequests.length === 0 ? (
                     <div className="py-20 text-center opacity-30">
                       <Clock size={48} className="mx-auto mb-4" />
                       <p className="text-[10px] font-black uppercase tracking-widest">Sem pedidos ativos</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {requests.map(request => (
+                      {activeRequests.map(request => (
                         <button 
                           key={request.id} 
                           onClick={() => setSelectedRequest(request)}
@@ -449,10 +464,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                           <div className="flex items-center gap-4">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                               request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 
-                              request.status === 'completed' ? 'bg-green-100 text-green-600' : 
                               'bg-amber-100 text-amber-600'
                             }`}>
-                              {request.status === 'pending' ? <Clock size={24} /> : request.status === 'completed' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                              {request.status === 'pending' ? <Clock size={24} /> : <AlertCircle size={24} />}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
@@ -462,10 +476,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                 </div>
                                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${
                                   request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 
-                                  request.status === 'completed' ? 'bg-green-500 text-white' :
                                   'bg-amber-500 text-white'
                                 }`}>
-                                  {request.status === 'pending' ? 'Aguardando' : request.status === 'completed' ? 'Finalizado ✓' : 'Em Progresso'}
+                                  {request.status === 'pending' ? 'Aguardando' : 'Em Progresso'}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-zinc-800 text-white`}>
                                   {request.type === 'deposit' ? 'Carregar' : 'Levantar'}
@@ -482,6 +495,40 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     </div>
                   )}
                 </div>
+
+                {/* Histórico Section */}
+                {completedRequests.length > 0 && (
+                  <div className="space-y-4 pt-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Histórico de Transações</h3>
+                      <div className="h-px flex-1 bg-zinc-100 mx-4" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {completedRequests.map(request => (
+                        <div 
+                          key={request.id}
+                          className="p-4 bg-zinc-50 border border-zinc-100 rounded-3xl flex items-center justify-between opacity-70 hover:opacity-100 transition-opacity"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-green-100 text-green-600 flex items-center justify-center">
+                              <CheckCircle2 size={16} />
+                            </div>
+                            <div>
+                               <span className="text-sm font-black tracking-tight">{request.amount} AC</span>
+                               <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest ml-2">
+                                 {request.type === 'deposit' ? 'Carregamento' : 'Levantamento'}
+                               </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                             <span className="text-[10px] font-black text-black">{(request.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ</span>
+                             <span className="text-[7px] font-bold text-zinc-400 block uppercase">Concluído</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -491,42 +538,19 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="px-6 py-8 space-y-8"
+              className="px-6 py-4 space-y-8"
             >
-              <div className="bg-amber-500 p-8 rounded-[40px] text-white shadow-xl shadow-amber-500/20">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                    <ShieldCheck size={28} />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-lg leading-tight uppercase">Modo Operador</h4>
-                    <p className="text-[10px] text-white/70 font-bold uppercase tracking-widest">Processa e Ganha Comissões</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="bg-white/10 p-4 rounded-2xl">
-                     <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Hoje</span>
-                     <span className="text-xl font-black">0 AC (0 KZ)</span>
-                   </div>
-                   <div className="bg-white/10 p-4 rounded-2xl">
-                     <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Reputação</span>
-                     <span className="text-xl font-black">5.0 ★</span>
-                   </div>
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Fila de Espera</h3>
-                {requests.length === 0 ? (
+                {activeRequests.length === 0 ? (
                   <div className="py-20 text-center opacity-30">
                     <Search size={48} className="mx-auto mb-4" />
                     <p className="text-[10px] font-black uppercase tracking-widest">Aguardando novos pedidos...</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {requests.map(request => (
+                    {activeRequests.map(request => (
                       <div key={request.id} className={`p-6 bg-white border rounded-[32px] space-y-5 transition-all ${
-                        request.status === 'completed' ? 'border-green-100 bg-green-50/30' :
                         request.cashier_id === currentUser.id ? 'border-amber-500 shadow-lg shadow-amber-500/5' : 
                         'border-zinc-100'
                       }`}>
@@ -538,9 +562,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-black">@{request.user?.username}</span>
-                                {request.status === 'completed' ? (
-                                  <span className="bg-green-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Finalizado</span>
-                                ) : request.cashier_id === currentUser.id && (
+                                {request.cashier_id === currentUser.id && (
                                   <span className="bg-amber-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Meu Job</span>
                                 )}
                               </div>
@@ -566,11 +588,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                         ) : (
                           <button 
                             onClick={() => setSelectedRequest(request)}
-                            className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                              request.status === 'completed' ? 'bg-zinc-100 text-zinc-400' : 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
-                            }`}
+                            className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 bg-amber-500 text-white shadow-lg shadow-amber-500/20"
                           >
-                            {request.status === 'completed' ? 'Ver Detalhes (Concluído)' : 'Ir para Transação'}
+                            Ir para Transação
                           </button>
                         )}
                       </div>
@@ -578,6 +598,38 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   </div>
                 )}
               </div>
+
+              {/* Cashier History */}
+              {completedRequests.length > 0 && (
+                <div className="space-y-4 pt-10">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Trabalhos Concluídos</h3>
+                    <div className="h-px flex-1 bg-zinc-100 mx-4" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {completedRequests.map(request => (
+                      <div 
+                        key={request.id}
+                        className="p-4 bg-zinc-50 border border-zinc-100 rounded-3xl flex items-center justify-between opacity-70"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-zinc-200 overflow-hidden">
+                            {request.user?.avatar_url ? <img src={request.user.avatar_url} className="w-full h-full object-cover" /> : <User size={14} className="mx-auto mt-2" />}
+                          </div>
+                          <div>
+                             <span className="text-xs font-black">@{request.user?.username}</span>
+                             <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest ml-2">Finalizado ✓</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                           <span className="text-[10px] font-black">{request.amount} AC</span>
+                           <span className="text-[7px] font-bold text-amber-600 block uppercase">Comissão Ganha</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
           </AnimatePresence>
