@@ -3,6 +3,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import Feed from './components/Feed';
 import ProfileView from './components/ProfileView';
 import MessageCenter from './components/MessageCenter';
@@ -110,6 +112,10 @@ const App: React.FC = () => {
         content,
         uploadType,
         isEducation,
+        recordedFacingMode,
+        isFromGallery,
+        trimStart,
+        trimEnd,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -123,24 +129,83 @@ const App: React.FC = () => {
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
 
-      // Se for vídeo e precisar de processamento, fazemos em background
-      // Nota: Para manter simples e evitar problemas de unmount, usamos os helpers do uploadService e supabase
-      
-      // Simulação de progresso inicial para a parte de FFmpeg/Pre-process
-      setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
+      // --- PROCESSAMENTO FFmpeg (Background) ---
+      if (isVideo && !isFromGallery) {
+        setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
+        
+        try {
+          const ffmpeg = new FFmpeg();
+          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
 
-      // Gerar Thumbnail se for vídeo
-      if (isVideo && uploadType === 'post') {
+          const videoData = await fetchFile(mediaFile);
+          await ffmpeg.writeFile('/input.mp4', videoData);
+
+          const filterParts = [];
+          // Redimensionar e garantir dimensões pares
+          filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
+          filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
+          
+          // CORREÇÃO DE ROTAÇÃO: Se for câmera traseira, aplicamos o flip
+          if (recordedFacingMode === 'rear') {
+            filterParts.push('vflip,hflip');
+          }
+          
+          const videoArgs = [];
+          // Trim se necessário
+          const hasTrim = trimStart > 0 || trimEnd > 0;
+          if (hasTrim) {
+            videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
+          }
+          
+          videoArgs.push('-i', '/input.mp4');
+          if (filterParts.length > 0) {
+            videoArgs.push('-vf', filterParts.join(','));
+          }
+
+          // Configurações de compressão
+          videoArgs.push(
+            '-c:v', 'libx264', 
+            '-preset', 'ultrafast', 
+            '-crf', '32',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', 
+            '-b:a', '96k',
+            '-movflags', '+faststart', 
+            '-y', '/output.mp4'
+          );
+
+          await ffmpeg.exec(videoArgs);
+          const videoOutput = await ffmpeg.readFile('/output.mp4');
+          finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
+          
+          // Gerar Thumbnail via FFmpeg para ser mais preciso
+          await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+          const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
+          const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
+          const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
+          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+          
+        } catch (procErr) {
+          console.error('Erro no processamento FFmpeg background:', procErr);
+          // Fallback para o original se falhar, mas avisamos o task
+          setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
+        }
+      } else if (isVideo && isFromGallery && uploadType === 'post') {
+        // Se for da galeria, apenas geramos a thumbnail via browser
         try {
           const thumbBlob = await generateThumbnail(mediaFile);
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
         } catch (thumbErr) {
-          console.error('Erro ao gerar thumbnail em background:', thumbErr);
+          console.error('Erro ao gerar thumbnail browser background:', thumbErr);
         }
       }
 
-      setUploadTask(prev => prev ? { ...prev, progress: 15 } : null);
+      setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
 
       // Upload do Ficheiro Final
       const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
@@ -153,7 +218,7 @@ const App: React.FC = () => {
         folder, 
         fileName, 
         (p) => {
-          setUploadTask(prev => prev ? { ...prev, progress: 15 + (p * 0.8) } : null);
+          setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
         }
       );
       
