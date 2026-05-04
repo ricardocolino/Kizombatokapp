@@ -38,7 +38,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<P2PRequest | null>(null);
   
-  const EXCHANGE_RATE = 1000; // 1 USD = 1000 KZ (Taxa Atual)
+  const EXCHANGE_RATE = 10; // 100 AC = 1 USD = 1000 KZ -> 1 AC = 10 KZ
 
   const checkCaixaStatus = useCallback(async () => {
     const { data } = await supabase
