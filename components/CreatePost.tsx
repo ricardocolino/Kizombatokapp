@@ -648,7 +648,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
 
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
-        const needsRotation = recordedFacingMode === 'rear';
         // Vídeos da galeria não passam pelo FFmpeg, vídeos gravados sim (para compressão TikTok)
         const needsFFmpeg = !isFromGallery; 
 
@@ -681,10 +680,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           // E garantir dimensões pares para libx264/yuv420p
           filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
-          
-          if (needsRotation) {
-            filterParts.push('hflip,vflip');
-          }
           
           const finalVf = filterParts.join(',');
           
