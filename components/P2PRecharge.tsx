@@ -29,7 +29,7 @@ const CopyButton = ({ text }: { text: string }) => {
 };
 
 const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalanceUpdate }) => {
-  const [activeTab, setActiveTab] = useState<'user' | 'cashier'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'cashier' | null>(null);
   const [requests, setRequests] = useState<P2PRequest[]>([]);
   const [isCaixa, setIsCaixa] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,8 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const [type, setType] = useState<'deposit' | 'withdraw'>('deposit');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<P2PRequest | null>(null);
+  
+  const EXCHANGE_RATE = 950; // 1 AC/USD = 950 KZ (Exemplo de taxa)
 
   const checkCaixaStatus = useCallback(async () => {
     const { data } = await supabase
@@ -57,7 +59,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     
     let query = supabase.from('p2p_requests').select(selectStr);
     
-    if (activeTab === 'user') {
+    if (activeTab === 'user' || activeTab === null) {
       query = query.eq('user_id', currentUser.id);
     } else {
       // Show pending requests OR requests assigned to this cashier
@@ -281,9 +283,25 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
             <h2 className="text-2xl font-black tracking-tighter">AngoCoins P2P</h2>
             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Recarga Segura • Estilo AirTM</p>
           </div>
+
+          {/* Central Exchange Rate / Global Kwanza Balance */}
+          <div className="hidden sm:flex flex-col items-center bg-amber-50 px-6 py-2 rounded-2xl border border-amber-100">
+             <span className="text-[8px] font-black uppercase text-amber-600 tracking-widest mb-0.5">Saldo Disponível (KZ)</span>
+             <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-black tracking-tighter">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')}</span>
+                <span className="text-[10px] font-black text-amber-500">KZ</span>
+             </div>
+          </div>
+
           <button onClick={onClose} className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400 hover:text-black transition-colors">
             <X size={24} strokeWidth={2.5} />
           </button>
+        </div>
+
+        {/* Mobile Exchange View (Only central) */}
+        <div className="sm:hidden flex flex-col items-center py-4 bg-amber-50/50 border-b border-amber-100/50">
+            <span className="text-[7px] font-black uppercase text-amber-600 tracking-widest">Saldo Disponível</span>
+            <span className="text-sm font-black">{(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ</span>
         </div>
 
         {/* Balance Display */}
@@ -328,8 +346,31 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
             </button>
           </div>
 
-          {activeTab === 'user' ? (
-            <div className="space-y-4">
+          <AnimatePresence mode="wait">
+          {!activeTab ? (
+            <motion.div 
+              key="empty"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="px-6 py-20 text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto border border-zinc-100">
+                <Search size={32} className="text-zinc-300" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-black uppercase tracking-widest">Escolhe uma operação</h3>
+                <p className="text-[10px] text-zinc-400 font-medium max-w-[200px] mx-auto">Clica nos botões acima para carregar saldo, levantar lucros ou trabalhar como caixa.</p>
+              </div>
+            </motion.div>
+          ) : activeTab === 'user' ? (
+            <motion.div 
+              key="user-tab"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4"
+            >
               {/* Saldo Card */}
               <div className="p-8 bg-zinc-900 mx-6 mt-6 rounded-[32px] text-white overflow-hidden relative">
                 <div className="absolute -right-4 -top-4 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
@@ -433,10 +474,16 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
           ) : (
             /* PAINEL DE CAIXA */
-            <div className="px-6 py-8 space-y-8">
+            <motion.div 
+              key="cashier-tab"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="px-6 py-8 space-y-8"
+            >
               <div className="bg-amber-500 p-8 rounded-[40px] text-white shadow-xl shadow-amber-500/20">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
@@ -488,7 +535,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                   <span className="bg-amber-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase">Meu Job</span>
                                 )}
                               </div>
-                              <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest text-green-600">Depósito via Express</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-widest ${request.type === 'deposit' ? 'text-green-600' : 'text-amber-600'}`}>
+                                {request.type === 'deposit' ? 'Depósito via Express' : 'Levantamento de Saldo'}
+                              </span>
                             </div>
                           </div>
                           <div className="text-right">
@@ -519,8 +568,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
 
         {/* ECRÃ DE TRANSAÇÃO (FULLSCREEN MODAL DENTRO) */}
