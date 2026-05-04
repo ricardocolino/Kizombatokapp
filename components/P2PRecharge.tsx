@@ -141,7 +141,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     
     // Se for levantamento, verificar se tem saldo suficiente no redeemable_balance
     if (type === 'withdraw' && currentUser.redeemable_balance < Number(amount)) {
-      alert(`Saldo insuficiente para levantamento. Tens apenas ${currentUser.redeemable_balance} AC resgatáveis.`);
+      alert(`Saldo insuficiente para levantamento. Tens apenas ${currentUser.redeemable_balance} AC (${(currentUser.redeemable_balance * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ) resgatáveis.`);
       return;
     }
 
@@ -378,11 +378,16 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2 block">
                     {type === 'deposit' ? 'Teu Saldo Disponível' : 'Teu Saldo Resgatável (Ganhos)'}
                   </span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black tracking-tighter">
-                      {type === 'deposit' ? currentUser.balance : currentUser.redeemable_balance}
+                  <div className="flex flex-col">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-black tracking-tighter">
+                        {type === 'deposit' ? currentUser.balance : currentUser.redeemable_balance}
+                      </span>
+                      <span className="text-sm font-black text-amber-500">AC</span>
+                    </div>
+                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1 opacity-70">
+                      ≈ {((type === 'deposit' ? currentUser.balance : currentUser.redeemable_balance) * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ
                     </span>
-                    <span className="text-sm font-black text-amber-500">AC</span>
                   </div>
                 </div>
               </div>
@@ -408,6 +413,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                         >
                           <span className="text-3xl font-black tracking-tighter">{val}</span>
                           <span className="text-[9px] font-black uppercase tracking-widest opacity-50">AngoCoins</span>
+                          <span className="text-[8px] font-black text-amber-500 mt-1 uppercase tracking-tighter">({(val * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ)</span>
                         </button>
                       ))}
                     </div>
@@ -450,7 +456,10 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-lg font-black tracking-tighter">{request.amount} AC</span>
+                                <div className="flex flex-col">
+                                  <span className="text-lg font-black tracking-tighter">{request.amount} AC</span>
+                                  <span className="text-[8px] font-black text-amber-500 -mt-1 uppercase tracking-tighter">({(request.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ)</span>
+                                </div>
                                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${
                                   request.status === 'pending' ? 'bg-zinc-100 text-zinc-400' : 
                                   request.status === 'completed' ? 'bg-green-500 text-white' :
@@ -497,7 +506,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                 <div className="grid grid-cols-2 gap-4">
                    <div className="bg-white/10 p-4 rounded-2xl">
                      <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Hoje</span>
-                     <span className="text-xl font-black">0 AC</span>
+                     <span className="text-xl font-black">0 AC (0 KZ)</span>
                    </div>
                    <div className="bg-white/10 p-4 rounded-2xl">
                      <span className="text-[9px] font-black uppercase text-white/60 block mb-1">Reputação</span>
@@ -540,8 +549,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex flex-col items-end">
                             <span className="text-2xl font-black tracking-tighter block">{request.amount} AC</span>
+                            <span className="text-[9px] font-black text-amber-500 uppercase tracking-tighter -mt-1">{(request.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ</span>
                           </div>
                         </div>
                         
@@ -637,7 +647,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     <div className="space-y-3">
                       <h3 className="text-3xl font-black tracking-tighter">Transação Concluída!</h3>
                       <p className="text-sm text-zinc-500 font-medium max-w-[280px] mx-auto leading-relaxed">
-                        Os <span className="font-black text-black">{selectedRequest.amount} AC</span> foram creditados com sucesso. Obrigado por usar o <span className="font-black text-amber-600">AngoChat P2P</span>.
+                        Os <span className="font-black text-black">{selectedRequest.amount} AC</span> ({(selectedRequest.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ) foram creditados com sucesso. Obrigado por usar o <span className="font-black text-amber-600">AngoChat P2P</span>.
                       </p>
                     </div>
 
@@ -660,7 +670,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     </div>
                     <div>
                       <h3 className="text-2xl font-black tracking-tighter">Procurando Caixa...</h3>
-                      <p className="text-xs text-zinc-400 font-bold uppercase mt-2">O teu pedido de {selectedRequest.amount} AC está na fila.</p>
+                      <p className="text-xs text-zinc-400 font-bold uppercase mt-2">
+                        O teu pedido de {selectedRequest.amount} AC ({(selectedRequest.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ) está na fila.
+                      </p>
                     </div>
                     <button className="px-8 py-4 bg-zinc-100 text-zinc-400 rounded-full text-[10px] font-black uppercase tracking-widest">Cancelar Pedido</button>
                   </div>
@@ -669,7 +681,12 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     {/* Amount Card */}
                     <div className="p-10 bg-zinc-50 rounded-[40px] text-center space-y-2">
                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Total a Processar</span>
-                       <h2 className="text-5xl font-black tracking-tighter">{selectedRequest.amount} AC</h2>
+                                               <div className="flex flex-col items-center">
+                          <h2 className="text-5xl font-black tracking-tighter">{selectedRequest.amount} AC</h2>
+                          <span className="text-sm font-black text-amber-500 uppercase tracking-widest mt-1">
+                            ≈ {(selectedRequest.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ
+                          </span>
+                        </div>
                     </div>
 
                     {/* Parties Info */}
@@ -767,8 +784,8 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                              <div className="pt-3 border-t border-amber-100">
                                <p className="text-[10px] font-medium leading-relaxed opacity-70 text-amber-800">
                                  {selectedRequest.type === 'deposit' 
-                                   ? `Efetua a transferência de ${selectedRequest.amount} AC para o Caixa.`
-                                   : `Efetua a transferência de ${selectedRequest.amount} AC para o Usuário.`}
+                                   ? `Efetua a transferência de ${selectedRequest.amount} AC (${(selectedRequest.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ) para o Caixa.`
+                                   : `Efetua a transferência de ${selectedRequest.amount} AC (${(selectedRequest.amount * EXCHANGE_RATE).toLocaleString('pt-AO')} KZ) para o Usuário.`}
                                </p>
                              </div>
                           </div>
