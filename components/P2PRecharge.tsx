@@ -137,6 +137,12 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
   const handleCreateRequest = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
     
+    // Se for levantamento, verificar se tem saldo suficiente no redeemable_balance
+    if (type === 'withdraw' && currentUser.redeemable_balance < Number(amount)) {
+      alert(`Saldo insuficiente para levantamento. Tens apenas ${currentUser.redeemable_balance} AC resgatáveis.`);
+      return;
+    }
+
     // Verificar se já existe um pedido ativo (não concluído)
     const activeRequest = requests.find(r => r.status !== 'completed' && r.user_id === currentUser.id);
     if (activeRequest) {
@@ -149,6 +155,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
     const { data, error } = await supabase.from('p2p_requests').insert({
       user_id: currentUser.id,
       amount: Number(amount),
+      type: type,
       status: 'pending'
     }).select(`
       *, 
@@ -310,7 +317,6 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               onClick={() => {
                 if (isCaixa) {
                   setActiveTab('cashier');
-                  // we don't change type here as it's for user requests
                 } else {
                   alert("Torna-te um Caixa Oficial nas definições de faturamento do teu perfil para aceitares pagamentos! 🇦🇴🚀");
                 }
@@ -328,9 +334,13 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
               <div className="p-8 bg-zinc-900 mx-6 mt-6 rounded-[32px] text-white overflow-hidden relative">
                 <div className="absolute -right-4 -top-4 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
                 <div className="relative z-10">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2 block">Teu Saldo Disponível</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2 block">
+                    {type === 'deposit' ? 'Teu Saldo Disponível' : 'Teu Saldo Resgatável (Ganhos)'}
+                  </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black tracking-tighter">{currentUser.balance}</span>
+                    <span className="text-4xl font-black tracking-tighter">
+                      {type === 'deposit' ? currentUser.balance : currentUser.redeemable_balance}
+                    </span>
                     <span className="text-sm font-black text-amber-500">AC</span>
                   </div>
                 </div>
@@ -406,6 +416,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                   'bg-amber-500 text-white'
                                 }`}>
                                   {request.status === 'pending' ? 'Aguardando' : request.status === 'completed' ? 'Finalizado ✓' : 'Em Progresso'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-zinc-800 text-white`}>
+                                  {request.type === 'deposit' ? 'Carregar' : 'Levantar'}
                                 </span>
                               </div>
                               <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
@@ -526,7 +539,9 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                 </button>
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">ID: {selectedRequest.id.slice(0,8)}</span>
-                  <span className="text-xs font-black uppercase tracking-widest">Recarga AngoCoins</span>
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    {selectedRequest.type === 'deposit' ? 'Recarga AngoCoins' : 'Levantamento Saldo'}
+                  </span>
                 </div>
                 <div className="w-10" />
               </div>
@@ -633,72 +648,82 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                     {/* Interaction Section */}
                     {selectedRequest.status === 'in_progress' && (
                       <div className="space-y-6">
-                        {/* Apenas o Usuário que solicitou vê os dados do Caixa para pagar */}
-                        {selectedRequest.user_id === currentUser.id && (
+                        {/* 
+                          - Se for Depósito: O Usuário vê dados do Caixa para pagar.
+                          - Se for Levantamento: O Caixa vê dados do Usuário para pagar.
+                        */}
+                        {((selectedRequest.type === 'deposit' && selectedRequest.user_id === currentUser.id) || 
+                          (selectedRequest.type === 'withdraw' && selectedRequest.cashier_id === currentUser.id)) && (
                           <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 text-amber-900 space-y-4">
                              <div className="flex items-center justify-between">
                                <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Dados para Pagamento</h4>
                                <ShieldCheck size={14} className="text-amber-500" />
                              </div>
                              
-                             <div className="space-y-3">
-                              {/* Nome do Titular */}
-                              <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                <div className="flex-1 overflow-hidden pr-3">
-                                  <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
-                                  <span className="text-sm font-black uppercase block truncate">
-                                    {selectedRequest.cashier?.holder_name || 'NOME NÃO DEFINIDO'}
-                                  </span>
-                                </div>
-                                {selectedRequest.cashier?.holder_name && (
-                                  <CopyButton text={selectedRequest.cashier.holder_name} />
-                                )}
-                              </div>
-                              
-                              {/* IBAN */}
-                              {selectedRequest.cashier?.iban && (
-                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                  <div className="flex-1 overflow-hidden pr-3">
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
-                                    <span className="text-xs font-mono font-bold block truncate tracking-tight">
-                                      {selectedRequest.cashier.iban}
-                                    </span>
-                                  </div>
-                                  <CopyButton text={selectedRequest.cashier.iban} />
-                                </div>
-                              )}
-
-                              {/* Multicaixa Express */}
-                              {selectedRequest.cashier?.express_number && (
-                                <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
-                                  <div className="flex-1 overflow-hidden pr-3">
-                                    <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
-                                    <span className="text-sm font-black block truncate">
-                                      {selectedRequest.cashier.express_number}
-                                    </span>
-                                  </div>
-                                  <CopyButton text={selectedRequest.cashier.express_number} />
-                                </div>
-                              )}
-
-                              {!selectedRequest.cashier?.holder_name && (
-                                  <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
-                                    <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                                    <p className="text-[10px] text-red-600 font-bold leading-tight uppercase">
-                                      Este caixa ainda não configurou os dados de pagamento. Por favor, utilize o suporte se necessário.
-                                    </p>
-                                  </div>
-                                )}
-                             </div>
-
+                             {(() => {
+                               const party = selectedRequest.type === 'deposit' ? selectedRequest.cashier : selectedRequest.user;
+                               return (
+                                 <div className="space-y-3">
+                                   <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                     <div className="flex-1 overflow-hidden pr-3">
+                                       <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Titular da Conta</span>
+                                       <span className="text-sm font-black uppercase block truncate">
+                                         {party?.holder_name || 'NOME NÃO DEFINIDO'}
+                                       </span>
+                                     </div>
+                                     {party?.holder_name && (
+                                       <CopyButton text={party.holder_name} />
+                                     )}
+                                   </div>
+                                   
+                                   {party?.iban && (
+                                     <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                       <div className="flex-1 overflow-hidden pr-3">
+                                         <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">IBAN (Angola)</span>
+                                         <span className="text-xs font-mono font-bold block truncate tracking-tight">
+                                           {party.iban}
+                                         </span>
+                                       </div>
+                                       <CopyButton text={party.iban} />
+                                     </div>
+                                   )}
+ 
+                                   {party?.express_number && (
+                                     <div className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-amber-200/50 backdrop-blur-sm">
+                                       <div className="flex-1 overflow-hidden pr-3">
+                                         <span className="text-[9px] font-black uppercase text-amber-700/50 block mb-0.5">Telemóvel Express</span>
+                                         <span className="text-sm font-black block truncate">
+                                           {party.express_number}
+                                         </span>
+                                       </div>
+                                       <CopyButton text={party.express_number} />
+                                     </div>
+                                   )}
+ 
+                                   {!party?.holder_name && (
+                                       <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
+                                         <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                                         <p className="text-[10px] text-red-600 font-bold leading-tight uppercase">
+                                           {selectedRequest.type === 'deposit' 
+                                             ? "Este caixa ainda não configurou os dados de pagamento." 
+                                             : "O usuário ainda não configurou os dados de pagamento."}
+                                         </p>
+                                       </div>
+                                     )}
+                                 </div>
+                               );
+                             })()}
+ 
                              <div className="pt-3 border-t border-amber-100">
                                <p className="text-[10px] font-medium leading-relaxed opacity-70 text-amber-800">
-                                 Efetua a transferência de <span className="font-black">{selectedRequest.amount} AC</span> e anexa o comprovativo no chat se solicitado.
+                                 {selectedRequest.type === 'deposit' 
+                                   ? `Efetua a transferência de ${selectedRequest.amount} AC para o Caixa.`
+                                   : `Efetua a transferência de ${selectedRequest.amount} AC para o Usuário.`}
                                </p>
                              </div>
                           </div>
                         )}
-
+ 
                         <div className="grid grid-cols-2 gap-4">
                           <div className={`p-6 rounded-3xl border flex flex-col items-center gap-3 ${selectedRequest.user_confirmed ? 'bg-green-50 border-green-100 text-green-600' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}>
                             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
@@ -713,7 +738,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                             <span className="text-[9px] font-black uppercase text-center">{selectedRequest.cashier_confirmed ? 'Caixa Confirmou' : 'Caixa Pendente'}</span>
                           </div>
                         </div>
-
+ 
                         {/* Control Buttons - Detect role from request IDs, not activeTab */}
                         {selectedRequest.user_id === currentUser.id ? (
                           <div className="space-y-4">
@@ -724,11 +749,18 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                 selectedRequest.user_confirmed ? 'bg-green-100 text-green-600' : 'bg-black text-white shadow-xl shadow-black/20'
                               }`}
                             >
-                              {selectedRequest.user_confirmed ? 'Pagamento Confirmado ✓' : 'Já Paguei (Confirmar)'}
+                              {selectedRequest.user_confirmed 
+                                ? (selectedRequest.type === 'deposit' ? 'Pagamento Confirmado ✓' : 'Recebimento Confirmado ✓')
+                                : (selectedRequest.type === 'deposit' ? 'Já Paguei (Confirmar)' : 'Recebi o Dinheiro (Confirmar)')
+                              }
                             </button>
                             {selectedRequest.user_confirmed && !selectedRequest.cashier_confirmed && (
                               <div className="p-4 bg-amber-50 rounded-2xl text-center border border-amber-100">
-                                <p className="text-[10px] text-amber-600 font-black uppercase animate-pulse">Aguardando que o Caixa confirme o recebimento...</p>
+                                <p className="text-[10px] text-amber-600 font-black uppercase animate-pulse">
+                                  {selectedRequest.type === 'deposit' 
+                                    ? "Aguardando que o Caixa confirme o recebimento..." 
+                                    : "Aguardando que o Caixa confirme o envio..."}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -741,15 +773,18 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                                 selectedRequest.cashier_confirmed ? 'bg-green-100 text-green-600' : 'bg-amber-500 text-white shadow-xl shadow-amber-500/20'
                               }`}
                             >
-                              {selectedRequest.cashier_confirmed ? 'Recebimento Confirmado ✓' : 'Recebi o Dinheiro (Confirmar)'}
+                              {selectedRequest.cashier_confirmed 
+                                ? (selectedRequest.type === 'deposit' ? 'Recebimento Confirmado ✓' : 'Pagamento Confirmado ✓')
+                                : (selectedRequest.type === 'deposit' ? 'Recebi o Dinheiro (Confirmar)' : 'Já Enviei o Dinheiro (Confirmar)')
+                              }
                             </button>
-
+ 
                             {selectedRequest.cashier_confirmed && !selectedRequest.user_confirmed && (
                               <div className="p-4 bg-zinc-50 rounded-2xl text-center border border-zinc-100">
-                                <p className="text-[10px] text-zinc-400 font-black uppercase">Aguardando confirmação do Pagamento pelo Usuário...</p>
+                                <p className="text-[10px] text-zinc-400 font-black uppercase">Aguardando confirmação do Usuário...</p>
                               </div>
                             )}
-
+ 
                             {selectedRequest.user_confirmed && selectedRequest.cashier_confirmed && (
                               <div className="p-6 bg-black text-white rounded-[24px] text-center space-y-2 animate-pulse">
                                 <Loader2 size={24} className="animate-spin mx-auto text-amber-500" />
