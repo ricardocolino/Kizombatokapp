@@ -54,6 +54,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [isEducation, setIsEducation] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
+  const [isVideoTooLong, setIsVideoTooLong] = useState(false);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -302,9 +303,38 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   };
 
-  const handleNativeVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const checkVideoDuration = (file: File | Blob): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('video/')) {
+        resolve(true);
+        return;
+      }
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        URL.revokeObjectURL(video.src);
+        resolve(duration <= 90.5); // 90s + pequena margem para arredondamento
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(true); // Se falhar a ler metadados, deixamos passar para o processamento onde será validado de novo
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleNativeVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const isOk = await checkVideoDuration(file);
+      setIsVideoTooLong(!isOk);
+      if (!isOk) {
+        setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+      } else {
+        setError(null);
+      }
+      
       setMediaFiles([file]);
       setPreviewUrls([URL.createObjectURL(file)]);
       setIsFromGallery(true);
@@ -384,6 +414,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           if (result.videoFilePath) {
             const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
             const videoBlob = await response.blob();
+            
+            // Gravações feitas no app respeitam o maxDuration, mas verificamos por segurança
+            const isOk = await checkVideoDuration(videoBlob);
+            setIsVideoTooLong(!isOk);
+            if (!isOk) {
+              setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
+            }
+            
             setMediaFiles([videoBlob]);
             setPreviewUrls([URL.createObjectURL(videoBlob)]);
             setIsFromGallery(false);
@@ -406,9 +444,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   }, [recordingSeconds, isRecording, maxDuration, stopRecording]);
 
-  const handleMediaLibrarySelect = (files: File[]) => {
+  const handleMediaLibrarySelect = async (files: File[]) => {
     if (files.length > 0) {
       const selectedFiles = files.slice(0, 5);
+      
+      // Validar duração do primeiro arquivo (se for vídeo)
+      const isOk = await checkVideoDuration(selectedFiles[0]);
+      setIsVideoTooLong(!isOk);
+      if (!isOk) {
+        setError('Este vídeo ultrapassa 1:30. Seleciona um vídeo mais curto para publicar!');
+      } else {
+        setError(null);
+      }
+
       const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
       
       previewUrls.forEach(url => URL.revokeObjectURL(url));
@@ -418,7 +466,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       setIsFromGallery(true);
       setTrimStart(0);
       setTrimEnd(15);
-      setError(null);
       stopCamera();
     }
   };
@@ -893,7 +940,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   return (
-    <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-black'} flex flex-col relative overflow-hidden`}>
+    <div className={`h-full w-full ${previewUrls.length === 0 ? 'bg-transparent' : 'bg-white'} flex flex-col relative overflow-hidden transition-colors duration-500`}>
       {(isRecording || (showCamera && recordingSeconds > 0)) && (
         <div className="absolute top-0 left-0 w-full z-50 px-2 pt-4">
            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden flex gap-0.5">
@@ -907,8 +954,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       <div className="flex-1 relative">
         {previewUrls.length > 0 ? (
-          <div className="h-full w-full flex flex-col bg-black">
-            <div className="relative h-[320px] shrink-0 m-4 mb-2 bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-zinc-800">
+          <div className="h-full w-full flex flex-col bg-white">
+            <div className="relative h-[400px] shrink-0 m-4 mb-2 bg-zinc-100 rounded-[32px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-zinc-100">
               {mediaFiles[0]?.type.startsWith('image/') ? (
                 <div className="w-full h-full relative">
                   <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
@@ -940,7 +987,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 />
               )}
               
-              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-black/40 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/60 transition-all active:scale-90">
+              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-white/80 backdrop-blur-md rounded-full text-black z-50 hover:bg-white transition-all active:scale-95 shadow-lg">
                 <X size={20} />
               </button>
 
@@ -950,59 +997,63 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     onClick={() => setShowTrimEditor(true)}
                     className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
                   >
-                    <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Scissors size={20}/></div>
-                    <span className="text-[8px] font-black uppercase text-white shadow-sm">Recortar</span>
+                    <div className="p-2.5 bg-white/80 backdrop-blur-md rounded-full text-black border border-white/20 shadow-lg"><Scissors size={20}/></div>
+                    <span className="text-[8px] font-black uppercase text-black shadow-none mt-1">Recortar</span>
                   </button>
                 )}
               </div>
             </div>
             
-            <div className="p-6 pt-2 bg-black flex flex-col gap-4 overflow-y-auto">
+            <div className="p-6 pt-2 bg-white flex flex-col gap-4 overflow-y-auto">
                <div className="relative">
                  <textarea 
                    value={content}
                    onChange={(e) => setContent(e.target.value.slice(0, 200))}
                    placeholder="Escreve uma legenda para o teu vídeo..."
-                   className="w-full bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-red-600/50 transition-all h-24 resize-none"
+                   className="w-full bg-zinc-50 border border-zinc-100 rounded-[24px] p-5 text-sm text-black placeholder:text-zinc-400 outline-none focus:bg-white focus:ring-4 focus:ring-zinc-100 transition-all h-28 resize-none shadow-sm"
                  />
-                 <div className="absolute bottom-3 right-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
+                 <div className="absolute bottom-4 right-5 text-[9px] font-black text-zinc-300 uppercase tracking-widest">
                    {content.length}/200
                  </div>
                </div>
 
                {/* Educação Toggle - Only for Posts */}
                {uploadType === 'post' && (
-                 <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4">
-                   <div className="flex items-center gap-3">
-                     <div className="p-2 bg-red-600/10 rounded-lg text-red-600">
-                       <BookOpen size={18} />
+                 <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-[24px] p-5 shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="p-3 bg-white rounded-xl text-black shadow-sm">
+                       <BookOpen size={20} />
                      </div>
                      <div>
-                       <p className="text-xs font-black uppercase tracking-widest text-white">Conteúdo Educativo</p>
-                       <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
+                       <p className="text-[11px] font-black uppercase tracking-widest text-black">Conteúdo Educativo</p>
+                       <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
                      </div>
                    </div>
                    <button 
                      onClick={() => setIsEducation(!isEducation)}
-                     className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-red-600' : 'bg-zinc-800'}`}
+                     className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-black' : 'bg-zinc-200'}`}
                    >
-                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isEducation ? 'left-7' : 'left-1'}`} />
+                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${isEducation ? 'left-7' : 'left-1'}`} />
                    </button>
                  </div>
                )}
                
                <button 
                  onClick={() => {
+                   if (isVideoTooLong) {
+                     setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+                     return;
+                   }
                    if (todayCount !== null && todayCount >= 3) {
                      setError("Já tens 3 publicações por hoje, volta amanhã.");
                    } else {
                      handleUpload();
                    }
                  }} 
-                 disabled={uploading || processingVideo} 
-                 className={`w-full py-4 rounded-full font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo || (todayCount !== null && todayCount >= 3)) ? 'bg-zinc-800 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.2)]'}`}
+                 disabled={uploading || processingVideo || isVideoTooLong} 
+                 className={`w-full py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo || isVideoTooLong || (todayCount !== null && todayCount >= 3)) ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-black border-black text-white shadow-[0_20px_40px_rgba(0,0,0,0.2)]'}`}
                >
-                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : <><CheckCircle2 size={16} /><span>{uploadType === 'story' ? 'Publicar no Story' : 'Publicar Agora'}</span></>}
+                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : isVideoTooLong ? <><AlertCircle size={16} /><span>Vídeo muito longo</span></> : <><CheckCircle2 size={18} /><span>{uploadType === 'story' ? 'Publicar no Story' : 'Publicar Agora'}</span></>}
                </button>
             </div>
           </div>
@@ -1145,55 +1196,62 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       </div>
 
       {error && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/90 backdrop-blur-xl border border-red-600/30 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-[0_10px_40px_rgba(220,38,38,0.2)] flex items-center gap-3 animate-bounce">
-           <AlertCircle size={18} className="text-red-600" />
-           <span className="max-w-[200px] text-center">{error}</span>
-           <button onClick={() => setError(null)} className="ml-2 text-zinc-600 hover:text-white"><X size={16}/></button>
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] bg-white border border-zinc-100 text-black px-6 py-5 rounded-[28px] text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-4 animate-in slide-in-from-top duration-300">
+           <div className="bg-zinc-900 p-2 rounded-full text-white">
+            <AlertCircle size={18} />
+           </div>
+           <span className="max-w-[200px] text-center leading-relaxed">{error}</span>
+           <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors"><X size={18}/></button>
         </div>
       )}
 
       {showTrimEditor && (
-        <div className="absolute inset-0 bg-black/90 backdrop-blur-md z-[120] flex flex-col items-center justify-center p-8">
-          <h3 className="text-white font-black uppercase tracking-widest mb-8">Recortar Vídeo</h3>
+        <div className="absolute inset-0 bg-white/95 backdrop-blur-xl z-[120] flex flex-col items-center justify-center p-8">
+          <div className="w-16 h-1 w-full bg-zinc-200 rounded-full mb-12 max-w-[40px]" />
+          <h3 className="text-black font-black uppercase tracking-[0.3em] text-sm mb-12">Recortar Vídeo</h3>
           
-          <div className="w-full max-w-xs bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <div className="flex justify-between text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">
-              <span>Início: {trimStart.toFixed(1)}s</span>
-              <span>Fim: {trimEnd.toFixed(1)}s</span>
+          <div className="w-full max-w-sm bg-zinc-50 rounded-[32px] p-8 border border-zinc-100 shadow-sm">
+            <div className="flex justify-between text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-6">
+              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">Início: {trimStart.toFixed(1)}s</span>
+              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">Fim: {trimEnd.toFixed(1)}s</span>
             </div>
             
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ponto de Início</label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max={trimEnd - 0.5} 
-                  step="0.1"
-                  value={trimStart}
-                  onChange={(e) => setTrimStart(parseFloat(e.target.value))}
-                  className="w-full accent-red-600"
-                />
+            <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-black uppercase tracking-widest">Ponto de Início</label>
+                <div className="relative pt-1">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max={trimEnd - 0.5} 
+                    step="0.1"
+                    value={trimStart}
+                    onChange={(e) => setTrimStart(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  />
+                </div>
               </div>
               
-              <div className="flex flex-col gap-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ponto de Fim</label>
-                <input 
-                  type="range" 
-                  min={trimStart + 0.5} 
-                  max={maxDuration} 
-                  step="0.1"
-                  value={trimEnd}
-                  onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
-                  className="w-full accent-red-600"
-                />
+              <div className="flex flex-col gap-3">
+                <label className="text-[10px] font-black text-black uppercase tracking-widest">Ponto de Fim</label>
+                <div className="relative pt-1">
+                  <input 
+                    type="range" 
+                    min={trimStart + 0.5} 
+                    max={maxDuration} 
+                    step="0.1"
+                    value={trimEnd}
+                    onChange={(e) => setTrimEnd(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           <button 
             onClick={() => setShowTrimEditor(false)}
-            className="mt-10 px-12 py-4 bg-red-600 text-white rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-xl active:scale-95 transition-all"
+            className="mt-14 px-16 py-5 bg-black text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] shadow-2xl active:scale-95 transition-all"
           >
             Concluído
           </button>
