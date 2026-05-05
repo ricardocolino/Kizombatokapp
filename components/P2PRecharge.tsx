@@ -270,7 +270,7 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
         className="relative bg-white h-full flex flex-col overflow-hidden text-black"
       >
         {/* Header */}
-        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-white relative z-20">
+        <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-white relative z-20">
           <div className="flex items-center gap-4">
             {activeTab && (
               <button 
@@ -280,10 +280,6 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                 <ArrowLeft size={20} strokeWidth={3} />
               </button>
             )}
-            <div className="flex flex-col">
-              <h2 className="text-2xl font-black tracking-tighter">AngoCoins P2P</h2>
-              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Recarga Segura • Estilo AirTM</p>
-            </div>
           </div>
 
           <button onClick={onClose} className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400 hover:text-black transition-colors">
