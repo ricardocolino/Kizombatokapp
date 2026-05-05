@@ -39,6 +39,7 @@
     "dotenv": "^17.3.1",
     "emoji-picker-react": "^4.18.0",
     "express": "^5.2.1",
+    "hls.js": "^1.6.16",
     "lamejs": "^1.2.1",
     "lucide-react": "^0.564.0",
     "motion": "^12.35.0",

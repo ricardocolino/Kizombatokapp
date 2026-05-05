@@ -1,6 +1,7 @@
 
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
 import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -83,6 +84,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (!mediaUrl) return '';
     if (!mediaUrl.startsWith('http')) return mediaUrl;
     
+    // Skip optimization for HLS as it handles bitrates internally
+    if (mediaUrl.toLowerCase().includes('.m3u8')) return mediaUrl;
+
     // Target resolutions: 144p (slow) or 240p (normal)
     const res = netSpeed === 'slow' ? '144p' : '240p';
     const width = netSpeed === 'slow' ? 256 : 426;
@@ -111,19 +115,68 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     setVideoError(false);
     setIsLoading(true);
     setIsPlaying(false);
-    if (videoRef.current) {
-      if (videoRef.current.readyState >= 1) {
-        videoRef.current.currentTime = 0;
-      }
-      // Force stop buffering when URL changes or unmounts
-      if (!isNearScreen) {
-        videoRef.current.src = "";
-        videoRef.current.load();
-      } else {
-        videoRef.current.src = optimizedUrl;
-      }
+    
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
     }
-  }, [optimizedUrl, isNearScreen]);
+
+    if (optimizedUrl && isNearScreen) {
+      if (optimizedUrl.toLowerCase().includes('.m3u8')) {
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            capLevelToPlayerSize: true,
+            autoStartLoad: true,
+          });
+          hls.loadSource(optimizedUrl);
+          hls.attachMedia(video);
+          hlsRef.current = hls;
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (isFullyVisible && !isPaused) {
+              video.play().catch(() => {});
+            }
+          });
+          
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  setVideoError(true);
+                  hls.destroy();
+                  break;
+              }
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = optimizedUrl;
+        }
+      } else {
+        // Fallback to MP4
+        video.src = optimizedUrl;
+      }
+    } else {
+      video.src = "";
+      video.load();
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
@@ -136,6 +189,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const viewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

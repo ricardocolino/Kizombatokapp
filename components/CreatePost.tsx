@@ -683,8 +683,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
         const hasTrim = trimStart > 0 || (trimEnd < recordingSeconds && recordingSeconds > 0);
         const needsRotation = recordedFacingMode === 'environment';
-        // Vídeos da galeria não passam pelo FFmpeg, vídeos gravados sim (para compressão TikTok)
-        const needsFFmpeg = !isFromGallery; 
+        // Convertemos todos os vídeos para HLS para garantir streaming estável
+        const needsFFmpeg = true; 
 
         if (needsFFmpeg) {
           console.log('[Upload] Iniciando processamento FFmpeg...');
@@ -722,10 +722,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           
           const finalVf = filterParts.join(',');
           
-          // 3. Execução do Processamento Principal
+          // 3. Execução do Processamento Principal para HLS
           const videoArgs: string[] = [];
           
-          // Trim (Input seeking)
           if (hasTrim) {
             videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
           }
@@ -736,66 +735,52 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             videoArgs.push('-vf', finalVf);
           }
           
-          // 2. Melhorar o comando FFmpeg para compressão máxima (estilo TikTok)
+          // Configuração HLS
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
-            '-crf', '32', // Aumentado de 28 para 32 para reduzir significativamente o peso
-            '-maxrate', '1.5M', // Limitar bitrate para vídeos leves
-            '-bufsize', '3M',
+            '-crf', '32',
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', 
-            '-b:a', '96k', // Reduzido de 128k para 96k
-            '-movflags', '+faststart', 
-            '-y', '/output.mp4'
+            '-b:a', '96k',
+            '-max_muxing_queue_size', '1024',
+            '-f', 'hls',
+            '-hls_time', '6',
+            '-hls_list_size', '0',
+            '-hls_segment_filename', 'seg%03d.ts',
+            '-y', '/index.m3u8'
           );
           
-          console.log('[FFmpeg] Executando comando:', videoArgs.join(' '));
+          console.log('[FFmpeg] Executando comando HLS:', videoArgs.join(' '));
           await ffmpeg.exec(videoArgs);
 
-          // 4. Adicionar logs de depuração - verificar arquivo gerado
-          try {
-            const stats = await ffmpeg.listDir('/');
-            console.log('[FFmpeg] Arquivos após processamento:', stats);
-          } catch (e) {
-            console.warn('[FFmpeg] Erro ao listar arquivos:', e);
-          }
-          
-          console.log('[Upload] Lendo vídeo processado...');
-          const videoOutput = await ffmpeg.readFile('/output.mp4');
-          if (!videoOutput || (videoOutput as Uint8Array).byteLength < 100) {
-            throw new Error('O processamento do vídeo falhou (ficheiro de saída inválido).');
+          // 4. Ler todos os ficheiros gerados (.m3u8 e .ts)
+          const allFiles = await ffmpeg.listDir('/');
+          const hlsFiles = allFiles.filter(f => f.name.endsWith('.m3u8') || f.name.endsWith('.ts'));
+          console.log('[FFmpeg] Ficheiros HLS gerados:', hlsFiles);
+
+          if (hlsFiles.length === 0) {
+            throw new Error('O processamento HLS falhou (nenhum ficheiro gerado).');
           }
 
-          // 1. Adicionar validação do vídeo processado
-          const tempVideoBlob = new Blob([videoOutput], { type: 'video/mp4' });
-          if (tempVideoBlob.size === 0) {
-            throw new Error('Vídeo processado está vazio');
-          }
+          // 5. Upload de todos os segmentos e da playlist
+          // Usamos um ID único para a pasta para evitar colisões
+          const hlsFolder = `posts/${userId}/${timestamp}`;
+          let masterPlaylistUrl = "";
 
-          finalMediaBlob = tempVideoBlob;
-
-          // Testar se o vídeo é válido ANTES de prosseguir
-          try {
-            await new Promise((resolve, reject) => {
-              const testVideo = document.createElement('video');
-              testVideo.preload = 'metadata';
-              testVideo.onloadedmetadata = () => {
-                if (testVideo.videoWidth === 0 || testVideo.videoHeight === 0) {
-                  reject(new Error('Vídeo processado tem dimensões inválidas'));
-                } else {
-                  resolve(true);
-                }
-                testVideo.remove();
-              };
-              testVideo.onerror = () => reject(new Error('Erro ao carregar vídeo processado'));
-              testVideo.src = URL.createObjectURL(tempVideoBlob);
+          for (const fileInfo of hlsFiles) {
+            const fileData = await ffmpeg.readFile(fileInfo.name);
+            const blob = new Blob([fileData], { 
+              type: fileInfo.name.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t' 
             });
-          } catch (validationError) {
-            console.error('[Upload] Vídeo processado inválido:', validationError);
-            // Fallback para o vídeo original
-            finalMediaBlob = mediaFiles[0];
+            const url = await uploadToR2(blob, hlsFolder, fileInfo.name);
+            if (fileInfo.name === 'index.m3u8') {
+              masterPlaylistUrl = url;
+            }
           }
+
+          finalMediaUrl = masterPlaylistUrl;
+          finalMediaBlob = null; // Já fizemos o upload manual aqui
 
           // 4. Geração de Thumbnail (FFmpeg)
           console.log('[Upload] Gerando thumbnail com FFmpeg...');
@@ -830,11 +815,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       }
 
-      // 4. Upload do Ficheiro Final
-      const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
-      const fileName = `${userId}-${timestamp}.${fileExt}`;
-      const folder = uploadType === 'story' ? 'stories' : 'posts';
-      finalMediaUrl = await uploadToR2(finalMediaBlob, folder, fileName);
+      // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
+      if (finalMediaBlob) {
+        const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
+        const fileName = `${userId}-${timestamp}.${fileExt}`;
+        const folder = uploadType === 'story' ? 'stories' : 'posts';
+        finalMediaUrl = await uploadToR2(finalMediaBlob, folder, fileName);
+      }
       
       // 5. Salvar no Supabase
       console.log(`[Upload] Salvando ${uploadType} no Supabase...`);

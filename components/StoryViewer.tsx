@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
+import Hls from 'hls.js';
 import { supabase } from '../supabaseClient';
 import { Story } from '../types';
 import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp } from 'lucide-react';
@@ -24,6 +25,48 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   const STORY_DURATION = 5000; // 5 seconds per image story
 
   const currentStory = stories[currentIndex];
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentStory || currentStory.media_type !== 'video') return;
+
+    const mediaUrl = parseMediaUrl(currentStory.media_url);
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (mediaUrl.toLowerCase().includes('.m3u8')) {
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          capLevelToPlayerSize: true,
+          autoStartLoad: true,
+        });
+        hls.loadSource(mediaUrl);
+        hls.attachMedia(video);
+        hlsRef.current = hls;
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = mediaUrl;
+      }
+    } else {
+      video.src = mediaUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [currentIndex, stories, currentStory?.id]);
 
   // Record view
   useEffect(() => {
@@ -224,8 +267,8 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
         {currentStory.media_type === 'video' ? (
           <video 
+            ref={videoRef}
             key={currentStory.id}
-            src={parseMediaUrl(currentStory.media_url)} 
             className="w-full h-full object-contain"
             autoPlay
             muted={isMuted}
