@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -52,6 +52,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [isEducation, setIsEducation] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
@@ -954,16 +955,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       <div className="flex-1 relative">
         {previewUrls.length > 0 ? (
-          <div className="h-full w-full flex flex-col bg-white">
-            <div className="relative h-[400px] shrink-0 m-4 mb-2 bg-zinc-100 rounded-[32px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-zinc-100">
+          <div className="fixed inset-0 z-[150] bg-white flex flex-col">
+            {/* Fullscreen Media Container */}
+            <div className="absolute inset-0 bg-white overflow-hidden">
               {mediaFiles[0]?.type.startsWith('image/') ? (
                 <div className="w-full h-full relative">
                   <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
-                  {previewUrls.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
-                      {previewUrls.length} Fotos
-                    </div>
-                  )}
                 </div>
               ) : (
                 <video 
@@ -973,8 +970,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   loop 
                   playsInline 
                   muted={false}
-                  onPlay={() => {}}
-                  onPause={() => {}}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -987,74 +982,89 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 />
               )}
               
-              <button onClick={cancelSelection} className="absolute top-4 left-4 p-2.5 bg-white/80 backdrop-blur-md rounded-full text-black z-50 hover:bg-white transition-all active:scale-95 shadow-lg">
-                <X size={20} />
-              </button>
-
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-40">
-                {!mediaFiles[0]?.type.startsWith('image/') && (
-                  <button 
-                    onClick={() => setShowTrimEditor(true)}
-                    className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-                  >
-                    <div className="p-2.5 bg-white/80 backdrop-blur-md rounded-full text-black border border-white/20 shadow-lg"><Scissors size={20}/></div>
-                    <span className="text-[8px] font-black uppercase text-black shadow-none mt-1">Recortar</span>
-                  </button>
-                )}
-              </div>
+              {/* Top Gradient for visibility */}
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
+              
+              {/* Bottom Gradient for caption visibility */}
+              <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
             </div>
             
-            <div className="p-6 pt-2 bg-white flex flex-col gap-4 overflow-y-auto">
+            {/* Close Button Top Left */}
+            <button 
+              onClick={cancelSelection} 
+              className="absolute top-6 left-6 p-2.5 bg-black/20 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/40 transition-all active:scale-95 border border-white/10"
+            >
+              <X size={24} />
+            </button>
+
+            {/* Right Sidebar Buttons */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-8 z-50">
+              {/* Publish Button (Top) */}
+              <button 
+                onClick={() => {
+                  if (isVideoTooLong) {
+                    setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+                    return;
+                  }
+                  if (todayCount !== null && todayCount >= 3) {
+                    setError("Já tens 3 publicações por hoje, volta amanhã.");
+                  } else {
+                    handleUpload();
+                  }
+                }} 
+                disabled={uploading || processingVideo || isVideoTooLong}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform disabled:opacity-50"
+              >
+                <div className={`p-4 rounded-full border transition-all ${uploading || processingVideo || isVideoTooLong ? 'bg-zinc-800/80 border-zinc-700 text-zinc-500' : 'bg-white border-white text-black shadow-lg shadow-white/20'}`}>
+                  {uploading || processingVideo ? (
+                    <Loader2 size={24} className="animate-spin" />
+                  ) : isVideoTooLong ? (
+                    <AlertCircle size={24} />
+                  ) : (
+                    <ArrowUp size={24} />
+                  )}
+                </div>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Publicar</span>
+              </button>
+
+              {/* Trim Button */}
+              {!mediaFiles[0]?.type.startsWith('image/') && (
+                <button 
+                  onClick={() => setShowTrimEditor(true)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
+                    <Scissors size={24}/>
+                  </div>
+                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Recortar</span>
+                </button>
+              )}
+
+              {/* Settings Button */}
+              <button 
+                onClick={() => setShowSettings(true)}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
+                  <Settings size={24}/>
+                </div>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Ajustes</span>
+              </button>
+            </div>
+
+            {/* Bottom Section - Caption Overlay */}
+            <div className="absolute bottom-10 left-0 w-full px-6 flex flex-col gap-4 z-40">
                <div className="relative">
                  <textarea 
-                   value={content}
-                   onChange={(e) => setContent(e.target.value.slice(0, 200))}
-                   placeholder="Escreve uma legenda para o teu vídeo..."
-                   className="w-full bg-zinc-50 border border-zinc-100 rounded-[24px] p-5 text-sm text-black placeholder:text-zinc-400 outline-none focus:bg-white focus:ring-4 focus:ring-zinc-100 transition-all h-28 resize-none shadow-sm"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value.slice(0, 200))}
+                    placeholder="Escreve uma legenda..."
+                    className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-[20px] p-4 text-sm text-white placeholder:text-white/40 outline-none focus:bg-white/20 transition-all h-24 resize-none shadow-sm"
                  />
-                 <div className="absolute bottom-4 right-5 text-[9px] font-black text-zinc-300 uppercase tracking-widest">
+                 <div className="absolute bottom-3 right-4 text-[9px] font-black text-white/30 uppercase tracking-widest">
                    {content.length}/200
                  </div>
                </div>
-
-               {/* Educação Toggle - Only for Posts */}
-               {uploadType === 'post' && (
-                 <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-[24px] p-5 shadow-sm">
-                   <div className="flex items-center gap-4">
-                     <div className="p-3 bg-white rounded-xl text-black shadow-sm">
-                       <BookOpen size={20} />
-                     </div>
-                     <div>
-                       <p className="text-[11px] font-black uppercase tracking-widest text-black">Conteúdo Educativo</p>
-                       <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Marcar como vídeo de educação</p>
-                     </div>
-                   </div>
-                   <button 
-                     onClick={() => setIsEducation(!isEducation)}
-                     className={`w-12 h-6 rounded-full transition-all relative ${isEducation ? 'bg-black' : 'bg-zinc-200'}`}
-                   >
-                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${isEducation ? 'left-7' : 'left-1'}`} />
-                   </button>
-                 </div>
-               )}
-               
-               <button 
-                 onClick={() => {
-                   if (isVideoTooLong) {
-                     setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
-                     return;
-                   }
-                   if (todayCount !== null && todayCount >= 3) {
-                     setError("Já tens 3 publicações por hoje, volta amanhã.");
-                   } else {
-                     handleUpload();
-                   }
-                 }} 
-                 disabled={uploading || processingVideo || isVideoTooLong} 
-                 className={`w-full py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 border ${(uploading || processingVideo || isVideoTooLong || (todayCount !== null && todayCount >= 3)) ? 'bg-zinc-100 border-zinc-200 text-zinc-400' : 'bg-black border-black text-white shadow-[0_20px_40px_rgba(0,0,0,0.2)]'}`}
-               >
-                 {processingVideo ? <><Loader2 size={16} className="animate-spin" /><span>A Processar Vídeo...</span></> : uploading ? <><Loader2 size={16} className="animate-spin" /><span>A Publicar...</span></> : isVideoTooLong ? <><AlertCircle size={16} /><span>Vídeo muito longo</span></> : <><CheckCircle2 size={18} /><span>{uploadType === 'story' ? 'Publicar no Story' : 'Publicar Agora'}</span></>}
-               </button>
             </div>
           </div>
         ) : (
@@ -1202,6 +1212,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
            </div>
            <span className="max-w-[200px] text-center leading-relaxed">{error}</span>
            <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors"><X size={18}/></button>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="absolute inset-0 bg-white z-[200] flex flex-col p-8">
+           <div className="flex items-center justify-between mb-12">
+              <h3 className="text-black font-black uppercase tracking-[0.2em] text-sm">Opções do Post</h3>
+              <button onClick={() => setShowSettings(false)} className="p-2 bg-zinc-100 rounded-full text-black active:scale-90 transition-all">
+                <X size={20} />
+              </button>
+           </div>
+
+           <div className="flex flex-col gap-6">
+              {uploadType === 'post' && (
+                <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-[28px] p-6 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white rounded-2xl text-black shadow-sm">
+                      <BookOpen size={22} />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-black uppercase tracking-widest text-black">Conteúdo Educativo</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Marcar vídeo de educação</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsEducation(!isEducation)}
+                    className={`w-14 h-7 rounded-full transition-all relative ${isEducation ? 'bg-black' : 'bg-zinc-200'}`}
+                  >
+                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${isEducation ? 'left-8' : 'left-1'}`} />
+                  </button>
+                </div>
+              )}
+              
+              <div className="mt-auto pt-12">
+                <p className="text-center text-zinc-300 text-[9px] font-bold uppercase tracking-[0.3em]">Brilha na banda!</p>
+              </div>
+           </div>
         </div>
       )}
 

@@ -608,59 +608,61 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-10">
-        <button 
-          onClick={handleGoHome}
-          onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600'}`}
-        >
-          <Home size={22} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-tighter">Home</span>
-        </button>
-        <button 
-          onClick={() => { setActiveTab(Tab.DISCOVER); }}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600'}`}
-        >
-          <Search size={22} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-tighter">Explorar</span>
-        </button>
-        <button 
-          onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-          className="flex flex-col items-center group"
-        >
-          <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">
-            <PlusSquare size={22} />
-          </div>
-        </button>
-        <button 
-          onClick={() => { setActiveTab(Tab.LIVE); }}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600'}`}
-        >
-          <Radio size={22} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-tighter">Live</span>
-        </button>
-        <button 
-          onClick={() => { setActiveTab(Tab.INBOX); }}
-          className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600'}`}
-        >
-          <div className="relative">
-            <MessageCircle size={22} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
-            {unreadCount > 0 && activeTab !== Tab.INBOX && (
-              <div className="absolute -top-1.5 -right-1.5 bg-red-600 text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black animate-pulse shadow-lg">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </div>
-            )}
-          </div>
-          <span className="text-[9px] font-black uppercase tracking-tighter">Inbox</span>
-        </button>
-        <button 
-          onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
-          className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600'}`}
-        >
-          <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
-          <span className="text-[9px] font-black uppercase tracking-tighter">Perfil</span>
-        </button>
-      </nav>
+      {activeTab !== Tab.CREATE && (
+        <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-10">
+          <button 
+            onClick={handleGoHome}
+            onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
+            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600'}`}
+          >
+            <Home size={22} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-tighter">Home</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.DISCOVER); }}
+            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600'}`}
+          >
+            <Search size={22} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-tighter">Explorar</span>
+          </button>
+          <button 
+            onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
+            className="flex flex-col items-center group"
+          >
+            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">
+              <PlusSquare size={22} />
+            </div>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.LIVE); }}
+            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600'}`}
+          >
+            <Radio size={22} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-tighter">Live</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.INBOX); }}
+            className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600'}`}
+          >
+            <div className="relative">
+              <MessageCircle size={22} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              {unreadCount > 0 && activeTab !== Tab.INBOX && (
+                <div className="absolute -top-1.5 -right-1.5 bg-red-600 text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black animate-pulse shadow-lg">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-tighter">Inbox</span>
+          </button>
+          <button 
+            onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
+            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600'}`}
+          >
+            <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-tighter">Perfil</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 };
