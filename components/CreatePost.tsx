@@ -1205,13 +1205,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         )}
       </div>
 
-      {error && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] bg-white border border-zinc-100 text-black px-6 py-5 rounded-[28px] text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-4 animate-in slide-in-from-top duration-300">
-           <div className="bg-zinc-900 p-2 rounded-full text-white">
-            <AlertCircle size={18} />
+      {(error || processingVideo || uploading) && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[300] bg-white border border-zinc-100 text-black px-6 py-5 rounded-[28px] text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-4 animate-in slide-in-from-top duration-300 min-w-[280px] justify-center">
+           <div className={`p-2 rounded-full text-white ${error ? 'bg-zinc-900' : 'bg-black'}`}>
+            {error ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
            </div>
-           <span className="max-w-[200px] text-center leading-relaxed">{error}</span>
-           <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors"><X size={18}/></button>
+           <span className="max-w-[200px] text-center leading-relaxed">
+             {error || (processingVideo ? 'A Processar Vídeo...' : 'A Publicar...')}
+           </span>
+           {error && (
+             <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors">
+               <X size={18}/>
+             </button>
+           )}
         </div>
       )}
 
