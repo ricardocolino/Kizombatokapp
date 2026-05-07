@@ -673,20 +673,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   return (
     <div 
       onScroll={handleScroll}
-      className="h-full w-full bg-black overflow-y-auto pb-20 no-scrollbar relative"
+      className="h-full w-full bg-white overflow-y-auto pb-20 no-scrollbar relative text-black"
     >
       {/* Top Navigation Overlay */}
-      <header className="sticky top-0 bg-black/80 backdrop-blur-md flex items-center justify-between px-4 h-14 border-b border-zinc-900 z-50">
+      <header className="sticky top-0 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 h-14 border-b border-zinc-100 z-50">
         <div className="flex flex-col">
-          <h1 className="font-black text-sm">{profile.name || profile.username}</h1>
-          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{userPosts.length} Vídeos</span>
+          <h1 className="font-bold text-sm text-black">{profile.name || profile.username}</h1>
+          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{userPosts.length} Vídeos</span>
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
             <div className="relative">
               <button 
                 onClick={() => setShowMenu(true)} 
-                className="text-white hover:opacity-70 transition-all p-1"
+                className="text-black hover:opacity-70 transition-all p-1"
               >
                 <Menu size={24}/>
               </button>
@@ -754,49 +754,56 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       )}
 
       {/* Profile Info Section (Centralizado) */}
-      <div className="px-4 pb-6 pt-8 flex flex-col items-center text-center">
+      <div className="px-4 pb-6 pt-10 flex flex-col items-center text-center">
         <div className="relative">
-          <div className={`w-24 h-24 rounded-full bg-black p-1 ${hasStories ? 'ring-2 ring-red-600' : ''}`}>
+          <div className={`w-28 h-28 rounded-full bg-white p-1 ${hasStories ? 'ring-2 ring-red-600' : ''}`}>
             <div 
               onClick={() => hasStories && onNavigateToPost && onNavigateToPost('story:' + userId)}
-              className={`w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden border-2 border-black ${hasStories ? 'cursor-pointer' : ''}`}
+              className={`w-full h-full rounded-full bg-zinc-50 flex items-center justify-center overflow-hidden border border-zinc-100 ${hasStories ? 'cursor-pointer' : ''}`}
             >
               {profile.avatar_url ? (
                 <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
               ) : (
-                <span className="text-3xl font-black text-white">{profile.username[0].toUpperCase()}</span>
+                <span className="text-3xl font-light text-zinc-400">{profile.username[0].toUpperCase()}</span>
               )}
             </div>
           </div>
         </div>
 
         <div className="mt-4 space-y-1">
-          <h2 className="text-2xl font-black text-white leading-tight">{profile.name || profile.username}</h2>
-          <p className="text-sm text-zinc-500 font-medium">@{profile.username}</p>
+          <h2 className="text-2xl font-bold text-black leading-tight tracking-tight">{profile.name || profile.username}</h2>
+          <p className="text-sm text-zinc-400 font-medium">@{profile.username}</p>
         </div>
 
         {profile.bio && (
-          <p className="text-[13px] text-zinc-100 mt-3 leading-relaxed break-words whitespace-pre-wrap max-w-xs">
+          <p className="text-[13px] text-zinc-600 mt-4 leading-relaxed break-words whitespace-pre-wrap max-w-xs font-light">
             {profile.bio}
           </p>
         )}
 
+        <div className="flex gap-10 mt-10">
+          <div className="flex flex-col items-center">
+            <span className="text-xl font-bold text-black">{stats.following}</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Seguindo</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-xl font-bold text-black">{stats.followers}</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Seguidores</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-xl font-bold text-black">{stats.likes}</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Likes</span>
+          </div>
+        </div>
 
-        <div className="flex gap-3 mt-6 w-full max-w-xs">
+        <div className="flex gap-3 mt-10 w-full max-w-xs">
           {isOwnProfile ? (
             <>
               <button 
-                onClick={() => setShowP2P(true)}
-                className="flex-1 bg-amber-500 text-white px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Repeat size={14} />
-                Painel
-              </button>
-              <button 
                 onClick={() => setShowDashboard(true)}
-                className="flex-1 bg-red-600 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-red-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 h-10 bg-zinc-100 text-black rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <Wallet size={14} />
+                <Wallet size={16} />
                 Saldo
               </button>
             </>
@@ -813,24 +820,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           )}
         </div>
-        <div className="flex gap-4 mt-4">
-          <div className="flex gap-1 items-center">
-            <span className="text-sm font-black text-white">{stats.following}</span>
-            <span className="text-xs text-zinc-500">Seguindo</span>
-          </div>
-          <div className="flex gap-1 items-center">
-            <span className="text-sm font-black text-white">{stats.followers}</span>
-            <span className="text-xs text-zinc-500">Seguidores</span>
-          </div>
-          <div className="flex gap-1 items-center">
-            <span className="text-sm font-black text-white">{stats.likes}</span>
-            <span className="text-xs text-zinc-500">Likes</span>
-          </div>
-        </div>
       </div>
 
       {/* Tabs (Estilo X) */}
-      <div className="flex border-b border-zinc-900 sticky top-14 bg-black/95 backdrop-blur-md z-40">
+      <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
           { id: 'posts', label: 'Vídeos' }, 
           { id: 'reposts', label: 'Republicados' }
@@ -840,11 +833,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             onClick={() => setActiveTab(tab.id as 'posts' | 'reposts')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
-            <span className={`text-[11px] font-black uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-white' : 'text-zinc-500'}`}>
+            <span className={`text-[11px] font-bold uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-black' : 'text-zinc-300'}`}>
               {tab.label}
             </span>
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 w-12 h-[3px] bg-red-600 rounded-full" />
+              <div className="absolute bottom-0 w-12 h-[3px] bg-black rounded-full" />
             )}
           </button>
         ))}
@@ -865,7 +858,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   userName: profile.name || profile.username, 
                   type: activeTab === 'posts' ? 'user' : 'reposted' 
                 })}
-                className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer"
+                className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
               >
                 {post.media_type === 'video' ? (
                   <video 
@@ -879,7 +872,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 ) : (
                   <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
                 )}
-                <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-black text-white drop-shadow-md">
+                <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-bold text-white drop-shadow-sm">
                   <span className="text-[7px]">▶</span> {post.views}
                 </div>
               </div>
@@ -892,14 +885,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             )}
 
             {currentGridData.length === 0 && (
-              <div className="col-span-3 py-24 text-center text-zinc-600 flex flex-col items-center gap-2">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                  <Box size={24} />
+              <div className="col-span-3 py-24 text-center text-zinc-300 flex flex-col items-center gap-2">
+                <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
+                  <Box size={24} strokeWidth={1} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em]">
                   {activeTab === 'posts' ? 'Nenhum post ainda' : 'Sem republicados'}
                 </p>
-                <p className="text-[9px] text-zinc-700 uppercase">A vibe de Angola começa aqui 🇦🇴</p>
+                <p className="text-[9px] text-zinc-200 uppercase">A vibe de Angola começa aqui 🇦🇴</p>
               </div>
             )}
           </div>
@@ -909,30 +902,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowLogoutModal(false)} />
-          <div className="relative bg-zinc-950 border border-zinc-800 w-full max-w-xs rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="p-8 flex flex-col items-center text-center gap-6">
-              <div className="w-16 h-16 rounded-full bg-red-600/10 flex items-center justify-center text-red-600">
-                <LogOut size={32} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLogoutModal(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-xs rounded-[40px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="p-10 flex flex-col items-center text-center gap-6">
+              <div className="w-16 h-16 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center text-black">
+                <LogOut size={24} strokeWidth={1} />
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-lg font-black uppercase tracking-widest text-white">Sair da Banda?</h3>
-                <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                <h3 className="text-xl font-light tracking-tight text-black">Sair da Banda?</h3>
+                <p className="text-sm text-zinc-400 font-light leading-relaxed">
                   Vais deixar a vibe de Angola por agora? Podes voltar quando quiseres!
                 </p>
               </div>
 
-              <div className="w-full space-y-3 pt-2">
+              <div className="w-full space-y-3 pt-4">
                 <button 
                   onClick={handleLogout}
-                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 shadow-lg shadow-red-600/20"
+                  className="w-full h-14 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 shadow-lg shadow-black/5"
                 >
                   Sim, Sair Agora
                 </button>
                 <button 
                   onClick={() => setShowLogoutModal(false)}
-                  className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
+                  className="w-full h-14 bg-zinc-50 text-zinc-400 rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
                 >
                   Ficar na Banda
                 </button>
