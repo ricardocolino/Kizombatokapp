@@ -19,6 +19,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showBecomeAgent, setShowBecomeAgent] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showAirTMModal, setShowAirTMModal] = useState(false);
@@ -719,6 +720,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <span className="text-xl font-light tracking-tight">Editar Perfil</span>
             </button>
 
+            <button 
+              onClick={() => {
+                setShowBecomeAgent(true);
+                setShowMenu(false);
+              }} 
+              className="w-full flex items-center gap-4 text-zinc-800 group"
+            >
+              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Smartphone size={22} strokeWidth={1.5} />
+              </div>
+              <span className="text-xl font-light tracking-tight">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</span>
+            </button>
+
             <button
               onClick={() => {
                 setShowMenu(false);
@@ -1063,60 +1077,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 </div>
               </section>
 
-              {/* Become a Caixa - Opportunity */}
-              <section className="pt-6">
-                <div className="rounded-[40px] border border-zinc-100 p-10 bg-zinc-50/50">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center ${isCashier ? 'bg-black text-white' : 'bg-white border border-zinc-100 text-black'}`}>
-                      <Smartphone size={24} strokeWidth={1} />
-                    </div>
-                    <div className="space-y-2">
-                       <h3 className="text-lg font-light tracking-tight">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</h3>
-                       <p className="text-[10px] text-zinc-400 leading-relaxed font-normal">
-                         {isCashier 
-                           ? 'Agora podes processar recargas para a comunidade e ganhar comissões diretas.' 
-                           : 'Ganha 10% de comissão ajudando a comunidade a carregar saldo via Multicaixa.'}
-                       </p>
-                    </div>
-
-                    {!isCashier ? (
-                      <div className="w-full space-y-4 pt-6">
-                        <div className="space-y-4">
-                          <input 
-                            type="text"
-                            placeholder="Nome Completo"
-                            value={cashierForm.holder_name}
-                            onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
-                            className="w-full bg-white border-b border-zinc-100 px-0 py-3 text-xs font-light focus:border-black outline-none transition-all placeholder:text-zinc-300"
-                          />
-                          <input 
-                            type="text"
-                            placeholder="Nº Express"
-                            value={cashierForm.express_number}
-                            onChange={(e) => setCashierForm({...cashierForm, express_number: e.target.value})}
-                            className="w-full bg-white border-b border-zinc-100 px-0 py-3 text-xs font-light focus:border-black outline-none transition-all placeholder:text-zinc-300"
-                          />
-                        </div>
-                        <button 
-                          onClick={handleBecomeCaixa}
-                          disabled={isApplyingCaixa}
-                          className="w-full h-14 bg-black text-white rounded-full text-[10px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all"
-                        >
-                          {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto text-white" /> : 'Confirmar Registro'}
-                        </button>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setShowP2P(true)}
-                        className="w-full h-14 border border-black text-black rounded-full text-[10px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all mt-4"
-                      >
-                        Painel de Controle
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </section>
-
               <div className="text-center pt-8">
                 <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat Security</p>
               </div>
@@ -1341,6 +1301,118 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </div>
         </div>
       )}
+      {/* Become a Caixa - Full Screen View */}
+      {showBecomeAgent && (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+          <header className="flex items-center justify-between px-6 h-20 shrink-0">
+            <button 
+              onClick={() => setShowBecomeAgent(false)}
+              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
+            >
+              <ChevronLeft size={24} strokeWidth={1.5} />
+            </button>
+            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</h1>
+            <div className="w-10" /> 
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="flex flex-col items-center text-center space-y-8 py-12">
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center ${isCashier ? 'bg-black text-white' : 'bg-zinc-50 border border-zinc-100 text-black'}`}>
+                <Smartphone size={40} strokeWidth={1} />
+              </div>
+
+              <div className="space-y-4 max-w-xs">
+                 <h2 className="text-2xl font-light tracking-tight">{isCashier ? 'Modo Agente Ativo' : 'Ajuda a Comunidade'}</h2>
+                 <p className="text-sm text-zinc-400 leading-relaxed font-light">
+                   {isCashier 
+                     ? 'Estás habilitado a processar recargas via Multicaixa Express ou Transferência e ganhar comissões diretas em AngoCoins.' 
+                     : 'Como agente oficial, ganhas 10% de comissão em cada recarga que processares para outros membros da banda.'}
+                 </p>
+              </div>
+
+              {!isCashier ? (
+                <div className="w-full space-y-12 pt-10">
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">Nome do Titular</label>
+                      <input 
+                        type="text"
+                        placeholder="Nome completo na conta"
+                        value={cashierForm.holder_name}
+                        onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
+                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">Nº Multicaixa Express</label>
+                      <input 
+                        type="text"
+                        placeholder="9XXXXXXXX"
+                        value={cashierForm.express_number}
+                        onChange={(e) => setCashierForm({...cashierForm, express_number: e.target.value})}
+                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">IBAN (Opcional)</label>
+                      <input 
+                        type="text"
+                        placeholder="AO06 0000..."
+                        value={cashierForm.iban}
+                        onChange={(e) => setCashierForm({...cashierForm, iban: e.target.value})}
+                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleBecomeCaixa}
+                    disabled={isApplyingCaixa}
+                    className="w-full h-16 bg-black text-white rounded-full text-[11px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all shadow-xl shadow-black/5"
+                  >
+                    {isApplyingCaixa ? <Loader2 size={20} className="animate-spin mx-auto" /> : 'Confirmar e Ativar'}
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full space-y-6 pt-10">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-zinc-50 p-6 rounded-[32px] border border-zinc-100 text-left">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-2">Transações</span>
+                      <span className="text-2xl font-light">{profile?.cashier_transactions || 0}</span>
+                    </div>
+                    <div className="bg-zinc-50 p-6 rounded-[32px] border border-zinc-100 text-left">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-2">Avaliação</span>
+                      <span className="text-2xl font-light">{profile?.cashier_rating?.toFixed(1) || '5.0'} ★</span>
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 space-y-4 text-left">
+                    <h4 className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Dados de Recebimento</h4>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{profile?.holder_name}</p>
+                      {profile?.express_number && <p className="text-xs text-zinc-400 font-light">Express: {profile.express_number}</p>}
+                      {profile?.iban && <p className="text-[10px] text-zinc-400 font-mono break-all">{profile.iban}</p>}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setShowP2P(true);
+                      setShowBecomeAgent(false);
+                    }}
+                    className="w-full h-16 border border-black text-black rounded-full text-[11px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all"
+                  >
+                    Painel de Controle
+                  </button>
+                </div>
+              )}
+              
+              <p className="text-[10px] text-zinc-300 font-light pt-10 uppercase tracking-widest">AngoChat Partner Program</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
