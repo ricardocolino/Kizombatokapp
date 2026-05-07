@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, CheckCircle2, Smartphone, Settings, CreditCard, Layers, ChevronDown, Repeat } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, Smartphone, Settings, Repeat } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import P2PRecharge from './P2PRecharge';
@@ -705,23 +705,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </button>
           </div>
 
-          <div className="px-6 py-6 border-b border-zinc-100 mb-6">
-            <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center overflow-hidden">
-                  {profile.avatar_url ? (
-                    <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" />
-                  ) : (
-                      <span className="font-bold text-zinc-400">{profile.username[0].toUpperCase()}</span>
-                  )}
-                </div>
-                <span className="font-semibold text-sm text-zinc-800">Conta Pessoal</span>
-              </div>
-              <ChevronDown size={18} className="text-zinc-400" />
-            </div>
-          </div>
-
-          <div className="flex-1 px-6 space-y-6 overflow-y-auto">
+          <div className="flex-1 px-6 py-12 space-y-8 overflow-y-auto">
             <button 
               onClick={() => {
                 setIsEditing(true);
@@ -730,40 +714,27 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               className="w-full flex items-center gap-4 text-zinc-800 group"
             >
               <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
-                <Settings size={22} />
+                <Settings size={22} strokeWidth={1.5} />
               </div>
-              <span className="text-lg font-medium tracking-tight">Editar Perfil</span>
+              <span className="text-xl font-light tracking-tight">Editar Perfil</span>
             </button>
-            {[
-              { icon: <Layers size={22} />, label: 'Minhas Coleções' },
-              { icon: <CheckCircle2 size={22} />, label: 'Estatísticas' },
-              { icon: <Box size={22} />, label: 'Novidades (OTA)' },
-              { icon: <Smartphone size={22} />, label: 'Pré-visualizar App' },
-              { icon: <CreditCard size={22} />, label: 'Faturamento & Saldo' },
-            ].map((item, idx) => (
-              <button key={idx} className="w-full flex items-center gap-4 text-zinc-800 group">
-                  <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
-                  <span className="text-lg font-medium tracking-tight">{item.label}</span>
-              </button>
-            ))}
-          </div>
 
-          <div className="p-8 border-t border-zinc-100 mt-auto">
-            <div className="flex items-center justify-center gap-2 mb-8 scale-75 opacity-20">
-                <div className="w-12 h-12 bg-red-600 rounded-lg"></div>
-                <div className="w-4 h-12 bg-red-600 rounded-lg"></div>
-                <div className="w-2 h-12 bg-red-600 rounded-lg"></div>
-            </div>
             <button
               onClick={() => {
                 setShowMenu(false);
                 setShowLogoutModal(true);
               }}
-              className="w-full h-14 bg-zinc-100 hover:bg-zinc-200 transition-colors rounded-xl flex items-center justify-center gap-2 font-bold text-zinc-900 border border-zinc-200"
+              className="w-full flex items-center gap-4 text-red-600 group"
             >
-              Log out
-              <LogOut size={18} strokeWidth={2.5} />
+              <div className="opacity-80 group-hover:opacity-100 transition-opacity">
+                <LogOut size={22} strokeWidth={1.5} />
+              </div>
+              <span className="text-xl font-light tracking-tight">Terminar Sessão</span>
             </button>
+          </div>
+
+          <div className="p-8 border-t border-zinc-50 mt-auto flex justify-center">
+            <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat v2.0</p>
           </div>
         </div>
       )}
@@ -957,269 +928,199 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       )}
 
-      {/* Dashboard Fullscreen View */}
+      {/* Dashboard Fullscreen View (Carteira) */}
       {showDashboard && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
-          {/* Header */}
-          <header className="flex items-center px-6 h-16 border-b border-zinc-100 bg-white sticky top-0 z-10 shrink-0">
+          {/* Header Minimalista */}
+          <header className="flex items-center justify-between px-6 h-20 shrink-0">
             <button 
               onClick={() => setShowDashboard(false)}
-              className="p-2 -ml-2 text-zinc-900 transition-colors flex items-center gap-2"
+              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
             >
-              <ChevronLeft size={24} />
-              <span className="text-xs font-black uppercase tracking-widest">Carteira</span>
+              <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
+            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">Carteira</h1>
+            <div className="w-10" /> {/* Spacer */}
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 py-8 space-y-12 no-scrollbar pb-32 focus:outline-none">
-            {/* Valor Total Disponível */}
-            <div className="flex flex-col items-center justify-center text-center py-6 animate-in fade-in zoom-in duration-500">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">Total Disponível em USD</p>
-              <h1 className="text-5xl font-black tracking-tighter">
-                ${((profile.redeemable_balance || 0) / 100).toFixed(2)}
-              </h1>
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            {/* Hero Section: Balanço Principal */}
+            <div className="py-12 flex flex-col items-center justify-center border-b border-zinc-100">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mb-4 font-medium">Balanço Total (USD)</span>
+              <div className="flex items-start">
+                <span className="text-xl font-light mt-1 mr-1 text-zinc-400">$</span>
+                <h1 className="text-6xl font-extralight tracking-tighter">
+                  {((profile.redeemable_balance || 0) / 100).toFixed(2)}
+                </h1>
+              </div>
             </div>
 
-            {/* 1. Ganhos Section */}
-            <section className="space-y-8">
-              {pendingEarnings >= 0.01 && (
-                <div className="pb-4 border-b border-zinc-100 animate-in slide-in-from-bottom-4 duration-500">
-                  <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Meus Ganhos</h2>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <div>
-                      <h3 className="text-4xl font-black tracking-tighter">
-                        ${pendingEarnings.toFixed(2)}
-                      </h3>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Pendentes por visualizações</p>
-                    </div>
+            {/* Quick Actions - Design Minimalista */}
+            <div className="grid grid-cols-3 gap-4 py-10 border-b border-zinc-100">
+              <button 
+                onClick={handleOpenExternalDeposit}
+                className="flex flex-col items-center gap-3 group transition-all"
+              >
+                <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center group-active:scale-95 transition-transform">
+                  <ArrowUpCircle size={22} strokeWidth={1.2} />
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">Recarregar</span>
+              </button>
+              <button 
+                onClick={() => setShowWithdrawModal(true)}
+                className="flex flex-col items-center gap-3 group transition-all"
+              >
+                <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
+                  <Download size={22} strokeWidth={1.2} />
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">Levantar</span>
+              </button>
+              <button 
+                onClick={() => setShowP2P(true)}
+                className="flex flex-col items-center gap-3 group transition-all"
+              >
+                <div className="w-14 h-14 rounded-full bg-zinc-50 border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
+                  <Repeat size={22} strokeWidth={1.2} />
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">P2P</span>
+              </button>
+            </div>
+
+            {/* Secções de Saldo Detalhado */}
+            <div className="space-y-12 py-12">
+              
+              {/* Ganhos Pendentes */}
+              {pendingEarnings > 0 && (
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Ganhos por Visualizações</h2>
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="text-[11px] font-black underline uppercase tracking-widest hover:text-red-500 transition-colors"
+                      className="text-[9px] uppercase tracking-widest font-black text-red-600 disabled:opacity-30"
                     >
-                      {claiming ? 'A Processar...' : 'Resgatar'}
+                      {claiming ? '...' : 'Resgatar'}
                     </button>
                   </div>
-                </div>
+                  <div className="flex items-baseline justify-between border-b border-zinc-50 pb-4">
+                    <span className="text-2xl font-light tracking-tight">${pendingEarnings.toFixed(2)}</span>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-medium">Pendentes</span>
+                  </div>
+                </section>
               )}
 
-              <div>
-                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo Disponível</h2>
-                <div className="flex items-baseline justify-between mt-4">
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                       <h3 className="text-4xl font-black tracking-tighter">
-                         {profile.redeemable_balance?.toFixed(0) || '0'}
-                       </h3>
-                       <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
-                    </div>
-                    <p className="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-widest">
-                       Equivalente a <span className="text-black font-black">${((profile.redeemable_balance || 0) / 100).toFixed(2)} USD</span>
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setShowWithdrawModal(true)}
-                    className="h-10 w-10 flex items-center justify-center text-black border border-zinc-200 rounded-lg"
-                  >
-                    <Download size={20} />
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {/* Gift Balance Section */}
-            <section className="space-y-6">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Saldo de Presentes</h2>
-              </div>
-
-              <div className="py-6 border-y border-zinc-100">
+              {/* AngoCoins Balance */}
+              <section className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <div className="space-y-1">
+                  <div>
+                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo em AngoCoins</h2>
                     <div className="flex items-baseline gap-2">
-                      <h3 className="text-4xl font-black tracking-tighter">
-                        {profile.balance?.toFixed(0) || '0'}
-                      </h3>
-                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">AngoCoins</span>
+                       <span className="text-4xl font-extralight tracking-tight">
+                         {profile.redeemable_balance?.toFixed(0) || '0'}
+                       </span>
+                       <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">AC</span>
                     </div>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Para enviares presentes à banda</p>
                   </div>
                 </div>
+              </section>
 
-                <div className="flex flex-col gap-3 mt-8">
-                  <div className="flex gap-4">
+              {/* Métodos de Pagamento */}
+              <section className="space-y-6">
+                <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Resgate</h2>
+                <div className="space-y-1">
+                  {[
+                    { 
+                      id: 'usdt', 
+                      label: 'USDT (BEP-20)', 
+                      sub: profile?.wallet_address || 'Não configurado',
+                      onClick: () => {
+                        setNewWalletAddress(profile?.wallet_address || '');
+                        setShowWalletModal(true);
+                      }
+                    },
+                    { 
+                      id: 'airtm', 
+                      label: 'AirTM', 
+                      sub: profile?.airtm_email || 'Não configurado',
+                      onClick: () => {
+                        setNewAirTMEmail(profile?.airtm_email || '');
+                        setShowAirTMModal(true);
+                      }
+                    }
+                  ].map(method => (
                     <button 
-                      onClick={handleOpenExternalDeposit}
-                      className="flex-1 h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                      key={method.id}
+                      onClick={method.onClick}
+                      className="w-full flex items-center justify-between py-5 border-b border-zinc-50 group active:opacity-50 transition-opacity"
                     >
-                      <ArrowUpCircle size={16} />
-                      Carregar USDT
-                    </button>
-                    <button 
-                      onClick={() => setShowWithdrawModal(true)}
-                      className="flex-1 h-14 border border-zinc-200 text-black rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
-                    >
-                      <Download size={16} />
-                      Levantar
-                    </button>
-                  </div>
-                  
-                  <button 
-                    onClick={() => setShowP2P(true)}
-                    className="w-full h-14 bg-amber-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
-                  >
-                    <Repeat size={16} />
-                    Carregar P2P (Express/Transferência)
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Métodos de Recebimento</h2>
-              
-              <div className="divide-y divide-zinc-100 border-y border-zinc-100">
-                {/* USDT */}
-                <button 
-                  onClick={() => {
-                    setNewWalletAddress(profile?.wallet_address || '');
-                    setShowWalletModal(true);
-                  }}
-                  className="w-full flex items-center justify-between py-6 group"
-                >
-                  <div className="flex items-center gap-4">
-                    <Wallet size={20} className="text-zinc-900" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-[12px] font-black uppercase tracking-widest">USDT (BEP-20)</span>
-                      <span className="text-[10px] text-zinc-500 truncate max-w-[200px]">
-                        {profile?.wallet_address || 'Configurar endereço'}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-300" />
-                </button>
-
-                {/* AirTM */}
-                <button 
-                  onClick={() => {
-                    setNewAirTMEmail(profile?.airtm_email || '');
-                    setShowAirTMModal(true);
-                  }}
-                  className="w-full flex items-center justify-between py-6 group"
-                >
-                  <div className="flex items-center gap-4">
-                    <Download size={20} className="text-zinc-900" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-[12px] font-black uppercase tracking-widest">AirTM</span>
-                      <span className="text-[10px] text-zinc-500">
-                        {profile?.airtm_email || 'Configurar e-mail'}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-300" />
-                </button>
-              </div>
-            </section>
-
-            {/* Become Caixa Section */}
-            <section className="space-y-6">
-              <h2 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Oportunidade</h2>
-              <div className={`p-8 rounded-[32px] border transition-all ${isCashier ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 border-amber-100'}`}>
-                <div className="flex items-center gap-4 mb-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isCashier ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 shadow-sm'}`}>
-                    <Smartphone size={28} />
-                  </div>
-                  <div className="flex flex-col">
-                    <h3 className={`text-lg font-black tracking-tight ${isCashier ? 'text-white' : 'text-zinc-900'}`}>{isCashier ? 'És um Caixa Oficial' : 'Torna-te um Caixa'}</h3>
-                    <p className={`text-[10px] font-bold uppercase tracking-widest ${isCashier ? 'text-zinc-400' : 'text-amber-600/60'}`}>
-                      {isCashier ? 'Processa recargas e ganha AC' : 'Ganha comissões em cada recarga'}
-                    </p>
-                  </div>
-                </div>
-
-                {!isCashier ? (
-                  <div className="space-y-6">
-                    <p className="text-xs text-zinc-600 font-medium leading-relaxed">
-                      Como caixa, ajudas outros utilizadores a carregar saldo via Express ou Transferência e recebes comissões por cada transação processada.
-                    </p>
-                    
-                    <div className="space-y-4 pt-2">
-                       <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">Nome do Titular</label>
-                        <input 
-                          type="text"
-                          placeholder="Nome completo na conta"
-                          value={cashierForm.holder_name}
-                          onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
-                          className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
-                        />
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="text-xs font-medium text-zinc-900">{method.label}</span>
+                        <span className="text-[10px] text-zinc-400 font-light truncate max-w-[200px]">{method.sub}</span>
                       </div>
-                      
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">IBAN (Opcional se tiveres Express)</label>
+                      <ChevronRight size={16} strokeWidth={1} className="text-zinc-300" />
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Become a Caixa - Opportunity */}
+              <section className="pt-6">
+                <div className="rounded-[40px] border border-zinc-100 p-10 bg-zinc-50/50">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center ${isCashier ? 'bg-black text-white' : 'bg-white border border-zinc-100 text-black'}`}>
+                      <Smartphone size={24} strokeWidth={1} />
+                    </div>
+                    <div className="space-y-2">
+                       <h3 className="text-lg font-light tracking-tight">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</h3>
+                       <p className="text-[10px] text-zinc-400 leading-relaxed font-normal">
+                         {isCashier 
+                           ? 'Agora podes processar recargas para a comunidade e ganhar comissões diretas.' 
+                           : 'Ganha 10% de comissão ajudando a comunidade a carregar saldo via Multicaixa.'}
+                       </p>
+                    </div>
+
+                    {!isCashier ? (
+                      <div className="w-full space-y-4 pt-6">
+                        <div className="space-y-4">
                           <input 
                             type="text"
-                            placeholder="AO06 0000..."
-                            value={cashierForm.iban}
-                            onChange={(e) => setCashierForm({...cashierForm, iban: e.target.value})}
-                            className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
+                            placeholder="Nome Completo"
+                            value={cashierForm.holder_name}
+                            onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
+                            className="w-full bg-white border-b border-zinc-100 px-0 py-3 text-xs font-light focus:border-black outline-none transition-all placeholder:text-zinc-300"
                           />
-                        </div>
-                        
-                        <div className="space-y-1.5">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">Nº Multicaixa Express (Opcional)</label>
                           <input 
                             type="text"
-                            placeholder="9XXXXXXXX"
+                            placeholder="Nº Express"
                             value={cashierForm.express_number}
                             onChange={(e) => setCashierForm({...cashierForm, express_number: e.target.value})}
-                            className="w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:font-normal placeholder:opacity-30"
+                            className="w-full bg-white border-b border-zinc-100 px-0 py-3 text-xs font-light focus:border-black outline-none transition-all placeholder:text-zinc-300"
                           />
                         </div>
+                        <button 
+                          onClick={handleBecomeCaixa}
+                          disabled={isApplyingCaixa}
+                          className="w-full h-14 bg-black text-white rounded-full text-[10px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all"
+                        >
+                          {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto text-white" /> : 'Confirmar Registro'}
+                        </button>
                       </div>
-                    </div>
-
-                    <button 
-                      onClick={handleBecomeCaixa}
-                      disabled={isApplyingCaixa}
-                      className="w-full py-4 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 active:scale-95 transition-all mt-4"
-                    >
-                      {isApplyingCaixa ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Confirmar e Ativar Modo Caixa'}
-                    </button>
+                    ) : (
+                      <button 
+                        onClick={() => setShowP2P(true)}
+                        className="w-full h-14 border border-black text-black rounded-full text-[10px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all mt-4"
+                      >
+                        Painel de Controle
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Transações</span>
-                        <span className="text-xl font-black">{profile?.cashier_transactions || 0}</span>
-                      </div>
-                      <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 block mb-1">Avaliação</span>
-                        <span className="text-xl font-black">{profile?.cashier_rating?.toFixed(1) || '5.0'} ★</span>
-                      </div>
-                    </div>
+                </div>
+              </section>
 
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-amber-500">Teus Dados de Recebimento</h4>
-                      <div className="space-y-1 text-left">
-                        <p className="text-[10px] font-bold">{profile?.holder_name}</p>
-                        {profile?.iban && <p className="text-[9px] text-zinc-400 font-mono">{profile.iban}</p>}
-                        {profile?.express_number && <p className="text-[9px] text-zinc-400 font-mono">Express: {profile.express_number}</p>}
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => setShowP2P(true)}
-                      className="w-full py-4 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] active:scale-95 transition-all"
-                    >
-                      Abrir Painel de Caixa
-                    </button>
-                  </div>
-                )}
+              <div className="text-center pt-8">
+                <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat Security</p>
               </div>
-            </section>
+            </div>
           </div>
         </div>
       )}
@@ -1314,148 +1215,129 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       )}
 
-      {/* Edit Profile Drawer */}
+      {/* Edit Profile View (Full Screen) */}
       {isEditing && (
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !saving && setIsEditing(false)} />
-          <div className="relative bg-zinc-950 rounded-t-[40px] h-[85%] flex flex-col shadow-2xl border-t border-zinc-800 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
-            <div className="flex items-center justify-between p-6 border-b border-zinc-900">
-              <button 
-                onClick={() => setIsEditing(false)} 
-                disabled={saving}
-                className="p-2 text-zinc-500 hover:text-white transition-colors disabled:opacity-30"
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="flex items-center justify-between p-6 h-20 shrink-0">
+            <button 
+              onClick={() => setIsEditing(false)} 
+              disabled={saving}
+              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50 disabled:opacity-30"
+            >
+              <ChevronLeft size={24} strokeWidth={1.5} />
+            </button>
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400 text-center flex-1 pr-8">Editar Perfil</h2>
+          </div>
+
+          <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="flex flex-col items-center gap-6 py-10 border-b border-zinc-100 mb-10">
+              <input 
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <div 
+                className="relative group cursor-pointer"
+                onClick={handleAvatarClick}
               >
-                <X size={24} />
-              </button>
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white">Editar Perfil</h2>
-              <button 
-                onClick={handleUpdateProfile}
-                disabled={saving || !editForm.username}
-                className="p-2 text-red-600 hover:text-red-500 transition-colors disabled:opacity-30 flex items-center gap-2"
-              >
-                {saving ? <Loader2 size={20} className="animate-spin" /> : <Check size={24} />}
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
-              <div className="flex flex-col items-center gap-4">
-                <input 
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div 
-                  className="relative group cursor-pointer"
-                  onClick={handleAvatarClick}
-                >
-                  <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-zinc-800">
-                    <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
-                      {editForm.avatar_url ? (
-                        <img src={parseMediaUrl(editForm.avatar_url)} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        <span className="text-2xl font-black text-zinc-600 uppercase">{editForm.username[0] || '?'}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="text-white" size={24} />
-                  </div>
-                  {saving && (
-                    <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
-                      <Loader2 className="text-white animate-spin" size={24} />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  <button 
-                    type="button"
-                    onClick={handleAvatarClick}
-                    className="text-[10px] font-black uppercase text-red-600 tracking-widest hover:text-red-500 transition-colors"
-                  >
-                    Mudar Foto
-                  </button>
-                  <input 
-                    type="text" 
-                    value={editForm.avatar_url}
-                    onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})}
-                    placeholder="Ou cola uma URL aqui..."
-                    className="w-full max-w-xs bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-[9px] text-center focus:ring-1 focus:ring-red-600 outline-none transition-all text-zinc-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Nome</label>
-                  <input 
-                    type="text" 
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                    placeholder="Como te chamam na banda?"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Username</label>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 font-bold">@</span>
-                    <input 
-                      type="text" 
-                      value={editForm.username}
-                      onChange={(e) => setEditForm({...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})}
-                      placeholder="teu_username"
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-10 pr-5 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner"
-                      required
-                    />
+                <div className="w-28 h-28 rounded-full overflow-hidden p-1 bg-zinc-50 border border-zinc-100">
+                  <div className="w-full h-full rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden">
+                    {editForm.avatar_url ? (
+                      <img src={parseMediaUrl(editForm.avatar_url)} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <span className="text-3xl font-extralight text-zinc-400 uppercase">{editForm.username[0] || '?'}</span>
+                    )}
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1">Bio</label>
-                  <textarea 
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({...editForm, bio: e.target.value.slice(0, 150)})}
-                    placeholder="Conta algo sobre ti..."
-                    className="w-full h-32 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all text-white placeholder:text-zinc-700 shadow-inner resize-none"
-                  />
-                  <div className="flex justify-end">
-                    <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">{editForm.bio.length}/150</span>
+                <div className="absolute bottom-0 right-0 w-8 h-8 bg-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                  <Camera className="text-white" size={14} />
+                </div>
+                {saving && (
+                  <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center">
+                    <Loader2 className="text-black animate-spin" size={24} />
                   </div>
-                </div>
-              </div>
-
-              {editError && (
-                <div className="bg-red-600/10 border border-red-600/20 p-4 rounded-2xl flex items-center gap-3 text-red-500 text-[10px] font-black uppercase tracking-widest">
-                  <AlertCircle size={16} />
-                  {editError}
-                </div>
-              )}
-            </form>
-
-            <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent">
-              <button 
-                onClick={handleUpdateProfile}
-                disabled={saving || !editForm.username}
-                className={`w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 ${
-                  saving || !editForm.username ? 'bg-zinc-800 text-zinc-600' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/20'
-                }`}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    A Atualizar...
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} />
-                    Guardar Alterações
-                  </>
                 )}
+              </div>
+              <button 
+                type="button"
+                onClick={handleAvatarClick}
+                className="text-[10px] font-black uppercase text-red-600 tracking-widest hover:opacity-70 transition-opacity"
+              >
+                Alterar Foto
               </button>
             </div>
+
+            <div className="space-y-10">
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Nome Completo</label>
+                <input 
+                  type="text" 
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                  placeholder="Seu nome na banda"
+                  className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Username</label>
+                <div className="relative">
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-300 font-light text-base">@</span>
+                  <input 
+                    type="text" 
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})}
+                    placeholder="usuário"
+                    className="w-full bg-white border-b border-zinc-100 pl-6 pr-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Biografia</label>
+                <textarea 
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({...editForm, bio: e.target.value.slice(0, 150)})}
+                  placeholder="Uma frase marcante..."
+                  className="w-full h-24 bg-white border-b border-zinc-100 px-0 py-4 text-sm font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200 resize-none"
+                />
+                <div className="flex justify-end">
+                  <span className="text-[9px] font-medium text-zinc-200 uppercase tracking-widest">{editForm.bio.length}/150</span>
+                </div>
+              </div>
+            </div>
+
+            {editError && (
+              <div className="mt-8 bg-red-50 border border-red-100 p-4 rounded-3xl flex items-center gap-3 text-red-600 text-[10px] font-black uppercase tracking-widest">
+                <AlertCircle size={16} />
+                {editError}
+              </div>
+            )}
+          </form>
+
+          <div className="p-6 bg-white shrink-0">
+            <button 
+              onClick={handleUpdateProfile}
+              disabled={saving || !editForm.username}
+              className={`w-full h-16 rounded-full font-medium uppercase tracking-[0.2em] text-[10px] active:scale-95 transition-all flex items-center justify-center gap-3 ${
+                saving || !editForm.username ? 'bg-zinc-100 text-zinc-300' : 'bg-black text-white'
+              }`}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <Check size={16} strokeWidth={1} />
+                  Salvar Alterações
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
