@@ -810,10 +810,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           ) : (
             <button 
               onClick={handleFollowToggle}
-              className={`w-full py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+              className={`w-full h-10 rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
                 isFollowing 
-                  ? 'bg-zinc-900 border border-zinc-800 text-white' 
-                  : 'bg-white text-black hover:bg-zinc-200'
+                  ? 'bg-black text-white' 
+                  : 'bg-zinc-100 text-black'
               }`}
             >
               {isFollowing ? 'A Seguir' : 'Seguir'}
