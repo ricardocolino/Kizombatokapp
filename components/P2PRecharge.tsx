@@ -335,25 +335,23 @@ const P2PRecharge: React.FC<P2PRechargeProps> = ({ currentUser, onClose, onBalan
                   <span className="text-sm font-black uppercase tracking-widest text-center leading-tight">Saque<br/><span className="text-[10px] text-zinc-400 opacity-60">(Levantar)</span></span>
                 </button>
 
-                <button 
-                  onClick={() => {
-                    if (isCaixa) {
+                {isCaixa && (
+                  <button 
+                    onClick={() => {
                       setActiveTab('cashier');
-                    } else {
-                      alert("Torna-te um Caixa Oficial nas definições de faturamento do teu perfil para aceitares pagamentos! 🇦🇴🚀");
-                    }
-                  }}
-                  className="p-8 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 hover:bg-white active:scale-95 shadow-sm"
-                >
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-zinc-100">
-                    <CreditCard size={32} strokeWidth={2.5} className="text-amber-500" />
-                  </div>
-                  <span className="text-sm font-black uppercase tracking-widest text-center leading-tight">Painel de<br/><span className="text-[10px] text-zinc-400 opacity-60">Operador</span></span>
-                </button>
+                    }}
+                    className="p-8 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 hover:bg-white active:scale-95 shadow-sm"
+                  >
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-zinc-100">
+                      <CreditCard size={32} strokeWidth={2.5} className="text-amber-500" />
+                    </div>
+                    <span className="text-sm font-black uppercase tracking-widest text-center leading-tight">Painel de<br/><span className="text-[10px] text-zinc-400 opacity-60">Operador</span></span>
+                  </button>
+                )}
 
                 <button 
                   onClick={() => setActiveTab('history')}
-                  className="p-8 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 hover:bg-white active:scale-95 shadow-sm"
+                  className={`p-8 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all border bg-zinc-50 border-zinc-100 text-zinc-500 hover:border-zinc-300 hover:bg-white active:scale-95 shadow-sm ${!isCaixa ? 'col-span-2' : ''}`}
                 >
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-zinc-100">
                     <Clock size={32} strokeWidth={2.5} className="text-zinc-600" />
