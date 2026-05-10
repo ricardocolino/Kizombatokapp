@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, ShieldAlert } from 'lucide-react';
+import { X, ExternalLink, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface MonetagAdProps {
   onSkip: () => void;
@@ -7,7 +7,6 @@ interface MonetagAdProps {
 
 const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
   const [timeLeft, setTimeLeft] = useState(7);
-  const [showInternalBrowser, setShowInternalBrowser] = useState(false);
   const canSkip = timeLeft === 0;
   const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
 
@@ -19,62 +18,62 @@ const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
   }, [timeLeft]);
 
   const handleOpenLink = () => {
-    setShowInternalBrowser(true);
+    try {
+      // Type-safe check for mobile bridges
+      const win = window as unknown as { 
+        ReactNativeWebView?: { postMessage: (msg: string) => void };
+        Android?: { openExternal: (url: string) => void };
+      };
+
+      // React Native WebView
+      if (win.ReactNativeWebView) {
+        win.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'OPEN_URL',
+            url: adUrl
+          })
+        );
+        return;
+      }
+
+      // Android bridge
+      if (win.Android?.openExternal) {
+        win.Android.openExternal(adUrl);
+        return;
+      }
+
+      // Browser normal
+      window.open(adUrl, '_blank');
+    } catch {
+      window.location.href = adUrl;
+    }
   };
 
-  if (showInternalBrowser) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
-        <header className="h-16 border-b border-zinc-100 flex items-center justify-between px-6 bg-white shrink-0">
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black uppercase text-zinc-400 tracking-widest">A navegar em</span>
-            <span className="text-[10px] font-medium text-black truncate max-w-[200px]">{adUrl}</span>
-          </div>
-          <button 
-            onClick={() => setShowInternalBrowser(false)}
-            className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-black active:scale-95 transition-all"
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <div className="flex-1 w-full bg-zinc-50 relative">
-          <iframe 
-            src={adUrl} 
-            className="w-full h-full border-none"
-            title="Navegador Interno"
-            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-            sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
-          />
-        </div>
-        <footer className="h-16 border-t border-zinc-100 flex items-center justify-center bg-white px-6">
-           <button 
-             onClick={onSkip}
-             className="text-red-600 font-black uppercase text-[10px] tracking-widest"
-           >
-             Fechar e Voltar aos Vídeos
-           </button>
-        </footer>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full w-full bg-black relative flex flex-col overflow-hidden">
-      {/* Ad Content */}
-      <div className="flex-1 w-full bg-zinc-900 border-none relative">
-        <iframe 
-          src={adUrl} 
-          className="w-full h-full border-none"
-          title="Publicidade"
-          allow="autoplay"
-        />
+    <div className="h-full w-full bg-black relative flex flex-col overflow-hidden items-center justify-center">
+      {/* Background Effect */}
+      <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 via-black to-zinc-900" />
+      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[size:40px_40px]" />
+      
+      {/* Ad Preview Content (Visual Placeholder since Iframe is blocked) */}
+      <div className="relative z-10 flex flex-col items-center gap-8 px-6 text-center">
+        <div className="w-32 h-32 rounded-[40px] bg-red-600/10 border border-red-600/20 flex items-center justify-center text-red-600 shadow-[0_0_80px_rgba(220,38,38,0.15)] animate-pulse">
+          <Sparkles size={64} strokeWidth={1} />
+        </div>
         
+        <div className="space-y-4 max-w-xs">
+          <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic italic-shadow">Promo <span className="text-red-600">Banda</span></h2>
+          <p className="text-zinc-400 text-sm font-light leading-relaxed">
+            Consome este conteúdo e ajuda-nos a manter a vibe de Angola no topo! 🇦🇴🚀
+          </p>
+        </div>
+
         {/* Ad Label */}
-        <div className="absolute top-20 left-4 bg-black/40 backdrop-blur-sm px-3 py-1 rounded text-[8px] font-bold text-white/60 tracking-widest uppercase border border-white/5 pointer-events-none">
-          Publicidade
+        <div className="bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Patrocinado</span>
         </div>
       </div>
-      
+
       {/* Top Banner (Overlay) */}
       <div className="absolute top-8 sm:top-12 right-4 z-[70]">
         {canSkip ? (
@@ -94,22 +93,22 @@ const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
 
       {/* Bottom CTA Section */}
       <div className="absolute bottom-10 left-0 w-full px-6 flex flex-col gap-4 z-[70]">
-        <div className="bg-black/40 backdrop-blur-md p-6 rounded-[32px] border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl">
+        <div className="bg-black/40 backdrop-blur-md p-8 rounded-[40px] border border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-500">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black shadow-xl">
               <ShieldAlert size={24} />
             </div>
-            <div>
-              <h3 className="text-white font-black text-sm uppercase tracking-tight">Conteúdo Patrocinado</h3>
-              <p className="text-zinc-400 text-[10px] font-medium leading-tight">Visita o nosso parceiro para apoiar a banda de Angola!</p>
+            <div className="text-left">
+              <h3 className="text-white font-black text-xs uppercase tracking-widest">Ver Oferta</h3>
+              <p className="text-zinc-500 text-[9px] font-medium leading-tight">Serás redirecionado com segurança.</p>
             </div>
           </div>
           
           <button 
             onClick={handleOpenLink}
-            className="w-full h-14 bg-white text-black rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-[0_0_50px_rgba(255,255,255,0.3)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+            className="w-full h-16 bg-white text-black rounded-[24px] font-black uppercase text-[12px] tracking-[0.2em] shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
           >
-            Visitar Agora <ExternalLink size={16} />
+            Abrir Agora <ExternalLink size={18} />
           </button>
         </div>
       </div>
