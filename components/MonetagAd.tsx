@@ -7,6 +7,7 @@ interface MonetagAdProps {
 
 const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
   const [timeLeft, setTimeLeft] = useState(7);
+  const [showInternalBrowser, setShowInternalBrowser] = useState(false);
   const canSkip = timeLeft === 0;
   const adUrl = "https://omg10.com/4/10972918";
 
@@ -18,8 +19,44 @@ const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
   }, [timeLeft]);
 
   const handleOpenLink = () => {
-    window.open(adUrl, '_blank');
+    setShowInternalBrowser(true);
   };
+
+  if (showInternalBrowser) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
+        <header className="h-16 border-b border-zinc-100 flex items-center justify-between px-6 bg-white shrink-0">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black uppercase text-zinc-400 tracking-widest">A navegar em</span>
+            <span className="text-[10px] font-medium text-black truncate max-w-[200px]">{adUrl}</span>
+          </div>
+          <button 
+            onClick={() => setShowInternalBrowser(false)}
+            className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-black active:scale-95 transition-all"
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <div className="flex-1 w-full bg-zinc-50 relative">
+          <iframe 
+            src={adUrl} 
+            className="w-full h-full border-none"
+            title="Navegador Interno"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
+          />
+        </div>
+        <footer className="h-16 border-t border-zinc-100 flex items-center justify-center bg-white px-6">
+           <button 
+             onClick={onSkip}
+             className="text-red-600 font-black uppercase text-[10px] tracking-widest"
+           >
+             Fechar e Voltar aos Vídeos
+           </button>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-black relative flex flex-col overflow-hidden">
