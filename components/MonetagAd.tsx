@@ -9,7 +9,7 @@ const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
   const [timeLeft, setTimeLeft] = useState(7);
   const [showInternalBrowser, setShowInternalBrowser] = useState(false);
   const canSkip = timeLeft === 0;
-  const adUrl = "https://omg10.com/4/10972918";
+  const adUrl = "https://www.profitablecpmratenetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
 
   useEffect(() => {
     if (timeLeft > 0) {
