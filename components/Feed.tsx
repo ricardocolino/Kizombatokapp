@@ -6,6 +6,7 @@ import { ChevronLeft, PlusSquare } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
+import MonetagAd from './MonetagAd';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -404,22 +405,52 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       )}
 
       <div className="feed-container h-full w-full no-scrollbar">
-        {posts.slice(0, displayLimit).map((post) => (
-          <div key={post.id} className="feed-item relative">
-            <PostCard 
-              post={post} 
-              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-              onUpdateMetadata={handleUpdateMetadata}
-              onNavigateToProfile={onNavigateToProfile} 
-              isMuted={isMuted}
-              onToggleMute={toggleMute}
-              onRequireAuth={onRequireAuth}
-              onViewStories={onViewStories}
-              onJoinLive={onJoinLive}
-              isPaused={isPaused}
-            />
-          </div>
-        ))}
+        {(() => {
+          const items: React.ReactNode[] = [];
+          const slicedPosts = posts.slice(0, displayLimit);
+          
+          slicedPosts.forEach((post, index) => {
+            // Adicionar o post original
+            items.push(
+              <div key={post.id} className="feed-item relative h-full w-full">
+                <PostCard 
+                  post={post} 
+                  metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
+                  onUpdateMetadata={handleUpdateMetadata}
+                  onNavigateToProfile={onNavigateToProfile} 
+                  isMuted={isMuted}
+                  onToggleMute={toggleMute}
+                  onRequireAuth={onRequireAuth}
+                  onViewStories={onViewStories}
+                  onJoinLive={onJoinLive}
+                  isPaused={isPaused}
+                />
+              </div>
+            );
+            
+            // Adicionar publicidade Monetag a cada 5 vídeos
+            if ((index + 1) % 5 === 0) {
+              items.push(
+                <div key={`ad-${post.id}`} className="feed-item relative h-full w-full">
+                  <MonetagAd onSkip={() => {
+                    // Tentar fazer scroll para o próximo vídeo
+                    const container = document.querySelector('.feed-container');
+                    if (container) {
+                      const currentScroll = container.scrollTop;
+                      const itemHeight = container.clientHeight;
+                      container.scrollTo({
+                        top: currentScroll + itemHeight,
+                        behavior: 'smooth'
+                      });
+                    }
+                  }} />
+                </div>
+              );
+            }
+          });
+          
+          return items;
+        })()}
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
