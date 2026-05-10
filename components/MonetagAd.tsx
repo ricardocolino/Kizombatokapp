@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, ShieldAlert, Sparkles } from 'lucide-react';
 
+import { Browser } from '@capacitor/browser';
+
 interface MonetagAdProps {
   onSkip: () => void;
 }
@@ -17,35 +19,44 @@ const MonetagAd: React.FC<MonetagAdProps> = ({ onSkip }) => {
     }
   }, [timeLeft]);
 
-  const handleOpenLink = () => {
+  const handleOpenLink = async () => {
     try {
-      // Type-safe check for mobile bridges
-      const win = window as unknown as { 
-        ReactNativeWebView?: { postMessage: (msg: string) => void };
-        Android?: { openExternal: (url: string) => void };
-      };
-
-      // React Native WebView
-      if (win.ReactNativeWebView) {
-        win.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'OPEN_URL',
-            url: adUrl
-          })
-        );
-        return;
-      }
-
-      // Android bridge
-      if (win.Android?.openExternal) {
-        win.Android.openExternal(adUrl);
-        return;
-      }
-
-      // Browser normal
-      window.open(adUrl, '_blank');
+      // Tentar abrir com o Navegador Nativo do Capacitor (fica dentro da App)
+      await Browser.open({ 
+        url: adUrl,
+        toolbarColor: '#000000',
+        presentationStyle: 'fullscreen'
+      });
     } catch {
-      window.location.href = adUrl;
+      console.log("Navegador nativo não disponível, tentando alternativas...");
+      
+      try {
+        // Fallbacks para outras bridges
+        const win = window as unknown as { 
+          ReactNativeWebView?: { postMessage: (msg: string) => void };
+          Android?: { openExternal: (url: string) => void };
+        };
+
+        if (win.ReactNativeWebView) {
+          win.ReactNativeWebView.postMessage(
+            JSON.stringify({
+              type: 'OPEN_URL',
+              url: adUrl
+            })
+          );
+          return;
+        }
+
+        if (win.Android?.openExternal) {
+          win.Android.openExternal(adUrl);
+          return;
+        }
+
+        // Browser normal fallback
+        window.open(adUrl, '_blank');
+      } catch {
+        window.location.href = adUrl;
+      }
     }
   };
 
