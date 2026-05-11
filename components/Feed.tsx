@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft, PlusSquare } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -57,7 +57,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     const openBrowserWithLogic = async () => {
       let canClose = false;
       let timerStarted = false;
-      const startTime = Date.now();
+      let targetFinishTime: number | null = null;
 
       const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
       const browser = InAppBrowser.create(adUrl, '_blank', options);
@@ -65,7 +65,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const loadSubscription = browser.on('loadstop').subscribe(() => {
         if (!timerStarted) {
           timerStarted = true;
-          const targetFinishTime = Date.now() + 20000;
+          const finishTime = Date.now() + 20000;
 
           // Start the closure timer only now (after 100% load)
           setTimeout(async () => {
@@ -79,10 +79,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
           // We need a way to pass values to subsequent loadstop events if they occur
           // For simplicity, we'll re-calculate remaining time inside each loadstop
-          (browser as any).targetFinishTime = targetFinishTime;
+          targetFinishTime = finishTime;
         }
 
-        const currentTargetFinishTime = (browser as any).targetFinishTime;
+        const currentTargetFinishTime = targetFinishTime;
         const remaining = currentTargetFinishTime ? Math.max(0, Math.ceil((currentTargetFinishTime - Date.now()) / 1000)) : 20;
 
         browser.insertCSS({
@@ -567,15 +567,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
           <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-6 px-10 text-center snap-start">
-            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center text-white shadow-2xl border border-zinc-800">
-              <PlusSquare size={32} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-black uppercase tracking-tighter">Chegaste ao fim da banda?</h3>
-              <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest leading-loose">
-                Vimos os primeiros {posts.length} vídeos. <br/> Queres ver o que mais está a bater?
-              </p>
-            </div>
             <button 
               onClick={() => fetchPosts(true)}
               disabled={loadingMore}
