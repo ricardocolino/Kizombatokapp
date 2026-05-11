@@ -73,6 +73,53 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
         let browser = InAppBrowser.create(adUrl, '_blank', options);
 
+        // Inject Countdown UI into the browser window
+        browser.on('loadstop').subscribe(() => {
+          browser.insertCSS({
+            code: `
+              #app-countdown-timer {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 8px 15px;
+                border-radius: 20px;
+                font-family: sans-serif;
+                font-size: 14px;
+                font-weight: bold;
+                z-index: 999999;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                pointer-events: none;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+              }
+            `
+          });
+
+          browser.executeScript({
+            code: `
+              (function() {
+                if (document.getElementById('app-countdown-timer')) return;
+                var timerDiv = document.createElement('div');
+                timerDiv.id = 'app-countdown-timer';
+                timerDiv.innerText = 'Fechar em 20s';
+                document.body.appendChild(timerDiv);
+                
+                var timeLeft = 20;
+                var interval = setInterval(function() {
+                  timeLeft--;
+                  if (timeLeft <= 0) {
+                    timerDiv.innerText = 'A fechar...';
+                    clearInterval(interval);
+                  } else {
+                    timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
+                  }
+                }, 1000);
+              })();
+            `
+          });
+        });
+
         // Listener para detectar quando o usuário tenta fechar o browser
         const subscription = browser.on('exit').subscribe(async () => {
           const elapsed = Date.now() - startTime;
