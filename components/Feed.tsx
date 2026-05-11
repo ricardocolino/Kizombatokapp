@@ -6,7 +6,7 @@ import { ChevronLeft, PlusSquare } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
-import MonetagAd from './MonetagAd';
+import { Browser } from '@capacitor/browser';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -45,6 +45,61 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const PAGE_SIZE = 15;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
+  const triggeredAdIndices = React.useRef<Set<number>>(new Set());
+
+  // Function to trigger the ad
+  const triggerAd = React.useCallback(async (index: number) => {
+    if (triggeredAdIndices.current.has(index)) return;
+    triggeredAdIndices.current.add(index);
+
+    const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
+    
+    // Pequeno delay conforme solicitado (0.03s = 30ms)
+    setTimeout(async () => {
+      try {
+        await Browser.open({ 
+          url: adUrl,
+          toolbarColor: '#000000',
+          presentationStyle: 'fullscreen'
+        });
+      } catch (err) {
+        console.error("Erro ao abrir ad no browser:", err);
+        // Fallback para window.open se o Capacitor Browser falhar
+        window.open(adUrl, '_blank');
+      }
+    }, 30);
+  }, []);
+
+  // Intersection Observer to track active post index and trigger ads
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const index = Number(entry.target.getAttribute('data-index'));
+            // Trigger ad every 5 videos (index 4, 9, 14, etc - 0-based)
+            if (!isNaN(index) && (index + 1) % 5 === 0) {
+              triggerAd(index);
+            }
+          }
+        });
+      },
+      { 
+        threshold: 0.6 
+      }
+    );
+
+    // Observe all post items - using a short delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const items = document.querySelectorAll('.feed-item[data-index]');
+      items.forEach(item => observer.observe(item));
+    }, 1000);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [posts, triggerAd]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -405,52 +460,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       )}
 
       <div className="feed-container h-full w-full no-scrollbar">
-        {(() => {
-          const items: React.ReactNode[] = [];
-          const slicedPosts = posts.slice(0, displayLimit);
-          
-          slicedPosts.forEach((post, index) => {
-            // Adicionar o post original
-            items.push(
-              <div key={post.id} className="feed-item relative h-full w-full">
-                <PostCard 
-                  post={post} 
-                  metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-                  onUpdateMetadata={handleUpdateMetadata}
-                  onNavigateToProfile={onNavigateToProfile} 
-                  isMuted={isMuted}
-                  onToggleMute={toggleMute}
-                  onRequireAuth={onRequireAuth}
-                  onViewStories={onViewStories}
-                  onJoinLive={onJoinLive}
-                  isPaused={isPaused}
-                />
-              </div>
-            );
-            
-            // Adicionar publicidade Monetag a cada 5 vídeos
-            if ((index + 1) % 5 === 0) {
-              items.push(
-                <div key={`ad-${post.id}`} className="feed-item relative h-full w-full">
-                  <MonetagAd onSkip={() => {
-                    // Tentar fazer scroll para o próximo vídeo
-                    const container = document.querySelector('.feed-container');
-                    if (container) {
-                      const currentScroll = container.scrollTop;
-                      const itemHeight = container.clientHeight;
-                      container.scrollTo({
-                        top: currentScroll + itemHeight,
-                        behavior: 'smooth'
-                      });
-                    }
-                  }} />
-                </div>
-              );
-            }
-          });
-          
-          return items;
-        })()}
+        {posts.slice(0, displayLimit).map((post, index) => (
+          <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
+            <PostCard 
+              post={post} 
+              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
+              onUpdateMetadata={handleUpdateMetadata}
+              onNavigateToProfile={onNavigateToProfile} 
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              onRequireAuth={onRequireAuth}
+              onViewStories={onViewStories}
+              onJoinLive={onJoinLive}
+              isPaused={isPaused}
+            />
+          </div>
+        ))}
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
