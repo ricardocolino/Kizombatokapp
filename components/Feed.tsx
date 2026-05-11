@@ -46,7 +46,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
   const triggeredAdIndices = React.useRef<Set<number>>(new Set());
-  const [adCountdown, setAdCountdown] = useState<number | null>(null);
 
   // Function to trigger the ad
   const triggerAd = React.useCallback(async (index: number) => {
@@ -55,15 +54,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
     const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
     
-    // Iniciar contagem regressiva no app
-    setAdCountdown(20);
-    const countdownInterval = setInterval(() => {
-      setAdCountdown(prev => {
-        if (prev !== null && prev > 1) return prev - 1;
-        return null;
-      });
-    }, 1000);
-
     // Pequeno delay conforme solicitado (0.03s = 30ms)
     setTimeout(async () => {
       try {
@@ -147,15 +137,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           } catch {
             console.log("Browser já fechado");
           }
-          setAdCountdown(null);
-          clearInterval(countdownInterval);
         }, 20000);
 
       } catch (err) {
         console.error("Erro ao abrir ad no browser:", err);
         window.open(adUrl, '_blank');
-        setAdCountdown(null);
-        clearInterval(countdownInterval);
       }
     }, 30);
   }, []);
@@ -566,33 +552,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             />
           </div>
         ))}
-        
-        {/* Countdown Overlay for Ads */}
-        {adCountdown !== null && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-md">
-            <div className="flex flex-col items-center gap-6 text-center animate-in zoom-in duration-300">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90">
-                  <circle
-                    cx="48"
-                    cy="48"
-                    r="45"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeDasharray={`${(adCountdown / 20) * 282} 282`}
-                    className="transition-all duration-1000 ease-linear opacity-20"
-                  />
-                </svg>
-                <span className="absolute text-5xl font-black text-white">{adCountdown}</span>
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-white font-black uppercase tracking-[0.3em] text-xs">Publicidade em curso</h3>
-                <p className="text-zinc-500 font-medium text-[9px] uppercase tracking-widest">Aguarda {adCountdown}s para continuar a ver vídeos</p>
-              </div>
-            </div>
-          </div>
-        )}
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
