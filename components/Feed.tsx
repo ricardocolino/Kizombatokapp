@@ -63,8 +63,27 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const browser = InAppBrowser.create(adUrl, '_blank', options);
 
       const loadSubscription = browser.on('loadstop').subscribe(() => {
-        if (timerStarted) return;
-        timerStarted = true;
+        if (!timerStarted) {
+          timerStarted = true;
+          const targetFinishTime = Date.now() + 20000;
+
+          // Start the closure timer only now (after 100% load)
+          setTimeout(async () => {
+            canClose = true;
+            try {
+              browser.close();
+            } catch {
+              console.log("Browser já fechado");
+            }
+          }, 20000);
+
+          // We need a way to pass values to subsequent loadstop events if they occur
+          // For simplicity, we'll re-calculate remaining time inside each loadstop
+          (browser as any).targetFinishTime = targetFinishTime;
+        }
+
+        const currentTargetFinishTime = (browser as any).targetFinishTime;
+        const remaining = currentTargetFinishTime ? Math.max(0, Math.ceil((currentTargetFinishTime - Date.now()) / 1000)) : 20;
 
         browser.insertCSS({
           code: `
@@ -72,17 +91,19 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               position: fixed;
               top: 20px;
               right: 20px;
-              background: rgba(0, 0, 0, 0.8);
+              background: rgba(0, 0, 0, 0.9);
               color: white;
-              padding: 8px 15px;
-              border-radius: 20px;
-              font-family: sans-serif;
+              padding: 10px 18px;
+              border-radius: 25px;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               font-size: 14px;
-              font-weight: bold;
-              z-index: 999999;
+              font-weight: 800;
+              z-index: 2147483647;
               border: 1px solid rgba(255, 255, 255, 0.2);
               pointer-events: none;
               box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
             }
           `
         });
@@ -90,18 +111,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         browser.executeScript({
           code: `
             (function() {
-              if (document.getElementById('app-countdown-timer')) return;
+              var exiting = document.getElementById('app-countdown-timer');
+              if (exiting) exiting.remove();
+              
               var timerDiv = document.createElement('div');
               timerDiv.id = 'app-countdown-timer';
-              timerDiv.innerText = 'Fechar em 20s';
               document.body.appendChild(timerDiv);
               
-              var timeLeft = 20;
-              var interval = setInterval(function() {
+              var timeLeft = ${remaining};
+              timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
+              
+              if (window._appTimer) clearInterval(window._appTimer);
+              window._appTimer = setInterval(function() {
                 timeLeft--;
                 if (timeLeft <= 0) {
                   timerDiv.innerText = 'A fechar...';
-                  clearInterval(interval);
+                  clearInterval(window._appTimer);
                 } else {
                   timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
                 }
@@ -109,15 +134,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             })();
           `
         });
-
-        setTimeout(async () => {
-          canClose = true;
-          try {
-            browser.close();
-          } catch {
-            console.log("Browser já fechado");
-          }
-        }, 20000);
       });
 
       const exitSubscription = browser.on('exit').subscribe(() => {
