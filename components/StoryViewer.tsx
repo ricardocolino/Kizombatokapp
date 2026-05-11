@@ -66,7 +66,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
         hlsRef.current = null;
       }
     };
-  }, [currentIndex, stories, currentStory?.id]);
+  }, [currentIndex, stories, currentStory]);
 
   // Record view
   useEffect(() => {
