@@ -54,95 +54,90 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
     const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
     
-    // Pequeno delay conforme solicitado (0.03s = 30ms)
-    setTimeout(async () => {
-      try {
-        const startTime = Date.now();
-        let canClose = false;
+    const openBrowserWithLogic = async () => {
+      let canClose = false;
+      let timerStarted = false;
+      const startTime = Date.now();
 
-        const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
-        let browser = InAppBrowser.create(adUrl, '_blank', options);
+      const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
+      const browser = InAppBrowser.create(adUrl, '_blank', options);
 
-        // Inject Countdown UI into the browser window
-        browser.on('loadstop').subscribe(() => {
-          browser.insertCSS({
-            code: `
-              #app-countdown-timer {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 8px 15px;
-                border-radius: 20px;
-                font-family: sans-serif;
-                font-size: 14px;
-                font-weight: bold;
-                z-index: 999999;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                pointer-events: none;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-              }
-            `
-          });
+      const loadSubscription = browser.on('loadstop').subscribe(() => {
+        if (timerStarted) return;
+        timerStarted = true;
 
-          browser.executeScript({
-            code: `
-              (function() {
-                if (document.getElementById('app-countdown-timer')) return;
-                var timerDiv = document.createElement('div');
-                timerDiv.id = 'app-countdown-timer';
-                timerDiv.innerText = 'Fechar em 20s';
-                document.body.appendChild(timerDiv);
-                
-                var timeLeft = 20;
-                var interval = setInterval(function() {
-                  timeLeft--;
-                  if (timeLeft <= 0) {
-                    timerDiv.innerText = 'A fechar...';
-                    clearInterval(interval);
-                  } else {
-                    timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
-                  }
-                }, 1000);
-              })();
-            `
-          });
+        browser.insertCSS({
+          code: `
+            #app-countdown-timer {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: rgba(0, 0, 0, 0.8);
+              color: white;
+              padding: 8px 15px;
+              border-radius: 20px;
+              font-family: sans-serif;
+              font-size: 14px;
+              font-weight: bold;
+              z-index: 999999;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              pointer-events: none;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            }
+          `
         });
 
-        // Listener para detectar quando o usuário tenta fechar o browser
-        const subscription = browser.on('exit').subscribe(async () => {
-          const elapsed = Date.now() - startTime;
-          // Se fechar antes de 20s e ainda não terminamos o tempo "forçado"
-          if (elapsed < 20000 && !canClose) {
-            console.log("Fechado prematuramente, reabrindo...");
-            browser = InAppBrowser.create(adUrl, '_blank', options);
-            // Re-subscrever ao novo browser
-            subscription.unsubscribe(); // limpar a antiga
-            // Nota: Este padrão recursivo funciona para o InAppBrowser
-            browser.on('exit').subscribe(() => {
-               if (Date.now() - startTime < 20000 && !canClose) {
-                 triggerAd(index); // Tentar novamente se o usuário for persistente
-               }
-            });
-          }
+        browser.executeScript({
+          code: `
+            (function() {
+              if (document.getElementById('app-countdown-timer')) return;
+              var timerDiv = document.createElement('div');
+              timerDiv.id = 'app-countdown-timer';
+              timerDiv.innerText = 'Fechar em 20s';
+              document.body.appendChild(timerDiv);
+              
+              var timeLeft = 20;
+              var interval = setInterval(function() {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                  timerDiv.innerText = 'A fechar...';
+                  clearInterval(interval);
+                } else {
+                  timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
+                }
+              }, 1000);
+            })();
+          `
         });
 
-        // Após 20 segundos, permitir fechar e fechar automaticamente
         setTimeout(async () => {
           canClose = true;
-          subscription.unsubscribe();
           try {
             browser.close();
           } catch {
             console.log("Browser já fechado");
           }
         }, 20000);
+      });
 
-      } catch (err) {
+      const exitSubscription = browser.on('exit').subscribe(() => {
+        loadSubscription.unsubscribe();
+        exitSubscription.unsubscribe();
+        
+        // Se fechar antes de 20s (aproximado pelo tempo de load ou simplificado por canClose)
+        if (!canClose) {
+          console.log("Fechado prematuramente, reabrindo...");
+          openBrowserWithLogic();
+        }
+      });
+    };
+
+    // Pequeno delay conforme solicitado (0.03s = 30ms)
+    setTimeout(() => {
+      openBrowserWithLogic().catch(err => {
         console.error("Erro ao abrir ad no browser:", err);
         window.open(adUrl, '_blank');
-      }
+      });
     }, 30);
   }, []);
 
