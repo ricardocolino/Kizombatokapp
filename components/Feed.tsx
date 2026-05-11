@@ -56,7 +56,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
     
     // Iniciar contagem regressiva no app
-    setAdCountdown(10);
+    setAdCountdown(20);
     const countdownInterval = setInterval(() => {
       setAdCountdown(prev => {
         if (prev !== null && prev > 1) return prev - 1;
@@ -73,8 +73,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         // Adicionar listener para detectar quando o usuário tenta fechar o browser
         const listener = await Browser.addListener('browserFinished', async () => {
           const elapsed = Date.now() - startTime;
-          // Se fechar antes de 10s e ainda não terminamos o tempo "forçado"
-          if (elapsed < 10000 && !canClose) {
+          // Se fechar antes de 20s e ainda não terminamos o tempo "forçado"
+          if (elapsed < 20000 && !canClose) {
             console.log("Fechado prematuramente, reabrindo...");
             await Browser.open({ 
               url: adUrl,
@@ -90,7 +90,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           presentationStyle: 'fullscreen'
         });
 
-        // Após 10 segundos, permitir fechar e fechar automaticamente
+        // Após 20 segundos, permitir fechar e fechar automaticamente
         setTimeout(async () => {
           canClose = true;
           listener.remove();
@@ -101,7 +101,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           }
           setAdCountdown(null);
           clearInterval(countdownInterval);
-        }, 10000);
+        }, 20000);
 
       } catch (err) {
         console.error("Erro ao abrir ad no browser:", err);
@@ -532,7 +532,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                     fill="none"
                     stroke="white"
                     strokeWidth="2"
-                    strokeDasharray={`${(adCountdown / 10) * 282} 282`}
+                    strokeDasharray={`${(adCountdown / 20) * 282} 282`}
                     className="transition-all duration-1000 ease-linear opacity-20"
                   />
                 </svg>
