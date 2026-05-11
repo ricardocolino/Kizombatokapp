@@ -17,6 +17,8 @@
     "generate-assets": "capacitor-assets generate --android"
   },
   "dependencies": {
+    "@awesome-cordova-plugins/core": "^9.1.4",
+    "@awesome-cordova-plugins/in-app-browser": "^9.1.4",
     "@aws-sdk/client-s3": "^3.1005.0",
     "@capacitor-community/camera-preview": "^7.0.5",
     "@capacitor-community/media": "^9.1.0",
@@ -35,6 +37,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "agora-rtc-sdk-ng": "^4.24.3",
+    "cordova-plugin-inappbrowser": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "emoji-picker-react": "^4.18.0",
@@ -47,6 +50,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.7.0",
+    "rxjs": "^7.8.1",
     "tsx": "^4.21.0"
   },
   "devDependencies": {

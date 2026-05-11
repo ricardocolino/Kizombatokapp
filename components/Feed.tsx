@@ -6,7 +6,7 @@ import { ChevronLeft, PlusSquare } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
-import { Browser } from '@capacitor/browser';
+import { InAppBrowser } from '@awesome-cordova-plugins/in-app-browser';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string) => void;
@@ -70,32 +70,33 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         const startTime = Date.now();
         let canClose = false;
 
-        // Adicionar listener para detectar quando o usuário tenta fechar o browser
-        const listener = await Browser.addListener('browserFinished', async () => {
+        const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
+        let browser = InAppBrowser.create(adUrl, '_blank', options);
+
+        // Listener para detectar quando o usuário tenta fechar o browser
+        const subscription = browser.on('exit').subscribe(async () => {
           const elapsed = Date.now() - startTime;
           // Se fechar antes de 20s e ainda não terminamos o tempo "forçado"
           if (elapsed < 20000 && !canClose) {
             console.log("Fechado prematuramente, reabrindo...");
-            await Browser.open({ 
-              url: adUrl,
-              toolbarColor: '#000000',
-              presentationStyle: 'fullscreen'
+            browser = InAppBrowser.create(adUrl, '_blank', options);
+            // Re-subscrever ao novo browser
+            subscription.unsubscribe(); // limpar a antiga
+            // Nota: Este padrão recursivo funciona para o InAppBrowser
+            browser.on('exit').subscribe(() => {
+               if (Date.now() - startTime < 20000 && !canClose) {
+                 triggerAd(index); // Tentar novamente se o usuário for persistente
+               }
             });
           }
-        });
-
-        await Browser.open({ 
-          url: adUrl,
-          toolbarColor: '#000000',
-          presentationStyle: 'fullscreen'
         });
 
         // Após 20 segundos, permitir fechar e fechar automaticamente
         setTimeout(async () => {
           canClose = true;
-          listener.remove();
+          subscription.unsubscribe();
           try {
-            await Browser.close();
+            browser.close();
           } catch {
             console.log("Browser já fechado");
           }
