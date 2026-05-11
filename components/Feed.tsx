@@ -52,12 +52,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (triggeredAdIndices.current.has(index)) return;
     triggeredAdIndices.current.add(index);
 
-    const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
+    const adUrl1 = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
+    const adUrl2 = "https://omg10.com/4/10972918";
+    
+    // Choose URL based on which "5th" position we are at
+    // (index + 1) / 5 will be 1, 2, 3, 4...
+    // We use the first URL for odd occurrences and the second for even ones
+    const adUrl = Math.floor((index + 1) / 5) % 2 !== 0 ? adUrl1 : adUrl2;
     
     const openBrowserWithLogic = async () => {
       let canClose = false;
       let timerStarted = false;
-      const startTime = Date.now();
+      let targetFinishTime: number | null = null;
 
       const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
       const browser = InAppBrowser.create(adUrl, '_blank', options);
@@ -65,7 +71,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const loadSubscription = browser.on('loadstop').subscribe(() => {
         if (!timerStarted) {
           timerStarted = true;
-          const targetFinishTime = Date.now() + 20000;
+          targetFinishTime = Date.now() + 20000;
 
           // Start the closure timer only now (after 100% load)
           setTimeout(async () => {
@@ -76,14 +82,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               console.log("Browser já fechado");
             }
           }, 20000);
-
-          // We need a way to pass values to subsequent loadstop events if they occur
-          // For simplicity, we'll re-calculate remaining time inside each loadstop
-          (browser as any).targetFinishTime = targetFinishTime;
         }
 
-        const currentTargetFinishTime = (browser as any).targetFinishTime;
-        const remaining = currentTargetFinishTime ? Math.max(0, Math.ceil((currentTargetFinishTime - Date.now()) / 1000)) : 20;
+        const remaining = targetFinishTime ? Math.max(0, Math.ceil((targetFinishTime - Date.now()) / 1000)) : 20;
 
         browser.insertCSS({
           code: `
