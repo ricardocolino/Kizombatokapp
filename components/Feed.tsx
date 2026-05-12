@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -45,7 +45,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const PAGE_SIZE = 15;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const triggeredAdIndices = React.useRef<Set<number>>(new Set());
+
+  const handleNextPost = React.useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ top: scrollContainerRef.current.clientHeight, behavior: 'smooth' });
+    }
+  }, []);
+
+  const handlePrevPost = React.useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ top: -scrollContainerRef.current.clientHeight, behavior: 'smooth' });
+    }
+  }, []);
 
   // Function to trigger the ad
   const triggerAd = React.useCallback(async (index: number) => {
@@ -546,7 +559,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         </div>
       )}
 
-      <div className="feed-container h-full w-full no-scrollbar">
+      <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post, index) => (
           <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
             <PostCard 
@@ -590,6 +603,24 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
           </div>
         )}
+      </div>
+
+      {/* Desktop Navigation Buttons */}
+      <div className="fixed right-32 top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-6 z-[60]">
+        <button 
+          onClick={handlePrevPost}
+          className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-white/20 shadow-2xl"
+          title="Vídeo anterior (Up)"
+        >
+          <ChevronUp size={40} strokeWidth={2.5} />
+        </button>
+        <button 
+          onClick={handleNextPost}
+          className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-white/20 shadow-2xl"
+          title="Próximo vídeo (Next)"
+        >
+          <ChevronDown size={40} strokeWidth={2.5} />
+        </button>
       </div>
     </div>
   );
