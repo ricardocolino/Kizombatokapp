@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, Settings } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, Download, Menu, Box, Settings } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -834,24 +834,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">Carteira</h1>
+            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">Carteira</h1>
             <div className="w-10" /> {/* Spacer */}
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             {/* Hero Section: Balanço Principal */}
             <div className="py-12 flex flex-col items-center justify-center border-b border-zinc-100">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mb-4 font-medium">Balanço Total (USD)</span>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 mb-4 font-black">Balanço Total (USD)</span>
               <div className="flex items-start">
-                <span className="text-xl font-light mt-1 mr-1 text-zinc-400">$</span>
-                <h1 className="text-6xl font-extralight tracking-tighter">
+                <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
+                <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
                   {((profile.redeemable_balance || 0) / 100).toFixed(2)}
                 </h1>
               </div>
             </div>
 
             {/* Quick Actions - Design Minimalista */}
-            <div className="grid grid-cols-2 gap-4 py-10 border-b border-zinc-100">
+            <div className="grid grid-cols-3 gap-4 py-10 border-b border-zinc-100">
               <button 
                 onClick={handleOpenExternalDeposit}
                 className="flex flex-col items-center gap-3 group transition-all"
@@ -859,7 +859,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center group-active:scale-95 transition-transform">
                   <ArrowUpCircle size={22} strokeWidth={1.2} />
                 </div>
-                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">Recarregar</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Recarregar</span>
               </button>
               <button 
                 onClick={() => setShowWithdrawModal(true)}
@@ -868,7 +868,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
                   <Download size={22} strokeWidth={1.2} />
                 </div>
-                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">Levantar</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Levantar</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setNewWalletAddress(profile?.wallet_address || '');
+                  setShowWalletModal(true);
+                }}
+                className="flex flex-col items-center gap-3 group transition-all"
+              >
+                <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
+                  <Settings size={22} strokeWidth={1.2} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Método</span>
               </button>
             </div>
 
@@ -879,18 +891,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               {pendingEarnings >= 0.01 && (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Ganhos por Visualizações</h2>
+                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Ganhos por Visualizações</h2>
                     <button 
                       onClick={handleClaimEarnings}
                       disabled={claiming}
-                      className="text-[9px] uppercase tracking-widest font-black text-red-600 disabled:opacity-30"
+                      className="text-[10px] uppercase tracking-widest font-black text-red-600 disabled:opacity-30"
                     >
                       {claiming ? '...' : 'Resgatar'}
                     </button>
                   </div>
-                  <div className="flex items-baseline justify-between border-b border-zinc-50 pb-4">
-                    <span className="text-2xl font-light tracking-tight">${pendingEarnings.toFixed(2)}</span>
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-medium">Pendentes</span>
+                  <div className="flex items-baseline justify-between border-b border-zinc-100 pb-6">
+                    <span className="text-4xl font-semibold tracking-tight text-zinc-900">${pendingEarnings.toFixed(2)}</span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Pendentes</span>
                   </div>
                 </section>
               )}
@@ -899,12 +911,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo de Presentes</h2>
+                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black mb-4">Saldo de Presentes</h2>
                     <div className="flex items-baseline gap-2">
-                       <span className="text-4xl font-extralight tracking-tight">
+                       <span className="text-4xl font-semibold tracking-tight text-zinc-900">
                          {profile.balance?.toFixed(0) || '0'}
                        </span>
-                       <AngoCoinIcon size={16} />
+                       <AngoCoinIcon size={20} />
                     </div>
                   </div>
                 </div>
@@ -914,36 +926,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo Resgatável</h2>
-                    <div className="flex items-baseline gap-2">
-                       <span className="text-4xl font-extralight tracking-tight">
-                         {profile.redeemable_balance?.toFixed(0) || '0'}
+                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black mb-4">Saldo Resgatável</h2>
+                    <div className="flex items-baseline gap-1">
+                       <span className="text-4xl font-semibold tracking-tight text-zinc-900">
+                         ${((profile.redeemable_balance || 0) / 100).toFixed(2)}
                        </span>
-                       <AngoCoinIcon size={16} />
+                       <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">USD</span>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* Métodos de Pagamento */}
-              <section className="space-y-6">
-                <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Resgate</h2>
-                <div className="space-y-1">
-                  <button 
-                    onClick={() => {
-                      setNewWalletAddress(profile?.wallet_address || '');
-                      setShowWalletModal(true);
-                    }}
-                    className="w-full flex items-center justify-between py-5 border-b border-zinc-50 group active:opacity-50 transition-opacity"
-                  >
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="text-xs font-medium text-zinc-900">USDT (BEP-20)</span>
-                      <span className="text-[10px] text-zinc-400 font-light truncate max-w-[200px]">{profile?.wallet_address || 'Não configurado'}</span>
-                    </div>
-                    <ChevronRight size={16} strokeWidth={1} className="text-zinc-300" />
-                  </button>
-                </div>
-              </section>
 
               <div className="text-center pt-8">
                 <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat Security</p>
@@ -999,8 +992,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest">Carregar AngoCoins</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Escolhe o valor</p>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900">Carregar AngoCoins</h3>
+                  <p className="text-[10px] text-zinc-900 font-black uppercase tracking-tighter">Escolhe o valor</p>
                 </div>
                 <button onClick={() => setShowDeposit(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
@@ -1015,7 +1008,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     className={`py-4 rounded-xl font-black text-[10px] transition-all border flex items-center justify-center gap-1.5 ${
                       depositAmount === amount 
                         ? 'bg-black border-black text-white' 
-                        : 'bg-zinc-50 border-zinc-100 text-zinc-400 hover:border-zinc-200'
+                        : 'bg-zinc-50 border-zinc-100 text-zinc-900'
                     }`}
                   >
                     {amount} <AngoCoinIcon size={12} />
@@ -1024,10 +1017,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
 
               <div className="py-6 border-y border-zinc-100 flex flex-col gap-2">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total a Pagar</p>
+                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Total a Pagar</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-black">${(depositAmount / 100).toFixed(2)}</p>
-                  <p className="text-xs font-bold text-zinc-400 uppercase">USD</p>
+                  <p className="text-3xl font-black text-zinc-900">${(depositAmount / 100).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-zinc-900 uppercase">USD</p>
                 </div>
               </div>
 
@@ -1221,24 +1214,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">Levantar Ganhos</h1>
+            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">Levantar Ganhos</h1>
             <div className="w-10" /> {/* Spacer */}
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             <div className="flex flex-col gap-10 py-8">
               <div className="text-center space-y-2">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Disponível para Levantamento</p>
+                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Disponível para Levantamento</p>
                 <div className="flex items-baseline justify-center gap-2">
-                  <p className="text-6xl font-extralight tracking-tighter leading-none">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
-                  <AngoCoinIcon size={24} />
+                  <p className="text-6xl font-semibold tracking-tighter leading-none">${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {profile?.redeemable_balance?.toFixed(0) || '0'} AngoCoins</p>
               </div>
 
               <div className="space-y-8 pt-10">
                 <div className="space-y-6">
-                  <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Método Selecionado</h2>
+                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Método Selecionado</h2>
                   <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/5">
@@ -1266,23 +1259,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-zinc-400">
-                    <AlertCircle size={14} />
-                    <p className="text-[10px] font-medium uppercase tracking-widest">Aviso Importante</p>
-                  </div>
-                  <p className="text-xs text-zinc-400 leading-relaxed font-light">
-                    O processamento de levantamentos pode demorar até 24h úteis. Certifica-te que o endereço USDT BEP-20 está correto. Endereços errados podem resultar em perda permanente dos fundos.
-                  </p>
-                </div>
               </div>
 
               <div className="pt-10">
                 <button 
                   onClick={handleWithdraw}
                   disabled={saving || (profile?.redeemable_balance || 0) < 100}
-                  className="w-full h-18 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
+                  className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Levantamento'}
                 </button>
