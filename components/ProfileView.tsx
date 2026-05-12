@@ -850,6 +850,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
             </div>
 
+            {/* Botão de Moedas Rápido */}
+            <div className="pt-8 flex justify-start">
+              <button 
+                onClick={handleOpenExternalDeposit}
+                className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all"
+              >
+                <AngoCoinIcon size={14} />
+                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900">
+                  Moeda {profile.balance?.toFixed(0) || '0'} — Carregar moedas
+                </span>
+              </button>
+            </div>
+
             {/* Quick Actions - Design Minimalista */}
             <div className="grid grid-cols-3 gap-4 py-10 border-b border-zinc-100">
               <button 
