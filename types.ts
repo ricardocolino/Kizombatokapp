@@ -10,12 +10,6 @@ export interface Profile {
   claimed_views: number;
   wallet_address: string | null;
   airtm_email: string | null;
-  iban: string | null;
-  holder_name: string | null;
-  express_number: string | null;
-  is_cashier: boolean;
-  cashier_rating: number;
-  cashier_transactions: number;
   created_at: string;
 }
 
@@ -105,21 +99,4 @@ export interface StoryReaction {
   type: string;
   created_at: string;
   profiles?: Profile;
-}
-
-export interface P2PRequest {
-  id: string;
-  user_id: string;
-  cashier_id: string | null;
-  type: 'deposit' | 'withdraw';
-  amount: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  user_confirmed: boolean;
-  cashier_confirmed: boolean;
-  payment_method: string | null;
-  proof_url: string | null;
-  created_at: string;
-  updated_at: string;
-  user?: Profile;
-  cashier?: Profile;
 }

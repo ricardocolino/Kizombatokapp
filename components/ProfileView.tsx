@@ -2,10 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, Smartphone, Settings, Repeat } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, Settings } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
-import P2PRecharge from './P2PRecharge';
 
 interface ProfileViewProps {
   userId: string;
@@ -19,22 +18,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
   const [showDashboard, setShowDashboard] = useState(false);
-  const [showBecomeAgent, setShowBecomeAgent] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showAirTMModal, setShowAirTMModal] = useState(false);
-  const [withdrawalMethod, setWithdrawalMethod] = useState<'usdt' | 'airtm'>('airtm');
   const [newWalletAddress, setNewWalletAddress] = useState('');
-  const [newAirTMEmail, setNewAirTMEmail] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
-  const [showP2P, setShowP2P] = useState(false);
-  const [isCashier, setIsCashier] = useState(false);
-  const [isApplyingCaixa, setIsApplyingCaixa] = useState(false);
-  const [cashierForm, setCashierForm] = useState({
-    iban: '',
-    holder_name: '',
-    express_number: ''
-  });
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -102,20 +89,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         avatar_url: data.avatar_url || '',
         cover_url: data.cover_url || ''
       });
-      
-      // Check for cashier status if it's the own profile
-      if (isOwnProfile) {
-        setIsCashier(!!data.is_cashier);
-        if (data.is_cashier) {
-          setCashierForm({
-            iban: data.iban || '',
-            holder_name: data.holder_name || '',
-            express_number: data.express_number || ''
-          });
-        }
-      }
     }
-  }, [userId, isOwnProfile]);
+  }, [userId]);
 
   const checkFollowStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -460,45 +435,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
-  const handleBecomeCaixa = async () => {
-    if (!profile) return;
-    
-    if (!cashierForm.holder_name) {
-      alert("Precisas de preencher o nome do titular da conta.");
-      return;
-    }
-
-    if (!cashierForm.iban && !cashierForm.express_number) {
-      alert("Precisas de fornecer um IBAN ou um número Multicaixa Express.");
-      return;
-    }
-
-    setIsApplyingCaixa(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          is_cashier: true,
-          iban: cashierForm.iban,
-          holder_name: cashierForm.holder_name,
-          express_number: cashierForm.express_number,
-          cashier_rating: 5.0,
-          cashier_transactions: 0
-        })
-        .eq('id', userId);
-
-      if (error) throw error;
-      
-      await fetchProfile();
-      alert("Parabéns! Agora és um Caixa Oficial do AngoChat. Podes começar a processar recargas P2P! 🇦🇴🚀");
-    } catch (err) {
-      console.error("Erro ao tornar-se caixa:", err);
-      alert("Houve um erro ao processar o teu pedido. Tenta de novo!");
-    } finally {
-      setIsApplyingCaixa(false);
-    }
-  };
-
   const handleSaveWallet = async () => {
     if (!newWalletAddress.trim()) return;
     setSaving(true);
@@ -521,28 +457,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     }
   };
 
-  const handleSaveAirTM = async () => {
-    if (!newAirTMEmail.trim()) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ airtm_email: newAirTMEmail.trim() })
-        .eq('id', userId);
-      
-      if (error) throw error;
-      
-      await fetchProfile();
-      setShowAirTMModal(false);
-      alert("E-mail AirTM guardado com sucesso! 🇦🇴🚀");
-    } catch (err) {
-      console.error("Erro ao guardar e-mail AirTM:", err);
-      alert("Erro ao guardar e-mail AirTM. Tenta de novo!");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleWithdraw = async () => {
     const amountCoins = profile?.redeemable_balance || 0;
     const amountUSD = amountCoins / 100;
@@ -552,28 +466,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       return;
     }
 
-    if (withdrawalMethod === 'usdt') {
-      if (amountUSD < 1) {
-        alert("O valor mínimo para levantamento via USDT (BEP-20) é $1.00 USD (100 AngoCoins).");
-        return;
-      }
-      if (!profile?.wallet_address) {
-        alert("Precisas de cadastrar a tua carteira primeiro!");
-        setShowWalletModal(true);
-        return;
-      }
+    if (amountUSD < 1) {
+      alert("O valor mínimo para levantamento via USDT (BEP-20) é $1.00 USD (100 AngoCoins).");
+      return;
     }
-
-    if (withdrawalMethod === 'airtm') {
-      if (amountUSD < 0.5) {
-        alert("O valor mínimo para levantamento via AirTM é $0.50 USD (50 AngoCoins).");
-        return;
-      }
-      if (!profile?.airtm_email) {
-        alert("Precisas de cadastrar o teu e-mail AirTM primeiro!");
-        setShowAirTMModal(true);
-        return;
-      }
+    
+    if (!profile?.wallet_address) {
+      alert("Precisas de cadastrar a tua carteira primeiro!");
+      setShowWalletModal(true);
+      return;
     }
 
     setSaving(true);
@@ -602,9 +503,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         .insert({
           user_id: userId,
           amount: amountCoins,
-          wallet_address: withdrawalMethod === 'usdt' ? profile.wallet_address : null,
-          airtm_email: withdrawalMethod === 'airtm' ? profile.airtm_email : null,
-          method: withdrawalMethod,
+          wallet_address: profile.wallet_address,
+          method: 'usdt',
           status: 'pending'
         });
 
@@ -718,19 +618,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 <Settings size={22} strokeWidth={1.5} />
               </div>
               <span className="text-xl font-light tracking-tight">Editar Perfil</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                setShowBecomeAgent(true);
-                setShowMenu(false);
-              }} 
-              className="w-full flex items-center gap-4 text-zinc-800 group"
-            >
-              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
-                <Smartphone size={22} strokeWidth={1.5} />
-              </div>
-              <span className="text-xl font-light tracking-tight">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</span>
             </button>
 
             <button
@@ -963,7 +850,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             </div>
 
             {/* Quick Actions - Design Minimalista */}
-            <div className="grid grid-cols-3 gap-4 py-10 border-b border-zinc-100">
+            <div className="grid grid-cols-2 gap-4 py-10 border-b border-zinc-100">
               <button 
                 onClick={handleOpenExternalDeposit}
                 className="flex flex-col items-center gap-3 group transition-all"
@@ -982,22 +869,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 </div>
                 <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">Levantar</span>
               </button>
-              <button 
-                onClick={() => setShowP2P(true)}
-                className="flex flex-col items-center gap-3 group transition-all"
-              >
-                <div className="w-14 h-14 rounded-full bg-zinc-50 border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
-                  <Repeat size={22} strokeWidth={1.2} />
-                </div>
-                <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">P2P</span>
-              </button>
             </div>
 
             {/* Secções de Saldo Detalhado */}
             <div className="space-y-12 py-12">
               
               {/* Ganhos Pendentes */}
-              {pendingEarnings > 0 && (
+              {pendingEarnings >= 0.01 && (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Ganhos por Visualizações</h2>
@@ -1016,11 +894,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 </section>
               )}
 
-              {/* AngoCoins Balance */}
+              {/* Gift Balance / Main Balance */}
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo em AngoCoins</h2>
+                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo de Presentes</h2>
+                    <div className="flex items-baseline gap-2">
+                       <span className="text-4xl font-extralight tracking-tight">
+                         {profile.balance?.toFixed(0) || '0'}
+                       </span>
+                       <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">AC</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Redeemable Balance */}
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold mb-4">Saldo Resgatável</h2>
                     <div className="flex items-baseline gap-2">
                        <span className="text-4xl font-extralight tracking-tight">
                          {profile.redeemable_balance?.toFixed(0) || '0'}
@@ -1035,38 +928,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <section className="space-y-6">
                 <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Resgate</h2>
                 <div className="space-y-1">
-                  {[
-                    { 
-                      id: 'usdt', 
-                      label: 'USDT (BEP-20)', 
-                      sub: profile?.wallet_address || 'Não configurado',
-                      onClick: () => {
-                        setNewWalletAddress(profile?.wallet_address || '');
-                        setShowWalletModal(true);
-                      }
-                    },
-                    { 
-                      id: 'airtm', 
-                      label: 'AirTM', 
-                      sub: profile?.airtm_email || 'Não configurado',
-                      onClick: () => {
-                        setNewAirTMEmail(profile?.airtm_email || '');
-                        setShowAirTMModal(true);
-                      }
-                    }
-                  ].map(method => (
-                    <button 
-                      key={method.id}
-                      onClick={method.onClick}
-                      className="w-full flex items-center justify-between py-5 border-b border-zinc-50 group active:opacity-50 transition-opacity"
-                    >
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="text-xs font-medium text-zinc-900">{method.label}</span>
-                        <span className="text-[10px] text-zinc-400 font-light truncate max-w-[200px]">{method.sub}</span>
-                      </div>
-                      <ChevronRight size={16} strokeWidth={1} className="text-zinc-300" />
-                    </button>
-                  ))}
+                  <button 
+                    onClick={() => {
+                      setNewWalletAddress(profile?.wallet_address || '');
+                      setShowWalletModal(true);
+                    }}
+                    className="w-full flex items-center justify-between py-5 border-b border-zinc-50 group active:opacity-50 transition-opacity"
+                  >
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-xs font-medium text-zinc-900">USDT (BEP-20)</span>
+                      <span className="text-[10px] text-zinc-400 font-light truncate max-w-[200px]">{profile?.wallet_address || 'Não configurado'}</span>
+                    </div>
+                    <ChevronRight size={16} strokeWidth={1} className="text-zinc-300" />
+                  </button>
                 </div>
               </section>
 
@@ -1294,118 +1168,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
           </div>
         </div>
       )}
-      {/* Become a Caixa - Full Screen View */}
-      {showBecomeAgent && (
-        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
-          <header className="flex items-center justify-between px-6 h-20 shrink-0">
-            <button 
-              onClick={() => setShowBecomeAgent(false)}
-              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
-            >
-              <ChevronLeft size={24} strokeWidth={1.5} />
-            </button>
-            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">{isCashier ? 'Agente Oficial' : 'Torna-te um Agente'}</h1>
-            <div className="w-10" /> 
-          </header>
-
-          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
-            <div className="flex flex-col items-center text-center space-y-8 py-12">
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center ${isCashier ? 'bg-black text-white' : 'bg-zinc-50 border border-zinc-100 text-black'}`}>
-                <Smartphone size={40} strokeWidth={1} />
-              </div>
-
-              <div className="space-y-4 max-w-xs">
-                 <h2 className="text-2xl font-light tracking-tight">{isCashier ? 'Modo Agente Ativo' : 'Ajuda a Comunidade'}</h2>
-                 <p className="text-sm text-zinc-400 leading-relaxed font-light">
-                   {isCashier 
-                     ? 'Estás habilitado a processar recargas via Multicaixa Express ou Transferência e ganhar comissões diretas em AngoCoins.' 
-                     : 'Como agente oficial, ganhas 10% de comissão em cada recarga que processares para outros membros da banda.'}
-                 </p>
-              </div>
-
-              {!isCashier ? (
-                <div className="w-full space-y-12 pt-10">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">Nome do Titular</label>
-                      <input 
-                        type="text"
-                        placeholder="Nome completo na conta"
-                        value={cashierForm.holder_name}
-                        onChange={(e) => setCashierForm({...cashierForm, holder_name: e.target.value})}
-                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">Nº Multicaixa Express</label>
-                      <input 
-                        type="text"
-                        placeholder="9XXXXXXXX"
-                        value={cashierForm.express_number}
-                        onChange={(e) => setCashierForm({...cashierForm, express_number: e.target.value})}
-                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest block text-left ml-1">IBAN (Opcional)</label>
-                      <input 
-                        type="text"
-                        placeholder="AO06 0000..."
-                        value={cashierForm.iban}
-                        onChange={(e) => setCashierForm({...cashierForm, iban: e.target.value})}
-                        className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all placeholder:text-zinc-200"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={handleBecomeCaixa}
-                    disabled={isApplyingCaixa}
-                    className="w-full h-16 bg-black text-white rounded-full text-[11px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all shadow-xl shadow-black/5"
-                  >
-                    {isApplyingCaixa ? <Loader2 size={20} className="animate-spin mx-auto" /> : 'Confirmar e Ativar'}
-                  </button>
-                </div>
-              ) : (
-                <div className="w-full space-y-6 pt-10">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-zinc-50 p-6 rounded-[32px] border border-zinc-100 text-left">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-2">Transações</span>
-                      <span className="text-2xl font-light">{profile?.cashier_transactions || 0}</span>
-                    </div>
-                    <div className="bg-zinc-50 p-6 rounded-[32px] border border-zinc-100 text-left">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-2">Avaliação</span>
-                      <span className="text-2xl font-light">{profile?.cashier_rating?.toFixed(1) || '5.0'} ★</span>
-                    </div>
-                  </div>
-
-                  <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 space-y-4 text-left">
-                    <h4 className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Dados de Recebimento</h4>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{profile?.holder_name}</p>
-                      {profile?.express_number && <p className="text-xs text-zinc-400 font-light">Express: {profile.express_number}</p>}
-                      {profile?.iban && <p className="text-[10px] text-zinc-400 font-mono break-all">{profile.iban}</p>}
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                      setShowP2P(true);
-                      setShowBecomeAgent(false);
-                    }}
-                    className="w-full h-16 border border-black text-black rounded-full text-[11px] uppercase tracking-[0.2em] font-medium active:scale-95 transition-all"
-                  >
-                    Painel de Controle
-                  </button>
-                </div>
-              )}
-              
-              <p className="text-[10px] text-zinc-300 font-light pt-10 uppercase tracking-widest">AngoChat Partner Program</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
@@ -1447,129 +1209,91 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         </div>
       )}
 
-      {/* Withdraw Modal */}
+      {/* Withdraw Modal Fullscreen */}
       {showWithdrawModal && (
-        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowWithdrawModal(false)} />
-          <div className="relative bg-white border-t border-zinc-100 w-full rounded-t-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 text-black">
-            <div className="p-8 flex flex-col gap-8 pb-12">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest leading-none mb-1">Levantar Ganhos</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Escolhe o método</p>
+        <div className="fixed inset-0 z-[120] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+          {/* Header Minimalista */}
+          <header className="flex items-center justify-between px-6 h-20 shrink-0">
+            <button 
+              onClick={() => setShowWithdrawModal(false)}
+              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
+            >
+              <ChevronLeft size={24} strokeWidth={1.5} />
+            </button>
+            <h1 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">Levantar Ganhos</h1>
+            <div className="w-10" /> {/* Spacer */}
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="flex flex-col gap-10 py-8">
+              <div className="text-center space-y-2">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Disponível para Levantamento</p>
+                <div className="flex items-baseline justify-center gap-2">
+                  <p className="text-6xl font-extralight tracking-tighter leading-none">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
+                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-widest">AC</p>
                 </div>
-                <button onClick={() => setShowWithdrawModal(false)} className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-black transition-colors">
-                  <X size={20} />
-                </button>
+                <p className="text-sm text-zinc-400 font-light">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
               </div>
 
-              <div className="space-y-8">
-                {/* Method Selector */}
-                <div className="flex border-b border-zinc-100">
-                  <button 
-                    onClick={() => setWithdrawalMethod('airtm')}
-                    className={`flex-1 py-4 text-[10px] font-black uppercase transition-all relative ${withdrawalMethod === 'airtm' ? 'text-black' : 'text-zinc-300'}`}
-                  >
-                    AirTM
-                    {withdrawalMethod === 'airtm' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />}
-                  </button>
-                  <button 
-                    onClick={() => setWithdrawalMethod('usdt')}
-                    className={`flex-1 py-4 text-[10px] font-black uppercase transition-all relative ${withdrawalMethod === 'usdt' ? 'text-black' : 'text-zinc-300'}`}
-                  >
-                    USDT (BEP-20)
-                    {withdrawalMethod === 'usdt' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black" />}
-                  </button>
-                </div>
-
-                <div className="space-y-8">
-                  {/* Saldo Information */}
-                  <div className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Disponível</p>
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-4xl font-black tracking-tighter leading-none">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase">AC</p>
+              <div className="space-y-8 pt-10">
+                <div className="space-y-6">
+                  <h2 className="text-[9px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Método Selecionado</h2>
+                  <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/5">
+                        <Wallet size={20} strokeWidth={1.5} />
                       </div>
+                      <span className="text-sm font-medium">USDT (Rede BEP-20)</span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-zinc-400 uppercase mb-2">Valor</p>
-                      <p className="text-xl font-black">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Destination Info */}
-                  <div className="space-y-4">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Destino:
-                    </p>
-                    <p className="text-sm font-medium text-black break-all pb-2 border-b border-zinc-100">
-                      {(withdrawalMethod === 'usdt' ? profile?.wallet_address : profile?.airtm_email) || 'Não configurado'}
-                    </p>
-                    {((withdrawalMethod === 'airtm' && !profile?.airtm_email) || (withdrawalMethod === 'usdt' && !profile?.wallet_address)) && (
-                      <p className="text-[9px] text-zinc-400 font-bold uppercase">
-                        ⚠️ Precisas de configurar este método primeiro
+                    
+                    <div className="space-y-2 pt-2 border-t border-zinc-100 mt-2">
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Endereço de Destino</p>
+                      <p className="text-sm font-medium text-black break-all">
+                        {profile?.wallet_address || 'Não configurado'}
                       </p>
-                    )}
+                      {!profile?.wallet_address && (
+                        <button 
+                          onClick={() => {
+                            setNewWalletAddress('');
+                            setShowWalletModal(true);
+                          }}
+                          className="text-[10px] font-black uppercase text-red-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                        >
+                          Configurar Agora
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button 
-                onClick={handleWithdraw}
-                disabled={saving || (profile?.redeemable_balance || 0) < (withdrawalMethod === 'usdt' ? 100 : 50)}
-                className="w-full h-16 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-10"
-              >
-                {saving ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Levantamento'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* AirTM Modal */}
-      {showAirTMModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowAirTMModal(false)} />
-          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
-            <div className="p-8 flex flex-col gap-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar AirTM</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">E-mail de Levantamento</p>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-zinc-400">
+                    <AlertCircle size={14} />
+                    <p className="text-[10px] font-medium uppercase tracking-widest">Aviso Importante</p>
+                  </div>
+                  <p className="text-xs text-zinc-400 leading-relaxed font-light">
+                    O processamento de levantamentos pode demorar até 24h úteis. Certifica-te que o endereço USDT BEP-20 está correto. Endereços errados podem resultar em perda permanente dos fundos.
+                  </p>
                 </div>
-                <button onClick={() => setShowAirTMModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
-                  <X size={20} />
+              </div>
+
+              <div className="pt-10">
+                <button 
+                  onClick={handleWithdraw}
+                  disabled={saving || (profile?.redeemable_balance || 0) < 100}
+                  className="w-full h-18 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
+                >
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Levantamento'}
                 </button>
+                {(profile?.redeemable_balance || 0) < 100 && (
+                  <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
+                    Mínimo necessário: 100 AngoCoins ($1.00 USD)
+                  </p>
+                )}
               </div>
-
-              <div className="space-y-4">
-                <input 
-                  type="email" 
-                  value={newAirTMEmail}
-                  onChange={(e) => setNewAirTMEmail(e.target.value)}
-                  placeholder="teu-email@exemplo.com"
-                  className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300"
-                />
-              </div>
-
-              <button 
-                onClick={handleSaveAirTM}
-                disabled={saving || !newAirTMEmail.trim()}
-                className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar E-mail'}
-              </button>
             </div>
           </div>
         </div>
-      )}
-      {/* P2P Recharge Modal */}
-      {showP2P && profile && (
-        <P2PRecharge 
-          currentUser={profile} 
-          onClose={() => setShowP2P(false)} 
-          onBalanceUpdate={fetchProfile}
-        />
       )}
     </div>
   );
