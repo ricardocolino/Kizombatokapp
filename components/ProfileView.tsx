@@ -5,6 +5,7 @@ import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, ChevronRight, Download, Menu, Box, Settings } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
+import AngoCoinIcon from './AngoCoinIcon';
 
 interface ProfileViewProps {
   userId: string;
@@ -903,7 +904,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                        <span className="text-4xl font-extralight tracking-tight">
                          {profile.balance?.toFixed(0) || '0'}
                        </span>
-                       <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">AC</span>
+                       <AngoCoinIcon size={16} />
                     </div>
                   </div>
                 </div>
@@ -918,7 +919,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                        <span className="text-4xl font-extralight tracking-tight">
                          {profile.redeemable_balance?.toFixed(0) || '0'}
                        </span>
-                       <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">AC</span>
+                       <AngoCoinIcon size={16} />
                     </div>
                   </div>
                 </div>
@@ -1011,13 +1012,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <button 
                     key={amount}
                     onClick={() => setDepositAmount(amount)}
-                    className={`py-4 rounded-xl font-black text-[10px] transition-all border ${
+                    className={`py-4 rounded-xl font-black text-[10px] transition-all border flex items-center justify-center gap-1.5 ${
                       depositAmount === amount 
                         ? 'bg-black border-black text-white' 
                         : 'bg-zinc-50 border-zinc-100 text-zinc-400 hover:border-zinc-200'
                     }`}
                   >
-                    {amount} AC
+                    {amount} <AngoCoinIcon size={12} />
                   </button>
                 ))}
               </div>
@@ -1230,7 +1231,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Disponível para Levantamento</p>
                 <div className="flex items-baseline justify-center gap-2">
                   <p className="text-6xl font-extralight tracking-tighter leading-none">{profile?.redeemable_balance?.toFixed(0) || '0'}</p>
-                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-widest">AC</p>
+                  <AngoCoinIcon size={24} />
                 </div>
                 <p className="text-sm text-zinc-400 font-light">≈ ${((profile?.redeemable_balance || 0) / 100).toFixed(2)} USD</p>
               </div>

@@ -6,6 +6,7 @@ import { Post, Comment, Profile } from '../types';
 import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
+import AngoCoinIcon from './AngoCoinIcon';
 import { PostMetadata } from './Feed';
 import { parseMediaUrl } from '../services/mediaUtils';
 
@@ -1133,7 +1134,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   </div>
                   <div className="flex flex-col items-center">
                     <span className="text-[11px] font-black uppercase tracking-tighter">{label}</span>
-                    <span className="text-[10px] font-black text-amber-500 uppercase">{amount} AC</span>
+                    <span className="text-[10px] font-black text-amber-500 uppercase flex items-center gap-1">
+                      {amount} <AngoCoinIcon size={12} />
+                    </span>
                   </div>
                 </button>
               ))}
