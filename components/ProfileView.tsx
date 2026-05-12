@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ArrowUpCircle, ChevronLeft, Download, Menu, Box, Settings } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -35,8 +35,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [postsPage, setPostsPage] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [pendingEarnings, setPendingEarnings] = useState(0);
-  const [claiming, setClaiming] = useState(false);
   const PAGE_SIZE = 6;
 
   // Ouvir mensagens do iframe de pagamentos
@@ -208,12 +206,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       views: totalViews,
       comments: totalComments
     });
-
-    // Calcular ganhos pendentes (0.01 USD por 100 views)
-    const { data: profileData } = await supabase.from('profiles').select('claimed_views').eq('id', userId).single();
-    const claimedViews = profileData?.claimed_views || 0;
-    const unclaimedViews = Math.max(0, totalViews - claimedViews);
-    setPendingEarnings(Number((unclaimedViews * 0.0001).toFixed(6)));
   }, [userId]);
 
   const loadAll = React.useCallback(async () => {
@@ -371,39 +363,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       alert(err instanceof Error ? err.message : "Erro ao processar depósito");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleClaimEarnings = async () => {
-    const earningsInCoins = Math.floor(pendingEarnings * 100);
-    if (earningsInCoins <= 0) return;
-    
-    setClaiming(true);
-    try {
-      const newRedeemableBalance = (profile?.redeemable_balance || 0) + earningsInCoins;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ redeemable_balance: newRedeemableBalance })
-        .eq('id', userId);
-      
-      if (error) throw error;
-      
-      // Marcar estas views como resgatadas no banco de dados
-      const { error: updateViewsError } = await supabase
-        .from('profiles')
-        .update({ claimed_views: stats.views })
-        .eq('id', userId);
-      
-      if (updateViewsError) throw updateViewsError;
-      
-      await fetchProfile();
-      setPendingEarnings(0);
-      alert(`Boa! Resgataste $${pendingEarnings.toFixed(2)} USD (${earningsInCoins} AngoCoins) para o teu saldo de resgate! 🇦🇴💰`);
-    } catch (err) {
-      console.error("Erro ao resgatar ganhos:", err);
-      alert("Houve um erro ao resgatar os ganhos. Tenta de novo!");
-    } finally {
-      setClaiming(false);
     }
   };
 
@@ -840,124 +799,58 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             {/* Hero Section: Balanço Principal */}
-            <div className="py-12 flex flex-col items-center justify-center border-b border-zinc-100">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 mb-4 font-black">Balanço Total (USD)</span>
+            <button 
+              onClick={() => setShowWithdrawModal(true)}
+              className="w-full py-12 flex flex-col items-center justify-center border-b border-zinc-100 group active:opacity-70 transition-all"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Balanço Total (USD)</span>
+                <ChevronRight size={14} strokeWidth={2.5} className="text-zinc-400" />
+              </div>
               <div className="flex items-start">
                 <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
                 <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
                   {((profile.redeemable_balance || 0) / 100).toFixed(2)}
                 </h1>
               </div>
-            </div>
+            </button>
 
             {/* Botão de Moedas Rápido */}
             <div className="pt-8 flex justify-start">
               <button 
                 onClick={handleOpenExternalDeposit}
-                className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all"
+                className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all group"
               >
                 <AngoCoinIcon size={14} />
                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900">
                   Moeda {profile.balance?.toFixed(0) || '0'} — Carregar moedas
                 </span>
+                <ChevronRight size={12} strokeWidth={2.5} className="text-zinc-400 ml-1" />
               </button>
             </div>
 
-            {/* Quick Actions - Design Minimalista */}
-            <div className="grid grid-cols-3 gap-4 py-10 border-b border-zinc-100">
-              <button 
-                onClick={handleOpenExternalDeposit}
-                className="flex flex-col items-center gap-3 group transition-all"
-              >
-                <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center group-active:scale-95 transition-transform">
-                  <ArrowUpCircle size={22} strokeWidth={1.2} />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Recarregar</span>
-              </button>
-              <button 
-                onClick={() => setShowWithdrawModal(true)}
-                className="flex flex-col items-center gap-3 group transition-all"
-              >
-                <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
-                  <Download size={22} strokeWidth={1.2} />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Levantar</span>
-              </button>
+            {/* Method Button Only */}
+            <div className="py-10 border-b border-zinc-100">
               <button 
                 onClick={() => {
                   setNewWalletAddress(profile?.wallet_address || '');
                   setShowWalletModal(true);
                 }}
-                className="flex flex-col items-center gap-3 group transition-all"
+                className="flex flex-col items-center gap-3 group transition-all mx-auto"
               >
                 <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
                   <Settings size={22} strokeWidth={1.2} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Método</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Método de Pagamento</span>
               </button>
             </div>
-
-            {/* Secções de Saldo Detalhado */}
-            <div className="space-y-12 py-12">
-              
-              {/* Ganhos Pendentes */}
-              {pendingEarnings >= 0.01 && (
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Ganhos por Visualizações</h2>
-                    <button 
-                      onClick={handleClaimEarnings}
-                      disabled={claiming}
-                      className="text-[10px] uppercase tracking-widest font-black text-red-600 disabled:opacity-30"
-                    >
-                      {claiming ? '...' : 'Resgatar'}
-                    </button>
-                  </div>
-                  <div className="flex items-baseline justify-between border-b border-zinc-100 pb-6">
-                    <span className="text-4xl font-semibold tracking-tight text-zinc-900">${pendingEarnings.toFixed(2)}</span>
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Pendentes</span>
-                  </div>
-                </section>
-              )}
-
-              {/* Gift Balance / Main Balance */}
-              <section className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black mb-4">Saldo de Presentes</h2>
-                    <div className="flex items-baseline gap-2">
-                       <span className="text-4xl font-semibold tracking-tight text-zinc-900">
-                         {profile.balance?.toFixed(0) || '0'}
-                       </span>
-                       <AngoCoinIcon size={20} />
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Redeemable Balance */}
-              <section className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black mb-4">Saldo Resgatável</h2>
-                    <div className="flex items-baseline gap-1">
-                       <span className="text-4xl font-semibold tracking-tight text-zinc-900">
-                         ${((profile.redeemable_balance || 0) / 100).toFixed(2)}
-                       </span>
-                       <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">USD</span>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
 
               <div className="text-center pt-8">
                 <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat Security</p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
