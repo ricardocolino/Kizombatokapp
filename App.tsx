@@ -534,7 +534,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-screen ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+    <div className={`flex flex-col h-[100dvh] w-screen overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
       {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
       {apiStatus && (
         <div className="fixed top-2 left-2 z-[9999] bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-[10px] font-black uppercase shadow-2xl">
@@ -579,7 +579,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-20`}>
+      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-10`}>
         {uploadTask && (
           <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
             <div className="h-1 bg-zinc-900 w-full overflow-hidden">
@@ -609,7 +609,7 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && (
-        <nav className="h-20 shrink-0 pb-4 border-t border-zinc-900 flex items-center justify-around bg-black/95 backdrop-blur-xl z-10">
+        <nav className="h-[76px] shrink-0 border-t border-zinc-900/50 flex items-center justify-around bg-black/95 backdrop-blur-2xl z-[100] relative pb-5 px-2">
           <button 
             onClick={handleGoHome}
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}

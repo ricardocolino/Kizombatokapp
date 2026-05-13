@@ -823,7 +823,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Sidebar Controls */}
       {uiVisible && (
-        <div className="absolute right-2 sm:right-3 bottom-12 sm:bottom-6 flex flex-col gap-3 sm:gap-5 items-center z-30">
+        <div className="absolute right-2 sm:right-4 bottom-16 sm:bottom-10 flex flex-col gap-3 sm:gap-5 items-center z-30">
           <div className="relative mb-1 sm:mb-2">
             <div 
               onClick={() => {
@@ -904,7 +904,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
         {/* Caption Area */}
         {uiVisible && (
-          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-5 pb-6 sm:pb-8 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none z-20">
+          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-12 sm:pb-14 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-20">
             <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
               <span 
                 onClick={() => onNavigateToProfile(post.user_id)}
