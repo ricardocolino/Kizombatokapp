@@ -35,41 +35,43 @@ const NativeAdItem: React.FC = () => {
   `;
 
   return (
-    <div className="feed-item h-full w-full flex flex-col items-center justify-center bg-black p-4 sm:p-6 relative">
-      <div className="w-full max-w-[340px] bg-zinc-900/40 rounded-[40px] border border-white/10 p-6 sm:p-8 pt-10 sm:pt-14 flex flex-col items-center justify-center backdrop-blur-3xl shadow-2xl relative overflow-hidden">
-        
-        {/* Adsterra Native Banner Container - Isolated in Iframe */}
-        <div className="w-full min-h-[320px] flex items-center justify-center relative bg-white/5 rounded-2xl overflow-hidden">
-            <iframe
-              title="Patrocinado"
-              srcDoc={adHtml}
-              className="w-full h-full border-none pointer-events-auto"
-              sandbox="allow-scripts allow-popups allow-same-origin allow-forms"
-              scrolling="no"
-              loading="lazy"
-            />
-            
-            {/* Fallback/Loader subtle text */}
-            <div className="absolute inset-0 -z-10 flex flex-col items-center justify-center gap-4 text-center opacity-20">
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center">
-                    <div className="w-6 h-6 bg-zinc-700/50 rounded-lg animate-pulse"></div>
-                </div>
-                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-500">A Carregar...</span>
-            </div>
+    <div className="feed-item h-full w-full flex flex-col items-center justify-center bg-black relative">
+      {/* Header Info */}
+      <div className="absolute top-16 left-0 w-full px-6 flex flex-col items-center gap-2 z-10">
+        <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-full backdrop-blur-md">
+          <span className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black">Conteúdo Patrocinado</span>
         </div>
+      </div>
+
+      {/* Full Screen Ad Container */}
+      <div className="w-full h-[75vh] flex items-center justify-center relative">
+        <iframe
+          title="Patrocinado"
+          srcDoc={adHtml}
+          className="w-full h-full border-none pointer-events-auto"
+          sandbox="allow-scripts allow-popups allow-same-origin allow-forms"
+          scrolling="no"
+          loading="lazy"
+        />
         
-        <div className="mt-8 pt-6 border-t border-white/5 w-full flex flex-col items-center gap-3">
-          <div className="bg-red-600/10 px-3 py-1 rounded-full border border-red-600/20">
-            <span className="text-[9px] text-red-500 uppercase tracking-[0.2em] font-black">Conteúdo Patrocinado</span>
-          </div>
-          <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-medium">Parceiro Oficial AngoChat</p>
+        {/* Loader/Placeholder overlay */}
+        <div className="absolute inset-0 -z-10 flex flex-col items-center justify-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-full border-2 border-dashed border-zinc-800 flex items-center justify-center">
+                <div className="w-8 h-8 bg-zinc-900 rounded-lg animate-pulse"></div>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700">A Carregar Anúncio</span>
         </div>
       </div>
       
+      {/* Footer Info */}
+      <div className="absolute bottom-32 left-0 w-full px-6 flex flex-col items-center gap-2 z-10">
+        <p className="text-[9px] text-zinc-500 uppercase tracking-[0.25em] font-black drop-shadow-md">Parceiro Oficial AngoChat</p>
+      </div>
+      
       {/* Interaction Hints */}
-      <div className="absolute bottom-24 left-0 w-full flex flex-col items-center gap-2 opacity-30 select-none pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-white"><path d="m18 15-6-6-6 6"/></svg>
-        <span className="text-[8px] uppercase tracking-widest font-black text-white">Desliza para continuar</span>
+      <div className="absolute bottom-16 left-0 w-full flex flex-col items-center gap-2 opacity-50 select-none pointer-events-none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce text-white/40"><path d="m18 15-6-6-6 6"/></svg>
+        <span className="text-[9px] uppercase tracking-[0.2em] font-black text-white/40">Desliza para continuar</span>
       </div>
     </div>
   );
