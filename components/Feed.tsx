@@ -5,7 +5,6 @@ import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
-import NativeAdItem from './NativeAdItem';
 import { appCache } from '../services/cache';
 import { InAppBrowser } from '@awesome-cordova-plugins/in-app-browser';
 
@@ -178,8 +177,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         entries.forEach((entry) => {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
-            // Trigger ad every 12 videos (index 11, 23, etc - 0-based)
-            if (!isNaN(index) && (index + 1) % 12 === 0) {
+            // Trigger ad every 5 videos (index 4, 9, 14, etc - 0-based)
+            if (!isNaN(index) && (index + 1) % 5 === 0) {
               triggerAd(index);
             }
           }
@@ -562,27 +561,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
       <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post, index) => (
-          <React.Fragment key={post.id}>
-            <div className="feed-item relative h-full w-full" data-index={index}>
-              <PostCard 
-                post={post} 
-                metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-                onUpdateMetadata={handleUpdateMetadata}
-                onNavigateToProfile={onNavigateToProfile} 
-                isMuted={isMuted}
-                onToggleMute={toggleMute}
-                onRequireAuth={onRequireAuth}
-                onViewStories={onViewStories}
-                onJoinLive={onJoinLive}
-                isPaused={isPaused}
-              />
-            </div>
-            
-            {/* Inject Native Ad every 8 videos */}
-            {(index + 1) % 8 === 0 && (
-              <NativeAdItem />
-            )}
-          </React.Fragment>
+          <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
+            <PostCard 
+              post={post} 
+              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
+              onUpdateMetadata={handleUpdateMetadata}
+              onNavigateToProfile={onNavigateToProfile} 
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              onRequireAuth={onRequireAuth}
+              onViewStories={onViewStories}
+              onJoinLive={onJoinLive}
+              isPaused={isPaused}
+            />
+          </div>
         ))}
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
