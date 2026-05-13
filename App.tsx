@@ -609,7 +609,7 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && (
-        <nav className="h-[76px] shrink-0 border-t border-zinc-900/50 flex items-center justify-around bg-black/95 backdrop-blur-2xl z-[100] relative pb-5 px-2">
+        <nav className="min-h-[85px] shrink-0 border-t border-zinc-900/50 flex items-center justify-around bg-black/95 backdrop-blur-2xl z-[100] relative pb-[max(1.25rem,env(safe-area-inset-bottom))] px-2">
           <button 
             onClick={handleGoHome}
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}

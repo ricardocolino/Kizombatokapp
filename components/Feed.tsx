@@ -177,8 +177,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         entries.forEach((entry) => {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
-            // Trigger ad every 5 videos (index 4, 9, 14, etc - 0-based)
-            if (!isNaN(index) && (index + 1) % 5 === 0) {
+            // Trigger ad every 12 videos (index 11, 23, etc - 0-based)
+            if (!isNaN(index) && (index + 1) % 12 === 0) {
               triggerAd(index);
             }
           }
