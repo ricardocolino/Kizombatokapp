@@ -554,7 +554,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const handleCopyLink = () => {
     const link = `${window.location.origin}/post/${post.id}`;
     navigator.clipboard.writeText(link);
-    alert('Link copiado para a área de transferência!');
+    alert(t('Link copied'));
   };
 
   const handleDownload = async () => {
@@ -570,12 +570,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch {
-      alert('Erro ao descarregar o vídeo. Tenta novamente.');
+      alert(t('Error downloading video'));
     }
   };
 
   const handleReport = async () => {
-    const reason = prompt('Por que queres denunciar este vídeo?');
+    const reason = prompt(t('Report reason prompt'));
     if (!reason) return;
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -591,15 +591,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     });
 
     if (!error) {
-      alert('Denúncia enviada. A nossa equipa irá analisar o vídeo.');
+      alert(t('Report sent review'));
     } else {
-      alert('Denúncia enviada com sucesso.');
+      alert(t('Report sent success'));
     }
   };
 
   const handleSocialShare = (platform: string) => {
     const url = encodeURIComponent(`${window.location.origin}/post/${post.id}`);
-    const text = encodeURIComponent(`Olha este vídeo no AngoChat!`);
+    const text = encodeURIComponent(t('Check this video out'));
     let shareUrl = '';
 
     switch (platform) {
@@ -625,7 +625,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
 
     if (session.user.id === post.user_id) {
-      alert('Não podes enviar presentes a ti mesmo!');
+      alert(t('Cannot gift self'));
       return;
     }
 
@@ -640,18 +640,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       if (error) {
         if (error.message.includes('insufficient balance')) {
-          alert('Não tens AngoCoins suficientes! Carrega o teu saldo no perfil.');
+          alert(t('Insufficient AngoCoins'));
         } else {
           throw error;
         }
       } else {
-        alert(`Enviaste ${amount} AngoCoins para ${post.profiles?.name || post.profiles?.username}! 🔥`);
+        alert(t('Sent gifts message', { amount, name: post.profiles?.name || post.profiles?.username }));
         setShowGifts(false);
       }
     } catch (err: unknown) {
       console.error("Erro ao enviar presente:", err);
-      const errorMsg = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Erro desconhecido');
-      alert(`Erro ao enviar presente: ${errorMsg}`);
+      const errorMsg = err instanceof Error ? err.message : (typeof err === 'string' ? err : t('Unknown error'));
+      alert(`${t('Error sending gift')}: ${errorMsg}`);
     } finally {
       setSendingGift(false);
     }
@@ -999,7 +999,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               {comments.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 opacity-30 grayscale">
                   <MessageCircle size={48} className="text-zinc-300 mb-4" />
-                  <p className="text-xs uppercase font-black tracking-[0.3em] text-zinc-400">Ainda não há comentários...</p>
+                  <p className="text-xs uppercase font-black tracking-[0.3em] text-zinc-400">{t('No comments yet')}</p>
                 </div>
               )}
             </div>
@@ -1022,7 +1022,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Adicionar comentário..."
+                    placeholder={t('Add comment placeholder')}
                     className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400"
                   />
                 </div>
@@ -1073,7 +1073,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <div className="w-12 h-12 bg-zinc-800 rounded-2xl flex items-center justify-center text-white group-active:scale-90 transition-transform">
                   <Link size={24} />
                 </div>
-                <span className="text-[9px] font-black text-zinc-500 uppercase">Copiar</span>
+                <span className="text-[9px] font-black text-zinc-500 uppercase">{t('Copy')}</span>
               </button>
             </div>
 

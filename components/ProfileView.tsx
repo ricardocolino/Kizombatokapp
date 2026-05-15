@@ -411,10 +411,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       
       await fetchProfile();
       setShowWalletModal(false);
-      alert("Carteira USDT (BEP-20) guardada com sucesso! 🇦🇴🚀");
+      alert(t('Wallet saved success'));
     } catch (err) {
       console.error("Erro ao guardar carteira:", err);
-      alert("Erro ao guardar carteira. Tenta de novo!");
+      alert(t('Error saving wallet'));
     } finally {
       setSaving(false);
     }
@@ -425,17 +425,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     const amountUSD = amountCoins / 100;
 
     if (amountCoins <= 0) {
-      alert("Não tens saldo suficiente para levantar.");
+      alert(t('Insufficient balance withdraw'));
       return;
     }
 
     if (amountUSD < 1) {
-      alert("O valor mínimo para levantamento via USDT (BEP-20) é $1.00 USD (100 AngoCoins).");
+      alert(t('Min withdraw amount'));
       return;
     }
     
     if (!profile?.wallet_address) {
-      alert("Precisas de cadastrar a tua carteira primeiro!");
+      alert(t('Register wallet first'));
       setShowWalletModal(true);
       return;
     }
@@ -455,7 +455,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       if (countError) throw countError;
 
       if (count !== null && count > 0) {
-        alert("Apenas podes realizar um levantamento por dia. Tenta de novo amanhã! 🇦🇴⏳");
+        alert(t('One withdraw per day'));
         setShowWithdrawModal(false);
         return;
       }
@@ -484,10 +484,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
       await fetchProfile();
       setShowWithdrawModal(false);
-      alert("Pedido de levantamento enviado com sucesso! A administração irá processar o teu pagamento em breve. 🇦🇴💰");
+      alert(t('Withdraw success message'));
     } catch (err) {
       console.error("Erro ao processar levantamento:", err);
-      alert("Erro ao processar levantamento. Tenta de novo!");
+      alert(t('Error processing withdraw'));
     } finally {
       setSaving(false);
     }
@@ -502,7 +502,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      setEditError('A foto é muito pesada! Máximo 2MB.');
+      setEditError(t('Photo too heavy'));
       return;
     }
 
@@ -516,7 +516,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       const publicUrl = await uploadToR2(file, folder, fileName);
       setEditForm(prev => ({ ...prev, avatar_url: publicUrl }));
     } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : 'Erro ao carregar a foto.');
+      setEditError(err instanceof Error ? err.message : t('Error uploading photo'));
     } finally {
       setSaving(false);
       if (e.target) e.target.value = '';
@@ -529,7 +529,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     </div>
   );
 
-  if (!profile) return <div className="p-20 text-center text-zinc-600 uppercase font-black tracking-widest text-xs">Perfil não encontrado.</div>;
+  if (!profile) return <div className="p-20 text-center text-zinc-600 uppercase font-black tracking-widest text-xs">{t('Profile not found')}</div>;
 
   const currentGridData = activeTab === 'posts' ? userPosts : repostedPosts;
 
@@ -942,7 +942,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               src={iframeUrl} 
               onLoad={() => setIframeLoading(false)}
               className="w-full h-full border-none"
-              title="Carregar Angocoins"
+              title={t('Charge AngoCoins')}
               allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
               sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
             />
@@ -1137,7 +1137,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest">{t('Configure Wallet')}</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">USDT (Rede BEP-20)</p>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">USDT ({t('Network')} BEP-20)</p>
                 </div>
                 <button onClick={() => setShowWalletModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
@@ -1149,11 +1149,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   type="text" 
                   value={newWalletAddress}
                   onChange={(e) => setNewWalletAddress(e.target.value)}
-                  placeholder="Endereço BEP-20"
+                  placeholder={t('Destination Address') + " (BEP-20)"}
                   className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300"
                 />
                 <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed">
-                  ⚠️ Certifica-te que o endereço é da rede BEP-20.
+                  {t('BEP20 Warning')}
                 </p>
               </div>
 
@@ -1203,13 +1203,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                       <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/5">
                         <Wallet size={20} strokeWidth={1.5} />
                       </div>
-                      <span className="text-sm font-medium">USDT (Rede BEP-20)</span>
+                      <span className="text-sm font-medium">USDT ({t('Network')} BEP-20)</span>
                     </div>
                     
                     <div className="space-y-2 pt-2 border-t border-zinc-100 mt-2">
                       <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')}</p>
                       <p className="text-sm font-medium text-black break-all">
-                        {profile?.wallet_address || 'Não configurado'}
+                        {profile?.wallet_address || t('Not configured')}
                       </p>
                       {!profile?.wallet_address && (
                         <button 
@@ -1237,7 +1237,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 </button>
                 {(profile?.redeemable_balance || 0) < 100 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
-                    Mínimo necessário: 100 AngoCoins ($1.00 USD)
+                    {t('Min required')}
                   </p>
                 )}
               </div>

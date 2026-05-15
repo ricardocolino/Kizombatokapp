@@ -211,7 +211,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
             <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">A Carregar</span>
+            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t('Loading')}</span>
           </div>
         ) : (
           <div className="flex flex-col">

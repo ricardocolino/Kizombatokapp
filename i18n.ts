@@ -146,7 +146,51 @@ const resources = {
       "Yes, Leave Now": "Yes, Leave Now",
       "Stay in group": "Stay in group",
       "The vibe starts here": "The vibe starts here 🇦🇴",
-      "Secure Payment": "Secure Payment"
+      "Secure Payment": "Secure Payment",
+      "Creator Support": "Creator Support",
+      "Profile not found": "Profile not found",
+      "Please login to follow": "Please login to follow this video",
+      "Invoice created message": "Invoice created! Complete the payment in the tab that opened. Your balance will be updated automatically once the payment is confirmed by the USDT network.",
+      "Error processing deposit": "Error processing deposit",
+      "Wallet saved success": "USDT Wallet (BEP-20) saved successfully! 🇦🇴🚀",
+      "Error saving wallet": "Error saving wallet. Try again!",
+      "Insufficient balance withdraw": "You don't have enough balance to withdraw.",
+      "Min withdraw amount": "Minimum withdrawal amount via USDT (BEP-20) is $1.00 USD (100 AngoCoins).",
+      "Register wallet first": "You need to register your wallet first!",
+      "One withdraw per day": "You can only make one withdrawal per day. Try again tomorrow! 🇦🇴⏳",
+      "Withdraw success message": "Withdrawal request sent successfully! The administration will process your payment soon. 🇦🇴💰",
+      "Error processing withdraw": "Error processing withdrawal. Try again!",
+      "Photo too heavy": "Photo is too heavy! Maximum 2MB.",
+      "Error uploading photo": "Error uploading photo.",
+      "BEP20 Warning": "⚠️ Make sure the address is on the BEP-20 network.",
+      "Not configured": "Not configured",
+      "Min required": "Minimum required: 100 AngoCoins ($1.00 USD)",
+      "Wait": "Wait...",
+      "Browser closed": "Browser already closed",
+      "Close in": "Close in",
+      "Closing": "Closing...",
+      "Error loading video connection": "Error loading videos. Check your connection.",
+      "No comments yet": "No comments yet...",
+      "Add comment placeholder": "Add a comment...",
+      "Link copied": "Link copied to clipboard!",
+      "Error downloading video": "Error downloading video. Try again.",
+      "Report reason prompt": "Why do you want to report this video?",
+      "Report sent review": "Report sent. Our team will review the video.",
+      "Report sent success": "Report sent successfully.",
+      "Check this video out": "Check out this video on AngoChat!",
+      "Cannot gift self": "You cannot send gifts to yourself!",
+      "Insufficient AngoCoins": "Not enough AngoCoins! Top up your balance in your profile.",
+      "Send Gift": "Send Gift",
+      "Support creator coins": "Support the creator with AngoCoins",
+      "Deduction message": "The amount will be deducted from your balance and sent to the author.",
+      "Network": "Network",
+      "Copy": "Copy",
+      "Sent gifts message": "You sent {{amount}} AngoCoins to {{name}}!",
+      "Error sending gift": "Error sending gift",
+      "Connecting": "Connecting...",
+      "Insufficient balance": "Insufficient balance!",
+      "Recharge Coins": "Recharge Coins",
+      "Live from": "Live from {{name}}"
     }
   },
   pt: {
@@ -296,7 +340,51 @@ const resources = {
       "Yes, Leave Now": "Sim, Sair Agora",
       "Stay in group": "Ficar na Banda",
       "The vibe starts here": "A vibe de Angola começa aqui 🇦🇴",
-      "Secure Payment": "Pagamento Seguro"
+      "Secure Payment": "Pagamento Seguro",
+      "Creator Support": "Apoio ao Criador",
+      "Profile not found": "Perfil não encontrado",
+      "Please login to follow": "Faz login para seguires este vídeo!",
+      "Invoice created message": "Fatura criada! Completa o pagamento no separador que abriu. O teu saldo será atualizado automaticamente assim que o pagamento for confirmado pela rede USDT.",
+      "Error processing deposit": "Erro ao processar depósito",
+      "Wallet saved success": "Carteira USDT (BEP-20) guardada com sucesso! 🇦🇴🚀",
+      "Error saving wallet": "Erro ao guardar carteira. Tenta de novo!",
+      "Insufficient balance withdraw": "Não tens saldo suficiente para levantar.",
+      "Min withdraw amount": "O valor mínimo para levantamento via USDT (BEP-20) é $1.00 USD (100 AngoCoins).",
+      "Register wallet first": "Precisas de cadastrar a tua carteira primeiro!",
+      "One withdraw per day": "Apenas podes realizar um levantamento por dia. Tenta de novo amanhã! 🇦🇴⏳",
+      "Withdraw success message": "Pedido de levantamento enviado com sucesso! A administração irá processar o teu pagamento em breve. 🇦🇴💰",
+      "Error processing withdraw": "Erro ao processar levantamento. Tenta de novo!",
+      "Photo too heavy": "A foto é muito pesada! Máximo 2MB.",
+      "Error uploading photo": "Erro ao carregar a foto.",
+      "BEP20 Warning": "⚠️ Certifica-te que o endereço é da rede BEP-20.",
+      "Not configured": "Não configurado",
+      "Min required": "Mínimo necessário: 100 AngoCoins ($1.00 USD)",
+      "Wait": "Aguarda...",
+      "Browser closed": "Browser já fechado",
+      "Close in": "Fechar em",
+      "Closing": "A fechar...",
+      "Error loading video connection": "Erro ao carregar os vídeos. Verifica a tua ligação.",
+      "No comments yet": "Ainda não há comentários...",
+      "Add comment placeholder": "Adicionar comentário...",
+      "Link copied": "Link copiado para a área de transferência!",
+      "Error downloading video": "Erro ao descarregar o vídeo. Tenta novamente.",
+      "Report reason prompt": "Por que queres denunciar este vídeo?",
+      "Report sent review": "Denúncia enviada. A nossa equipa irá analisar o vídeo.",
+      "Report sent success": "Denúncia enviada com sucesso.",
+      "Check this video out": "Olha este vídeo no AngoChat!",
+      "Cannot gift self": "Não podes enviar presentes a ti mesmo!",
+      "Insufficient AngoCoins": "Não tens AngoCoins suficientes! Carrega o teu saldo no perfil.",
+      "Send Gift": "Enviar Presente",
+      "Support creator coins": "Apoia o criador com AngoCoins",
+      "Deduction message": "O valor será descontado do teu saldo e enviado para o autor.",
+      "Network": "Rede",
+      "Copy": "Copiar",
+      "Sent gifts message": "Enviaste {{amount}} AngoCoins para {{name}}!",
+      "Error sending gift": "Erro ao enviar presente",
+      "Connecting": "Conectando...",
+      "Insufficient balance": "Saldo insuficiente!",
+      "Recharge Coins": "Recarregar Moedas",
+      "Live from": "Live de {{name}}"
     }
   },
   es: {
@@ -338,7 +426,13 @@ const resources = {
       "No posts yet": "Aún no hay publicaciones",
       "No reposts yet": "Aún no hay republicaciones",
       "Edit Profile Header": "Editar Perfil",
-      "Save Changes": "Guardar cambios"
+      "Save Changes": "Guardar cambios",
+      "Sent gifts message": "¡Enviaste {{amount}} AngoCoins a {{name}}!",
+      "Error sending gift": "Error al enviar regalo",
+      "Connecting": "Conectando...",
+      "Insufficient balance": "¡Saldo insuficiente!",
+      "Recharge Coins": "Recargar Monedas",
+      "Live from": "Live de {{name}}"
     }
   },
   fr: {
@@ -380,7 +474,13 @@ const resources = {
       "No posts yet": "Pas encore de publications",
       "No reposts yet": "Pas encore de republications",
       "Edit Profile Header": "Modifier le profil",
-      "Save Changes": "Enregistrer les modifications"
+      "Save Changes": "Enregistrer les modifications",
+      "Sent gifts message": "Vous avez envoyé {{amount}} AngoCoins à {{name}} !",
+      "Error sending gift": "Erreur lors de l'envoi du cadeau",
+      "Connecting": "Connexion...",
+      "Insufficient balance": "Solde insuffisant !",
+      "Recharge Coins": "Recharger des pièces",
+      "Live from": "Live de {{name}}"
     }
   },
   ru: {
@@ -422,7 +522,13 @@ const resources = {
       "No posts yet": "Пока нет постов",
       "No reposts yet": "Пока нет репостов",
       "Edit Profile Header": "Редактировать профиль",
-      "Save Changes": "Сохранить изменения"
+      "Save Changes": "Сохранить изменения",
+      "Sent gifts message": "Вы отправили {{amount}} AngoCoins пользователю {{name}}!",
+      "Error sending gift": "Ошибка при отправке подарка",
+      "Connecting": "Подключение...",
+      "Insufficient balance": "Недостаточно средств!",
+      "Recharge Coins": "Пополнить баланс",
+      "Live from": "Прямой эфир от {{name}}"
     }
   },
   zh: {
@@ -464,7 +570,13 @@ const resources = {
       "No posts yet": "暂无贴子",
       "No reposts yet": "暂无转发",
       "Edit Profile Header": "编辑资料",
-      "Save Changes": "保存更改"
+      "Save Changes": "保存更改",
+      "Sent gifts message": "您向 {{name}} 发送了 {{amount}} 个 AngoCoins！",
+      "Error sending gift": "发送礼物时出错",
+      "Connecting": "连接中...",
+      "Insufficient balance": "余额不足！",
+      "Recharge Coins": "充值金币",
+      "Live from": "由 {{name}} 发起的直播"
     }
   }
 };
@@ -474,6 +586,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
+    lng: 'en',
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -44,6 +45,7 @@ interface RankedUser {
 }
 
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
+  const { t } = useTranslation();
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
@@ -51,7 +53,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
   const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
-  const [status, setStatus] = useState<string>('Conectando...');
+  const [status, setStatus] = useState<string>(t('Connecting'));
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);

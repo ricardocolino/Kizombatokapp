@@ -74,7 +74,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let timerStarted = false;
       let targetFinishTime: number | null = null;
 
-      const options = 'location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=Aguarda...,fullscreen=yes';
+      const options = `location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=${t('Wait')},fullscreen=yes`;
       const browser = InAppBrowser.create(adUrl, '_blank', options);
 
       const loadSubscription = browser.on('loadstop').subscribe(() => {
@@ -88,7 +88,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             try {
               browser.close();
             } catch {
-              console.log("Browser já fechado");
+              console.log(t('Browser closed'));
             }
           }, 20000);
 
@@ -134,16 +134,16 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               document.body.appendChild(timerDiv);
               
               var timeLeft = ${remaining};
-              timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
+              timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
               
               if (window._appTimer) clearInterval(window._appTimer);
               window._appTimer = setInterval(function() {
                 timeLeft--;
                 if (timeLeft <= 0) {
-                  timerDiv.innerText = 'A fechar...';
+                  timerDiv.innerText = '${t('Closing')}';
                   clearInterval(window._appTimer);
                 } else {
-                  timerDiv.innerText = 'Fechar em ' + timeLeft + 's';
+                  timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
                 }
               }, 1000);
             })();
@@ -170,7 +170,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         window.open(adUrl, '_blank');
       });
     }, 30);
-  }, []);
+  }, [t]);
 
   // Intersection Observer to track active post index and trigger ads
   useEffect(() => {
@@ -419,7 +419,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       }
     } catch (error: unknown) {
       console.error('Error fetching posts:', error);
-      const message = error instanceof Error ? error.message : 'Erro ao carregar os vídeos. Verifica a tua ligação.';
+      const message = error instanceof Error ? error.message : t('Error loading video connection');
       setError(message);
     } finally {
       if (!isNextPage) {
@@ -428,7 +428,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         setLoadingMore(false);
       }
     }
-  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter]);
+  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t]);
 
   useEffect(() => {
     // Se o refreshTrigger mudar, limpamos o cache para este feed específico para garantir novo random

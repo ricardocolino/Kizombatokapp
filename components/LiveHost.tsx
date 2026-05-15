@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
 import { Mic, MicOff, X, Users, Heart } from 'lucide-react';
@@ -29,10 +30,11 @@ interface RankedUser {
 }
 
 const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
+  const { t } = useTranslation();
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [liveTitle, setLiveTitle] = useState(`Live de ${currentUser.user_metadata?.username || 'user'}`);
+  const [liveTitle, setLiveTitle] = useState(t('Live from', { name: currentUser.user_metadata?.username || 'user' }));
   const [liveId, setLiveId] = useState<string | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);

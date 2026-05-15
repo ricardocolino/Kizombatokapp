@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { motion } from 'motion/react';
 import { X, Coins } from 'lucide-react';
@@ -32,6 +33,7 @@ const getGiftImage = (icon: string) => {
 };
 
 const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, onGiftSent }) => {
+  const { t } = useTranslation();
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -58,7 +60,7 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
     if (!currentUser || sending) return;
 
     if (balance < gift.price) {
-      alert('Saldo insuficiente!');
+      alert(t('Insufficient balance'));
       return;
     }
 
@@ -79,7 +81,7 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
       setTimeout(() => setSending(null), 500);
     } catch (error: unknown) {
       console.error('Error sending gift:', error);
-      const message = error instanceof Error ? error.message : 'Erro ao enviar presente';
+      const message = error instanceof Error ? error.message : t('Error sending gift');
       alert(message);
       setSending(null);
     }
@@ -98,7 +100,7 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
           <Coins size={16} className="text-amber-500" />
           <span className="text-sm font-black text-amber-700">{balance}</span>
         </div>
-        <h3 className="font-black text-lg">Enviar Presente</h3>
+        <h3 className="font-black text-lg">{t('Send Gift')}</h3>
         <button 
           onClick={onClose}
           className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
@@ -147,10 +149,10 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
           className="w-full py-4 bg-zinc-900 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
           onClick={() => window.location.href = '/profile'}
         >
-          Recarregar Moedas
+          {t('Recharge Coins')}
         </button>
         <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">
-          AngoChat • Apoio ao Criador
+          AngoChat • {t('Creator Support')}
         </p>
       </div>
     </motion.div>
