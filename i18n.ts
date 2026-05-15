@@ -118,7 +118,35 @@ const resources = {
       "No videos here yet": "No videos here yet!",
       "Be the first to shine": "Be the first to shine. Post a video now.",
       "See more videos": "See more videos",
-      "Searching": "Searching..."
+      "Searching": "Searching...",
+      "Reposts": "Reposts",
+      "No posts yet": "No posts yet",
+      "No reposts yet": "No reposts yet",
+      "Edit Profile Header": "Edit Profile",
+      "Save Changes": "Save Changes",
+      "Wallet": "Wallet",
+      "Total Balance": "Total Balance",
+      "Coins": "Coins",
+      "Charge Coins": "Charge Coins",
+      "Payment Method": "Payment Method",
+      "Charge AngoCoins": "Charge AngoCoins",
+      "Choose value": "Choose value",
+      "Total to Pay": "Total to Pay",
+      "Confirm Deposit": "Confirm Deposit",
+      "Full Name": "Full Name",
+      "Biography": "Biography",
+      "Configure Wallet": "Configure Wallet",
+      "Withdraw Earnings": "Withdraw Earnings",
+      "Available for Withdrawal": "Available for Withdrawal",
+      "Selected Method": "Selected Method",
+      "Destination Address": "Destination Address",
+      "Confirm Withdrawal": "Confirm Withdrawal",
+      "Leave the group?": "Leave the group?",
+      "Leave vibe message": "Will you leave the vibe for now? You can come back anytime!",
+      "Yes, Leave Now": "Yes, Leave Now",
+      "Stay in group": "Stay in group",
+      "The vibe starts here": "The vibe starts here 🇦🇴",
+      "Secure Payment": "Secure Payment"
     }
   },
   pt: {
@@ -240,7 +268,35 @@ const resources = {
       "No videos here yet": "Ainda não há vídeos!",
       "Be the first to shine": "Sê o primeiro a brilhar na banda. Publica um vídeo agora.",
       "See more videos": "Ver mais vídeos",
-      "Searching": "Buscando..."
+      "Searching": "Buscando...",
+      "Reposts": "Republicados",
+      "No posts yet": "Ainda não tens posts",
+      "No reposts yet": "Ainda não republicaste nada",
+      "Edit Profile Header": "Editar Perfil",
+      "Save Changes": "Guardar Alterações",
+      "Wallet": "Carteira",
+      "Total Balance": "Balanço Total",
+      "Coins": "Moeda",
+      "Charge Coins": "Carregar moedas",
+      "Payment Method": "Método de Pagamento",
+      "Charge AngoCoins": "Carregar AngoCoins",
+      "Choose value": "Escolhe o valor",
+      "Total to Pay": "Total a Pagar",
+      "Confirm Deposit": "Confirmar Depósito",
+      "Full Name": "Nome Completo",
+      "Biography": "Biografia",
+      "Configure Wallet": "Configurar Carteira",
+      "Withdraw Earnings": "Levantar Ganhos",
+      "Available for Withdrawal": "Disponível para Levantamento",
+      "Selected Method": "Método Selecionado",
+      "Destination Address": "Endereço de Destino",
+      "Confirm Withdrawal": "Confirmar Levantamento",
+      "Leave the group?": "Sair da Banda?",
+      "Leave vibe message": "Vais deixar a vibe de Angola por agora? Podes voltar quando quiseres!",
+      "Yes, Leave Now": "Sim, Sair Agora",
+      "Stay in group": "Ficar na Banda",
+      "The vibe starts here": "A vibe de Angola começa aqui 🇦🇴",
+      "Secure Payment": "Pagamento Seguro"
     }
   },
   es: {
@@ -277,7 +333,12 @@ const resources = {
       "French": "Francés",
       "Spanish": "Español",
       "Russian": "Ruso",
-      "Chinese": "Chino"
+      "Chinese": "Chino",
+      "Reposts": "Republicados",
+      "No posts yet": "Aún no hay publicaciones",
+      "No reposts yet": "Aún no hay republicaciones",
+      "Edit Profile Header": "Editar Perfil",
+      "Save Changes": "Guardar cambios"
     }
   },
   fr: {
@@ -314,7 +375,12 @@ const resources = {
       "French": "Français",
       "Spanish": "Espagnol",
       "Russian": "Russe",
-      "Chinese": "Chinois"
+      "Chinese": "Chinois",
+      "Reposts": "Republications",
+      "No posts yet": "Pas encore de publications",
+      "No reposts yet": "Pas encore de republications",
+      "Edit Profile Header": "Modifier le profil",
+      "Save Changes": "Enregistrer les modifications"
     }
   },
   ru: {
@@ -351,7 +417,12 @@ const resources = {
       "French": "Французский",
       "Spanish": "Испанский",
       "Russian": "Русский",
-      "Chinese": "Китайский"
+      "Chinese": "Китайский",
+      "Reposts": "Репосты",
+      "No posts yet": "Пока нет постов",
+      "No reposts yet": "Пока нет репостов",
+      "Edit Profile Header": "Редактировать профиль",
+      "Save Changes": "Сохранить изменения"
     }
   },
   zh: {
@@ -388,7 +459,12 @@ const resources = {
       "French": "法语",
       "Spanish": "西班牙语",
       "Russian": "俄语",
-      "Chinese": "中文"
+      "Chinese": "中文",
+      "Reposts": "转发",
+      "No posts yet": "暂无贴子",
+      "No reposts yet": "暂无转发",
+      "Edit Profile Header": "编辑资料",
+      "Save Changes": "保存更改"
     }
   }
 };

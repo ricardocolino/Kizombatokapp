@@ -542,7 +542,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       <header className="sticky top-0 bg-white/80 backdrop-blur-md flex items-center justify-between px-4 h-14 border-b border-zinc-100 z-50">
         <div className="flex flex-col">
           <h1 className="font-bold text-sm text-black">{profile.name || profile.username}</h1>
-          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{userPosts.length} Vídeos</span>
+          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{userPosts.length} {t('Posts')}</span>
         </div>
         <div className="flex gap-4">
           {isOwnProfile && (
@@ -711,7 +711,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 className="flex-1 h-10 bg-zinc-100 text-black rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <Wallet size={16} />
-                Saldo
+                {t('Wallet')}
               </button>
             </>
           ) : (
@@ -723,7 +723,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   : 'bg-zinc-100 text-black'
               }`}
             >
-              {isFollowing ? 'A Seguir' : 'Seguir'}
+              {isFollowing ? t('Following') : t('Follow')}
             </button>
           )}
         </div>
@@ -733,7 +733,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
           { id: 'posts', label: t('Posts') }, 
-          { id: 'reposts', label: 'Republicados' }
+          { id: 'reposts', label: t('Reposts') }
         ].map(tab => (
           <button 
             key={tab.id}
@@ -797,9 +797,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   <Box size={24} strokeWidth={1} />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em]">
-                  {activeTab === 'posts' ? 'Nenhum post ainda' : 'Sem republicados'}
+                  {activeTab === 'posts' ? t('No posts yet') : t('No reposts yet')}
                 </p>
-                <p className="text-[9px] text-zinc-200 uppercase">A vibe de Angola começa aqui 🇦🇴</p>
+                <p className="text-[9px] text-zinc-200 uppercase">{t('The vibe starts here')}</p>
               </div>
             )}
           </div>
@@ -817,9 +817,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-xl font-light tracking-tight text-black">Sair da Banda?</h3>
+                <h3 className="text-xl font-light tracking-tight text-black">{t('Leave the group?')}</h3>
                 <p className="text-sm text-zinc-400 font-light leading-relaxed">
-                  Vais deixar a vibe de Angola por agora? Podes voltar quando quiseres!
+                  {t('Leave vibe message')}
                 </p>
               </div>
 
@@ -828,13 +828,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   onClick={handleLogout}
                   className="w-full h-14 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95 shadow-lg shadow-black/5"
                 >
-                  Sim, Sair Agora
+                  {t('Yes, Leave Now')}
                 </button>
                 <button 
                   onClick={() => setShowLogoutModal(false)}
                   className="w-full h-14 bg-zinc-50 text-zinc-400 rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all active:scale-95"
                 >
-                  Ficar na Banda
+                  {t('Stay in group')}
                 </button>
               </div>
             </div>
@@ -853,7 +853,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">Carteira</h1>
+            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">{t('Wallet')}</h1>
             <div className="w-10" /> {/* Spacer */}
           </header>
 
@@ -864,7 +864,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               className="w-full py-12 flex flex-col items-center justify-center border-b border-zinc-100 group active:opacity-70 transition-all"
             >
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Balanço Total (USD)</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Total Balance')} (USD)</span>
                 <ChevronRight size={14} strokeWidth={2.5} className="text-zinc-400" />
               </div>
               <div className="flex items-start">
@@ -883,7 +883,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               >
                 <AngoCoinIcon size={14} />
                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900">
-                  Moeda {profile.balance?.toFixed(0) || '0'} — Carregar moedas
+                  {t('Coins')} {profile.balance?.toFixed(0) || '0'} — {t('Charge Coins')}
                 </span>
                 <ChevronRight size={12} strokeWidth={2.5} className="text-zinc-400 ml-1" />
               </button>
@@ -901,7 +901,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
                   <Settings size={22} strokeWidth={1.2} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Método de Pagamento</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Payment Method')}</span>
               </button>
             </div>
 
@@ -923,7 +923,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <ChevronLeft size={28} />
             </button>
             <div className="flex flex-col">
-              <span className="text-sm font-black uppercase tracking-widest">Pagamento Seguro</span>
+              <span className="text-sm font-black uppercase tracking-widest">{t('Secure Payment')}</span>
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
                 <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">AngoChat Payments</span>
@@ -935,7 +935,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             {iframeLoading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
                 <Loader2 className="text-zinc-900 animate-spin mb-4" size={32} />
-                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest animate-pulse">A carregar gateway...</span>
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest animate-pulse">{t('Loading')}...</span>
               </div>
             )}
             <iframe 
@@ -958,8 +958,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900">Carregar AngoCoins</h3>
-                  <p className="text-[10px] text-zinc-900 font-black uppercase tracking-tighter">Escolhe o valor</p>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900">{t('Charge AngoCoins')}</h3>
+                  <p className="text-[10px] text-zinc-900 font-black uppercase tracking-tighter">{t('Choose value')}</p>
                 </div>
                 <button onClick={() => setShowDeposit(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
@@ -983,7 +983,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
 
               <div className="py-6 border-y border-zinc-100 flex flex-col gap-2">
-                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Total a Pagar</p>
+                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{t('Total to Pay')}</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-3xl font-black text-zinc-900">${(depositAmount / 100).toFixed(2)}</p>
                   <p className="text-xs font-bold text-zinc-900 uppercase">USD</p>
@@ -995,7 +995,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 disabled={saving}
                 className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3"
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar Depósito'}
+                {saving ? <Loader2 size={16} className="animate-spin" /> : t('Confirm Deposit')}
               </button>
             </div>
           </div>
@@ -1013,7 +1013,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400 text-center flex-1 pr-8">Editar Perfil</h2>
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400 text-center flex-1 pr-8">{t('Edit Profile Header')}</h2>
           </div>
 
           <form onSubmit={handleUpdateProfile} className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
@@ -1052,31 +1052,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 onClick={handleAvatarClick}
                 className="text-[10px] font-black uppercase text-red-600 tracking-widest hover:opacity-70 transition-opacity"
               >
-                Alterar Foto
+                {t('Change Photo')}
               </button>
             </div>
 
             <div className="space-y-10">
               <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Nome Completo</label>
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">{t('Full Name')}</label>
                 <input 
                   type="text" 
                   value={editForm.name}
                   onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                  placeholder="Seu nome na banda"
+                  placeholder={t('Name')}
                   className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Username</label>
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">{t('Username')}</label>
                 <div className="relative">
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-300 font-light text-base">@</span>
                   <input 
                     type="text" 
                     value={editForm.username}
                     onChange={(e) => setEditForm({...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})}
-                    placeholder="usuário"
+                    placeholder={t('Username').toLowerCase()}
                     className="w-full bg-white border-b border-zinc-100 pl-6 pr-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200"
                     required
                   />
@@ -1084,11 +1084,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Biografia</label>
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">{t('Biography')}</label>
                 <textarea 
                   value={editForm.bio}
                   onChange={(e) => setEditForm({...editForm, bio: e.target.value.slice(0, 150)})}
-                  placeholder="Uma frase marcante..."
+                  placeholder="Bio..."
                   className="w-full h-24 bg-white border-b border-zinc-100 px-0 py-4 text-sm font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200 resize-none"
                 />
                 <div className="flex justify-end">
@@ -1116,12 +1116,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               {saving ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Atualizando...
+                  {t('Loading')}...
                 </>
               ) : (
                 <>
                   <Check size={16} strokeWidth={1} />
-                  Salvar Alterações
+                  {t('Save Changes')}
                 </>
               )}
             </button>
@@ -1136,7 +1136,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar Carteira</h3>
+                  <h3 className="text-sm font-black uppercase tracking-widest">{t('Configure Wallet')}</h3>
                   <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">USDT (Rede BEP-20)</p>
                 </div>
                 <button onClick={() => setShowWalletModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
@@ -1162,7 +1162,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                 disabled={saving || !newWalletAddress.trim()}
                 className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Guardar Carteira'}
+                {saving ? <Loader2 size={16} className="animate-spin" /> : t('Save')}
               </button>
             </div>
           </div>
@@ -1180,14 +1180,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">Levantar Ganhos</h1>
+            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">{t('Withdraw Earnings')}</h1>
             <div className="w-10" /> {/* Spacer */}
           </header>
 
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             <div className="flex flex-col gap-10 py-8">
               <div className="text-center space-y-2">
-                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Disponível para Levantamento</p>
+                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{t('Available for Withdrawal')}</p>
                 <div className="flex items-baseline justify-center gap-2">
                   <p className="text-6xl font-semibold tracking-tighter leading-none">${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
@@ -1197,7 +1197,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
 
               <div className="space-y-8 pt-10">
                 <div className="space-y-6">
-                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">Método Selecionado</h2>
+                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Selected Method')}</h2>
                   <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/5">
@@ -1207,7 +1207,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                     </div>
                     
                     <div className="space-y-2 pt-2 border-t border-zinc-100 mt-2">
-                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Endereço de Destino</p>
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')}</p>
                       <p className="text-sm font-medium text-black break-all">
                         {profile?.wallet_address || 'Não configurado'}
                       </p>
@@ -1219,7 +1219,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                           }}
                           className="text-[10px] font-black uppercase text-red-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
                         >
-                          Configurar Agora
+                          {t('Configure Wallet')}
                         </button>
                       )}
                     </div>
@@ -1233,7 +1233,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
                   disabled={saving || (profile?.redeemable_balance || 0) < 100}
                   className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar Levantamento'}
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : t('Confirm Withdrawal')}
                 </button>
                 {(profile?.redeemable_balance || 0) < 100 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
