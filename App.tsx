@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
@@ -42,6 +43,7 @@ interface UploadData {
 }
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
   const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
   const [viewingStatsUserId, setViewingStatsUserId] = useState<string | null>(null);
@@ -119,7 +121,7 @@ const App: React.FC = () => {
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessão expirada.');
+      if (!session) throw new Error(t('Session expired'));
       
       const userId = session.user.id;
       const timestamp = Date.now();
@@ -259,7 +261,7 @@ const App: React.FC = () => {
 
     } catch (err: unknown) {
       console.error('Background upload error:', err);
-      const message = err instanceof Error ? err.message : 'Erro no upload';
+      const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
     }
   };
@@ -590,17 +592,17 @@ const App: React.FC = () => {
             </div>
             {uploadTask.error && (
               <div className="bg-red-600 text-[10px] font-black uppercase p-2 text-center text-white">
-                Erro no Upload: {uploadTask.error}
+                {t('Upload error')}: {uploadTask.error}
               </div>
             )}
             {!uploadTask.error && uploadTask.active && (
               <div className="bg-black/80 backdrop-blur-md text-[9px] font-black uppercase p-2 text-center text-white/50 tracking-widest">
-                A carregar mambo... {Math.round(uploadTask.progress)}%
+                {t('Uploading content')} {Math.round(uploadTask.progress)}%
               </div>
             )}
             {uploadTask.progress === 100 && !uploadTask.active && (
               <div className="bg-green-600 text-[9px] font-black uppercase p-2 text-center text-white tracking-widest">
-                Mambo publicado com sucesso! 🔥
+                {t('Content published successfully')}
               </div>
             )}
           </div>
@@ -609,57 +611,57 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && (
-        <nav className="h-[76px] shrink-0 border-t border-zinc-900/50 flex items-center justify-around bg-black/95 backdrop-blur-2xl z-[100] relative pb-5 px-2">
+        <nav className="h-[76px] lg:h-[80px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative pb-5 lg:pb-0 px-2 lg:px-8">
           <button 
             onClick={handleGoHome}
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
-            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600'}`}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Home size={22} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Home</span>
+            <Home size={24} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Home')}</span>
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.DISCOVER); }}
-            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600'}`}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Search size={22} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Explorar</span>
+            <Search size={24} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Discovery')}</span>
           </button>
           <button 
             onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-            className="flex flex-col items-center group"
+            className="flex flex-col items-center group outline-none"
           >
-            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-transform">
+            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:bg-red-600 group-active:scale-90 transition-all border border-white/5">
               <PlusSquare size={22} />
             </div>
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.LIVE); }}
-            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600'}`}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Radio size={22} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Live</span>
+            <Radio size={24} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Live')}</span>
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.INBOX); }}
-            className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600'}`}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
             <div className="relative">
-              <MessageCircle size={22} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
-              {unreadCount > 0 && activeTab !== Tab.INBOX && (
-                <div className="absolute -top-1.5 -right-1.5 bg-red-600 text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black animate-pulse shadow-lg">
+              <MessageCircle size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </div>
               )}
             </div>
-            <span className="text-[9px] font-black uppercase tracking-tighter">Inbox</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Messages')}</span>
           </button>
           <button 
             onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
-            className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600'}`}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Perfil</span>
+            <UserIcon size={24} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Profile')}</span>
           </button>
         </nav>
       )}

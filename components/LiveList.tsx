@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Play, TrendingUp, UserCheck } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
@@ -19,31 +20,35 @@ interface LiveListProps {
   onJoinLive: (liveId: string) => void;
 }
 
-const LiveCard = ({ live, onClick }: { live: Live; onClick: () => void }) => (
-  <div 
-    onClick={onClick}
-    className="flex flex-col items-center gap-2 p-3 cursor-pointer active:scale-95 transition-transform group"
-  >
-    <div className="relative">
-      <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950">
-        <img 
-          src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/200/200`}
-          alt={live.profiles?.username}
-          className="w-full h-full rounded-full object-cover"
-        />
+const LiveCard = ({ live, onClick }: { live: Live; onClick: () => void }) => {
+  const { t } = useTranslation();
+  return (
+    <div 
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 p-3 cursor-pointer active:scale-95 transition-transform group"
+    >
+      <div className="relative">
+        <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950">
+          <img 
+            src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/200/200`}
+            alt={live.profiles?.username}
+            className="w-full h-full rounded-full object-cover"
+          />
+        </div>
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 px-1.5 py-0.5 rounded-sm ring-1 ring-black">
+          <span className="text-[6px] font-black text-white italic tracking-tighter">{t('LiveNow')}</span>
+        </div>
       </div>
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 px-1.5 py-0.5 rounded-sm ring-1 ring-black">
-        <span className="text-[6px] font-black text-white italic tracking-tighter">AO VIVO</span>
+      <div className="text-center mt-1">
+        <p className="text-[10px] font-black text-white truncate max-w-[80px] lowercase tracking-tighter">@{live.profiles?.username}</p>
+        <p className="text-[8px] text-zinc-500 truncate max-w-[90px] font-bold uppercase tracking-tight">{live.title}</p>
       </div>
     </div>
-    <div className="text-center mt-1">
-      <p className="text-[10px] font-black text-white truncate max-w-[80px] lowercase tracking-tighter">@{live.profiles?.username}</p>
-      <p className="text-[8px] text-zinc-500 truncate max-w-[90px] font-bold uppercase tracking-tight">{live.title}</p>
-    </div>
-  </div>
-);
+  );
+};
 
 const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
+  const { t } = useTranslation();
   const [lives, setLives] = useState<Live[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,8 +119,8 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
             <Play size={20} className="text-zinc-800" />
           </div>
           <div>
-            <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Silêncio no Ar</p>
-            <p className="text-[10px] text-zinc-600 mt-1">Ninguém em directo neste momento.</p>
+            <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">{t('Silence on the air')}</p>
+            <p className="text-[10px] text-zinc-600 mt-1">{t('Nobody live at the moment')}</p>
           </div>
         </div>
       ) : (
@@ -125,7 +130,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
             <div className="py-6">
               <div className="px-6 mb-4 flex items-center gap-2">
                 <UserCheck size={14} className="text-red-600" />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Pessoas que Segues</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('People you follow')}</h2>
               </div>
               <div className="grid grid-cols-3 gap-2 px-4">
                 {followingLives.map(live => (
@@ -139,7 +144,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
           <div className="py-6">
             <div className="px-6 mb-4 flex items-center gap-2">
               <TrendingUp size={14} className="text-zinc-600" />
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Sugestões para Ti</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">{t('Suggestions for you')}</h2>
             </div>
             {suggestedLives.length > 0 ? (
               <div className="grid grid-cols-3 gap-2 px-4">
@@ -149,7 +154,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
               </div>
             ) : (
               <div className="px-6 py-4">
-                <p className="text-[10px] text-zinc-700 italic">Sem outras sugestões agora...</p>
+                <p className="text-[10px] text-zinc-700 italic">{t('No other suggestions right now')}</p>
               </div>
             )}
           </div>

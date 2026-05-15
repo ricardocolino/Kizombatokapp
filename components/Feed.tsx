@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
@@ -33,6 +34,7 @@ export interface PostMetadata {
 }
 
 const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger }) => {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -494,13 +496,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
-        <p className="font-bold text-white text-lg mb-2">Eish, algo correu mal!</p>
+        <p className="font-bold text-white text-lg mb-2">{t('Oops, something went wrong')}</p>
         <p className="text-sm mb-8 max-w-xs">{error}</p>
         <button 
           onClick={() => fetchPosts()}
           className="bg-white text-black px-8 py-3 rounded-full font-black uppercase text-xs tracking-widest hover:scale-105 active:scale-95 transition-all"
         >
-          Tentar Novamente
+          {t('Reply')}
         </button>
       </div>
     );
@@ -509,8 +511,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   if (posts.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-black text-zinc-500 p-10 text-center">
-        <p className="font-bold text-lg mb-2">Ainda não há vídeos!</p>
-        <p className="text-sm">Sê o primeiro a brilhar na banda. Publica um vídeo agora.</p>
+        <p className="font-bold text-lg mb-2 text-white">{t('No videos here yet')}</p>
+        <p className="text-sm">{t('Be the first to shine')}</p>
       </div>
     );
   }
@@ -524,21 +526,21 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             onClick={() => setFeedType('following')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
           >
-            A seguir
+            {t('Following')}
             {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
           </button>
           <button 
             onClick={() => setFeedType('for_you')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-110' : 'text-white/60'}`}
           >
-            Para ti
+            {t('For You')}
             {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
           </button>
           <button 
             onClick={() => setFeedType('education')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'education' ? 'text-white scale-110' : 'text-white/60'}`}
           >
-            Educação
+            {t('Education')}
             {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
           </button>
         </div>
@@ -551,13 +553,31 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             <ChevronLeft size={24} />
           </button>
           <div className="flex-1 flex justify-center pr-10">
-            <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg">
-              {feedFilter.type === 'user' && `Vídeos de ${feedFilter.userName}`}
-              {feedFilter.type === 'reposted' && `Vídeos republicados por ${feedFilter.userName}`}
+            <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg text-center px-4">
+              {feedFilter.type === 'user' && `${t('Videos from')} ${feedFilter.userName}`}
+              {feedFilter.type === 'reposted' && `${t('Videos reposted by')} ${feedFilter.userName}`}
             </span>
           </div>
         </div>
       )}
+
+      {/* Desktop Navigation Controls - Only on Laptop/TV */}
+      <div className="hidden lg:flex fixed right-12 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
+        <button 
+          onClick={handlePrevPost}
+          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
+          title={t('Up')}
+        >
+          <ChevronUp size={32} className="group-hover:-translate-y-1 transition-transform" />
+        </button>
+        <button 
+          onClick={handleNextPost}
+          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
+          title={t('Down')}
+        >
+          <ChevronDown size={32} className="group-hover:translate-y-1 transition-transform" />
+        </button>
+      </div>
 
       <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post, index) => (
@@ -588,10 +608,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               {loadingMore ? (
                 <>
                   <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Buscando...
+                  {t('Searching')}
                 </>
               ) : (
-                'Ver mais vídeos'
+                t('See more videos')
               )}
             </button>
           </div>
@@ -610,14 +630,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         <button 
           onClick={handlePrevPost}
           className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-white/20 shadow-2xl"
-          title="Vídeo anterior (Up)"
+          title={t('Up')}
         >
           <ChevronUp size={40} strokeWidth={2.5} />
         </button>
         <button 
           onClick={handleNextPost}
           className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-white/20 shadow-2xl"
-          title="Próximo vídeo (Next)"
+          title={t('Next')}
         >
           <ChevronDown size={40} strokeWidth={2.5} />
         </button>

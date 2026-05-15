@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
@@ -26,6 +27,7 @@ interface CreatePostProps {
 }
 
 const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post' }) => {
+  const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1024,7 +1026,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     <ArrowUp size={24} />
                   )}
                 </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Publicar</span>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Publish')}</span>
               </button>
 
               {/* Trim Button */}
@@ -1036,7 +1038,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
                     <Scissors size={24}/>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Recortar</span>
+                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Trim')}</span>
                 </button>
               )}
 
@@ -1048,7 +1050,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
                   <Settings size={24}/>
                 </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">Ajustes</span>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Settings')}</span>
               </button>
             </div>
 
@@ -1058,7 +1060,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                  <textarea 
                     value={content}
                     onChange={(e) => setContent(e.target.value.slice(0, 200))}
-                    placeholder="Escreve uma legenda..."
+                    placeholder={t('Write a caption')}
                     className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-[20px] p-4 text-sm text-white placeholder:text-white/40 outline-none focus:bg-white/20 transition-all h-24 resize-none shadow-sm"
                  />
                  <div className="absolute bottom-3 right-4 text-[9px] font-black text-white/30 uppercase tracking-widest">
@@ -1080,14 +1082,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               </div>
             )}
 
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-40">
-              <button 
+            <div className="absolute top-10 right-6 flex flex-col gap-6 z-50">
+               <button 
                 onClick={toggleCamera} 
                 disabled={isStarting}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform disabled:opacity-50"
               >
                 <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full text-white border border-white/10"><Flip size={22}/></div>
-                <span className="text-[8px] font-black uppercase text-white shadow-sm">Girar</span>
+                <span className="text-[8px] font-black uppercase text-white shadow-sm">{t('Rotate')}</span>
               </button>
               <button 
                 onClick={toggleFlash}
@@ -1097,7 +1099,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${isFlashOn ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
                   <Zap size={22} fill={isFlashOn ? "currentColor" : "none"} />
                 </div>
-                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>Flash</span>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>{t('Flash')}</span>
               </button>
             </div>
 
@@ -1150,7 +1152,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
                       <ImageIcon size={24} />
                     </div>
-                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Galeria</span>
+                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">{t('Gallery')}</span>
                   </button>
                 </div>
                 
@@ -1174,7 +1176,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     className={`flex flex-col items-center gap-1 transition-all duration-300 ${recordingSeconds > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
                   >
                     <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
-                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">Pronto</span>
+                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">{t('Done')}</span>
                   </button>
                 </div>
               </div>
@@ -1185,19 +1187,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   onClick={() => setUploadType('post')}
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
-                  Vídeo
+                  {t('Video')}
                 </button>
                 <button 
                   onClick={() => setUploadType('story')}
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
-                  Story
+                  {t('Story')}
                 </button>
                 <button 
                   onClick={onStartLive}
                   className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-red-500"
                 >
-                  Live
+                  {t('Live')}
                 </button>
               </div>
             </div>
@@ -1211,20 +1213,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             {error ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
            </div>
            <span className="max-w-[200px] text-center leading-relaxed">
-             {error || (processingVideo ? 'A Processar Vídeo...' : 'A Publicar...')}
+             {error || (processingVideo ? t('Processing Video') : t('Publishing'))}
            </span>
            {error && (
-             <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors">
-               <X size={18}/>
-             </button>
-           )}
+              <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors">
+                <X size={18}/>
+              </button>
+            )}
         </div>
       )}
 
       {showSettings && (
         <div className="absolute inset-0 bg-white z-[200] flex flex-col p-8">
            <div className="flex items-center justify-between mb-12">
-              <h3 className="text-black font-black uppercase tracking-[0.2em] text-sm">Opções do Post</h3>
+              <h3 className="text-black font-black uppercase tracking-[0.2em] text-sm">{t('Post Options')}</h3>
               <button onClick={() => setShowSettings(false)} className="p-2 bg-zinc-100 rounded-full text-black active:scale-90 transition-all">
                 <X size={20} />
               </button>
@@ -1238,8 +1240,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                       <BookOpen size={22} />
                     </div>
                     <div>
-                      <p className="text-[12px] font-black uppercase tracking-widest text-black">Conteúdo Educativo</p>
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Marcar vídeo de educação</p>
+                      <p className="text-[12px] font-black uppercase tracking-widest text-black">{t('Educational Content')}</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{t('Mark as education video')}</p>
                     </div>
                   </div>
                   <button 
@@ -1261,12 +1263,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       {showTrimEditor && (
         <div className="absolute inset-0 bg-white/95 backdrop-blur-xl z-[120] flex flex-col items-center justify-center p-8">
           <div className="w-16 h-1 w-full bg-zinc-200 rounded-full mb-12 max-w-[40px]" />
-          <h3 className="text-black font-black uppercase tracking-[0.3em] text-sm mb-12">Recortar Vídeo</h3>
+          <h3 className="text-black font-black uppercase tracking-[0.3em] text-sm mb-12">{t('Trim Video')}</h3>
           
           <div className="w-full max-w-sm bg-zinc-50 rounded-[32px] p-8 border border-zinc-100 shadow-sm">
             <div className="flex justify-between text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-6">
-              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">Início: {trimStart.toFixed(1)}s</span>
-              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">Fim: {trimEnd.toFixed(1)}s</span>
+              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">{t('Start')}: {trimStart.toFixed(1)}s</span>
+              <span className="bg-white px-3 py-1 rounded-full shadow-sm text-black">{t('End')}: {trimEnd.toFixed(1)}s</span>
             </div>
             
             <div className="flex flex-col gap-8">
@@ -1306,7 +1308,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             onClick={() => setShowTrimEditor(false)}
             className="mt-14 px-16 py-5 bg-black text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] shadow-2xl active:scale-95 transition-all"
           >
-            Concluído
+            {t('Done')}
           </button>
         </div>
       )}

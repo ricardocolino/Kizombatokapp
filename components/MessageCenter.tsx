@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Profile, Story } from '../types';
@@ -27,6 +28,7 @@ interface NotificationItem {
 }
 
 const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateToPost, onNavigateToProfile, onNavigateToCreate, onViewStories }) => {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +169,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
         <div className="px-4 py-6 border-b border-zinc-900/50 bg-zinc-950/20">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
             <TrendingUp size={14} className="text-zinc-600" />
-            Historys de quem segues
+            {t('Stories from people you follow')}
           </h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {/* Add Story Button */}
@@ -178,7 +180,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
               <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
                 <Plus size={20} className="text-zinc-600" />
               </div>
-              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">Teu Story</span>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">{t('Your Story')}</span>
             </div>
             {stories.map(story => (
               <div 
@@ -201,7 +203,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
               </div>
             ))}
             {stories.length === 0 && !loading && (
-              <p className="text-[10px] text-zinc-700 italic flex items-center py-6">Nenhum history disponível agora...</p>
+              <p className="text-[10px] text-zinc-700 italic flex items-center py-6">{t('No stories available')}...</p>
             )}
           </div>
         </div>
@@ -239,9 +241,9 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                       )}
                     </div>
                     <p className="text-[13px] text-zinc-400 truncate">
-                      {notif.type === 'like' && 'Curtiu o teu vídeo'}
-                      {notif.type === 'follow' && 'Começou a seguir-te'}
-                      {notif.type === 'comment' && `Comentou: ${notif.content}`}
+                      {notif.type === 'like' && t('Liked your video')}
+                      {notif.type === 'follow' && t('Started following you')}
+                      {notif.type === 'comment' && `${t('Commented')}: ${notif.content}`}
                       {notif.type === 'message' && notif.content}
                       <span className="mx-1">·</span>
                       {formatTime(notif.created_at)}
@@ -262,7 +264,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
             {notifications.length === 0 && !loading && (
               <div className="py-24 flex flex-col items-center justify-center opacity-20 grayscale text-center">
                  <Bell size={48} className="text-zinc-500 mb-6" />
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Sem novidades</p>
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">{t('No notifications')}</p>
               </div>
             )}
           </div>

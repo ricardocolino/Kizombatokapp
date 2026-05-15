@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Send, Gift as GiftIcon } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
@@ -32,6 +33,7 @@ interface LiveChatProps {
 }
 
 const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, isHost = false }) => {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [notices, setNotices] = useState<{ id: string; content: string; type: 'join' | 'like' }[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -122,8 +124,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       .on('broadcast', { event: 'system_notice' }, (payload) => {
         const id = Date.now().toString() + Math.random().toString();
         const content = payload.payload.type === 'join' 
-          ? `entrou na live`
-          : `curtiu a live`;
+          ? t('Entered the live')
+          : t('Liked the live');
         
         const displayName = payload.payload.name || `@${payload.payload.username}`;
         
@@ -142,7 +144,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [liveId, currentUser]);
+  }, [liveId, currentUser, t]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -216,7 +218,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
             </div>
           </div>
           <div className="flex-1 flex flex-col justify-center">
-            <span className="text-[10px] font-black text-yellow-300/90 uppercase leading-none mb-0.5">Enviou {gift?.name || 'Presente'}</span>
+            <span className="text-[10px] font-black text-yellow-300/90 uppercase leading-none mb-0.5">{t('Sent')} {gift?.name || t('Gifts')}</span>
             <span className="text-xs font-black text-white leading-none drop-shadow-md">
               {msg.profiles?.name || `@${msg.profiles?.username}`}
             </span>
@@ -284,7 +286,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               disabled={isSilenced}
-              placeholder={isSilenced ? "Silenziado" : "Diz algo..."}
+              placeholder={isSilenced ? t('Silenced') : t('Say something')}
               className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0 disabled:opacity-50 font-medium"
             />
           </div>

@@ -1,6 +1,7 @@
 
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
 import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle } from 'lucide-react';
@@ -41,6 +42,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onJoinLive,
   isPaused
 }) {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
@@ -685,7 +687,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               {c.profiles?.name || `@${c.profiles?.username}`}
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
             </span>
-            {isPostAuthor && <span className="text-[8px] bg-black text-white font-black px-1.5 py-0.5 rounded uppercase">Autor</span>}
+            {isPostAuthor && <span className="text-[8px] bg-black text-white font-black px-1.5 py-0.5 rounded uppercase">{t('Author')}</span>}
           </div>
           <p className="text-[14px] text-zinc-800 leading-normal tracking-tight">
             {isReply && <span className="text-zinc-400 font-bold mr-1 text-[12px]">@resposta</span>}
@@ -697,7 +699,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="text-[10px] text-zinc-400 font-black uppercase tracking-widest hover:text-black transition-colors flex items-center gap-1"
             >
               <CornerDownRight size={10} />
-              Responder
+              {t('Reply')}
             </button>
           </div>
         </div>
@@ -863,6 +865,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
+            <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Likes')}</span>
           </button>
 
           <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
@@ -870,13 +873,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
+            <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Comments')}</span>
           </button>
 
           <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
               <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
-            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Partilha</span>
+            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Share')}</span>
           </button>
 
           <button onClick={toggleRepost} className="flex flex-col items-center group">
@@ -896,7 +900,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
                 <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
               </div>
-              <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">Presente</span>
+              <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Gifts')}</span>
             </button>
           )}
         </div>
@@ -952,7 +956,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
                <div className="flex flex-col">
-                 <span className="text-sm font-black tracking-tighter leading-tight">{metadata.commentsCount} Comentários</span>
+                 <span className="text-sm font-black tracking-tighter leading-tight">{metadata.commentsCount} {t('Comments')}</span>
                </div>
                <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="w-10 h-10 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors">
                  <X size={20} strokeWidth={2.5} />
@@ -1041,7 +1045,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => setShowShare(false)} />
           <div className="relative bg-zinc-950 rounded-t-[40px] p-6 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
             <div className="flex items-center justify-between mb-6">
-              <span className="text-sm font-black text-white uppercase tracking-widest">Partilhar Vídeo</span>
+              <span className="text-sm font-black text-white uppercase tracking-widest">{t('Share Video')}</span>
               <button onClick={() => setShowShare(false)} className="p-2 bg-zinc-900 rounded-full text-zinc-400"><X size={20}/></button>
             </div>
 
@@ -1080,14 +1084,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 className="flex items-center justify-center gap-3 bg-zinc-900 hover:bg-zinc-800 py-4 rounded-2xl text-white transition-colors"
               >
                 <Download size={20} />
-                <span className="text-xs font-black uppercase tracking-widest">Descarregar</span>
+                <span className="text-xs font-black uppercase tracking-widest">{t('Download')}</span>
               </button>
               <button 
                 onClick={handleReport}
                 className="flex items-center justify-center gap-3 bg-red-600/10 hover:bg-red-600/20 py-4 rounded-2xl text-red-500 transition-colors border border-red-600/20"
               >
                 <Flag size={20} />
-                <span className="text-xs font-black uppercase tracking-widest">Denunciar</span>
+                <span className="text-xs font-black uppercase tracking-widest">{t('Report')}</span>
               </button>
             </div>
           </div>
@@ -1145,7 +1149,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             {sendingGift && (
               <div className="flex items-center justify-center py-4 gap-3 text-amber-600">
                 <Loader2 size={20} className="animate-spin" />
-                <span className="text-[10px] font-black uppercase tracking-widest">A enviar presente...</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{t('Sending gift')}...</span>
               </div>
             )}
 

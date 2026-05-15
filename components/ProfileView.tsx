@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
@@ -14,6 +15,7 @@ interface ProfileViewProps {
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
+  const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
@@ -75,6 +77,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
   const [editError, setEditError] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProfile = React.useCallback(async () => {
@@ -577,7 +580,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
                 <Settings size={22} strokeWidth={1.5} />
               </div>
-              <span className="text-xl font-light tracking-tight">Editar Perfil</span>
+              <span className="text-xl font-light tracking-tight">{t('Edit Profile')}</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                setShowLanguageMenu(true);
+                setShowMenu(false);
+              }} 
+              className="w-full flex items-center gap-4 text-zinc-800 group"
+            >
+              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Box size={22} strokeWidth={1.5} />
+              </div>
+              <span className="text-xl font-light tracking-tight">{t('Language')}</span>
             </button>
 
             <button
@@ -590,12 +606,56 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
               <div className="opacity-80 group-hover:opacity-100 transition-opacity">
                 <LogOut size={22} strokeWidth={1.5} />
               </div>
-              <span className="text-xl font-light tracking-tight">Terminar Sessão</span>
+              <span className="text-xl font-light tracking-tight">{t('Logout')}</span>
             </button>
           </div>
 
           <div className="p-8 border-t border-zinc-50 mt-auto flex justify-center">
             <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat v2.0</p>
+          </div>
+        </div>
+      )}
+
+      {/* Language Selection View (Full Screen) */}
+      {showLanguageMenu && (
+        <div className="fixed inset-0 z-[1000] bg-white flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="flex items-center justify-between p-6 h-20 shrink-0">
+            <button 
+              onClick={() => setShowLanguageMenu(false)} 
+              className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
+            >
+              <ChevronLeft size={24} strokeWidth={1.5} />
+            </button>
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400 text-center flex-1 pr-8">{t('Language')}</h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="space-y-2">
+              {[
+                { code: 'en', name: t('English') },
+                { code: 'pt', name: t('Portuguese') },
+                { code: 'fr', name: t('French') },
+                { code: 'es', name: t('Spanish') },
+                { code: 'ru', name: t('Russian') },
+                { code: 'zh', name: t('Chinese') }
+              ].map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => {
+                    i18n.changeLanguage(lang.code);
+                    setShowLanguageMenu(false);
+                  }}
+                  className={`w-full flex items-center justify-between p-6 rounded-2xl transition-all ${
+                    i18n.language === lang.code 
+                      ? 'bg-black text-white shadow-xl shadow-black/10' 
+                      : 'bg-zinc-50 text-zinc-900 border border-zinc-100 hover:bg-zinc-100'
+                  }`}
+                >
+                  <span className="text-lg font-light tracking-tight">{lang.name}</span>
+                  {i18n.language === lang.code && <Check size={20} />}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -631,15 +691,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
         <div className="flex gap-10 mt-10">
           <div className="flex flex-col items-center">
             <span className="text-xl font-bold text-black">{stats.following}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Seguindo</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Following_count')}</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xl font-bold text-black">{stats.followers}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Seguidores</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Followers')}</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xl font-bold text-black">{stats.likes}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">Likes</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Likes')}</span>
           </div>
         </div>
 
@@ -672,7 +732,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
       {/* Tabs (Estilo X) */}
       <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
-          { id: 'posts', label: 'Vídeos' }, 
+          { id: 'posts', label: t('Posts') }, 
           { id: 'reposts', label: 'Republicados' }
         ].map(tab => (
           <button 

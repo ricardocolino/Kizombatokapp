@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Loader2 } from 'lucide-react';
 
 const Auth: React.FC = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -79,7 +81,7 @@ const Auth: React.FC = () => {
       <div className="w-full max-w-[360px] flex flex-col items-stretch">
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            {isSignUp ? 'Cria a tua conta' : 'Entra agora'}
+            {isSignUp ? t('Create your account') : t('Sign in now')}
           </h2>
         </div>
 
@@ -88,7 +90,7 @@ const Auth: React.FC = () => {
             <div className="flex flex-col">
               <input
                 type="text"
-                placeholder="Nome de Usuário"
+                placeholder={t('Username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
@@ -100,7 +102,7 @@ const Auth: React.FC = () => {
           <div className="flex flex-col">
             <input
               type="email"
-              placeholder="E-mail"
+              placeholder={t('Email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
@@ -111,7 +113,7 @@ const Auth: React.FC = () => {
           <div className="flex flex-col">
             <input
               type="password"
-              placeholder="Palavra-passe"
+              placeholder={t('Password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
@@ -136,7 +138,7 @@ const Auth: React.FC = () => {
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : (
-                isSignUp ? 'Registar' : 'Seguinte'
+                isSignUp ? t('Sign up') : t('Next')
               )}
             </button>
           </div>
@@ -144,13 +146,13 @@ const Auth: React.FC = () => {
 
         <div className="mt-10 flex flex-col gap-4">
           <p className="text-zinc-500 text-sm">
-            {isSignUp ? 'Já tens uma conta?' : 'Não tens uma conta?'}
+            {isSignUp ? t('Already have an account?') : t('Dont have an account?')}
           </p>
           <button
             onClick={() => setIsSignUp(!isSignUp)}
             className="w-full bg-black border border-zinc-700 text-red-600 py-3 rounded-full font-bold text-base transition-all active:scale-[0.98] hover:bg-zinc-900"
           >
-            {isSignUp ? 'Entrar' : 'Criar conta'}
+            {isSignUp ? t('Sign in') : t('Create account')}
           </button>
         </div>
       </div>

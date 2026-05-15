@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { UserPlus, UserMinus, Shield, Ban, VolumeX, Volume2, User } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -24,6 +25,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
   onClose,
   currentUser
 }) => {
+  const { t } = useTranslation();
   const [isFollowing, setIsFollowing] = useState(false);
   const [isModerator, setIsModerator] = useState(false);
   const [isSilenced, setIsSilenced] = useState(false);
@@ -117,7 +119,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
   const handleBlock = async () => {
     if (!currentUser || !isHost) return;
     
-    if (confirm(`Tens a certeza que queres bloquear @${username} desta live?`)) {
+    if (confirm(`${t('Are you sure you want to block')} @${username}?`)) {
       try {
         // Send a system message to the chat
         await supabase.from('live_messages').insert({
@@ -174,7 +176,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
               {bio}
             </p>
           ) : (
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-8">Utilizador de Angola 🇦🇴</p>
+            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-8">{t('User from Angola')}</p>
           )}
 
           <div className="w-full space-y-3">
@@ -189,9 +191,9 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
                 }`}
               >
                 {isFollowing ? (
-                  <><UserMinus size={16} /> Deixar de Seguir</>
+                  <><UserMinus size={16} /> {t('Unfollow')}</>
                 ) : (
-                  <><UserPlus size={16} /> Seguir</>
+                  <><UserPlus size={16} /> {t('Follow')}</>
                 )}
               </button>
             )}
@@ -205,7 +207,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
                   }`}
                 >
                   <Shield size={20} />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Moderador</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">{t('Moderator')}</span>
                 </button>
                 <button 
                   onClick={handleSilence}
@@ -214,14 +216,14 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
                   }`}
                 >
                   {isSilenced ? <Volume2 size={20} /> : <VolumeX size={20} />}
-                  <span className="text-[8px] font-black uppercase tracking-widest">{isSilenced ? 'Falar' : 'Silenciar'}</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">{isSilenced ? t('Speak') : t('Silenciar')}</span>
                 </button>
                 <button 
                   onClick={handleBlock}
                   className="col-span-2 flex items-center justify-center gap-2 p-4 bg-red-600/10 border border-red-600/20 rounded-2xl text-red-500 hover:bg-red-600/20 transition-all"
                 >
                   <Ban size={18} />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Bloquear Utilizador</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest">{t('Block User')}</span>
                 </button>
               </div>
             )}
@@ -230,7 +232,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
               onClick={onClose}
               className="w-full py-4 text-zinc-500 font-black uppercase tracking-widest text-[10px] hover:text-white transition-colors"
             >
-              Fechar
+              {t('Close')}
             </button>
           </div>
         </div>

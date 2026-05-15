@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
 import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
@@ -11,6 +12,7 @@ interface DiscoveryProps {
 }
 
 const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToProfile }) => {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +136,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               setSearchQuery(e.target.value);
               setDisplayLimit(10); 
             }}
-            placeholder="Pesquisar Kuduro, Vídeo, Semba..." 
+            placeholder={t('Search')} 
             className="w-full bg-zinc-900 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-red-600 transition-all outline-none text-white shadow-inner"
           />
         </div>
@@ -144,7 +146,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         <div className="px-4 py-6 bg-zinc-950/50 border-b border-zinc-900/30">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
             <UserCheck size={14} className="text-zinc-600" />
-            Perfis Encontrados
+            {t('Found Profiles')}
           </h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {users.map(user => (
@@ -174,7 +176,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         <div className="px-4 py-6 border-b border-zinc-900/50">
            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
             <TrendingUp size={14} className="text-zinc-600" />
-            Tendências em Angola
+            {t('Trending')}
           </h3>
         </div>
       )}
@@ -183,7 +185,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         <div className="px-4 py-2">
            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
             <TrendingUp size={14} className="text-zinc-600" />
-            Vídeos Sugeridos
+            {t('Suggested Videos')}
           </h3>
         </div>
       )}
@@ -228,14 +230,14 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       {loading && (
         <div className="flex flex-col items-center justify-center p-12 gap-3">
           <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">A Carregar</span>
+          <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('Loading')}</span>
         </div>
       )}
 
       {posts.length === 0 && !loading && (
         <div className="py-20 text-center text-zinc-600 px-10">
-           <p className="text-sm font-bold">Nenhum vídeo encontrado para &quot;{searchQuery}&quot;.</p>
-           <p className="text-[10px] uppercase mt-2 tracking-widest">Tenta outra pesquisa ou explora as tendências!</p>
+           <p className="text-sm font-bold">{t('No videos found')} &quot;{searchQuery}&quot;.</p>
+           <p className="text-[10px] uppercase mt-2 tracking-widest">{t('Try another search')}</p>
         </div>
       )}
     </div>
