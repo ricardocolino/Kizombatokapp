@@ -48,69 +48,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-
-  const handleAdClick = React.useCallback(async () => {
-    const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
-    
-    const openBrowserWithTimer = async () => {
-      let canClose = false;
-      let timerStarted = false;
-      let targetFinishTime: number | null = null;
-
-      const options = `location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=${t('Wait')},fullscreen=yes`;
-      const browser = InAppBrowser.create(adUrl, '_blank', options);
-
-      const loadSubscription = browser.on('loadstop').subscribe(() => {
-        if (!timerStarted) {
-          timerStarted = true;
-          const finishTime = Date.now() + 20000;
-          setTimeout(async () => {
-            canClose = true;
-            try { browser.close(); } catch { console.log(t('Browser closed')); }
-          }, 20000);
-          targetFinishTime = finishTime;
-        }
-
-        const remaining = targetFinishTime ? Math.max(0, Math.ceil((targetFinishTime - Date.now()) / 1000)) : 20;
-
-        browser.insertCSS({
-          code: `
-            #app-countdown-timer {
-              position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.9);
-              color: white; padding: 10px 18px; border-radius: 25px; font-family: sans-serif;
-              font-size: 14px; font-weight: 800; z-index: 2147483647;
-              border: 1px solid rgba(255, 255, 255, 0.2); pointer-events: none;
-              box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-transform: uppercase;
-            }
-          `
-        });
-
-        browser.executeScript({
-          code: `
-            (function() {
-              var exiting = document.getElementById('app-countdown-timer'); if (exiting) exiting.remove();
-              var timerDiv = document.createElement('div'); timerDiv.id = 'app-countdown-timer'; document.body.appendChild(timerDiv);
-              var timeLeft = ${remaining};
-              timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
-              if (window._appTimer) clearInterval(window._appTimer);
-              window._appTimer = setInterval(function() {
-                timeLeft--;
-                if (timeLeft <= 0) { timerDiv.innerText = '${t('Closing')}'; clearInterval(window._appTimer); } 
-                else { timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's'; }
-              }, 1000);
-            })();
-          `
-        });
-      });
-
-      const exitSubscription = browser.on('exit').subscribe(() => {
-        loadSubscription.unsubscribe(); exitSubscription.unsubscribe();
-        if (!canClose) { openBrowserWithTimer(); }
-      });
-    };
-
-    openBrowserWithTimer().catch(() => window.open(adUrl, '_blank'));
-  }, [t]);
+  const triggeredAdIndices = React.useRef<Set<number>>(new Set());
 
   const handleNextPost = React.useCallback(() => {
     if (scrollContainerRef.current) {
@@ -123,6 +61,147 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       scrollContainerRef.current.scrollBy({ top: -scrollContainerRef.current.clientHeight, behavior: 'smooth' });
     }
   }, []);
+
+  // Function to trigger the ad
+  const triggerAd = React.useCallback(async (index: number) => {
+    if (triggeredAdIndices.current.has(index)) return;
+    triggeredAdIndices.current.add(index);
+
+    const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
+    
+    const openBrowserWithLogic = async () => {
+      let canClose = false;
+      let timerStarted = false;
+      let targetFinishTime: number | null = null;
+
+      const options = `location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=${t('Wait')},fullscreen=yes`;
+      const browser = InAppBrowser.create(adUrl, '_blank', options);
+
+      const loadSubscription = browser.on('loadstop').subscribe(() => {
+        if (!timerStarted) {
+          timerStarted = true;
+          const finishTime = Date.now() + 20000;
+
+          // Start the closure timer only now (after 100% load)
+          setTimeout(async () => {
+            canClose = true;
+            try {
+              browser.close();
+            } catch {
+              console.log(t('Browser closed'));
+            }
+          }, 20000);
+
+          // We need a way to pass values to subsequent loadstop events if they occur
+          // For simplicity, we'll re-calculate remaining time inside each loadstop
+          targetFinishTime = finishTime;
+        }
+
+        const currentTargetFinishTime = targetFinishTime;
+        const remaining = currentTargetFinishTime ? Math.max(0, Math.ceil((currentTargetFinishTime - Date.now()) / 1000)) : 20;
+
+        browser.insertCSS({
+          code: `
+            #app-countdown-timer {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: rgba(0, 0, 0, 0.9);
+              color: white;
+              padding: 10px 18px;
+              border-radius: 25px;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-size: 14px;
+              font-weight: 800;
+              z-index: 2147483647;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              pointer-events: none;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+          `
+        });
+
+        browser.executeScript({
+          code: `
+            (function() {
+              var exiting = document.getElementById('app-countdown-timer');
+              if (exiting) exiting.remove();
+              
+              var timerDiv = document.createElement('div');
+              timerDiv.id = 'app-countdown-timer';
+              document.body.appendChild(timerDiv);
+              
+              var timeLeft = ${remaining};
+              timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
+              
+              if (window._appTimer) clearInterval(window._appTimer);
+              window._appTimer = setInterval(function() {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                  timerDiv.innerText = '${t('Closing')}';
+                  clearInterval(window._appTimer);
+                } else {
+                  timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
+                }
+              }, 1000);
+            })();
+          `
+        });
+      });
+
+      const exitSubscription = browser.on('exit').subscribe(() => {
+        loadSubscription.unsubscribe();
+        exitSubscription.unsubscribe();
+        
+        // Se fechar antes de 20s (aproximado pelo tempo de load ou simplificado por canClose)
+        if (!canClose) {
+          console.log("Fechado prematuramente, reabrindo...");
+          openBrowserWithLogic();
+        }
+      });
+    };
+
+    // Pequeno delay conforme solicitado (0.03s = 30ms)
+    setTimeout(() => {
+      openBrowserWithLogic().catch(err => {
+        console.error("Erro ao abrir ad no browser:", err);
+        window.open(adUrl, '_blank');
+      });
+    }, 30);
+  }, [t]);
+
+  // Intersection Observer to track active post index and trigger ads
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const index = Number(entry.target.getAttribute('data-index'));
+            // Trigger ad every 5 videos (index 4, 9, 14, etc - 0-based)
+            if (!isNaN(index) && (index + 1) % 5 === 0) {
+              triggerAd(index);
+            }
+          }
+        });
+      },
+      { 
+        threshold: 0.6 
+      }
+    );
+
+    // Observe all post items - using a short delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const items = document.querySelectorAll('.feed-item[data-index]');
+      items.forEach(item => observer.observe(item));
+    }, 1000);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [posts, triggerAd]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -483,7 +562,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       )}
 
       {/* Desktop Navigation Controls - Only on Laptop/TV */}
-      <div className="hidden lg:flex fixed right-12 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
+      <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
         <button 
           onClick={handlePrevPost}
           className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
@@ -501,41 +580,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       </div>
 
       <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
-        {posts.slice(0, displayLimit).map((post, index) => {
-          const isSponsored = (index + 1) % 5 === 0;
-          return (
-            <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
-              <PostCard 
-                post={post} 
-                metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-                onUpdateMetadata={handleUpdateMetadata}
-                onNavigateToProfile={onNavigateToProfile} 
-                isMuted={isMuted}
-                onToggleMute={toggleMute}
-                onRequireAuth={onRequireAuth}
-                onViewStories={onViewStories}
-                onJoinLive={onJoinLive}
-                isPaused={isPaused}
-              />
-              {isSponsored && (
-                <div className="absolute bottom-32 left-0 w-full px-5 py-4 pointer-events-none z-50">
-                  <div className="flex flex-col gap-3">
-                    <div className="inline-flex items-center px-2 py-0.5 bg-black/40 backdrop-blur-md rounded border border-white/10 w-fit">
-                      <span className="text-[10px] font-black text-white/90 uppercase tracking-[2px]">{t('Sponsored')}</span>
-                    </div>
-                    <button 
-                      onClick={handleAdClick}
-                      className="pointer-events-auto w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-black uppercase text-xs tracking-[2px] shadow-lg shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 group"
-                    >
-                      {t('See More')}
-                      <ChevronDown size={16} className="-rotate-90 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {posts.slice(0, displayLimit).map((post, index) => (
+          <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
+            <PostCard 
+              post={post} 
+              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
+              onUpdateMetadata={handleUpdateMetadata}
+              onNavigateToProfile={onNavigateToProfile} 
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              onRequireAuth={onRequireAuth}
+              onViewStories={onViewStories}
+              onJoinLive={onJoinLive}
+              isPaused={isPaused}
+            />
+          </div>
+        ))}
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (

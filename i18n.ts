@@ -190,9 +190,7 @@ const resources = {
       "Connecting": "Connecting...",
       "Insufficient balance": "Insufficient balance!",
       "Recharge Coins": "Recharge Coins",
-      "Live from": "Live from {{name}}",
-      "Sponsored": "Sponsored",
-      "See More": "See More"
+      "Live from": "Live from {{name}}"
     }
   },
   pt: {
@@ -386,9 +384,7 @@ const resources = {
       "Connecting": "Conectando...",
       "Insufficient balance": "Saldo insuficiente!",
       "Recharge Coins": "Recarregar Moedas",
-      "Live from": "Live de {{name}}",
-      "Sponsored": "Patrocinado",
-      "See More": "Ver Mais"
+      "Live from": "Live de {{name}}"
     }
   },
   es: {
@@ -436,9 +432,7 @@ const resources = {
       "Connecting": "Conectando...",
       "Insufficient balance": "¡Saldo insuficiente!",
       "Recharge Coins": "Recargar Monedas",
-      "Live from": "Live de {{name}}",
-      "Sponsored": "Patrocinado",
-      "See More": "Ver más"
+      "Live from": "Live de {{name}}"
     }
   },
   fr: {
