@@ -387,8 +387,11 @@ const App: React.FC = () => {
     }
   }, [activeTab]);
 
-  const handleNavigateToProfile = (userId: string) => {
+  const [profileAction, setProfileAction] = useState<string | null>(null);
+
+  const handleNavigateToProfile = (userId: string, action?: string) => {
     setViewProfileId(userId);
+    setProfileAction(action || null);
     setActiveTab(Tab.PROFILE);
   };
 
@@ -503,7 +506,15 @@ const App: React.FC = () => {
         );
       case Tab.PROFILE: {
         const targetId = viewProfileId || user?.id;
-        return <ProfileView userId={targetId} isOwnProfile={targetId === user?.id} onNavigateToPost={handleNavigateToPost} />;
+        return (
+          <ProfileView 
+            userId={targetId} 
+            isOwnProfile={targetId === user?.id} 
+            onNavigateToPost={handleNavigateToPost} 
+            initialAction={profileAction}
+            onClearAction={() => setProfileAction(null)}
+          />
+        );
       }
       default:
         return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} />;
@@ -578,6 +589,7 @@ const App: React.FC = () => {
           liveId={activeLiveId} 
           currentUser={user} 
           onClose={() => setActiveLiveId(null)} 
+          onNavigateToProfile={handleNavigateToProfile}
         />
       )}
 

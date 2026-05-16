@@ -10,7 +10,7 @@ import { Bell, Camera, Hand, TrendingUp, Plus } from 'lucide-react';
 interface MessageCenterProps {
   currentUser: User | null;
   onNavigateToPost: (postId: string) => void;
-  onNavigateToProfile: (userId: string) => void;
+  onNavigateToProfile: (userId: string, action?: string) => void;
   onNavigateToCreate: (isStory?: boolean) => void;
   onViewStories: (userId: string, allUserIds?: string[]) => void;
 }

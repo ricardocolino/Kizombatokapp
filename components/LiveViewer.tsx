@@ -15,6 +15,7 @@ interface LiveViewerProps {
   liveId: string;
   currentUser: User | null;
   onClose: () => void;
+  onNavigateToProfile?: (userId: string, action?: string) => void;
 }
 
 interface LiveData {
@@ -44,7 +45,7 @@ interface RankedUser {
   points: number;
 }
 
-const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose }) => {
+const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, onNavigateToProfile }) => {
   const { t } = useTranslation();
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
@@ -583,6 +584,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose })
             liveId={liveId} 
             currentUser={currentUser} 
             onClose={() => setShowGiftPicker(false)}
+            onNavigateToProfile={onNavigateToProfile}
           />
         )}
       </AnimatePresence>

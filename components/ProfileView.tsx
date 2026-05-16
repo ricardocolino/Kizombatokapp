@@ -11,10 +11,18 @@ import AngoCoinIcon from './AngoCoinIcon';
 interface ProfileViewProps {
   userId: string;
   isOwnProfile?: boolean;
+  initialAction?: string | null;
+  onClearAction?: () => void;
   onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' }) => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavigateToPost }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ 
+  userId, 
+  isOwnProfile, 
+  initialAction, 
+  onClearAction, 
+  onNavigateToPost 
+}) => {
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -64,6 +72,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
     return () => window.removeEventListener('message', handlePaymentMessage);
   }, []);
   
+  useEffect(() => {
+    if (initialAction === 'recharge') {
+      handleOpenExternalDeposit();
+      onClearAction?.();
+    }
+  }, [initialAction, onClearAction]);
+
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({

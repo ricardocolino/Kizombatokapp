@@ -10,7 +10,7 @@ import { appCache } from '../services/cache';
 import { InAppBrowser } from '@awesome-cordova-plugins/in-app-browser';
 
 interface FeedProps {
-  onNavigateToProfile: (userId: string) => void;
+  onNavigateToProfile: (userId: string, action?: string) => void;
   onRequireAuth?: () => void;
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
   onJoinLive?: (liveId: string) => void;

@@ -15,7 +15,7 @@ interface PostCardProps {
   post: Post;
   metadata: PostMetadata;
   onUpdateMetadata: (postId: string, updates: Partial<PostMetadata>) => void;
-  onNavigateToProfile: (userId: string) => void;
+  onNavigateToProfile: (userId: string, action?: string) => void;
   isMuted: boolean;
   onToggleMute: () => void;
   onRequireAuth?: () => void;
@@ -640,7 +640,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       if (error) {
         if (error.message.includes('insufficient balance')) {
-          alert(t('Insufficient AngoCoins'));
+          if (confirm(t('Insufficient balance. Would you like to recharge?'))) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              setShowGifts(false);
+              onNavigateToProfile(session.user.id, 'recharge');
+            }
+          }
         } else {
           throw error;
         }
@@ -1153,7 +1159,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               </div>
             )}
 
-            <div className="bg-zinc-50 p-4 rounded-2xl">
+            <div className="bg-zinc-50 p-4 rounded-2xl flex flex-col gap-4">
+              <button 
+                onClick={() => {
+                  const goToRecharge = async () => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                      setShowGifts(false);
+                      onNavigateToProfile(session.user.id, 'recharge');
+                    }
+                  };
+                  goToRecharge();
+                }}
+                className="w-full py-4 bg-zinc-900 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
+              >
+                {t('Recharge Coins')}
+              </button>
               <p className="text-[9px] text-zinc-500 text-center uppercase tracking-widest font-black leading-relaxed">
                 O valor será descontado do teu saldo e enviado para o autor. <br/>
                 AngoChat • Apoio ao Criador
