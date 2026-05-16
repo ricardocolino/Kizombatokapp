@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
-import { Mic, MicOff, X, Users, Heart } from 'lucide-react';
+import { X, Users, Heart } from 'lucide-react';
 import LiveChat from './LiveChat';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,8 +31,6 @@ interface RankedUser {
 
 const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
   const { t } = useTranslation();
-  const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [liveTitle, setLiveTitle] = useState(t('Live from', { name: currentUser.user_metadata?.username || 'user' }));
   const [liveId, setLiveId] = useState<string | null>(null);
@@ -79,7 +77,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     const initTracks = async () => {
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        setLocalAudioTrack(audioTrack);
         audioTrackRef.current = audioTrack;
         videoTrackRef.current = videoTrack;
 
@@ -359,13 +356,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const toggleMute = () => {
-    if (localAudioTrack) {
-      localAudioTrack.setEnabled(!isMuted);
-      setIsMuted(!isMuted);
-    }
-  };
-
   const handleEndLive = async () => {
     if (window.confirm('Queres mesmo encerrar a live?')) {
       onClose();
@@ -519,16 +509,6 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                 liveId={liveId} 
                 currentUser={currentUser} 
                 isHost={true}
-                extraActions={
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button 
-                      onClick={toggleMute}
-                      className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isMuted ? 'bg-red-600 border-red-600' : 'bg-white/5 backdrop-blur-xl border-white/20'}`}
-                    >
-                      {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
-                    </button>
-                  </div>
-                }
               />
             </div>
           )}
