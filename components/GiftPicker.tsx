@@ -18,6 +18,7 @@ interface GiftPickerProps {
   onClose: () => void;
   onGiftSent?: (gift: Gift) => void;
   onNavigateToProfile?: (userId: string, action?: string) => void;
+  onShowRecharge?: () => void;
 }
 
 const getGiftImage = (icon: string) => {
@@ -33,7 +34,7 @@ const getGiftImage = (icon: string) => {
   return mapping[icon] || null;
 };
 
-const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, onGiftSent, onNavigateToProfile }) => {
+const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, onGiftSent, onNavigateToProfile, onShowRecharge }) => {
   const { t } = useTranslation();
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [balance, setBalance] = useState<number>(0);
@@ -62,8 +63,12 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
 
     if (balance < gift.price) {
       if (confirm(t('Insufficient balance. Would you like to recharge?'))) {
-        onClose();
-        onNavigateToProfile?.(currentUser.id, 'recharge');
+        if (onShowRecharge) {
+          onShowRecharge();
+        } else {
+          onClose();
+          onNavigateToProfile?.(currentUser.id, 'recharge');
+        }
       }
       return;
     }
@@ -152,7 +157,9 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
         <button 
           className="w-full py-4 bg-zinc-900 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
           onClick={() => {
-            if (onNavigateToProfile && currentUser) {
+            if (onShowRecharge) {
+              onShowRecharge();
+            } else if (onNavigateToProfile && currentUser) {
               onClose();
               onNavigateToProfile(currentUser.id, 'recharge');
             } else {

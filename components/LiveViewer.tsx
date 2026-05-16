@@ -6,6 +6,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { X, Users, Heart, Gift as GiftIcon, Plus } from 'lucide-react';
 import LiveChat from './LiveChat';
 import GiftPicker from './GiftPicker';
+import RechargeModal from './RechargeModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from '@supabase/supabase-js';
 
@@ -52,6 +53,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
   const [likesCount, setLikesCount] = useState(0);
   const [isFollowingHost, setIsFollowingHost] = useState(false);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
+  const [showRecharge, setShowRecharge] = useState(false);
   const [ranking, setRanking] = useState<Record<string, RankedUser>>({});
   const [hearts, setHearts] = useState<{ id: number; x: number }[]>([]);
   const [status, setStatus] = useState<string>(t('Connecting'));
@@ -393,7 +395,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+    <div className="fixed inset-0 bg-black z-[150] flex flex-col">
       {/* Video Container */}
       <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center overflow-hidden">
         <div ref={videoRef} className="w-full h-full" />
@@ -585,7 +587,14 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
             currentUser={currentUser} 
             onClose={() => setShowGiftPicker(false)}
             onNavigateToProfile={onNavigateToProfile}
+            onShowRecharge={() => setShowRecharge(true)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRecharge && (
+          <RechargeModal onClose={() => setShowRecharge(false)} />
         )}
       </AnimatePresence>
     </div>

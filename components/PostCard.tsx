@@ -8,6 +8,7 @@ import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, Corner
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
+import RechargeModal from './RechargeModal';
 import { PostMetadata } from './Feed';
 import { parseMediaUrl } from '../services/mediaUtils';
 
@@ -109,6 +110,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showGifts, setShowGifts] = useState(false);
+  const [showRecharge, setShowRecharge] = useState(false);
   const [sendingGift, setSendingGift] = useState(false);
   const [comments, setComments] = useState<EnhancedComment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -641,11 +643,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (error) {
         if (error.message.includes('insufficient balance')) {
           if (confirm(t('Insufficient balance. Would you like to recharge?'))) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              setShowGifts(false);
-              onNavigateToProfile(session.user.id, 'recharge');
-            }
+            setShowGifts(false);
+            setShowRecharge(true);
           }
         } else {
           throw error;
@@ -1162,14 +1161,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div className="bg-zinc-50 p-4 rounded-2xl flex flex-col gap-4">
               <button 
                 onClick={() => {
-                  const goToRecharge = async () => {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (session) {
-                      setShowGifts(false);
-                      onNavigateToProfile(session.user.id, 'recharge');
-                    }
-                  };
-                  goToRecharge();
+                  setShowGifts(false);
+                  setShowRecharge(true);
                 }}
                 className="w-full py-4 bg-zinc-900 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
               >
@@ -1190,6 +1183,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <VolumeX size={20}/>
           </button>
         </div>
+      )}
+
+      {showRecharge && (
+        <RechargeModal onClose={() => setShowRecharge(false)} />
       )}
     </div>
   );
