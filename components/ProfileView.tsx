@@ -1105,7 +1105,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, isOwnProfile, onNavig
             )}
           </form>
 
-          <div className="p-6 bg-white shrink-0">
+          <div className="p-6 pb-24 bg-white shrink-0">
             <button 
               onClick={handleUpdateProfile}
               disabled={saving || !editForm.username}
