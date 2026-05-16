@@ -74,10 +74,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let timerStarted = false;
       let targetFinishTime: number | null = null;
 
-      const options = `location=yes,hidenavigationbuttons=yes,hardwareback=no,closebuttoncaption=${t('Wait')},fullscreen=yes`;
+      const options = `location=no,hidden=yes,hideurlbar=yes,hidenavigationbuttons=yes,hardwareback=no,fullscreen=yes`;
       const browser = InAppBrowser.create(adUrl, '_blank', options);
 
       const loadSubscription = browser.on('loadstop').subscribe(() => {
+        console.log('Ad carregado em background');
         if (!timerStarted) {
           timerStarted = true;
           const finishTime = Date.now() + 20000;
@@ -518,10 +519,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   }
 
   return (
-    <div className="h-full w-full bg-black relative overflow-hidden z-10">
+    <div className="h-full w-full bg-black relative overflow-hidden">
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-[300] pointer-events-none">
+        <div className="absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
           <button 
             onClick={() => setFeedType('following')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
@@ -545,7 +546,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </button>
         </div>
       ) : (
-        <div className="absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-[300] pointer-events-none">
+        <div className="absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
           <button 
             onClick={onClearFilter}
             className="p-2 bg-black/20 backdrop-blur-md rounded-full text-white pointer-events-auto active:scale-90 transition-transform"
@@ -562,7 +563,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       )}
 
       {/* Desktop Navigation Controls - Only on Laptop/TV */}
-      <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[300]">
+      <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
         <button 
           onClick={handlePrevPost}
           className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
