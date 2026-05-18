@@ -934,46 +934,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="flex items-start">
                 <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
                 <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                  {((profile.redeemable_balance || 0) / 100).toFixed(5)}
+                  {(((profile.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}
                 </h1>
               </div>
             </button>
 
-            {/* Ganhos de Conteúdo */}
-            <div className="py-10 border-b border-zinc-100">
-              <div className="flex flex-col items-center gap-6">
-                <div className="flex flex-col items-center text-center gap-2">
-                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Content Earnings')}</h2>
-                  <div className="flex items-center gap-4 mt-2">
-                    <div className="flex flex-col items-center">
-                       <span className="text-sm font-black text-black">{stats.views}</span>
-                       <span className="text-[8px] text-zinc-400 uppercase font-bold">{t('Total Views')}</span>
-                    </div>
-                    <div className="w-[1px] h-4 bg-zinc-100" />
-                    <div className="flex flex-col items-center">
-                       <span className="text-sm font-black text-black">{profile?.claimed_views || 0}</span>
-                       <span className="text-[8px] text-zinc-400 uppercase font-bold">{t('Claimed')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-full bg-zinc-50 rounded-[32px] p-8 border border-zinc-100 flex flex-col items-center gap-4">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{t('Estimated')} (USD)</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-3xl font-black text-zinc-900">
-                        $ {((stats.views - (profile?.claimed_views || 0)) * (VIEW_RATE / 100)).toFixed(5)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button 
-                    disabled={true}
-                    className="w-full h-14 bg-zinc-100 text-zinc-400 rounded-full font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3"
-                  >
-                    <Check size={16} className="text-green-500" />
-                    {t('Automated Earnings')}
-                  </button>
+            {/* Estatísticas de Conteúdo */}
+            <div className="py-10 border-b border-zinc-100 w-full">
+              <div className="flex flex-col items-center gap-2">
+                <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Content Activity')}</h2>
+                <div className="flex items-center gap-3 mt-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100">
+                   <span className="text-sm font-black text-black">{stats.views}</span>
+                   <span className="text-[8px] text-zinc-400 uppercase font-bold tracking-widest">{t('Total Views')}</span>
                 </div>
               </div>
             </div>
