@@ -89,6 +89,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     cover_url: ''
   });
   const [saving, setSaving] = useState(false);
+  const [isClaimingContent, setIsClaimingContent] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -523,9 +524,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     const earningsToClaim = unclaimedViews * VIEW_RATE;
     
     // Se estiver em modo automático e estivermos a carregar algo, ignoramos para evitar conflitos
-    if (silent && saving) return;
+    if (silent && (saving || isClaimingContent)) return;
 
-    setSaving(true);
+    if (silent) {
+      setIsClaimingContent(true);
+    } else {
+      setSaving(true);
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -543,19 +549,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       console.error('Error claiming views:', err);
       if (!silent) alert(t('Error claiming earnings'));
     } finally {
-      setSaving(false);
+      if (silent) {
+        setIsClaimingContent(false);
+      } else {
+        setSaving(false);
+      }
     }
-  }, [profile, stats.views, t, userId, fetchProfile, saving]);
+  }, [profile, stats.views, t, userId, fetchProfile, saving, isClaimingContent]);
 
   // Resgate Automático de Ganhos
   useEffect(() => {
     if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
       const unclaimed = stats.views - (profile.claimed_views || 0);
-      if (unclaimed > 0 && !saving) {
+      if (unclaimed > 0 && !saving && !isClaimingContent) {
         handleClaimEarnings(true);
       }
     }
-  }, [stats.views, profile, isOwnProfile, saving, handleClaimEarnings]);
+  }, [stats.views, profile, isOwnProfile, saving, isClaimingContent, handleClaimEarnings]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
