@@ -170,7 +170,7 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
           {t('Recharge Coins')}
         </button>
         <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">
-          AngoChat • {t('Creator Support')}
+          huzty • {t('Creator Support')}
         </p>
       </div>
     </motion.div>

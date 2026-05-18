@@ -626,7 +626,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           <div className="p-8 border-t border-zinc-50 mt-auto flex justify-center">
-            <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat v2.0</p>
+            <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">huzty v2.0</p>
           </div>
         </div>
       )}
@@ -921,7 +921,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
               <div className="text-center pt-8">
-                <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">AngoChat Security</p>
+                <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">huzty Security</p>
               </div>
             </div>
           </div>
@@ -941,7 +941,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="text-sm font-black uppercase tracking-widest">{t('Secure Payment')}</span>
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
-                <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">AngoChat Payments</span>
+                <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">huzty Payments</span>
               </div>
             </div>
           </header>

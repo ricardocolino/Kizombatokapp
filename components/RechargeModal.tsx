@@ -46,7 +46,7 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
           <span className="text-sm font-black uppercase tracking-widest">{t('Secure Payment')}</span>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
-            <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">AngoChat Payments</span>
+            <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">huzty Payments</span>
           </div>
         </div>
         <button 

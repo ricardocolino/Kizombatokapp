@@ -1170,7 +1170,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               </button>
               <p className="text-[9px] text-zinc-500 text-center uppercase tracking-widest font-black leading-relaxed">
                 O valor será descontado do teu saldo e enviado para o autor. <br/>
-                AngoChat • Apoio ao Criador
+                huzty • Apoio ao Criador
               </p>
             </div>
           </div>
