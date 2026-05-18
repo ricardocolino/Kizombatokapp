@@ -482,7 +482,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             </div>
             <div className="absolute right-4 bottom-24 space-y-6">
               {[1, 2, 3, 4].map(j => (
-                <div key={j} className="w-12 h-12 bg-zinc-800 rounded-full"></div>
+                <div key={j} className="w-12 h-12 bg-zinc-800 rounded-xl"></div>
               ))}
             </div>
           </div>
@@ -494,7 +494,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-black text-zinc-500 p-10 text-center">
-        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6">
+        <div className="w-16 h-16 bg-purple-600/10 rounded-full flex items-center justify-center text-purple-600 mb-6">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
         <p className="font-bold text-white text-lg mb-2">{t('Oops, something went wrong')}</p>
@@ -566,14 +566,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
         <button 
           onClick={handlePrevPost}
-          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
+          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-purple-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
           title={t('Up')}
         >
           <ChevronUp size={32} className="group-hover:-translate-y-1 transition-transform" />
         </button>
         <button 
           onClick={handleNextPost}
-          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-red-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
+          className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-purple-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
           title={t('Down')}
         >
           <ChevronDown size={32} className="group-hover:translate-y-1 transition-transform" />
@@ -621,7 +621,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         {/* Sentinel invisível para carregar internamente os posts já baixados */}
         {displayLimit < posts.length && (
           <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center bg-black">
-            <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
+            <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
           </div>
         )}
       </div>
