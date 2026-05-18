@@ -553,11 +553,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   useEffect(() => {
     if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
       const unclaimedViews = stats.views - (profile.claimed_views || 0);
+      // Resgata se houver qualquer visualização pendente e não estivermos a salvar
       if (unclaimedViews > 0 && !saving) {
         handleClaimEarnings(true);
       }
     }
-  }, [stats.views, profile, isOwnProfile, saving, handleClaimEarnings]);
+  }, [stats.views, profile, profile?.claimed_views, isOwnProfile, saving, handleClaimEarnings]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -936,7 +937,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="flex items-start">
                 <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
                 <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                  {((profile.redeemable_balance || 0) / 100).toFixed(2)}
+                  {((profile.redeemable_balance || 0) / 100).toFixed(5)}
                 </h1>
               </div>
             </button>
