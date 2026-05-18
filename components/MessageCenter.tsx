@@ -177,7 +177,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
               onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
               className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
             >
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-purple-600 transition-colors">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
                 <Plus size={20} className="text-zinc-600" />
               </div>
               <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">{t('Your Story')}</span>
@@ -188,8 +188,8 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                 onClick={() => onViewStories && onViewStories(story.user_id, stories.map(s => s.user_id))}
                 className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
               >
-                <div className="w-14 h-14 rounded-xl p-0.5 border-2 border-purple-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
-                  <div className="w-full h-full rounded-xl overflow-hidden bg-zinc-900">
+                <div className="w-14 h-14 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-zinc-900">
                     {story.profiles?.avatar_url ? (
                       <img src={parseMediaUrl(story.profiles.avatar_url)} className="w-full h-full object-cover" />
                     ) : (
@@ -210,7 +210,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
 
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-3">
-            <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t('Loading')}</span>
           </div>
         ) : (
@@ -223,7 +223,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                   onClick={() => handleNotificationClick(notif)}
                   className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-900/50 transition-colors cursor-pointer"
                 >
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 shrink-0">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-zinc-900 border border-zinc-800 shrink-0">
                     {notif.user?.avatar_url ? (
                       <img src={parseMediaUrl(notif.user.avatar_url)} className="w-full h-full object-cover" />
                     ) : (

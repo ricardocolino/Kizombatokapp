@@ -540,7 +540,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   if (loading) return (
     <div className="h-full flex flex-col items-center justify-center bg-black gap-4">
-      <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
@@ -616,7 +616,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 setShowMenu(false);
                 setShowLogoutModal(true);
               }}
-              className="w-full flex items-center gap-4 text-purple-600 group"
+              className="w-full flex items-center gap-4 text-red-600 group"
             >
               <div className="opacity-80 group-hover:opacity-100 transition-opacity">
                 <LogOut size={22} strokeWidth={1.5} />
@@ -678,7 +678,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Profile Info Section (Centralizado) */}
       <div className="px-4 pb-6 pt-10 flex flex-col items-center text-center">
         <div className="relative">
-          <div className={`w-28 h-28 rounded-xl bg-white p-1 ${hasStories ? 'ring-2 ring-purple-600' : ''}`}>
+          <div className={`w-28 h-28 rounded-full bg-white p-1 ${hasStories ? 'ring-2 ring-red-600' : ''}`}>
             <div 
               onClick={() => hasStories && onNavigateToPost && onNavigateToPost('story:' + userId)}
               className={`w-full h-full rounded-full bg-zinc-50 flex items-center justify-center overflow-hidden border border-zinc-100 ${hasStories ? 'cursor-pointer' : ''}`}
@@ -1065,7 +1065,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <button 
                 type="button"
                 onClick={handleAvatarClick}
-                className="text-[10px] font-black uppercase text-purple-600 tracking-widest hover:opacity-70 transition-opacity"
+                className="text-[10px] font-black uppercase text-red-600 tracking-widest hover:opacity-70 transition-opacity"
               >
                 {t('Change Photo')}
               </button>
@@ -1113,7 +1113,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {editError && (
-              <div className="mt-8 bg-purple-50 border border-purple-100 p-4 rounded-3xl flex items-center gap-3 text-purple-600 text-[10px] font-black uppercase tracking-widest">
+              <div className="mt-8 bg-red-50 border border-red-100 p-4 rounded-3xl flex items-center gap-3 text-red-600 text-[10px] font-black uppercase tracking-widest">
                 <AlertCircle size={16} />
                 {editError}
               </div>

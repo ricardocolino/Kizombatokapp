@@ -151,8 +151,8 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
       >
         <div className="p-8 flex flex-col items-center text-center">
           <div className="relative mb-6">
-            <div className="w-24 h-24 rounded-xl border-4 border-purple-600 p-1 shadow-xl shadow-purple-600/20">
-              <div className="w-full h-full rounded-xl overflow-hidden bg-zinc-800">
+            <div className="w-24 h-24 rounded-full border-4 border-red-600 p-1 shadow-xl shadow-red-600/20">
+              <div className="w-full h-full rounded-full overflow-hidden bg-zinc-800">
                 {avatarUrl ? (
                   <img src={avatarUrl} className="w-full h-full object-cover" alt="" />
                 ) : (
@@ -187,7 +187,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
                 className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
                   isFollowing 
                   ? 'bg-zinc-800 text-white border border-white/10' 
-                  : 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 active:scale-95'
+                  : 'bg-red-600 text-white shadow-lg shadow-red-600/20 active:scale-95'
                 }`}
               >
                 {isFollowing ? (
@@ -220,7 +220,7 @@ const UserActionModal: React.FC<UserActionModalProps> = ({
                 </button>
                 <button 
                   onClick={handleBlock}
-                  className="col-span-2 flex items-center justify-center gap-2 p-4 bg-purple-600/10 border border-purple-600/20 rounded-2xl text-purple-600 hover:bg-purple-600/20 transition-all"
+                  className="col-span-2 flex items-center justify-center gap-2 p-4 bg-red-600/10 border border-red-600/20 rounded-2xl text-red-500 hover:bg-red-600/20 transition-all"
                 >
                   <Ban size={18} />
                   <span className="text-[9px] font-black uppercase tracking-widest">{t('Block User')}</span>

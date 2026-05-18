@@ -398,7 +398,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           <div className="flex items-center gap-2">
             <div className="flex flex-col items-center bg-white/5 backdrop-blur-xl rounded-2xl px-3 py-1.5 border border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-600 rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
                 <span className="text-xs font-black uppercase tracking-widest text-white">LIVE</span>
                 {isStarting && (
                   <>
@@ -409,7 +409,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                     </div>
                     <div className="w-px h-3 bg-white/20 mx-1" />
                     <div className="flex items-center gap-1 text-white/80">
-                      <Heart size={14} fill="currentColor" className="text-purple-600" />
+                      <Heart size={14} fill="currentColor" className="text-red-500" />
                       <span className="text-xs font-bold">{likesCount}</span>
                     </div>
                   </>
@@ -470,11 +470,11 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
           <div className="flex-1 flex flex-col items-center justify-center gap-6 pointer-events-auto">
             <div className="w-full max-w-xs space-y-4">
               {errorLimit ? (
-                <div className="bg-purple-600/20 backdrop-blur-xl border border-purple-600/50 rounded-2xl p-6 text-center text-white space-y-4">
+                <div className="bg-red-600/20 backdrop-blur-xl border border-red-600/50 rounded-2xl p-6 text-center text-white space-y-4">
                   <p className="text-sm font-bold leading-relaxed">{errorLimit}</p>
                   <button 
                     onClick={onClose}
-                    className="w-full bg-purple-600 text-white text-xs font-black uppercase py-3 rounded-xl active:scale-95 transition-transform"
+                    className="w-full bg-red-600 text-white text-xs font-black uppercase py-3 rounded-xl active:scale-95 transition-transform"
                   >
                     Voltar
                   </button>
@@ -486,11 +486,11 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
                     value={liveTitle}
                     onChange={(e) => setLiveTitle(e.target.value)}
                     placeholder="Título da sua live..."
-                    className="w-full bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/40 focus:outline-none focus:border-purple-600 transition-colors shadow-2xl"
+                    className="w-full bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl px-6 py-4 text-white font-bold placeholder:text-white/40 focus:outline-none focus:border-red-600 transition-colors shadow-2xl"
                   />
                   <button 
                     onClick={handleStartAttempt}
-                    className="w-full bg-purple-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-purple-600/20 active:scale-95 transition-transform"
+                    className="w-full bg-red-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-transform"
                   >
                     Começar Live
                   </button>
