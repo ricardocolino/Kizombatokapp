@@ -934,7 +934,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="flex items-start">
                 <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
                 <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                  {((profile.redeemable_balance || 0) / 100).toFixed(2)}
+                  {((profile.redeemable_balance || 0) / 100).toFixed(5)}
                 </h1>
               </div>
             </button>
