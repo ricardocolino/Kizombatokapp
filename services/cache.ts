@@ -4,7 +4,7 @@ class AppCache {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
   private TTL = 5 * 60 * 1000; // 5 minutos de vida útil para cache em memória
-  private readonly PREFIX = 'huzty_';
+  private readonly PREFIX = 'kizombatok_';
 
   static getInstance() {
     if (!AppCache.instance) {
