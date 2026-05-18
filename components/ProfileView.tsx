@@ -522,12 +522,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
     const earningsToClaim = unclaimedViews * VIEW_RATE;
     
-    if (earningsToClaim < 0.001) {
-        if (!silent) {
-          alert(t('Minimum views required', { count: 1 - unclaimedViews }));
-        }
-        return;
-    }
+    if (earningsToClaim <= 0) return;
 
     // Se estiver em modo automático e estivermos a carregar algo, ignoramos para evitar conflitos
     if (silent && saving) return;
@@ -557,8 +552,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   // Resgate Automático de Ganhos
   useEffect(() => {
     if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
-      const unclaimed = stats.views - (profile.claimed_views || 0);
-      if (unclaimed >= 1 && !saving) {
+      const unclaimedViews = stats.views - (profile.claimed_views || 0);
+      if (unclaimedViews > 0 && !saving) {
         handleClaimEarnings(true);
       }
     }
