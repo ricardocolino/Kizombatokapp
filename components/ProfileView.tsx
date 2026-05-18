@@ -509,7 +509,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   const handleClaimEarnings = React.useCallback(async (silent = false) => {
-    if (!profile) return;
+    if (!profile || saving) return;
     
     // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
     const VIEW_RATE = 0.001; 
@@ -521,19 +521,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     const earningsToClaim = unclaimedViews * VIEW_RATE;
-    
     if (earningsToClaim <= 0) return;
-
-    // Se estiver em modo automático e estivermos a carregar algo, ignoramos para evitar conflitos
-    if (silent && saving) return;
 
     setSaving(true);
     try {
+      // Usamos o saldo mais atualizado do perfil para evitar problemas de concorrência
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('redeemable_balance, claimed_views')
+        .eq('id', userId)
+        .single();
+
+      if (!currentProfile) throw new Error('Could not fetch current balance');
+
       const { error } = await supabase
         .from('profiles')
         .update({
-          redeemable_balance: (profile.redeemable_balance || 0) + earningsToClaim,
-          claimed_views: (profile.claimed_views || 0) + unclaimedViews
+          redeemable_balance: (currentProfile.redeemable_balance || 0) + earningsToClaim,
+          claimed_views: (currentProfile.claimed_views || 0) + unclaimedViews
         })
         .eq('id', userId);
 
@@ -551,13 +556,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   // Resgate Automático de Ganhos
   useEffect(() => {
-    if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
-      const unclaimedViews = stats.views - (profile.claimed_views || 0);
-      // Resgata se houver qualquer visualização pendente e não estivermos a salvar
-      if (unclaimedViews > 0 && !saving) {
-        handleClaimEarnings(true);
+    let active = true;
+    
+    const triggerAutoClaim = async () => {
+      if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
+        const unclaimedViews = stats.views - (profile.claimed_views || 0);
+        if (unclaimedViews > 0 && !saving && active) {
+          await handleClaimEarnings(true);
+        }
       }
-    }
+    };
+
+    triggerAutoClaim();
+    
+    return () => { active = false; };
   }, [stats.views, profile, profile?.claimed_views, isOwnProfile, saving, handleClaimEarnings]);
 
   const handleAvatarClick = () => {
@@ -966,7 +978,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className="flex items-center gap-2">
                       <AngoCoinIcon size={18} />
                       <span className="text-3xl font-black text-zinc-900">
-                        {((stats.views - (profile?.claimed_views || 0)) * 0.001).toFixed(3)}
+                        {((stats.views - (profile?.claimed_views || 0)) * 0.001).toFixed(5)}
                       </span>
                     </div>
                   </div>
