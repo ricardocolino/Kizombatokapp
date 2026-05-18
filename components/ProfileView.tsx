@@ -520,16 +520,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    const earningsToClaim = Math.floor(unclaimedViews * VIEW_RATE);
+    const earningsToClaim = unclaimedViews * VIEW_RATE;
     
-    if (earningsToClaim <= 0) {
-        if (!silent) {
-          const required = Math.ceil(1 / VIEW_RATE);
-          alert(t('Minimum views required', { count: required - unclaimedViews }));
-        }
-        return;
-    }
-
     // Se estiver em modo automático e estivermos a carregar algo, ignoramos para evitar conflitos
     if (silent && saving) return;
 
@@ -539,14 +531,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         .from('profiles')
         .update({
           redeemable_balance: (profile.redeemable_balance || 0) + earningsToClaim,
-          claimed_views: (profile.claimed_views || 0) + (Math.floor(earningsToClaim / VIEW_RATE))
+          claimed_views: (profile.claimed_views || 0) + unclaimedViews
         })
         .eq('id', userId);
 
       if (error) throw error;
 
       await fetchProfile();
-      if (!silent) alert(t('Earnings claimed success', { amount: earningsToClaim }));
+      if (!silent) alert(t('Earnings claimed success', { amount: (earningsToClaim / 100).toFixed(5) }));
     } catch (err) {
       console.error('Error claiming views:', err);
       if (!silent) alert(t('Error claiming earnings'));
@@ -559,8 +551,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   useEffect(() => {
     if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
       const unclaimed = stats.views - (profile.claimed_views || 0);
-      // Só tenta resgatar se houver pelo menos 1 AngoCoin completo para ganhar
-      if (unclaimed * VIEW_RATE >= 1 && !saving) {
+      if (unclaimed > 0 && !saving) {
         handleClaimEarnings(true);
       }
     }
@@ -968,11 +959,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
                 <div className="w-full bg-zinc-50 rounded-[32px] p-8 border border-zinc-100 flex flex-col items-center gap-4">
                   <div className="flex flex-col items-center text-center">
-                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{t('Estimated')} (AngoCoins)</span>
+                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{t('Estimated')} (USD)</span>
                     <div className="flex items-center gap-2">
-                      <AngoCoinIcon size={18} />
                       <span className="text-3xl font-black text-zinc-900">
-                        {((stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)}
+                        $ {((stats.views - (profile?.claimed_views || 0)) * (VIEW_RATE / 100)).toFixed(5)}
                       </span>
                     </div>
                   </div>
