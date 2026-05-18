@@ -520,12 +520,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    const earningsToClaim = Math.floor(unclaimedViews * VIEW_RATE);
+    const earningsToClaim = unclaimedViews * VIEW_RATE;
     
-    if (earningsToClaim <= 0) {
+    if (earningsToClaim < 0.001) {
         if (!silent) {
-          const required = Math.ceil(1 / VIEW_RATE);
-          alert(t('Minimum views required', { count: required - unclaimedViews }));
+          alert(t('Minimum views required', { count: 1 - unclaimedViews }));
         }
         return;
     }
@@ -539,7 +538,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         .from('profiles')
         .update({
           redeemable_balance: (profile.redeemable_balance || 0) + earningsToClaim,
-          claimed_views: (profile.claimed_views || 0) + (Math.floor(earningsToClaim / VIEW_RATE))
+          claimed_views: (profile.claimed_views || 0) + unclaimedViews
         })
         .eq('id', userId);
 
