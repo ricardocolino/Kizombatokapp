@@ -511,8 +511,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const handleClaimEarnings = React.useCallback(async (silent = false) => {
     if (!profile) return;
     
-    // Taxa: 1 visualização = 1 AngoCoin ($0.01)
-    const VIEW_RATE = 1; 
+    // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
+    const VIEW_RATE = 0.001; 
     const unclaimedViews = stats.views - (profile.claimed_views || 0);
     
     if (unclaimedViews <= 0) {
@@ -971,7 +971,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className="flex items-center gap-2">
                       <AngoCoinIcon size={18} />
                       <span className="text-3xl font-black text-zinc-900">
-                        {Math.floor((stats.views - (profile?.claimed_views || 0)) * 1)}
+                        {((stats.views - (profile?.claimed_views || 0)) * 0.001).toFixed(3)}
                       </span>
                     </div>
                   </div>
