@@ -508,7 +508,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  const handleClaimEarnings = async () => {
+  const handleClaimEarnings = React.useCallback(async (silent = false) => {
     if (!profile) return;
     
     // Taxa: 1 visualização = 1 AngoCoin ($0.01)
@@ -516,17 +516,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     const unclaimedViews = stats.views - (profile.claimed_views || 0);
     
     if (unclaimedViews <= 0) {
-      alert(t('No earnings to claim'));
+      if (!silent) alert(t('No earnings to claim'));
       return;
     }
 
     const earningsToClaim = Math.floor(unclaimedViews * VIEW_RATE);
     
     if (earningsToClaim <= 0) {
-        const required = Math.ceil(1 / VIEW_RATE);
-        alert(t('Minimum views required', { count: required - unclaimedViews }));
+        if (!silent) {
+          const required = Math.ceil(1 / VIEW_RATE);
+          alert(t('Minimum views required', { count: required - unclaimedViews }));
+        }
         return;
     }
+
+    // Se estiver em modo automático e estivermos a carregar algo, ignoramos para evitar conflitos
+    if (silent && saving) return;
 
     setSaving(true);
     try {
@@ -541,14 +546,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       if (error) throw error;
 
       await fetchProfile();
-      alert(t('Earnings claimed success', { amount: earningsToClaim }));
+      if (!silent) alert(t('Earnings claimed success', { amount: earningsToClaim }));
     } catch (err) {
       console.error('Error claiming views:', err);
-      alert(t('Error claiming earnings'));
+      if (!silent) alert(t('Error claiming earnings'));
     } finally {
       setSaving(false);
     }
-  };
+  }, [profile, stats.views, t, userId, fetchProfile, saving]);
+
+  // Resgate Automático de Ganhos
+  useEffect(() => {
+    if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
+      const unclaimed = stats.views - (profile.claimed_views || 0);
+      if (unclaimed >= 1 && !saving) {
+        handleClaimEarnings(true);
+      }
+    }
+  }, [stats.views, profile, isOwnProfile, saving, handleClaimEarnings]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -962,11 +977,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
 
                   <button 
-                    onClick={handleClaimEarnings}
-                    disabled={saving || Math.floor((stats.views - (profile?.claimed_views || 0)) * 1) <= 0}
-                    className="w-full h-14 bg-black text-white rounded-full font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95"
+                    disabled={true}
+                    className="w-full h-14 bg-zinc-100 text-zinc-400 rounded-full font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3"
                   >
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : t('Claim Now')}
+                    <Check size={16} className="text-green-500" />
+                    {t('Automated Earnings')}
                   </button>
                 </div>
               </div>
