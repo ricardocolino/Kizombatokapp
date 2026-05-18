@@ -28,14 +28,14 @@ const LiveCard = ({ live, onClick }: { live: Live; onClick: () => void }) => {
       className="flex flex-col items-center gap-2 p-3 cursor-pointer active:scale-95 transition-transform group"
     >
       <div className="relative">
-        <div className="w-16 h-16 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950">
+        <div className="w-16 h-16 rounded-full p-0.5 border-2 border-purple-600 bg-zinc-950">
           <img 
             src={live.profiles?.avatar_url || `https://picsum.photos/seed/${live.host_id}/200/200`}
             alt={live.profiles?.username}
             className="w-full h-full rounded-full object-cover"
           />
         </div>
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 px-1.5 py-0.5 rounded-sm ring-1 ring-black">
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-purple-600 px-1.5 py-0.5 rounded-sm ring-1 ring-black">
           <span className="text-[6px] font-black text-white italic tracking-tighter">{t('LiveNow')}</span>
         </div>
       </div>
@@ -103,7 +103,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-black">
-        <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -129,7 +129,7 @@ const LiveList: React.FC<LiveListProps> = ({ currentUser, onJoinLive }) => {
           {followingLives.length > 0 && (
             <div className="py-6">
               <div className="px-6 mb-4 flex items-center gap-2">
-                <UserCheck size={14} className="text-red-600" />
+                <UserCheck size={14} className="text-purple-600" />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('People you follow')}</h2>
               </div>
               <div className="grid grid-cols-3 gap-2 px-4">

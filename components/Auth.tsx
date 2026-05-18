@@ -93,7 +93,7 @@ const Auth: React.FC = () => {
                 placeholder={t('Username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
+                className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
                 required={isSignUp}
               />
             </div>
@@ -105,7 +105,7 @@ const Auth: React.FC = () => {
               placeholder={t('Email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
+              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
               required
             />
           </div>
@@ -116,14 +116,14 @@ const Auth: React.FC = () => {
               placeholder={t('Password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-red-600 outline-none transition-all text-base"
+              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
               required
             />
           </div>
 
           {error && (
             <div className="py-2">
-              <p className="text-red-500 text-sm font-medium">
+              <p className="text-purple-600 text-sm font-medium">
                 {error}
               </p>
             </div>
@@ -150,7 +150,7 @@ const Auth: React.FC = () => {
           </p>
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="w-full bg-black border border-zinc-700 text-red-600 py-3 rounded-full font-bold text-base transition-all active:scale-[0.98] hover:bg-zinc-900"
+            className="w-full bg-black border border-zinc-700 text-purple-600 py-3 rounded-full font-bold text-base transition-all active:scale-[0.98] hover:bg-zinc-900"
           >
             {isSignUp ? t('Sign in') : t('Create account')}
           </button>
