@@ -202,7 +202,7 @@ const StoryStats: React.FC<StoryStatsProps> = ({ userId, onClose }) => {
               {viewers.length > 0 ? viewers.map((view) => (
                 <div key={view.id} className="flex items-center justify-between bg-zinc-800/30 p-3 rounded-xl border border-zinc-800/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 bg-zinc-800">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 bg-zinc-800">
                       {view.profiles?.avatar_url ? (
                         <img src={parseMediaUrl(view.profiles.avatar_url)} className="w-full h-full object-cover" />
                       ) : (

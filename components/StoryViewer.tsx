@@ -227,7 +227,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
       <div className="absolute top-8 left-0 right-0 px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20">
+            <div className="w-8 h-8 rounded-xl overflow-hidden border border-white/20">
               {currentStory.profiles?.avatar_url ? (
                 <img src={parseMediaUrl(currentStory.profiles.avatar_url)} className="w-full h-full object-cover" />
               ) : (
@@ -253,7 +253,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
         
         <div className="flex items-center gap-2">
           {viewError && (
-            <div className="px-3 py-1 bg-red-600/80 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-red-500/50">
+            <div className="px-3 py-1 bg-purple-600/80 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-purple-500/50">
               {viewError}
             </div>
           )}
@@ -297,7 +297,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
       {currentUser && currentStory.user_id !== currentUser.id && (
         <div className="absolute bottom-10 left-0 right-0 px-4 flex justify-center gap-4 z-20">
           {[
-            { icon: <Heart size={24} className="text-red-500 fill-red-500" />, type: '❤️' },
+            { icon: <Heart size={24} className="text-purple-500 fill-purple-500" />, type: '💜' },
             { icon: <Flame size={24} className="text-orange-500 fill-orange-500" />, type: '🔥' },
             { icon: <Laugh size={24} className="text-yellow-500" />, type: '😂' },
             { icon: <Smile size={24} className="text-yellow-500" />, type: '😊' },

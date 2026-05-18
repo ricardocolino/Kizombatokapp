@@ -137,7 +137,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               setDisplayLimit(10); 
             }}
             placeholder={t('Search')} 
-            className="w-full bg-zinc-900 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-red-600 transition-all outline-none text-white shadow-inner"
+            className="w-full bg-zinc-900 border-none rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-purple-600 transition-all outline-none text-white shadow-inner"
           />
         </div>
       </div>
@@ -155,7 +155,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                 onClick={() => onNavigateToProfile && onNavigateToProfile(user.id)}
                 className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
               >
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-zinc-800 bg-zinc-900 group-hover:border-red-600 transition-colors">
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-zinc-800 bg-zinc-900 group-hover:border-purple-600 transition-colors">
                   {user.avatar_url ? (
                     <img src={parseMediaUrl(user.avatar_url)} className="w-full h-full object-cover" />
                   ) : (
@@ -229,7 +229,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
       {loading && (
         <div className="flex flex-col items-center justify-center p-12 gap-3">
-          <div className="w-8 h-8 border-3 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('Loading')}</span>
         </div>
       )}
