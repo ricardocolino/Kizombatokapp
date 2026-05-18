@@ -426,7 +426,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (loadingSession) return (
       <div className="h-full flex items-center justify-center bg-black">
-        <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
 
@@ -598,12 +598,12 @@ const App: React.FC = () => {
           <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
             <div className="h-1 bg-zinc-900 w-full overflow-hidden">
               <div 
-                className={`h-full transition-all duration-300 ${uploadTask.error ? 'bg-red-600' : 'bg-red-600'}`}
+                className={`h-full transition-all duration-300 ${uploadTask.error ? 'bg-purple-600' : 'bg-purple-600'}`}
                 style={{ width: `${uploadTask.progress}%` }}
               />
             </div>
             {uploadTask.error && (
-              <div className="bg-red-600 text-[10px] font-black uppercase p-2 text-center text-white">
+              <div className="bg-purple-600 text-[10px] font-black uppercase p-2 text-center text-white">
                 {t('Upload error')}: {uploadTask.error}
               </div>
             )}
@@ -643,7 +643,7 @@ const App: React.FC = () => {
             onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
             className="flex flex-col items-center group outline-none"
           >
-            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:bg-red-600 group-active:scale-90 transition-all border border-white/5">
+            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:bg-purple-600 group-active:scale-90 transition-all border border-white/5">
               <PlusSquare size={22} />
             </div>
           </button>
@@ -661,7 +661,7 @@ const App: React.FC = () => {
             <div className="relative">
               <MessageCircle size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
               {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </div>
               )}

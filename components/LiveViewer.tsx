@@ -479,7 +479,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
                     <span className="text-[10px] font-bold">{viewerCount}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Heart size={10} fill="currentColor" className="text-red-500" />
+                    <Heart size={10} fill="currentColor" className="text-purple-500" />
                     <span className="text-[10px] font-bold">{likesCount}</span>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
               {currentUser && liveData && liveData.host_id !== currentUser.id && !isFollowingHost && (
                 <button 
                   onClick={handleFollowHost}
-                  className="ml-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all active:scale-90"
+                  className="ml-1 bg-purple-600 hover:bg-purple-700 text-white rounded-full p-1 transition-all active:scale-90"
                 >
                   <Plus size={14} strokeWidth={3} />
                 </button>
@@ -550,7 +550,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
                   </button>
                   <button 
                     onClick={sendHeart}
-                    className="flex-shrink-0 w-9 h-9 bg-red-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-red-600/20"
+                    className="flex-shrink-0 w-9 h-9 bg-purple-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-purple-600/20"
                   >
                     <Heart size={16} fill="currentColor" />
                   </button>
@@ -570,7 +570,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
                 animate={{ opacity: 0, y: -200, x: heart.x, scale: 1.5 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 2, ease: "easeOut" }}
-                className="absolute text-red-500"
+                className="absolute text-purple-500"
               >
                 <Heart size={24} fill="currentColor" />
               </motion.div>

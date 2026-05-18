@@ -566,7 +566,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `kizombatok_${post.id}.mp4`;
+      a.download = `huzty_${post.id}.mp4`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -715,9 +715,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         >
           <ThumbsUp 
             size={16} 
-            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-200 hover:text-zinc-400'}`} 
+            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-purple-500 fill-purple-500' : 'text-zinc-200 hover:text-zinc-400'}`} 
           />
-          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-red-500' : 'text-zinc-300'}`}>{c.likes_count || 0}</span>
+          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-purple-500' : 'text-zinc-300'}`}>{c.likes_count || 0}</span>
         </button>
       </div>
     );
@@ -842,7 +842,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   onNavigateToProfile(post.user_id);
                 }
               }}
-              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-red-600 animate-pulse' : (metadata.hasStories ? 'border-red-600' : 'border-white')}`}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 overflow-hidden shadow-2xl bg-zinc-800 ring-2 ring-black/50 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-purple-600 animate-pulse' : (metadata.hasStories ? 'border-purple-600' : 'border-white')}`}
             >
                {post.profiles?.avatar_url ? (
                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
@@ -851,14 +851,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                )}
             </div>
             {metadata.isLive && (
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[7px] font-black px-1 rounded-sm border border-black uppercase tracking-tighter">
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[7px] font-black px-1 rounded-sm border border-black uppercase tracking-tighter">
                 Live
               </div>
             )}
             {!metadata.isLive && !metadata.isFollowing && !metadata.isOwnPost && (
               <button 
                 onClick={handleFollow}
-                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
+                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-purple-600 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-black active:scale-90 transition-all shadow-lg"
               >
                 +
               </button>
@@ -867,7 +867,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
           <button onClick={toggleLike} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-500 fill-purple-500' : 'text-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
             <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Likes')}</span>
@@ -943,7 +943,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           >
             <div ref={scrubRef} className="w-full h-1.5 bg-white/20 relative overflow-hidden group hover:h-2 transition-all">
               <div 
-                className="absolute top-0 left-0 h-full bg-red-600 transition-all"
+                className="absolute top-0 left-0 h-full bg-purple-600 transition-all"
                 style={{ width: `${(currentTime / duration) * 100}%` }}
               />
               <div 
@@ -1093,7 +1093,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               </button>
               <button 
                 onClick={handleReport}
-                className="flex items-center justify-center gap-3 bg-red-600/10 hover:bg-red-600/20 py-4 rounded-2xl text-red-500 transition-colors border border-red-600/20"
+                className="flex items-center justify-center gap-3 bg-purple-600/10 hover:bg-purple-600/20 py-4 rounded-2xl text-purple-500 transition-colors border border-purple-600/20"
               >
                 <Flag size={20} />
                 <span className="text-xs font-black uppercase tracking-widest">{t('Report')}</span>

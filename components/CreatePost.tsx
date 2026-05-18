@@ -1096,10 +1096,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 disabled={facingMode === 'user'}
                 className={`flex flex-col items-center gap-1 group active:scale-90 transition-transform ${facingMode === 'user' ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
               >
-                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${isFlashOn ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${isFlashOn ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
                   <Zap size={22} fill={isFlashOn ? "currentColor" : "none"} />
                 </div>
-                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-red-500' : 'text-white'}`}>{t('Flash')}</span>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-purple-500' : 'text-white'}`}>{t('Flash')}</span>
               </button>
             </div>
 
@@ -1162,7 +1162,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   className="relative flex items-center justify-center disabled:opacity-50"
                 >
                   <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                      <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.6)]`} />
+                      <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-purple-600 shadow-[0_0_30px_rgba(147,51,234,0.6)]`} />
                   </div>
                 </button>
 
@@ -1197,7 +1197,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </button>
                 <button 
                   onClick={onStartLive}
-                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-red-500"
+                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-purple-500"
                 >
                   {t('Live')}
                 </button>

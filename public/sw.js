@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kizombatok-v1';
+const CACHE_NAME = 'huzty-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
