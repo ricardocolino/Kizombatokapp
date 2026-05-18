@@ -511,9 +511,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const handleClaimEarnings = async () => {
     if (!profile) return;
     
-    // Taxa: 1000 views = 5 AngoCoins ($0.05)
-    // 200 views = 1 AngoCoin ($0.01)
-    const VIEW_RATE = 0.005; 
+    // Taxa: 1 visualização = 1 AngoCoin ($0.01)
+    const VIEW_RATE = 1; 
     const unclaimedViews = stats.views - (profile.claimed_views || 0);
     
     if (unclaimedViews <= 0) {
@@ -957,14 +956,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <div className="flex items-center gap-2">
                       <AngoCoinIcon size={18} />
                       <span className="text-3xl font-black text-zinc-900">
-                        {Math.floor((stats.views - (profile?.claimed_views || 0)) * 0.005)}
+                        {Math.floor((stats.views - (profile?.claimed_views || 0)) * 1)}
                       </span>
                     </div>
                   </div>
 
                   <button 
                     onClick={handleClaimEarnings}
-                    disabled={saving || Math.floor((stats.views - (profile?.claimed_views || 0)) * 0.005) <= 0}
+                    disabled={saving || Math.floor((stats.views - (profile?.claimed_views || 0)) * 1) <= 0}
                     className="w-full h-14 bg-black text-white rounded-full font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95"
                   >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : t('Claim Now')}
