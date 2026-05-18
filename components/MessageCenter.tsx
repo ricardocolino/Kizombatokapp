@@ -177,7 +177,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
               onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
               className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
             >
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-red-600 transition-colors">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-purple-600 transition-colors">
                 <Plus size={20} className="text-zinc-600" />
               </div>
               <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">{t('Your Story')}</span>
@@ -188,7 +188,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                 onClick={() => onViewStories && onViewStories(story.user_id, stories.map(s => s.user_id))}
                 className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
               >
-                <div className="w-14 h-14 rounded-full p-0.5 border-2 border-red-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
+                <div className="w-14 h-14 rounded-full p-0.5 border-2 border-purple-600 bg-zinc-950 overflow-hidden group-hover:scale-105 transition-transform">
                   <div className="w-full h-full rounded-full overflow-hidden bg-zinc-900">
                     {story.profiles?.avatar_url ? (
                       <img src={parseMediaUrl(story.profiles.avatar_url)} className="w-full h-full object-cover" />
@@ -237,7 +237,7 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
                     <div className="flex items-center justify-between pr-2">
                       <h3 className="text-[15px] font-bold truncate text-white">{notif.user?.username}</h3>
                       {notif.type === 'message' && !notif.read && (
-                        <div className="w-5 h-5 bg-[#fe2c55] rounded-full flex items-center justify-center text-[10px] font-bold text-white">4</div>
+                        <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white">4</div>
                       )}
                     </div>
                     <p className="text-[13px] text-zinc-400 truncate">

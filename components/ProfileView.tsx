@@ -1113,7 +1113,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {editError && (
-              <div className="mt-8 bg-red-50 border border-red-100 p-4 rounded-3xl flex items-center gap-3 text-red-600 text-[10px] font-black uppercase tracking-widest">
+              <div className="mt-8 p-4 rounded-3xl flex items-center gap-3 text-purple-600 text-[10px] font-black uppercase tracking-widest bg-purple-600/10 border border-purple-600/20">
                 <AlertCircle size={16} />
                 {editError}
               </div>
@@ -1232,7 +1232,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                             setNewWalletAddress('');
                             setShowWalletModal(true);
                           }}
-                          className="text-[10px] font-black uppercase text-red-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                          className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
                         >
                           {t('Configure Wallet')}
                         </button>

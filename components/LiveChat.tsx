@@ -269,8 +269,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         <div className="space-y-1.5 pt-2">
           {notices.map(notice => (
             <div key={notice.id} className="flex items-center gap-1.5 animate-in slide-in-from-left duration-500 fade-in">
-              <div className={`w-1.5 h-1.5 rounded-full ${notice.type === 'join' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
-              <span className={`text-[11px] font-black tracking-tight ${notice.type === 'join' ? 'text-emerald-400' : 'text-red-400'} drop-shadow-md drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${notice.type === 'join' ? 'bg-emerald-500' : 'bg-purple-500'} animate-pulse`} />
+              <span className={`text-[11px] font-black tracking-tight ${notice.type === 'join' ? 'text-emerald-400' : 'text-purple-400'} drop-shadow-md drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]`}>
                 {notice.content}
               </span>
             </div>
@@ -293,7 +293,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
           <button 
             type="submit"
             disabled={!newMessage.trim() || isSilenced}
-            className="flex-shrink-0 w-10 h-10 bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-red-600/30"
+            className="flex-shrink-0 w-10 h-10 bg-purple-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-purple-600/30"
           >
             <Send size={18} />
           </button>
