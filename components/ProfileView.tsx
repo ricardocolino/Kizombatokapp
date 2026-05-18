@@ -508,6 +508,49 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const handleClaimEarnings = async () => {
+    if (!profile) return;
+    
+    // Taxa: 1000 views = 5 AngoCoins ($0.05)
+    // 200 views = 1 AngoCoin ($0.01)
+    const VIEW_RATE = 0.005; 
+    const unclaimedViews = stats.views - (profile.claimed_views || 0);
+    
+    if (unclaimedViews <= 0) {
+      alert(t('No earnings to claim'));
+      return;
+    }
+
+    const earningsToClaim = Math.floor(unclaimedViews * VIEW_RATE);
+    
+    if (earningsToClaim <= 0) {
+        const required = Math.ceil(1 / VIEW_RATE);
+        alert(t('Minimum views required', { count: required - unclaimedViews }));
+        return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          redeemable_balance: (profile.redeemable_balance || 0) + earningsToClaim,
+          claimed_views: (profile.claimed_views || 0) + (Math.floor(earningsToClaim / VIEW_RATE))
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      await fetchProfile();
+      alert(t('Earnings claimed success', { amount: earningsToClaim }));
+    } catch (err) {
+      console.error('Error claiming views:', err);
+      alert(t('Error claiming earnings'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -889,6 +932,46 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </h1>
               </div>
             </button>
+
+            {/* Ganhos de Conteúdo */}
+            <div className="py-10 border-b border-zinc-100">
+              <div className="flex flex-col items-center gap-6">
+                <div className="flex flex-col items-center text-center gap-2">
+                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Content Earnings')}</h2>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex flex-col items-center">
+                       <span className="text-sm font-black text-black">{stats.views}</span>
+                       <span className="text-[8px] text-zinc-400 uppercase font-bold">{t('Total Views')}</span>
+                    </div>
+                    <div className="w-[1px] h-4 bg-zinc-100" />
+                    <div className="flex flex-col items-center">
+                       <span className="text-sm font-black text-black">{profile?.claimed_views || 0}</span>
+                       <span className="text-[8px] text-zinc-400 uppercase font-bold">{t('Claimed')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full bg-zinc-50 rounded-[32px] p-8 border border-zinc-100 flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center text-center">
+                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">{t('Estimated')} (AngoCoins)</span>
+                    <div className="flex items-center gap-2">
+                      <AngoCoinIcon size={18} />
+                      <span className="text-3xl font-black text-zinc-900">
+                        {Math.floor((stats.views - (profile?.claimed_views || 0)) * 0.005)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleClaimEarnings}
+                    disabled={saving || Math.floor((stats.views - (profile?.claimed_views || 0)) * 0.005) <= 0}
+                    className="w-full h-14 bg-black text-white rounded-full font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95"
+                  >
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : t('Claim Now')}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Botão de Moedas Rápido */}
             <div className="pt-8 flex justify-start">
