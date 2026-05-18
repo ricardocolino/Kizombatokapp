@@ -623,69 +623,59 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-[440px] z-[100]">
-          <nav className="h-[72px] rounded-[32px] border border-white/10 bg-zinc-900/70 backdrop-blur-3xl flex items-center justify-around px-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            {/* Background Glow */}
-            <div className="absolute inset-0 bg-gradient-to-t from-purple-600/5 to-transparent pointer-events-none" />
-            
-            <button 
-              onClick={handleGoHome}
-              onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
-              className={`flex flex-col items-center gap-1 transition-all outline-none relative z-10 ${activeTab === Tab.HOME ? 'text-purple-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <Home size={22} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
-              <span className={`text-[8px] font-black uppercase tracking-tighter ${activeTab === Tab.HOME ? 'opacity-100' : 'opacity-40'}`}>{t('Home')}</span>
-            </button>
-
-            <button 
-              onClick={() => { setActiveTab(Tab.DISCOVER); }}
-              className={`flex flex-col items-center gap-1 transition-all outline-none relative z-10 ${activeTab === Tab.DISCOVER ? 'text-purple-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <Search size={22} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
-              <span className={`text-[8px] font-black uppercase tracking-tighter ${activeTab === Tab.DISCOVER ? 'opacity-100' : 'opacity-40'}`}>{t('Discovery')}</span>
-            </button>
-
-            <button 
-              onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-              className="flex flex-col items-center group outline-none relative z-10 -translate-y-1"
-            >
-              <div className="w-14 h-11 bg-white flex items-center justify-center text-black rounded-2xl shadow-[0_10px_20px_rgba(255,255,255,0.2)] group-hover:bg-purple-600 group-hover:text-white group-active:scale-95 transition-all border border-white/10">
-                <PlusSquare size={26} strokeWidth={2.5} />
-              </div>
-            </button>
-
-            <button 
-              onClick={() => { setActiveTab(Tab.LIVE); }}
-              className={`flex flex-col items-center gap-1 transition-all outline-none relative z-10 ${activeTab === Tab.LIVE ? 'text-purple-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <Radio size={22} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
-              <span className={`text-[8px] font-black uppercase tracking-tighter ${activeTab === Tab.LIVE ? 'opacity-100' : 'opacity-40'}`}>{t('Live')}</span>
-            </button>
-
-            <button 
-              onClick={() => { setActiveTab(Tab.INBOX); }}
-              className={`flex flex-col items-center gap-1 transition-all outline-none relative z-10 ${activeTab === Tab.INBOX ? 'text-purple-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <div className="relative">
-                <MessageCircle size={22} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
-                {unreadCount > 0 && (
-                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border-2 border-zinc-900 shadow-xl">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </div>
-                )}
-              </div>
-              <span className={`text-[8px] font-black uppercase tracking-tighter ${activeTab === Tab.INBOX ? 'opacity-100' : 'opacity-40'}`}>{t('Messages')}</span>
-            </button>
-
-            <button 
-              onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
-              className={`flex flex-col items-center gap-1 transition-all outline-none relative z-10 ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-purple-500 scale-110' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <UserIcon size={22} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
-              <span className={`text-[8px] font-black uppercase tracking-tighter ${activeTab === Tab.PROFILE && !viewProfileId ? 'opacity-100' : 'opacity-40'}`}>{t('Profile')}</span>
-            </button>
-          </nav>
-        </div>
+        <nav className="h-[76px] lg:h-[80px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative pb-5 lg:pb-0 px-2 lg:px-8">
+          <button 
+            onClick={handleGoHome}
+            onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+          >
+            <Home size={24} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Home')}</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.DISCOVER); }}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+          >
+            <Search size={24} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Discovery')}</span>
+          </button>
+          <button 
+            onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
+            className="flex flex-col items-center group outline-none"
+          >
+            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:bg-purple-600 group-active:scale-90 transition-all border border-white/5">
+              <PlusSquare size={22} />
+            </div>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.LIVE); }}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+          >
+            <Radio size={24} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Live')}</span>
+          </button>
+          <button 
+            onClick={() => { setActiveTab(Tab.INBOX); }}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+          >
+            <div className="relative">
+              <MessageCircle size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Messages')}</span>
+          </button>
+          <button 
+            onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
+            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+          >
+            <UserIcon size={24} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('Profile')}</span>
+          </button>
+        </nav>
       )}
     </div>
   );
