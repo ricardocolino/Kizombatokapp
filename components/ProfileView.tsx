@@ -445,7 +445,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    if (amountUSD < 1) {
+    if (amountUSD <= 0) {
       alert(t('Min withdraw amount'));
       return;
     }
@@ -1274,10 +1274,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="text-center space-y-2">
                 <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{t('Available for Withdrawal')}</p>
                 <div className="flex items-baseline justify-center gap-2">
-                  <p className="text-6xl font-semibold tracking-tighter leading-none">${((profile?.redeemable_balance || 0) / 100).toFixed(2)}</p>
+                  <p className="text-6xl font-semibold tracking-tighter leading-none">${((profile?.redeemable_balance || 0) / 100).toFixed(5)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ {profile?.redeemable_balance?.toFixed(0) || '0'} AngoCoins</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {profile?.redeemable_balance?.toFixed(3) || '0'} AngoCoins</p>
               </div>
 
               <div className="space-y-8 pt-10">
@@ -1315,12 +1315,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="pt-10">
                 <button 
                   onClick={handleWithdraw}
-                  disabled={saving || (profile?.redeemable_balance || 0) < 100}
+                  disabled={saving || (profile?.redeemable_balance || 0) <= 0}
                   className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : t('Confirm Withdrawal')}
                 </button>
-                {(profile?.redeemable_balance || 0) < 100 && (
+                {(profile?.redeemable_balance || 0) <= 0 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
                     {t('Min required')}
                   </p>
