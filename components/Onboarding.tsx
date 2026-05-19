@@ -55,23 +55,37 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     setLoading(true);
     setError(null);
     try {
+      console.log('Iniciando finalização do onboarding para:', userId);
+      
       const { error: updateError } = await supabase
         .from('profiles')
         .upsert({
           id: userId,
           name: name || username,
-          username,
+          username: username.toLowerCase().trim(),
           avatar_url: avatarUrl || null,
           wallet_address: walletAddress || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'id' });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Erro retornado pelo Supabase:', updateError);
+        throw new Error(updateError.message);
+      }
+      
       onComplete();
     } catch (err: unknown) {
-      console.error('Error finishing onboarding:', err);
-      setError(err instanceof Error ? err.message : t('Oops, something went wrong'));
+      console.error('Catch triggered:', err);
+      let errorMessage = t('Oops, something went wrong');
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String((err as { message: unknown }).message);
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
