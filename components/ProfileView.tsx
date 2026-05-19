@@ -448,7 +448,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    if (amountUSD <= 0) {
+    if (amountUSD < 0.5) {
       alert(t('Min withdraw amount'));
       return;
     }
@@ -952,19 +952,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
             </button>
 
-            {/* Estatísticas de Conteúdo */}
-            <div className="py-10 border-b border-zinc-100 w-full">
-              <div className="flex flex-col items-center gap-2">
-                <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Content Activity')}</h2>
-                <div className="flex items-center gap-3 mt-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100">
-                   <span className="text-sm font-black text-black">{stats.views}</span>
-                   <span className="text-[8px] text-zinc-400 uppercase font-bold tracking-widest">{t('Total Views')}</span>
-                </div>
-              </div>
-            </div>
-
             {/* Botão de Moedas Rápido */}
-            <div className="pt-8 flex justify-start">
+            <div className="pt-8 flex justify-start pb-8 border-b border-zinc-100">
               <button 
                 onClick={handleOpenExternalDeposit}
                 className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all group"
@@ -977,7 +966,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
             </div>
 
-            {/* Method Button Only */}
+            {/* Method Button */}
             <div className="py-10 border-b border-zinc-100">
               <button 
                 onClick={() => {
@@ -991,6 +980,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Payment Method')}</span>
               </button>
+            </div>
+
+            {/* Estatísticas de Conteúdo - Movido para o fim */}
+            <div className="py-10 border-b border-zinc-100 w-full">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-3 mt-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100">
+                   <span className="text-sm font-black text-black">{stats.views}</span>
+                   <span className="text-[8px] text-zinc-400 uppercase font-bold tracking-widest">{t('Total Views')}</span>
+                </div>
+              </div>
             </div>
 
               <div className="text-center pt-8">
@@ -1284,46 +1283,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div className="space-y-8 pt-10">
-                <div className="space-y-6">
-                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Selected Method')}</h2>
-                  <div className="p-8 bg-zinc-50 rounded-[32px] border border-zinc-100 flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg shadow-black/5">
-                        <Wallet size={20} strokeWidth={1.5} />
-                      </div>
-                      <span className="text-sm font-medium">USDT ({t('Network')} BEP-20)</span>
-                    </div>
-                    
-                    <div className="space-y-2 pt-2 border-t border-zinc-100 mt-2">
-                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')}</p>
-                      <p className="text-sm font-medium text-black break-all">
-                        {profile?.wallet_address || t('Not configured')}
-                      </p>
-                      {!profile?.wallet_address && (
-                        <button 
-                          onClick={() => {
-                            setNewWalletAddress('');
-                            setShowWalletModal(true);
-                          }}
-                          className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
-                        >
-                          {t('Configure Wallet')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')}</p>
+                  <p className="text-sm font-medium text-black break-all">
+                    {profile?.wallet_address || t('Not configured')}
+                  </p>
+                  {!profile?.wallet_address && (
+                    <button 
+                      onClick={() => {
+                        setNewWalletAddress('');
+                        setShowWalletModal(true);
+                      }}
+                      className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                    >
+                      {t('Configure Wallet')}
+                    </button>
+                  )}
                 </div>
               </div>
 
               <div className="pt-10">
                 <button 
                    onClick={handleWithdraw}
-                   disabled={saving || ((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) <= 0}
+                   disabled={saving || (((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5}
                    className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : t('Confirm Withdrawal')}
                 </button>
-                {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) <= 0 && (
+                {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
                     {t('Min required')}
                   </p>
