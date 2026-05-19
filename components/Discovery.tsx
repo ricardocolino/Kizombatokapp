@@ -19,7 +19,72 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchSessionAndFollowing = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          setCurrentUserId(session.user.id);
+          const { data: followsData } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', session.user.id);
+          
+          if (followsData) {
+            setFollowingIds(new Set(followsData.map(f => f.following_id)));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session or following list:', err);
+      }
+    };
+    fetchSessionAndFollowing();
+  }, []);
+
+  const handleFollowToggle = async (targetUserId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigating to profile when clicking follow button
+    if (!currentUserId) {
+      alert(t('Please login to follow') || 'Faz login para seguires este utilizador!');
+      return;
+    }
+
+    const isCurrentlyFollowing = followingIds.has(targetUserId);
+
+    if (isCurrentlyFollowing) {
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('follower_id', currentUserId)
+        .eq('following_id', targetUserId);
+      
+      if (!error) {
+        setFollowingIds(prev => {
+          const next = new Set(prev);
+          next.delete(targetUserId);
+          return next;
+        });
+      }
+    } else {
+      const { error } = await supabase
+        .from('follows')
+        .insert({
+          follower_id: currentUserId,
+          following_id: targetUserId
+        });
+      
+      if (!error) {
+        setFollowingIds(prev => {
+          const next = new Set(prev);
+          next.add(targetUserId);
+          return next;
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -49,9 +114,13 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
             .from('profiles')
             .select('*')
             .order('onboarding_completed', { ascending: false })
-            .limit(8);
+            .limit(10);
 
-          if (active) setSuggestedUsers(suggestedData || []);
+          if (active) {
+            const list = suggestedData || [];
+            const filtered = currentUserId ? list.filter(u => u.id !== currentUserId) : list;
+            setSuggestedUsers(filtered.slice(0, 8));
+          }
         }
 
         // 🔹 2. Buscar posts por conteúdo
@@ -118,7 +187,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
     return () => {
       active = false; // Cancela atualizações de buscas que ficaram para trás
     };
-  }, [searchQuery, displayLimit]);
+  }, [searchQuery, displayLimit, currentUserId]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -204,6 +273,16 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                   )}
                 </div>
                 <span className="text-[10px] font-bold text-zinc-400 max-w-[70px] truncate">@{user.username}</span>
+                <button
+                  onClick={(e) => handleFollowToggle(user.id, e)}
+                  className={`w-[66px] py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
+                    followingIds.has(user.id)
+                      ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50 hover:bg-zinc-700'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white border-transparent shadow-lg shadow-purple-600/10'
+                  }`}
+                >
+                  {followingIds.has(user.id) ? t('Following') : t('Follow')}
+                </button>
               </div>
             ))}
           </div>
