@@ -273,16 +273,18 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                   )}
                 </div>
                 <span className="text-[10px] font-bold text-zinc-400 max-w-[70px] truncate">@{user.username}</span>
-                <button
-                  onClick={(e) => handleFollowToggle(user.id, e)}
-                  className={`w-[66px] py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
-                    followingIds.has(user.id)
-                      ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50 hover:bg-zinc-700'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white border-transparent shadow-lg shadow-purple-600/10'
-                  }`}
-                >
-                  {followingIds.has(user.id) ? t('Following') : t('Follow')}
-                </button>
+                {currentUserId && (
+                  <button
+                    onClick={(e) => handleFollowToggle(user.id, e)}
+                    className={`w-[66px] py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
+                      followingIds.has(user.id)
+                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50 hover:bg-zinc-700'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white border-transparent shadow-lg shadow-purple-600/10'
+                    }`}
+                  >
+                    {followingIds.has(user.id) ? t('Following') : t('Follow')}
+                  </button>
+                )}
               </div>
             ))}
           </div>

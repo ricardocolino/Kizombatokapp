@@ -116,6 +116,34 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const checkAuthStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (active) {
+          setIsLoggedIn(!!session);
+        }
+      } catch (err) {
+        console.error('Error checking auth state in PostCard:', err);
+      }
+    };
+    checkAuthStatus();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) {
+        setIsLoggedIn(!!session);
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     setVideoError(false);
     setIsLoading(true);
@@ -900,7 +928,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>
 
-          {!metadata.isOwnPost && (
+          {isLoggedIn && !metadata.isOwnPost && (
             <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
               <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
                 <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
