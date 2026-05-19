@@ -47,7 +47,41 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     fetchProfileData();
   }, [userId]);
 
-  const nextStep = () => setStep(prev => prev + 1);
+  const nextStep = async () => {
+    setError(null);
+    if (step === 1) {
+      if (!username) {
+        setError(t('Username is required'));
+        return;
+      }
+      if (username.length < 3) {
+        setError(t('Username too short'));
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username.toLowerCase().trim())
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
+        
+        if (data && data.id !== userId) {
+          setError(t('Username already in use'));
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking username:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setStep(prev => prev + 1);
+  };
   const prevStep = () => setStep(prev => prev - 1);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,11 +108,27 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   };
 
   const handleFinish = async () => {
+    if (!walletAddress || walletAddress.trim().length < 10) {
+      setError(t('Wallet address is mandatory'));
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       console.log('Iniciando finalização do onboarding para:', userId);
       
+      // Check username one last time
+      const { data: userWithUsername } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username.toLowerCase().trim())
+        .maybeSingle();
+
+      if (userWithUsername && userWithUsername.id !== userId) {
+        throw new Error(t('Username already in use'));
+      }
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -135,8 +185,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
               <input 
                 type="text" 
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value.slice(0, 50))}
                 placeholder={t('Name')}
+                maxLength={50}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all"
               />
             </div>
@@ -145,8 +196,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
               <input 
                 type="text" 
                 value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, '').slice(0, 20))}
                 placeholder={t('Username')}
+                maxLength={20}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all"
               />
             </div>
