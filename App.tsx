@@ -681,7 +681,7 @@ const App: React.FC = () => {
             onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
             className="flex flex-col items-center group outline-none"
           >
-            <div className="w-12 h-9 bg-zinc-800 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] group-hover:bg-purple-600 group-active:scale-90 transition-all border border-white/5">
+            <div className="w-12 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] group-active:scale-90 transition-all border border-white/10">
               <PlusSquare size={22} />
             </div>
           </button>
