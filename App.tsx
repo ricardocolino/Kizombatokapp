@@ -14,6 +14,7 @@ import StoryViewer from './components/StoryViewer';
 import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
+import Onboarding from './components/Onboarding';
 import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
@@ -59,6 +60,7 @@ const App: React.FC = () => {
   const [isHosting, setIsHosting] = useState(false);
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -290,13 +292,25 @@ const App: React.FC = () => {
 
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       setLoadingSession(false);
+      if (currentUser) {
+        checkOnboarding(currentUser.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
+
+      if (currentUser) {
+        if (_event === 'SIGNED_IN') {
+           checkOnboarding(currentUser.id);
+        }
+      } else {
+        setShowOnboarding(false);
+      }
 
       // Se o evento for SIGNED_OUT ou a sessão for nula, resetamos para a HOME
       if (_event === 'SIGNED_OUT' || !currentUser) {
@@ -421,6 +435,22 @@ const App: React.FC = () => {
 
   const handleDub = () => {
     setActiveTab(Tab.CREATE);
+  };
+
+  const checkOnboarding = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (data && !data.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+    } catch (err) {
+      console.error('Error checking onboarding:', err);
+    }
   };
 
   const renderContent = () => {
@@ -590,6 +620,14 @@ const App: React.FC = () => {
           currentUser={user} 
           onClose={() => setActiveLiveId(null)} 
           onNavigateToProfile={handleNavigateToProfile}
+        />
+      )}
+
+      {showOnboarding && user && (
+        <Onboarding 
+          userId={user.id} 
+          userEmail={user.email || ''} 
+          onComplete={() => setShowOnboarding(false)} 
         />
       )}
 

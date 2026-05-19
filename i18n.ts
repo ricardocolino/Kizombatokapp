@@ -202,7 +202,20 @@ const resources = {
       "Connecting": "Connecting...",
       "Insufficient balance": "Insufficient balance!",
       "Recharge Coins": "Recharge Coins",
-      "Live from": "Live from {{name}}"
+      "Live from": "Live from {{name}}",
+      "Welcome to huzty": "Welcome to huzty! 🇦🇴",
+      "Setup your profile": "Let's setup your profile to start the vibe.",
+      "Profile Setup": "Profile Setup",
+      "What is your name?": "What is your name?",
+      "Choose a username": "Choose a username",
+      "Avatar Setup": "Avatar Setup",
+      "Select an avatar": "Add a photo or keep the default one",
+      "Language Selection": "Language Selection",
+      "Select your language": "Choose the language you prefer",
+      "Wallet Setup": "Wallet Setup",
+      "Configure your wallet": "Add your USDT (BEP-20) wallet address to receive your earnings",
+      "Finish Setup": "Finish Setup",
+      "Onboarding Complete": "All set! Welcome to the group! 🚀"
     }
   },
   pt: {
@@ -408,7 +421,20 @@ const resources = {
       "Connecting": "Conectando...",
       "Insufficient balance": "Saldo insuficiente!",
       "Recharge Coins": "Recarregar Moedas",
-      "Live from": "Live de {{name}}"
+      "Live from": "Live de {{name}}",
+      "Welcome to huzty": "Bem-vindo ao huzty! 🇦🇴",
+      "Setup your profile": "Vamos configurar o teu perfil para começar a vibe.",
+      "Profile Setup": "Configurar Perfil",
+      "What is your name?": "Qual é o teu nome?",
+      "Choose a username": "Escolhe um nome de utilizador",
+      "Avatar Setup": "Foto de Perfil",
+      "Select an avatar": "Adiciona uma foto ou mantém a automática",
+      "Language Selection": "Escolha de Idioma",
+      "Select your language": "Escolhe o idioma que preferes",
+      "Wallet Setup": "Configurar Carteira",
+      "Configure your wallet": "Adiciona o teu endereço USDT (BEP-20) para receberes os teus ganhos",
+      "Finish Setup": "Finalizar Configuração",
+      "Onboarding Complete": "Tudo pronto! Bem-vindo à banda! 🚀"
     }
   },
   es: {
