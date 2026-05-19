@@ -15,6 +15,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
   const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [suggestedUsers, setSuggestedUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(10);
@@ -42,6 +43,15 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           if (active) setUsers(matchedUsers);
         } else {
           if (active) setUsers([]);
+          
+          // Buscar 8 sugestões de perfis em crescimento
+          const { data: suggestedData } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('onboarding_completed', { ascending: false })
+            .limit(8);
+
+          if (active) setSuggestedUsers(suggestedData || []);
         }
 
         // 🔹 2. Buscar posts por conteúdo
@@ -150,6 +160,35 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           </h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {users.map(user => (
+              <div 
+                key={user.id} 
+                onClick={() => onNavigateToProfile && onNavigateToProfile(user.id)}
+                className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
+              >
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-zinc-800 bg-zinc-900 group-hover:border-purple-600 transition-colors">
+                  {user.avatar_url ? (
+                    <img src={parseMediaUrl(user.avatar_url)} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center font-black text-zinc-600 text-lg">
+                      {user.username?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400 max-w-[70px] truncate">@{user.username}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!searchQuery && suggestedUsers.length > 0 && (
+        <div className="px-4 py-6 bg-zinc-950/50 border-b border-zinc-900/30">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
+            <TrendingUp size={14} className="text-zinc-600" />
+            {t('Suggested Profiles')}
+          </h3>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+            {suggestedUsers.map(user => (
               <div 
                 key={user.id} 
                 onClick={() => onNavigateToProfile && onNavigateToProfile(user.id)}
