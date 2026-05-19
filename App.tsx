@@ -445,7 +445,7 @@ const App: React.FC = () => {
         .eq('id', userId)
         .maybeSingle();
       
-      if (data && !data.onboarding_completed) {
+      if (!data || !data.onboarding_completed) {
         setShowOnboarding(true);
       }
     } catch (err) {

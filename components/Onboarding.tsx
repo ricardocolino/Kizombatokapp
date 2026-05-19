@@ -57,15 +57,15 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     try {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: userId,
           name: name || username,
           username,
           avatar_url: avatarUrl || null,
           wallet_address: walletAddress || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+        });
 
       if (updateError) throw updateError;
       onComplete();
