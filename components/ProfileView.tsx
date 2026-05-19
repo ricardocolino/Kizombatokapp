@@ -46,6 +46,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE_SIZE = 6;
+  const VIEW_RATE = 0.001; // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
 
   // Ouvir mensagens do iframe de pagamentos
   useEffect(() => {
@@ -437,7 +438,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   const handleWithdraw = async () => {
-    const amountCoins = profile?.redeemable_balance || 0;
+    const unclaimedViews = stats.views - (profile?.claimed_views || 0);
+    const pendingEarnings = unclaimedViews * VIEW_RATE;
+    const amountCoins = (profile?.redeemable_balance || 0) + pendingEarnings;
     const amountUSD = amountCoins / 100;
 
     if (amountCoins <= 0) {
@@ -489,11 +492,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       if (withdrawError) throw withdrawError;
 
-      // 2. Deduzir do saldo de resgate
-      const newRedeemableBalance = (profile.redeemable_balance || 0) - amountCoins;
+      // 2. Deduzir do saldo de resgate e marcar views como reclamadas
       const { error: balanceError } = await supabase
         .from('profiles')
-        .update({ redeemable_balance: newRedeemableBalance })
+        .update({ 
+          redeemable_balance: 0,
+          claimed_views: stats.views
+        })
         .eq('id', userId);
 
       if (balanceError) throw balanceError;
@@ -508,8 +513,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       setSaving(false);
     }
   };
-
-  const VIEW_RATE = 0.001; // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
 
   const handleClaimEarnings = React.useCallback(async (silent = false) => {
     if (!profile) return;
@@ -1274,10 +1277,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="text-center space-y-2">
                 <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{t('Available for Withdrawal')}</p>
                 <div className="flex items-baseline justify-center gap-2">
-                  <p className="text-6xl font-semibold tracking-tighter leading-none">${((profile?.redeemable_balance || 0) / 100).toFixed(5)}</p>
+                  <p className="text-6xl font-semibold tracking-tighter leading-none">${(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ {profile?.redeemable_balance?.toFixed(3) || '0'} AngoCoins</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} AngoCoins</p>
               </div>
 
               <div className="space-y-8 pt-10">
@@ -1314,13 +1317,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
               <div className="pt-10">
                 <button 
-                  onClick={handleWithdraw}
-                  disabled={saving || (profile?.redeemable_balance || 0) <= 0}
-                  className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
+                   onClick={handleWithdraw}
+                   disabled={saving || ((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) <= 0}
+                   className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : t('Confirm Withdrawal')}
                 </button>
-                {(profile?.redeemable_balance || 0) <= 0 && (
+                {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) <= 0 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
                     {t('Min required')}
                   </p>
