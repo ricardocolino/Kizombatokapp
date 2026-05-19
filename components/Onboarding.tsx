@@ -255,12 +255,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     <div className="fixed inset-0 z-[1000] bg-black flex flex-col text-white pb-safe">
       <div className="flex-1 overflow-y-auto px-6 pt-12 pb-8">
         <header className="mb-12 text-center">
-          <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-zinc-800 shadow-2xl">
-            {steps[step - 1].icon}
-          </div>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-2">
-            {t('Welcome to huzty')}
-          </h1>
           <p className="text-zinc-500 text-sm font-medium">
             {t('Setup your profile')}
           </p>
