@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../services/uploadService';
@@ -24,6 +24,28 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   const [avatarUrl, setAvatarUrl] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (data && !fetchError) {
+          if (data.name) setName(data.name);
+          if (data.username) setUsername(data.username);
+          if (data.avatar_url) setAvatarUrl(data.avatar_url);
+          if (data.wallet_address) setWalletAddress(data.wallet_address);
+        }
+      } catch (err) {
+        console.error('Error fetching profile during onboarding:', err);
+      }
+    };
+    fetchProfileData();
+  }, [userId]);
 
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
@@ -59,15 +81,15 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
       
       const { error: updateError } = await supabase
         .from('profiles')
-        .upsert({
-          id: userId,
+        .update({
           name: name || username,
           username: username.toLowerCase().trim(),
           avatar_url: avatarUrl || null,
           wallet_address: walletAddress || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
+        })
+        .eq('id', userId);
 
       if (updateError) {
         console.error('Erro retornado pelo Supabase:', updateError);
