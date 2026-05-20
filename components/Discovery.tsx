@@ -256,10 +256,6 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
 
       {!searchQuery && suggestedUsers.length > 0 && (
         <div className="px-4 py-6 bg-zinc-950/50 border-b border-zinc-900/30">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
-            <TrendingUp size={14} className="text-zinc-600" />
-            {t('Suggested Profiles')}
-          </h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {suggestedUsers.map(user => (
               <div 
@@ -296,14 +292,6 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       )}
 
       {/* Post Grid Section */}
-      {!searchQuery && (
-        <div className="px-4 py-6 border-b border-zinc-900/50">
-           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 flex items-center gap-2">
-            <TrendingUp size={14} className="text-zinc-600" />
-            {t('Trending')}
-          </h3>
-        </div>
-      )}
 
       {searchQuery && (
         <div className="px-4 py-2">
