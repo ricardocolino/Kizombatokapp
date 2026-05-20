@@ -25,6 +25,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [showBigAvatar, setShowBigAvatar] = useState(false);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
@@ -742,8 +743,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         <div className="relative">
           <div className={`w-28 h-28 rounded-xl bg-white p-1 ${hasStories ? 'ring-2 ring-purple-600' : ''}`}>
             <div 
-              onClick={() => hasStories && onNavigateToPost && onNavigateToPost('story:' + userId)}
-              className={`w-full h-full rounded-xl bg-zinc-50 flex items-center justify-center overflow-hidden border border-zinc-100 ${hasStories ? 'cursor-pointer' : ''}`}
+              onClick={() => {
+                if (profile.avatar_url) {
+                  setShowBigAvatar(true);
+                } else if (hasStories && onNavigateToPost) {
+                  onNavigateToPost('story:' + userId);
+                }
+              }}
+              className="w-full h-full rounded-xl bg-zinc-50 flex items-center justify-center overflow-hidden border border-zinc-100 cursor-pointer"
             >
               {profile.avatar_url ? (
                 <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
@@ -1317,6 +1324,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Big Avatar Modal */}
+      {showBigAvatar && profile.avatar_url && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+          <div className="absolute inset-0" onClick={() => setShowBigAvatar(false)} />
+          <div className="relative w-full max-w-[340px] aspect-square bg-zinc-950 rounded-2xl p-1.5 border-4 border-purple-600 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden flex items-center justify-center">
+            <button 
+              onClick={() => setShowBigAvatar(false)} 
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white active:scale-95 transition-all"
+            >
+              <X size={16} />
+            </button>
+            <img 
+              src={parseMediaUrl(profile.avatar_url)} 
+              className="w-full h-full object-cover rounded-xl font-light" 
+              alt="" 
+            />
           </div>
         </div>
       )}
