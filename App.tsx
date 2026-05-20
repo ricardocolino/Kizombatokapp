@@ -543,6 +543,7 @@ const App: React.FC = () => {
             onNavigateToPost={handleNavigateToPost} 
             initialAction={profileAction}
             onClearAction={() => setProfileAction(null)}
+            onNavigateToProfile={handleNavigateToProfile}
           />
         );
       }

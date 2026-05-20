@@ -14,6 +14,7 @@ interface ProfileViewProps {
   initialAction?: string | null;
   onClearAction?: () => void;
   onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' }) => void;
+  onNavigateToProfile?: (userId: string) => void;
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ 
@@ -21,7 +22,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   isOwnProfile, 
   initialAction, 
   onClearAction, 
-  onNavigateToPost 
+  onNavigateToPost,
+  onNavigateToProfile
 }) => {
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -29,6 +31,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, likes: 0, views: 0, comments: 0 });
+  
+  // Follow modal states
+  const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
+  const [followListUsers, setFollowListUsers] = useState<{ id: string; username: string; name?: string; avatar_url?: string; }[]>([]);
+  const [loadingFollowList, setLoadingFollowList] = useState(false);
+
   const [showDashboard, setShowDashboard] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -260,6 +268,59 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       fetchRepostedPosts();
     }
   }, [activeTab, fetchRepostedPosts]);
+
+  const fetchFollowList = React.useCallback(async (type: 'followers' | 'following') => {
+    setLoadingFollowList(true);
+    setFollowListUsers([]);
+    try {
+      if (type === 'followers') {
+        const { data, error } = await supabase
+          .from('follows')
+          .select('created_at, profiles:follower_id(*)')
+          .eq('following_id', userId);
+        
+        if (!error && data) {
+          const users = (data as unknown as { profiles: { id: string; username: string; name?: string; avatar_url?: string; } | null }[])
+            .map(item => item.profiles)
+            .filter(Boolean) as { id: string; username: string; name?: string; avatar_url?: string; }[];
+          setFollowListUsers(users);
+        } else if (error) {
+          console.error('Error fetching followers:', error);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('follows')
+          .select('created_at, profiles:following_id(*)')
+          .eq('follower_id', userId);
+        
+        if (!error && data) {
+          const users = (data as unknown as { profiles: { id: string; username: string; name?: string; avatar_url?: string; } | null }[])
+            .map(item => item.profiles)
+            .filter(Boolean) as { id: string; username: string; name?: string; avatar_url?: string; }[];
+          setFollowListUsers(users);
+        } else if (error) {
+          console.error('Error fetching following:', error);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching follow list:', err);
+    } finally {
+      setLoadingFollowList(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (followModalType) {
+      fetchFollowList(followModalType);
+    }
+  }, [followModalType, fetchFollowList]);
+
+  const handleUserClick = (targetId: string) => {
+    if (onNavigateToProfile) {
+      onNavigateToProfile(targetId);
+    }
+    setFollowModalType(null);
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (activeTab !== 'posts' || !hasMorePosts || loadingMore) return;
@@ -773,17 +834,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         )}
 
         <div className="flex gap-10 mt-10">
-          <div className="flex flex-col items-center">
+          <button 
+            type="button"
+            onClick={() => setFollowModalType('following')} 
+            className="flex flex-col items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all text-left outline-none"
+          >
             <span className="text-xl font-bold text-black">{stats.following}</span>
             <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Following_count')}</span>
-          </div>
-          <div className="flex flex-col items-center">
+          </button>
+          <button 
+            type="button"
+            onClick={() => setFollowModalType('followers')} 
+            className="flex flex-col items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all text-left outline-none"
+          >
             <span className="text-xl font-bold text-black">{stats.followers}</span>
             <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Followers')}</span>
-          </div>
+          </button>
           <div className="flex flex-col items-center">
-            <span className="text-xl font-bold text-black">{stats.likes}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Likes')}</span>
+            <span className="text-xl font-bold text-black">{stats.views}</span>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Views')}</span>
           </div>
         </div>
 
@@ -1344,6 +1413,79 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               className="w-full h-full object-cover rounded-xl font-light" 
               alt="" 
             />
+          </div>
+        </div>
+      )}
+
+      {/* Followers/Following Modal */}
+      {followModalType && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          {/* Backdrop click to close */}
+          <div className="absolute inset-0" onClick={() => setFollowModalType(null)} />
+          
+          <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-900 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-5 border-b border-zinc-900/50 flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-100 flex items-center gap-2">
+                {followModalType === 'followers' ? t('Followers') : t('Following_count')}
+                <span className="text-[11px] font-bold bg-purple-600/20 text-purple-400 px-2.5 py-0.5 rounded-full border border-purple-500/20">
+                  {followModalType === 'followers' ? stats.followers : stats.following}
+                </span>
+              </h3>
+              <button 
+                onClick={() => setFollowModalType(null)} 
+                className="w-8 h-8 rounded-full bg-zinc-900 hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-all active:scale-95"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="p-4 max-h-[350px] overflow-y-auto no-scrollbar space-y-3">
+              {loadingFollowList ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 size={24} className="animate-spin text-purple-600" />
+                  <span className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Carregando...</span>
+                </div>
+              ) : followListUsers.length === 0 ? (
+                <div className="text-center py-12 text-zinc-600 uppercase font-black tracking-widest text-[10px]">
+                  Nenhum usuário encontrado
+                </div>
+              ) : (
+                followListUsers.map(u => (
+                  <button 
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleUserClick(u.id)}
+                    className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-zinc-900/40 border border-transparent hover:border-zinc-900/50 cursor-pointer active:scale-98 transition-all duration-150 text-left outline-none"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800 shrink-0">
+                      {u.avatar_url ? (
+                        <img 
+                          src={parseMediaUrl(u.avatar_url)} 
+                          className="w-full h-full object-cover" 
+                          alt="" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-black text-xs text-zinc-500 uppercase">
+                          {u.username?.[0] || '?'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col items-start">
+                      <span className="text-xs font-bold text-zinc-100 truncate w-full">
+                        {u.name || `@${u.username}`}
+                      </span>
+                      {u.name && (
+                        <span className="text-[10px] font-medium text-zinc-500 truncate w-full">
+                          @{u.username}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
