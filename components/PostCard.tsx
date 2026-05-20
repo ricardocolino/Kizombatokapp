@@ -129,12 +129,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     
     if (isAnyPopupOpen) {
       feed.style.setProperty('overflow-y', 'hidden', 'important');
+      feed.style.setProperty('touch-action', 'none', 'important');
     } else {
       feed.style.setProperty('overflow-y', 'scroll', 'important');
+      feed.style.setProperty('touch-action', 'auto', 'important');
     }
     
     return () => {
       feed.style.setProperty('overflow-y', 'scroll', 'important');
+      feed.style.setProperty('touch-action', 'auto', 'important');
     };
   }, [showComments, showGifts, showShare, showRecharge]);
 
@@ -1285,7 +1288,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       {/* Professional Comments Drawer */}
       {showComments && (
         <div 
-          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          className="fixed inset-0 z-[9999] flex flex-col justify-end touch-none"
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
@@ -1305,7 +1308,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div 
               ref={commentsScrollRef}
               onScroll={handleCommentsScroll}
-              className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar"
+              className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar overscroll-contain touch-pan-y"
             >
               {parentComments.map(parent => {
                 const replies = comments.filter(c => c.parent_id === parent.id).reverse();
@@ -1390,7 +1393,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       {/* Share Drawer */}
       {showShare && (
         <div 
-          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          className="fixed inset-0 z-[9999] flex flex-col justify-end touch-none"
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
@@ -1455,7 +1458,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       {/* Gifts Drawer */}
       {showGifts && (
         <div 
-          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          className="fixed inset-0 z-[9999] flex flex-col justify-end touch-none"
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
