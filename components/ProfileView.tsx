@@ -278,7 +278,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     } else {
       setLoadingMoreFollows(true);
     }
-    const limit = 5;
+    const limit = 10;
     const fromRange = page * limit;
     const toRange = (page + 1) * limit - 1;
     try {
