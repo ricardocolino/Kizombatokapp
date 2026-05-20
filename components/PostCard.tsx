@@ -693,7 +693,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const renderCommentItem = (c: EnhancedComment, isReply: boolean = false) => {
     const isPostAuthor = c.user_id === post.user_id;
     return (
-      <div key={c.id} className={`relative flex gap-3 items-start py-3 px-2 rounded-2xl transition-colors hover:bg-zinc-50 group ${isReply ? 'ml-10' : ''}`}>
+      <div 
+        key={c.id} 
+        onClick={() => handleReply(c)}
+        className={`relative flex gap-3 items-start py-3 px-2 rounded-2xl transition-colors hover:bg-zinc-50 cursor-pointer group ${isReply ? 'ml-10' : ''}`}
+      >
         {isReply && (
           <div className="absolute -left-5 top-0 bottom-0 w-px bg-zinc-100 flex items-center">
             <div className="absolute top-1/2 left-0 w-4 h-px bg-zinc-100" />
@@ -701,7 +705,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         )}
 
         <div 
-          onClick={() => onNavigateToProfile(c.user_id)}
+          onClick={(e) => { e.stopPropagation(); onNavigateToProfile(c.user_id); }}
           className={`${isReply ? 'w-7 h-7' : 'w-10 h-10'} rounded-xl bg-zinc-100 shrink-0 overflow-hidden border border-zinc-100 shadow-sm cursor-pointer hover:brightness-95 active:scale-95 transition-all`}
         >
           {c.profiles?.avatar_url ? (
@@ -714,7 +718,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span 
-              onClick={() => onNavigateToProfile(c.user_id)}
+              onClick={(e) => { e.stopPropagation(); onNavigateToProfile(c.user_id); }}
               className="text-[13px] font-bold text-zinc-900 cursor-pointer hover:text-black transition-colors flex items-center gap-1"
             >
               {c.profiles?.name || `@${c.profiles?.username}`}
@@ -728,7 +732,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </p>
           <div className="flex items-center gap-4 mt-2">
             <button 
-              onClick={() => handleReply(c)}
+              onClick={(e) => { e.stopPropagation(); handleReply(c); }}
               className="text-[11px] text-zinc-500 font-black uppercase tracking-widest hover:text-black transition-colors flex items-center gap-1"
             >
               <CornerDownRight size={11} />
@@ -738,7 +742,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         </div>
 
         <button 
-          onClick={() => toggleCommentLike(c.id, !!c.liked_by_me)}
+          onClick={(e) => { e.stopPropagation(); toggleCommentLike(c.id, !!c.liked_by_me); }}
           className="flex flex-col items-center gap-0.5 pt-1.5 group/like"
         >
           <ThumbsUp 
