@@ -109,16 +109,20 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
         } else {
           if (active) setUsers([]);
           
-          // Buscar 8 sugestões de perfis em crescimento
+          // Buscar sugestões de perfis em crescimento
           const { data: suggestedData } = await supabase
             .from('profiles')
             .select('*')
             .order('onboarding_completed', { ascending: false })
-            .limit(10);
+            .limit(50);
 
           if (active) {
             const list = suggestedData || [];
-            const filtered = currentUserId ? list.filter(u => u.id !== currentUserId) : list;
+            const filtered = list.filter(u => {
+              if (currentUserId && u.id === currentUserId) return false;
+              if (followingIds.has(u.id)) return false;
+              return true;
+            });
             setSuggestedUsers(filtered.slice(0, 8));
           }
         }
@@ -187,7 +191,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
     return () => {
       active = false; // Cancela atualizações de buscas que ficaram para trás
     };
-  }, [searchQuery, displayLimit, currentUserId]);
+  }, [searchQuery, displayLimit, currentUserId, followingIds]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
