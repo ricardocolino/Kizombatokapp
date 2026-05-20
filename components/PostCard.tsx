@@ -1441,8 +1441,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                    <Gift size={24} />
                  </div>
                  <div>
-                   <h3 className="text-sm font-black uppercase tracking-widest">Enviar Presente</h3>
-                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Apoia o criador com AngoCoins</p>
+                   <h3 className="text-sm font-black uppercase tracking-widest">{t('Send Gift', 'Enviar Presente')}</h3>
+                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">{t('Support creator coins', 'Apoia o criador com AngoCoins')}</p>
                  </div>
                </div>
                <button onClick={() => !sendingGift && setShowGifts(false)} className="w-10 h-10 flex items-center justify-center bg-zinc-50 rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
@@ -1452,13 +1452,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
             <div className="grid grid-cols-3 gap-6 mb-8">
               {[
-                { amount: 1, img: "https://cdn-icons-png.flaticon.com/512/1087/1087420.png", label: 'Flor' },
-                { amount: 5, img: "https://cdn-icons-png.flaticon.com/512/2107/2107845.png", label: 'Coração' },
-                { amount: 10, img: "https://cdn-icons-png.flaticon.com/512/1828/1828884.png", label: 'Estrela' },
-                { amount: 20, img: "https://cdn-icons-png.flaticon.com/512/426/426833.png", label: 'Fogo' },
-                { amount: 50, img: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png", label: 'Troféu' },
-                { amount: 100, img: "https://cdn-icons-png.flaticon.com/512/1071/1071985.png", label: 'Diamante' }
-              ].map(({ amount, img, label }) => (
+                { amount: 1, img: "https://cdn-icons-png.flaticon.com/512/1087/1087420.png", key: 'Flower', fallback: 'Flor' },
+                { amount: 5, img: "https://cdn-icons-png.flaticon.com/512/2107/2107845.png", key: 'Heart', fallback: 'Coração' },
+                { amount: 10, img: "https://cdn-icons-png.flaticon.com/512/1828/1828884.png", key: 'Star', fallback: 'Estrela' },
+                { amount: 20, img: "https://cdn-icons-png.flaticon.com/512/426/426833.png", key: 'Fire', fallback: 'Fogo' },
+                { amount: 50, img: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png", key: 'Trophy', fallback: 'Troféu' },
+                { amount: 100, img: "https://cdn-icons-png.flaticon.com/512/1071/1071985.png", key: 'Diamond', fallback: 'Diamante' }
+              ].map(({ amount, img, key, fallback }) => (
                 <button 
                   key={amount}
                   onClick={() => handleSendGift(amount)}
@@ -1466,10 +1466,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   className="flex flex-col items-center gap-3 p-4 bg-zinc-50 border border-zinc-100 rounded-3xl hover:border-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <div className="w-14 h-14 flex items-center justify-center">
-                    <img src={img} alt={label} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    <img src={img} alt={t(key, fallback)} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                   <div className="flex flex-col items-center">
-                    <span className="text-[11px] font-black uppercase tracking-tighter">{label}</span>
+                    <span className="text-[11px] font-black uppercase tracking-tighter">{t(key, fallback)}</span>
                     <span className="text-[10px] font-black text-amber-500 uppercase flex items-center gap-1">
                       {amount} <AngoCoinIcon size={12} />
                     </span>
@@ -1496,8 +1496,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 {t('Recharge Coins')}
               </button>
               <p className="text-[9px] text-zinc-500 text-center uppercase tracking-widest font-black leading-relaxed">
-                O valor será descontado do teu saldo e enviado para o autor. <br/>
-                huzty • Apoio ao Criador
+                {t('Deduction message', 'O valor será descontado do teu saldo e enviado para o autor.')} <br/>
+                huzty • {t('Creator Support', 'Apoio ao Criador')}
               </p>
             </div>
           </div>
