@@ -952,7 +952,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em]">
                   {activeTab === 'posts' ? t('No posts yet') : t('No reposts yet')}
                 </p>
-                <p className="text-[9px] text-zinc-200 uppercase">{t('The vibe starts here')}</p>
               </div>
             )}
           </div>
@@ -971,9 +970,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               
               <div className="space-y-2">
                 <h3 className="text-xl font-light tracking-tight text-black">{t('Leave the group?')}</h3>
-                <p className="text-sm text-zinc-400 font-light leading-relaxed">
-                  {t('Leave vibe message')}
-                </p>
               </div>
 
               <div className="w-full space-y-3 pt-4">
