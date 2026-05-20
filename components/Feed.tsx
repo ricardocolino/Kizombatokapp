@@ -520,9 +520,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   return (
     <div className="h-full w-full bg-black relative overflow-hidden">
+      <style>{`
+        body.comments-open .feed-navigation-tabs {
+          display: none !important;
+        }
+      `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
+        <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
           <button 
             onClick={() => setFeedType('following')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
@@ -546,7 +551,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </button>
         </div>
       ) : (
-        <div className="absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
+        <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
           <button 
             onClick={onClearFilter}
             className="p-2 bg-black/20 backdrop-blur-md rounded-full text-white pointer-events-auto active:scale-90 transition-transform"

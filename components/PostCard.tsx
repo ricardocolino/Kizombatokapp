@@ -241,13 +241,19 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (!showComments) return;
     
     const feedContainer = document.querySelector('.feed-container');
-    if (!feedContainer) return;
+    const originalOverflow = feedContainer ? (feedContainer as HTMLElement).style.overflowY : '';
     
-    const originalOverflow = feedContainer.style.overflowY || 'scroll';
-    (feedContainer as HTMLElement).style.overflowY = 'hidden';
+    if (feedContainer) {
+      (feedContainer as HTMLElement).style.overflowY = 'hidden';
+    }
+    
+    document.body.classList.add('comments-open');
     
     return () => {
-      (feedContainer as HTMLElement).style.overflowY = originalOverflow;
+      if (feedContainer) {
+        (feedContainer as HTMLElement).style.overflowY = originalOverflow || 'scroll';
+      }
+      document.body.classList.remove('comments-open');
     };
   }, [showComments]);
 
@@ -957,6 +963,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         ))}
 
         <style>{`
+          body.comments-open nav {
+            display: none !important;
+          }
           @keyframes heartPop {
             0% {
               transform: scale(0) rotate(-15deg);
