@@ -122,6 +122,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
   const commentsScrollRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge;
+    const feed = document.querySelector('.feed-container') as HTMLElement;
+    if (!feed) return;
+    
+    if (isAnyPopupOpen) {
+      feed.style.setProperty('overflow-y', 'hidden', 'important');
+    } else {
+      feed.style.setProperty('overflow-y', 'scroll', 'important');
+    }
+    
+    return () => {
+      feed.style.setProperty('overflow-y', 'scroll', 'important');
+    };
+  }, [showComments, showGifts, showShare, showRecharge]);
+
   const handleCommentsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (loadingMoreComments || !hasMoreComments) return;
@@ -1373,7 +1389,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Share Drawer */}
       {showShare && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-end">
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={() => setShowShare(false)} />
           <div className="relative bg-zinc-950 rounded-t-[40px] p-6 flex flex-col shadow-2xl border-t border-zinc-800/50 animate-[slideUp_0.4s_cubic-bezier(0.2,0.8,0.2,1)]">
             <div className="flex items-center justify-between mb-6">
@@ -1432,7 +1454,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Gifts Drawer */}
       {showGifts && (
-        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !sendingGift && setShowGifts(false)} />
           <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between mb-8">
