@@ -715,23 +715,23 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           <div className="flex items-center gap-2 mb-0.5">
             <span 
               onClick={() => onNavigateToProfile(c.user_id)}
-              className="text-[12px] font-black text-zinc-500 cursor-pointer hover:text-black transition-colors flex items-center gap-1"
+              className="text-[13px] font-bold text-zinc-900 cursor-pointer hover:text-black transition-colors flex items-center gap-1"
             >
               {c.profiles?.name || `@${c.profiles?.username}`}
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
             </span>
             {isPostAuthor && <span className="text-[8px] bg-black text-white font-black px-1.5 py-0.5 rounded uppercase">{t('Author')}</span>}
           </div>
-          <p className="text-[14px] text-zinc-800 leading-normal tracking-tight">
-            {isReply && <span className="text-zinc-400 font-bold mr-1 text-[12px]">@resposta</span>}
+          <p className="text-[15px] font-semibold text-zinc-950 leading-normal tracking-tight">
+            {isReply && <span className="text-zinc-600 font-extrabold mr-1.5 text-[12px]">@resposta</span>}
             {c.content}
           </p>
           <div className="flex items-center gap-4 mt-2">
             <button 
               onClick={() => handleReply(c)}
-              className="text-[10px] text-zinc-400 font-black uppercase tracking-widest hover:text-black transition-colors flex items-center gap-1"
+              className="text-[11px] text-zinc-500 font-black uppercase tracking-widest hover:text-black transition-colors flex items-center gap-1"
             >
-              <CornerDownRight size={10} />
+              <CornerDownRight size={11} />
               {t('Reply')}
             </button>
           </div>
@@ -743,9 +743,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         >
           <ThumbsUp 
             size={16} 
-            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-purple-600 fill-purple-600' : 'text-zinc-200 hover:text-zinc-400'}`} 
+            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-purple-600 fill-purple-600' : 'text-zinc-400 hover:text-zinc-600'}`} 
           />
-          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-purple-600' : 'text-zinc-300'}`}>{c.likes_count || 0}</span>
+          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-purple-600' : 'text-zinc-500'}`}>{c.likes_count || 0}</span>
         </button>
       </div>
     );
@@ -984,7 +984,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Professional Comments Drawer */}
       {showComments && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
