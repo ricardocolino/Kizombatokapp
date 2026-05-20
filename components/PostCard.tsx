@@ -28,6 +28,7 @@ interface PostCardProps {
 type EnhancedComment = Comment & { 
   likes_count: number; 
   liked_by_me: boolean;
+  liked_by_author: boolean;
   profiles?: Profile;
 };
 
@@ -117,6 +118,21 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Record<number, boolean>>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasMoreComments, setHasMoreComments] = useState(true);
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+  const commentsScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleCommentsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (loadingMoreComments || !hasMoreComments) return;
+    
+    const threshold = 100; // pixels from the bottom
+    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
+    
+    if (isNearBottom) {
+      fetchComments(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -437,37 +453,124 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const scrubRef = useRef<HTMLDivElement>(null);
 
-  const fetchComments = async () => {
-    const cacheKey = `post_comments_${post.id}`;
+  const fetchComments = async (isInitial: boolean = false) => {
+    if (loadingMoreComments) return;
     
-    // VERIFICAR CACHE
-    const cachedComments = appCache.get(cacheKey);
-    if (cachedComments) {
-      console.log(`📦 Comentários do post ${post.id}: usando cache`);
-      setComments(cachedComments);
-      onUpdateMetadata(post.id, { commentsCount: cachedComments.length });
-      return;
+    setLoadingMoreComments(true);
+    
+    if (isInitial) {
+      setHasMoreComments(true);
     }
 
-    console.log(`🔄 Comentários do post ${post.id}: buscando do servidor`);
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data } = await supabase.from('comments').select('*, profiles!user_id(*)').eq('post_id', post.id).order('created_at', { ascending: false });
+    const cacheKey = `post_comments_paginated_${post.id}`;
     
-    if (data) {
-      const commentsWithMetadata = await Promise.all(data.map(async (c) => {
-        const { count } = await supabase.from('comment_reactions').select('*', { count: 'exact', head: true }).eq('comment_id', c.id);
-        let likedByMe = false;
-        if (session) {
-          const { data: userLike } = await supabase.from('comment_reactions').select('*').eq('comment_id', c.id).eq('user_id', session.user.id).maybeSingle();
-          likedByMe = !!userLike;
-        }
-        return { ...c, likes_count: count || 0, liked_by_me: likedByMe };
-      }));
-      setComments(commentsWithMetadata as EnhancedComment[]);
-      onUpdateMetadata(post.id, { commentsCount: data.length });
+    // VERIFICAR CACHE (APENAS PARA O CARREGAMENTO INICIAL)
+    if (isInitial) {
+      const cachedComments = appCache.get(cacheKey) as EnhancedComment[] | undefined;
+      if (cachedComments) {
+        console.log(`📦 Comentários do post ${post.id}: usando cache`);
+        setComments(cachedComments);
+        const parentCachedCount = cachedComments.filter((c: EnhancedComment) => !c.parent_id).length;
+        setHasMoreComments(parentCachedCount >= 15);
+        onUpdateMetadata(post.id, { commentsCount: cachedComments.length });
+        setLoadingMoreComments(false);
+        return;
+      }
+    }
+
+    console.log(`🔄 Comentários do post ${post.id}: buscando do servidor (isInitial: ${isInitial})`);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      // SALVAR NO CACHE
-      appCache.set(cacheKey, commentsWithMetadata);
+      // Determine range
+      const currentParentsCount = isInitial ? 0 : comments.filter(c => !c.parent_id).length;
+      const startRange = currentParentsCount;
+      const endRange = startRange + 14; // 15 items: e.g. 0 to 14
+
+      // Query parent comments with range and order
+      const { data: parentData, error: parentError } = await supabase
+        .from('comments')
+        .select('*, profiles!user_id(*)')
+        .eq('post_id', post.id)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+        .range(startRange, endRange);
+
+      if (parentError) throw parentError;
+
+      if (parentData) {
+        const hasMore = parentData.length === 15;
+        setHasMoreComments(hasMore);
+
+        let allFetchedComments: Array<Comment & { profiles?: Profile }> = [...(parentData as Array<Comment & { profiles?: Profile }>)];
+
+        if (parentData.length > 0) {
+          const parentIds = parentData.map(c => c.id);
+          
+          // Get replies for these parent comments
+          const { data: repliesData } = await supabase
+            .from('comments')
+            .select('*, profiles!user_id(*)')
+            .in('parent_id', parentIds)
+            .order('created_at', { ascending: false });
+
+          if (repliesData) {
+            allFetchedComments = [...allFetchedComments, ...(repliesData as Array<Comment & { profiles?: Profile }>)];
+          }
+        }
+
+        const commentsWithMetadata = await Promise.all(allFetchedComments.map(async (c) => {
+          const { count } = await supabase.from('comment_reactions').select('*', { count: 'exact', head: true }).eq('comment_id', c.id);
+          let likedByMe = false;
+          let likedByAuthor = false;
+          
+          if (session) {
+            const { data: userLike } = await supabase.from('comment_reactions').select('*').eq('comment_id', c.id).eq('user_id', session.user.id).maybeSingle();
+            likedByMe = !!userLike;
+          }
+          
+          if (session && session.user.id === post.user_id) {
+            likedByAuthor = likedByMe;
+          } else {
+            const { data: authorLike } = await supabase.from('comment_reactions').select('*').eq('comment_id', c.id).eq('user_id', post.user_id).maybeSingle();
+            likedByAuthor = !!authorLike;
+          }
+
+          return { 
+            ...c, 
+            likes_count: count || 0, 
+            liked_by_me: likedByMe, 
+            liked_by_author: likedByAuthor 
+          };
+        }));
+
+        let newCommentsList: EnhancedComment[] = [];
+        if (isInitial) {
+          newCommentsList = commentsWithMetadata as EnhancedComment[];
+        } else {
+          // Merge avoiding duplicates
+          const existingIds = new Set(comments.map(c => c.id));
+          const uniqueNew = commentsWithMetadata.filter(c => !existingIds.has(c.id));
+          newCommentsList = [...comments, ...uniqueNew] as EnhancedComment[];
+        }
+
+        setComments(newCommentsList);
+
+        // Get total count of comments for the metadata count
+        const { count: totalCommentsCount } = await supabase
+          .from('comments')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', post.id);
+
+        onUpdateMetadata(post.id, { commentsCount: totalCommentsCount || newCommentsList.length });
+        
+        // SALVAR NO CACHE
+        appCache.set(cacheKey, newCommentsList);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar comentários paginados:', err);
+    } finally {
+      setLoadingMoreComments(false);
     }
   };
 
@@ -480,9 +583,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
     setComments(prev => prev.map(c => {
       if (c.id === commentId) {
+        const isAuthorMe = session.user.id === post.user_id;
         return {
           ...c,
           liked_by_me: !currentlyLiked,
+          liked_by_author: isAuthorMe ? !currentlyLiked : (c.liked_by_author || false),
           likes_count: (c.likes_count || 0) + (currentlyLiked ? -1 : 1)
         };
       }
@@ -621,13 +726,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       
       // INVALIDAR COMENTÁRIOS NO CACHE
       appCache.invalidate(`post_comments_${post.id}`);
+      appCache.invalidate(`post_comments_paginated_${post.id}`);
       
       // Optimistic Update do contador
       onUpdateMetadata(post.id, { 
         commentsCount: metadata.commentsCount + 1 
       });
       
-      fetchComments();
+      fetchComments(true);
     }
   };
 
@@ -788,6 +894,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <CornerDownRight size={11} />
               {t('Reply')}
             </button>
+            {c.liked_by_author && (
+              <div 
+                onClick={(e) => { e.stopPropagation(); onNavigateToProfile(post.user_id); }}
+                className="flex items-center gap-1 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 rounded-full px-2 py-0.5 text-rose-500 cursor-pointer active:scale-95 transition-all animate-[heartPop_0.3s_ease-out]"
+              >
+                <Heart size={10} className="fill-rose-500 stroke-rose-500" />
+                <div className="w-4 h-4 rounded-full overflow-hidden bg-zinc-100 shrink-0 border border-rose-200">
+                  {post.profiles?.avatar_url ? (
+                    <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center font-black text-rose-400 uppercase text-[8px]">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
+                  )}
+                </div>
+                <span className="text-[9px] font-black text-rose-500 uppercase tracking-tight">{t('Liked by Creator', 'Curtido pelo autor')}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -805,7 +927,34 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     );
   };
 
-  const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
+  const parentComments = useMemo(() => {
+    const parents = comments.filter(c => !c.parent_id);
+    return [...parents].sort((a, b) => {
+      // 1. Post author's comments first
+      const isAuthorA = a.user_id === post.user_id ? 1 : 0;
+      const isAuthorB = b.user_id === post.user_id ? 1 : 0;
+      if (isAuthorA !== isAuthorB) {
+        return isAuthorB - isAuthorA;
+      }
+
+      // 2. Comments liked by the post author
+      const isLikedByAuthorA = a.liked_by_author ? 1 : 0;
+      const isLikedByAuthorB = b.liked_by_author ? 1 : 0;
+      if (isLikedByAuthorA !== isLikedByAuthorB) {
+        return isLikedByAuthorB - isLikedByAuthorA;
+      }
+
+      // 3. Comments with more likes
+      const likesA = a.likes_count || 0;
+      const likesB = b.likes_count || 0;
+      if (likesA !== likesB) {
+        return likesB - likesA;
+      }
+
+      // Fallback: newest first
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [comments, post.user_id]);
 
   const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (showComments) return;
@@ -1036,7 +1185,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Likes')}</span>
           </button>
 
-          <button onClick={() => { setShowComments(true); fetchComments(); }} className="flex flex-col items-center group">
+          <button onClick={() => { setShowComments(true); fetchComments(true); }} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
               <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
@@ -1137,7 +1286,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar">
+            <div 
+              ref={commentsScrollRef}
+              onScroll={handleCommentsScroll}
+              className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar"
+            >
               {parentComments.map(parent => {
                 const replies = comments.filter(c => c.parent_id === parent.id).reverse();
                 const isExpanded = expandedThreads[parent.id];
@@ -1170,10 +1323,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   </div>
                 );
               })}
-              {comments.length === 0 && (
+              {comments.length === 0 && !loadingMoreComments && (
                 <div className="flex flex-col items-center justify-center py-20 opacity-30 grayscale">
                   <MessageCircle size={48} className="text-zinc-300 mb-4" />
                   <p className="text-xs uppercase font-black tracking-[0.3em] text-zinc-400">{t('No comments yet')}</p>
+                </div>
+              )}
+              {loadingMoreComments && (
+                <div className="flex justify-center items-center py-4">
+                  <Loader2 className="animate-spin text-zinc-500" size={24} />
                 </div>
               )}
             </div>
