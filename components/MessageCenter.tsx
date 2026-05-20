@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { Profile, Story } from '../types';
 import { parseMediaUrl } from '../services/mediaUtils';
-import { Bell, Camera, Hand, TrendingUp, Plus } from 'lucide-react';
+import { Bell, Camera, Hand, Plus } from 'lucide-react';
 
 interface MessageCenterProps {
   currentUser: User | null;
@@ -167,20 +167,15 @@ const MessageCenter: React.FC<MessageCenterProps> = ({ currentUser, onNavigateTo
       <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
         {/* Stories Section moved from Discovery */}
         <div className="px-4 py-6 border-b border-zinc-900/50 bg-zinc-950/20">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-4 flex items-center gap-2">
-            <TrendingUp size={14} className="text-zinc-600" />
-            {t('Stories from people you follow')}
-          </h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
             {/* Add Story Button */}
             <div 
               onClick={() => onNavigateToCreate && onNavigateToCreate(true)}
               className="flex flex-col items-center gap-2 shrink-0 group cursor-pointer active:scale-95 transition-transform"
             >
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-zinc-800 bg-zinc-900 flex items-center justify-center group-hover:border-purple-600 transition-colors">
-                <Plus size={20} className="text-zinc-600" />
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-dashed border-purple-600 bg-zinc-900 flex items-center justify-center transition-colors">
+                <Plus size={20} className="text-purple-500" />
               </div>
-              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter text-center">{t('Your Story')}</span>
             </div>
             {stories.map(story => (
               <div 
