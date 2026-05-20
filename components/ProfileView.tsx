@@ -36,6 +36,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
   const [followListUsers, setFollowListUsers] = useState<{ id: string; username: string; name?: string; avatar_url?: string; }[]>([]);
   const [loadingFollowList, setLoadingFollowList] = useState(false);
+  const [followListPage, setFollowListPage] = useState(0);
+  const [hasMoreFollows, setHasMoreFollows] = useState(true);
+  const [loadingMoreFollows, setLoadingMoreFollows] = useState(false);
 
   const [showDashboard, setShowDashboard] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -269,21 +272,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }, [activeTab, fetchRepostedPosts]);
 
-  const fetchFollowList = React.useCallback(async (type: 'followers' | 'following') => {
-    setLoadingFollowList(true);
-    setFollowListUsers([]);
+  const fetchFollowList = React.useCallback(async (type: 'followers' | 'following', page: number) => {
+    if (page === 0) {
+      setLoadingFollowList(true);
+    } else {
+      setLoadingMoreFollows(true);
+    }
+    const limit = 5;
+    const fromRange = page * limit;
+    const toRange = (page + 1) * limit - 1;
     try {
       if (type === 'followers') {
         const { data, error } = await supabase
           .from('follows')
           .select('created_at, profiles:follower_id(*)')
-          .eq('following_id', userId);
+          .eq('following_id', userId)
+          .range(fromRange, toRange)
+          .order('created_at', { ascending: false });
         
         if (!error && data) {
           const users = (data as unknown as { profiles: { id: string; username: string; name?: string; avatar_url?: string; } | null }[])
             .map(item => item.profiles)
             .filter(Boolean) as { id: string; username: string; name?: string; avatar_url?: string; }[];
-          setFollowListUsers(users);
+          setFollowListUsers(prev => page === 0 ? users : [...prev, ...users]);
+          setHasMoreFollows(users.length === limit);
         } else if (error) {
           console.error('Error fetching followers:', error);
         }
@@ -291,13 +303,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         const { data, error } = await supabase
           .from('follows')
           .select('created_at, profiles:following_id(*)')
-          .eq('follower_id', userId);
+          .eq('follower_id', userId)
+          .range(fromRange, toRange)
+          .order('created_at', { ascending: false });
         
         if (!error && data) {
           const users = (data as unknown as { profiles: { id: string; username: string; name?: string; avatar_url?: string; } | null }[])
             .map(item => item.profiles)
             .filter(Boolean) as { id: string; username: string; name?: string; avatar_url?: string; }[];
-          setFollowListUsers(users);
+          setFollowListUsers(prev => page === 0 ? users : [...prev, ...users]);
+          setHasMoreFollows(users.length === limit);
         } else if (error) {
           console.error('Error fetching following:', error);
         }
@@ -305,15 +320,35 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     } catch (err) {
       console.error('Error fetching follow list:', err);
     } finally {
-      setLoadingFollowList(false);
+      if (page === 0) {
+        setLoadingFollowList(false);
+      } else {
+        setLoadingMoreFollows(false);
+      }
     }
   }, [userId]);
 
   useEffect(() => {
     if (followModalType) {
-      fetchFollowList(followModalType);
+      setFollowListPage(0);
+      setFollowListUsers([]);
+      setHasMoreFollows(true);
+      fetchFollowList(followModalType, 0);
+    } else {
+      setFollowListUsers([]);
     }
   }, [followModalType, fetchFollowList]);
+
+  const handleFollowListScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!followModalType || !hasMoreFollows || loadingMoreFollows || loadingFollowList) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      const nextPage = followListPage + 1;
+      setFollowListPage(nextPage);
+      fetchFollowList(followModalType, nextPage);
+    }
+  };
 
   const handleUserClick = (targetId: string) => {
     if (onNavigateToProfile) {
@@ -1437,7 +1472,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {/* Content List */}
-            <div className="p-4 max-h-[350px] overflow-y-auto no-scrollbar space-y-3">
+            <div 
+              className="p-4 max-h-[350px] overflow-y-auto no-scrollbar space-y-3"
+              onScroll={handleFollowListScroll}
+            >
               {loadingFollowList ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Loader2 size={24} className="animate-spin text-purple-600" />
@@ -1448,38 +1486,45 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   Nenhum usuário encontrado
                 </div>
               ) : (
-                followListUsers.map(u => (
-                  <button 
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleUserClick(u.id)}
-                    className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-zinc-900/40 border border-transparent hover:border-zinc-900/50 cursor-pointer active:scale-98 transition-all duration-150 text-left outline-none"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800 shrink-0">
-                      {u.avatar_url ? (
-                        <img 
-                          src={parseMediaUrl(u.avatar_url)} 
-                          className="w-full h-full object-cover" 
-                          alt="" 
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-black text-xs text-zinc-500 uppercase">
-                          {u.username?.[0] || '?'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col items-start">
-                      <span className="text-xs font-bold text-zinc-100 truncate w-full">
-                        {u.name || `@${u.username}`}
-                      </span>
-                      {u.name && (
-                        <span className="text-[10px] font-medium text-zinc-500 truncate w-full">
-                          @{u.username}
+                <>
+                  {followListUsers.map(u => (
+                    <button 
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleUserClick(u.id)}
+                      className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-zinc-900/40 border border-transparent hover:border-zinc-900/50 cursor-pointer active:scale-98 transition-all duration-150 text-left outline-none"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800 shrink-0">
+                        {u.avatar_url ? (
+                          <img 
+                            src={parseMediaUrl(u.avatar_url)} 
+                            className="w-full h-full object-cover" 
+                            alt="" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-black text-xs text-zinc-500 uppercase">
+                            {u.username?.[0] || '?'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col items-start">
+                        <span className="text-xs font-bold text-zinc-100 truncate w-full">
+                          {u.name || `@${u.username}`}
                         </span>
-                      )}
+                        {u.name && (
+                          <span className="text-[10px] font-medium text-zinc-500 truncate w-full">
+                            @{u.username}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                  {loadingMoreFollows && (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 size={16} className="animate-spin text-purple-600" />
                     </div>
-                  </button>
-                ))
+                  )}
+                </>
               )}
             </div>
           </div>
