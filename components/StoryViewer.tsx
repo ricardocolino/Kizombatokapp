@@ -199,7 +199,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
+      <div className="fixed inset-0 z-[99999] bg-black flex items-center justify-center">
         <Loader2 className="animate-spin text-white" size={32} />
       </div>
     );
@@ -208,7 +208,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   if (stories.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center">
       {/* Progress Bars */}
       <div className="absolute top-4 left-0 right-0 px-2 flex gap-1 z-20">
         {stories.map((_, index) => (

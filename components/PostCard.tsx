@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -216,7 +216,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const timer = setTimeout(() => {
       setUiVisible(true);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
   }, []);
   const viewCountedRef = useRef<boolean>(false);
   const viewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -227,6 +232,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const observerRef = useRef<IntersectionObserver | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [doubleTapHearts, setDoubleTapHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const lastClickRef = useRef<number>(0);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handlePause = React.useCallback(() => {
     if (playTimeoutRef.current) {
@@ -498,6 +507,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
   };
 
+  const forceLike = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onRequireAuth?.();
+      return;
+    }
+
+    if (!metadata.liked) {
+      // Optimistic Update
+      const newLiked = true;
+      const newLikesCount = metadata.likesCount + 1;
+      
+      onUpdateMetadata(post.id, { 
+        liked: newLiked, 
+        likesCount: newLikesCount 
+      });
+
+      await supabase.from('reactions').insert({ post_id: post.id, user_id: session.user.id, type: 'like' });
+    }
+  };
+
   const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const { data: { session } } = await supabase.auth.getSession();
@@ -757,10 +787,49 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const parentComments = useMemo(() => comments.filter(c => !c.parent_id), [comments]);
 
+  const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (showComments) return;
+
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    if (now - lastClickRef.current < DOUBLE_PRESS_DELAY) {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
+      }
+
+      forceLike();
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const newHeart = { id: Date.now() + Math.random(), x, y };
+      
+      setDoubleTapHearts(prev => [...prev, newHeart]);
+
+      setTimeout(() => {
+        setDoubleTapHearts(prev => prev.filter(h => h.id !== newHeart.id));
+      }, 800);
+    } else {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+      clickTimeoutRef.current = setTimeout(() => {
+        if (isPlaying) {
+          handlePause();
+        } else {
+          handlePlay();
+        }
+        clickTimeoutRef.current = null;
+      }, DOUBLE_PRESS_DELAY);
+    }
+    lastClickRef.current = now;
+  };
+
   return (
     <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden will-change-transform">
       {/* Video Content */}
-      <div className="w-full h-full relative cursor-pointer" onClick={() => !showComments && (isPlaying ? handlePause() : handlePlay())}>
+      <div className="w-full h-full relative cursor-pointer" onClick={handleVideoClick}>
           {isNearScreen && (
             <video
               ref={videoRef}
@@ -858,6 +927,45 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </button>
           </div>
         )}
+
+        {/* Heart animations for double tap */}
+        {doubleTapHearts.map(heart => (
+          <div 
+            key={heart.id} 
+            className="absolute pointer-events-none z-50 animate-[heartPop_0.8s_ease-out_forwards]"
+            style={{
+              left: `${heart.x - 40}px`,
+              top: `${heart.y - 40}px`
+            }}
+          >
+            <Heart size={80} className="text-red-500 fill-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]" />
+          </div>
+        ))}
+
+        <style>{`
+          @keyframes heartPop {
+            0% {
+              transform: scale(0) rotate(-15deg);
+              opacity: 0;
+            }
+            15% {
+              transform: scale(1.2) rotate(10deg);
+              opacity: 0.9;
+            }
+            30% {
+              transform: scale(1) rotate(-5deg);
+              opacity: 1;
+            }
+            80% {
+              transform: scale(1.1) translateY(-40px) rotate(5deg);
+              opacity: 0.8;
+            }
+            100% {
+              transform: scale(0.6) translateY(-80px) rotate(15deg);
+              opacity: 0;
+            }
+          }
+        `}</style>
       </div>
 
       {/* Sidebar Controls */}
