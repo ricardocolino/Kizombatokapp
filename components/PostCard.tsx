@@ -237,6 +237,20 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const lastClickRef = useRef<number>(0);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    if (!showComments) return;
+    
+    const feedContainer = document.querySelector('.feed-container');
+    if (!feedContainer) return;
+    
+    const originalOverflow = feedContainer.style.overflowY || 'scroll';
+    (feedContainer as HTMLElement).style.overflowY = 'hidden';
+    
+    return () => {
+      (feedContainer as HTMLElement).style.overflowY = originalOverflow;
+    };
+  }, [showComments]);
+
   const handlePause = React.useCallback(() => {
     if (playTimeoutRef.current) {
       clearTimeout(playTimeoutRef.current);
@@ -1096,7 +1110,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {/* Professional Comments Drawer */}
       {showComments && (
-        <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="flex items-center justify-between p-5 border-b border-zinc-50">
