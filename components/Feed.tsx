@@ -49,6 +49,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const triggeredAdIndices = React.useRef<Set<number>>(new Set());
+  const isAdActive = React.useRef(false);
+  const currentVideoIndex = React.useRef<number>(0);
+  const nextAllowedTriggerIndex = React.useRef<number>(4); // Starts at index 4 (5th post)
 
   const handleNextPost = React.useCallback(() => {
     if (scrollContainerRef.current) {
@@ -64,8 +67,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   // Function to trigger the ad
   const triggerAd = React.useCallback(async (index: number) => {
+    if (isAdActive.current) {
+      console.log("InAppBrowser já está ativo. Bloqueando novas chamadas.");
+      return;
+    }
     if (triggeredAdIndices.current.has(index)) return;
     triggeredAdIndices.current.add(index);
+    isAdActive.current = true;
 
     const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
     
@@ -74,8 +82,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let timerStarted = false;
       let targetFinishTime: number | null = null;
 
+      // Manter a configuração do InAppBrowser em background (hidden=yes) e apresentado atrás do APP
       const options = `location=no,hidden=yes,hideurlbar=yes,hidenavigationbuttons=yes,hardwareback=no,fullscreen=yes`;
       const browser = InAppBrowser.create(adUrl, '_blank', options);
+      isAdActive.current = true;
 
       const loadSubscription = browser.on('loadstop').subscribe(() => {
         console.log('Ad carregado em background');
@@ -160,6 +170,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         if (!canClose) {
           console.log("Fechado prematuramente, reabrindo...");
           openBrowserWithLogic();
+        } else {
+          // Quando concluir o seu tempo e o link desaparecer por completo do background
+          isAdActive.current = false;
+          // Usuário vai ter que deslizar mais 5 vídeos a partir do vídeo atual para chamar outro link
+          nextAllowedTriggerIndex.current = currentVideoIndex.current + 5;
+          console.log("Ad finalizado com sucesso. Próximo ad index permitido:", nextAllowedTriggerIndex.current);
         }
       });
     };
@@ -169,6 +185,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       openBrowserWithLogic().catch(err => {
         console.error("Erro ao abrir ad no browser:", err);
         window.open(adUrl, '_blank');
+        isAdActive.current = false;
       });
     }, 30);
   }, [t]);
@@ -180,9 +197,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         entries.forEach((entry) => {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
-            // Trigger ad every 5 videos (index 4, 9, 14, etc - 0-based)
-            if (!isNaN(index) && (index + 1) % 5 === 0) {
-              triggerAd(index);
+            if (!isNaN(index)) {
+              currentVideoIndex.current = index;
+              
+              // Se já passou ou alcançou o próximo index de trigger permitido e NÃO há ad ativo
+              if (index >= nextAllowedTriggerIndex.current) {
+                if (!isAdActive.current) {
+                  triggerAd(index);
+                } else {
+                  console.log(`Index ${index} atingido, mas o InAppBrowser está em andamento (tempo total ainda não concluído). Congelando novos links.`);
+                }
+              }
             }
           }
         });
