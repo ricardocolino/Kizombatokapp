@@ -19,7 +19,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Clapperboard, Compass, Plus, Tv, Send, User as UserIcon } from 'lucide-react';
+import { Clapperboard, Compass, Plus, Tv, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -698,7 +698,7 @@ const App: React.FC = () => {
             className={`flex flex-col items-center gap-1.5 transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
             <div className="relative">
-              <Send size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              <Bell size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
