@@ -19,7 +19,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Clapperboard, Compass, Plus, Tv, Bell, User as UserIcon } from 'lucide-react';
+import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -683,7 +683,7 @@ const App: React.FC = () => {
             className="flex flex-col items-center group outline-none"
           >
             <div className="w-12 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] group-active:scale-90 transition-all border border-white/10">
-              <Plus size={24} strokeWidth={2.5} />
+              <span className="text-xl font-black italic tracking-wide select-none">Z</span>
             </div>
           </button>
           <button 
