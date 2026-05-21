@@ -48,6 +48,8 @@ interface RankedUser {
 
 const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, onNavigateToProfile }) => {
   const { t } = useTranslation();
+  const [currentLiveId, setCurrentLiveId] = useState(liveId);
+  const [livesList, setLivesList] = useState<string[]>([]);
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
@@ -59,9 +61,100 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
   const [status, setStatus] = useState<string>(t('Connecting'));
   const [activeGift, setActiveGift] = useState<{ gift: Gift; senderName: string } | null>(null);
   const videoRef = useRef<HTMLDivElement>(null);
-  const isInitialized = useRef(false);
+  const initializedLiveId = useRef<string | null>(null);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const broadcastChannelRef = useRef<RealtimeChannel | null>(null);
+
+  // Synchronize currentLiveId when parent-provided liveId changes
+  useEffect(() => {
+    setCurrentLiveId(liveId);
+  }, [liveId]);
+
+  // Fetch list of active lives to support swiping
+  useEffect(() => {
+    const fetchAllLives = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('lives')
+          .select('id')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          const ids = data.map(item => item.id);
+          setLivesList(ids);
+        }
+      } catch (err) {
+        console.error('Error fetching lives list:', err);
+      }
+    };
+    fetchAllLives();
+  }, []);
+
+  const touchStartY = useRef<number>(0);
+  const isSwiping = useRef<boolean>(false);
+  const touchActive = useRef<boolean>(false);
+
+  const goToNextLive = () => {
+    if (livesList.length <= 1) return;
+    const currentIndex = livesList.indexOf(currentLiveId);
+    if (currentIndex === -1) return;
+    const nextIndex = (currentIndex + 1) % livesList.length;
+    const nextLiveId = livesList[nextIndex];
+    if (nextLiveId) {
+      setCurrentLiveId(nextLiveId);
+    }
+  };
+
+  const goToPrevLive = () => {
+    if (livesList.length <= 1) return;
+    const currentIndex = livesList.indexOf(currentLiveId);
+    if (currentIndex === -1) return;
+    const prevIndex = (currentIndex - 1 + livesList.length) % livesList.length;
+    const prevLiveId = livesList[prevIndex];
+    if (prevLiveId) {
+      setCurrentLiveId(prevLiveId);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    isSwiping.current = false;
+    touchActive.current = true;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchActive.current) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = touchStartY.current - currentY;
+    if (Math.abs(diffY) > 10) {
+      isSwiping.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchActive.current) return;
+    touchActive.current = false;
+    
+    const currentY = e.changedTouches[0].clientY;
+    const diffY = touchStartY.current - currentY;
+    const minSwipeDistance = 50;
+
+    if (isSwiping.current && Math.abs(diffY) >= minSwipeDistance) {
+      if (diffY > 0) {
+        goToNextLive();
+      } else {
+        goToPrevLive();
+      }
+    } else if (!isSwiping.current) {
+      sendHeart();
+    }
+  };
+
+  const handleAreaClick = () => {
+    if ('ontouchstart' in window) return;
+    sendHeart();
+  };
 
   const updatePoints = (userId: string, points: number, profile?: { username: string; name: string | null; avatar_url: string }) => {
     setRanking(prev => {
@@ -92,11 +185,21 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
   };
 
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
+    if (initializedLiveId.current === currentLiveId) return;
+    initializedLiveId.current = currentLiveId;
+
+    // Reset states for the new live channel
+    setLiveData(null);
+    setViewerCount(0);
+    setLikesCount(0);
+    setIsFollowingHost(false);
+    setRanking({});
+    setHearts([]);
+    setStatus(t('Connecting'));
+    setActiveGift(null);
 
     // Initialize broadcast channel
-    const broadcastChannel = supabase.channel(`live_messages:${liveId}`);
+    const broadcastChannel = supabase.channel(`live_messages:${currentLiveId}`);
     broadcastChannelRef.current = broadcastChannel;
 
     const fetchLiveData = async () => {
@@ -104,7 +207,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
         const { data, error } = await supabase
           .from('lives')
           .select('*, profiles(username, avatar_url)')
-          .eq('id', liveId)
+          .eq('id', currentLiveId)
           .single();
 
         if (error) throw error;
@@ -128,7 +231,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
           const { data: blockMsgs } = await supabase
             .from('live_messages')
             .select('content')
-            .eq('live_id', liveId)
+            .eq('live_id', currentLiveId)
             .ilike('content', `__MOD_BLOCK:${currentUser.id}__`);
           
           if (blockMsgs && blockMsgs.length > 0) {
@@ -196,7 +299,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
         }, 15000);
 
         // Increment viewer count
-        await supabase.rpc('increment_viewer_count', { live_id: liveId });
+        await supabase.rpc('increment_viewer_count', { live_id: currentLiveId });
 
         // Send Join Notice
         if (currentUser && broadcastChannelRef.current) {
@@ -222,14 +325,14 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
 
     // Subscribe to status and system notices
     const channel = supabase
-      .channel(`live_status:${liveId}`)
+      .channel(`live_status:${currentLiveId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'lives',
-          filter: `id=eq.${liveId}`,
+          filter: `id=eq.${currentLiveId}`,
         },
         (payload) => {
           setViewerCount(payload.new.viewer_count || 0);
@@ -252,14 +355,14 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
 
     // Subscribe to messages for points
     const messagesChannel = supabase
-      .channel(`live_msg_points:${liveId}`)
+      .channel(`live_msg_points:${currentLiveId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'live_messages',
-          filter: `live_id=eq.${liveId}`,
+          filter: `live_id=eq.${currentLiveId}`,
         },
         async (payload) => {
           // If it's a block message, handle it
@@ -285,14 +388,14 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
 
     // Subscribe to gifts for points
     const giftsChannel = supabase
-      .channel(`live_gifts:${liveId}`)
+      .channel(`live_gifts:${currentLiveId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'live_gifts',
-          filter: `live_id=eq.${liveId}`,
+          filter: `live_id=eq.${currentLiveId}`,
         },
         async (payload) => {
           const [profileRes, giftRes] = await Promise.all([
@@ -314,31 +417,39 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
       .subscribe();
 
     return () => {
+      initializedLiveId.current = null;
       const cleanup = async () => {
         if (clientRef.current) {
-          await clientRef.current.leave();
+          try {
+            await clientRef.current.leave();
+          } catch (e) {
+            console.error(e);
+          }
           clientRef.current.removeAllListeners();
+          clientRef.current = null;
         }
         supabase.removeChannel(channel);
         supabase.removeChannel(messagesChannel);
         supabase.removeChannel(giftsChannel);
         // Decrement viewer count
-        await supabase.rpc('decrement_viewer_count', { live_id: liveId });
+        try {
+          await supabase.rpc('decrement_viewer_count', { live_id: currentLiveId });
+        } catch (e) {
+          console.error(e);
+        }
       };
       cleanup();
     };
-  }, [liveId, currentUser, onClose]);
+  }, [currentLiveId, currentUser, onClose, t]);
 
   const sendHeart = () => {
     // Optimistic update: increment locally first for immediate feedback
     setLikesCount(prev => prev + 1);
 
     // Increment heart count in DB
-    supabase.rpc('increment_likes', { live_id: liveId }).then(({ error }) => {
+    supabase.rpc('increment_likes', { live_id: currentLiveId }).then(({ error }) => {
       if (error) {
         console.error('Error incrementing likes in DB:', error);
-        // If it fails, we revert the local count slightly or just log it
-        // Reverting in a high-freq action like hearts is usually not worth it
       }
     });
 
@@ -400,10 +511,13 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
       <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center overflow-hidden">
         <div ref={videoRef} className="w-full h-full" />
         
-        {/* Tap to Like Hit Area */}
+        {/* Tap to Like Hit Area and Swipe Interaction Area */}
         <div 
           className="absolute inset-0 z-[5] cursor-pointer" 
-          onClick={sendHeart}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleAreaClick}
         />
 
         {status && (
@@ -538,7 +652,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
         <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
           <div className="h-[320px] w-full pointer-events-auto">
             <LiveChat 
-              liveId={liveId} 
+              liveId={currentLiveId} 
               currentUser={currentUser} 
               extraActions={
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -583,7 +697,7 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
       <AnimatePresence>
         {showGiftPicker && (
           <GiftPicker 
-            liveId={liveId} 
+            liveId={currentLiveId} 
             currentUser={currentUser} 
             onClose={() => setShowGiftPicker(false)}
             onNavigateToProfile={onNavigateToProfile}
