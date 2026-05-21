@@ -19,7 +19,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Home, Search, PlusSquare, MessageCircle, User as UserIcon, Radio } from 'lucide-react';
+import { Clapperboard, Compass, Plus, Tv, Send, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -668,14 +668,14 @@ const App: React.FC = () => {
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
             className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Home size={24} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
+            <Clapperboard size={24} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
             <span className="text-[9px] font-black uppercase tracking-widest">{t('Home')}</span>
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.DISCOVER); }}
             className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Search size={24} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
+            <Compass size={24} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
             <span className="text-[9px] font-black uppercase tracking-widest">{t('Discovery')}</span>
           </button>
           <button 
@@ -683,14 +683,14 @@ const App: React.FC = () => {
             className="flex flex-col items-center group outline-none"
           >
             <div className="w-12 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] group-active:scale-90 transition-all border border-white/10">
-              <PlusSquare size={22} />
+              <Plus size={24} strokeWidth={2.5} />
             </div>
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.LIVE); }}
             className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Radio size={24} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
+            <Tv size={24} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
             <span className="text-[9px] font-black uppercase tracking-widest">{t('Live')}</span>
           </button>
           <button 
@@ -698,7 +698,7 @@ const App: React.FC = () => {
             className={`flex flex-col items-center gap-1.5 transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
             <div className="relative">
-              <MessageCircle size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              <Send size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
