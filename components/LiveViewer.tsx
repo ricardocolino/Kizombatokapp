@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { supabase } from '../supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { X, Users, Heart, Gift as GiftIcon, Plus } from 'lucide-react';
+import { X, Users, Heart, Gift as GiftIcon, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import LiveChat from './LiveChat';
 import GiftPicker from './GiftPicker';
 import RechargeModal from './RechargeModal';
@@ -711,6 +711,27 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
           <RechargeModal onClose={() => setShowRecharge(false)} />
         )}
       </AnimatePresence>
+
+      {/* PC/Big Screen Floating Navigation Controls */}
+      {livesList.length > 1 && (
+        <div className="fixed right-6 top-1/2 -translate-y-1/2 z-[160] flex flex-col gap-4 hidden md:flex pointer-events-auto">
+          <button
+            onClick={(e) => { e.stopPropagation(); goToPrevLive(); }}
+            title={t('Previous Live')}
+            className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 hover:scale-105 transition-all shadow-2xl cursor-pointer"
+          >
+            <ChevronUp size={24} strokeWidth={2.5} />
+          </button>
+          
+          <button
+            onClick={(e) => { e.stopPropagation(); goToNextLive(); }}
+            title={t('Next Live')}
+            className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 hover:scale-105 transition-all shadow-2xl cursor-pointer"
+          >
+            <ChevronDown size={24} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
