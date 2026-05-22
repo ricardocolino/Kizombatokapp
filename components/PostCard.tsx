@@ -1424,26 +1424,28 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 </div>
               )}
               <form onSubmit={postComment} className="flex items-center gap-3">
-                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3.5 flex items-center justify-between gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
+                <div className="flex-1 bg-zinc-50 rounded-full pl-6 pr-1.5 py-1.5 flex items-center justify-between gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
                   <input 
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value.slice(0, 150))}
                     maxLength={150}
                     placeholder={t('Add comment placeholder')}
-                    className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400"
+                    className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400 py-1"
                   />
-                  <span className="text-[10px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-2 py-0.5 rounded-full">
-                    {newComment.length}/150
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-2 py-0.5 rounded-full">
+                      {newComment.length}/150
+                    </span>
+                    <button 
+                      type="submit" 
+                      disabled={!newComment.trim()}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${newComment.trim() ? 'text-blue-500 active:scale-90' : 'text-zinc-300 pointer-events-none'}`}
+                    >
+                      <Send size={18} className={newComment.trim() ? 'fill-blue-500' : ''} />
+                    </button>
+                  </div>
                 </div>
-                <button 
-                  type="submit" 
-                  disabled={!newComment.trim()}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all shadow-sm ${newComment.trim() ? 'bg-black text-white' : 'bg-zinc-50 text-zinc-400'}`}
-                >
-                  <Send size={20} />
-                </button>
               </form>
             </div>
           </div>
