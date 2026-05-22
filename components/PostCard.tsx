@@ -57,6 +57,38 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
 
+  const formatPublishedTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    if (diff < 0) return 'há poucos segundos atrás';
+
+    const secs = Math.floor(diff / 1000);
+    const mins = Math.floor(secs / 60);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+
+    if (secs < 60) {
+      return 'há poucos segundos atrás';
+    } else if (mins < 60) {
+      return `há ${mins} ${mins === 1 ? 'minuto' : 'minutos'} atrás`;
+    } else if (hours < 24) {
+      return `há ${hours} ${hours === 1 ? 'hora' : 'horas'} atrás`;
+    } else if (days < 7) {
+      return `há ${days} ${days === 1 ? 'dia' : 'dias'} atrás`;
+    } else if (days < 30) {
+      return `há ${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
+    } else if (days < 365) {
+      return `há ${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
+    } else {
+      return `há ${years} ${years === 1 ? 'ano' : 'anos'} atrás`;
+    }
+  };
+
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
@@ -926,7 +958,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     <div className="w-full h-full flex items-center justify-center font-black text-rose-400 uppercase text-[8px]">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
                   )}
                 </div>
-                <span className="text-[9px] font-black text-rose-500 uppercase tracking-tight">{t('Liked by Creator', 'Curtido pelo autor')}</span>
               </div>
             )}
           </div>
@@ -1245,13 +1276,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         {/* Caption Area */}
         {uiVisible && (
           <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-12 sm:pb-14 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-20">
-            <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2">
+            <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2 flex-wrap">
               <span 
                 onClick={() => onNavigateToProfile(post.user_id)}
                 className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
               >
                 {post.profiles?.name || `@${post.profiles?.username}`}
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
+              </span>
+              <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
+                • {formatPublishedTime(post.created_at)}
               </span>
             </h3>
             <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
@@ -1368,14 +1402,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 </div>
               )}
               <form onSubmit={postComment} className="flex items-center gap-3">
-                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3.5 flex items-center gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
+                <div className="flex-1 bg-zinc-50 rounded-full px-6 py-3.5 flex items-center justify-between gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
                   <input 
                     ref={inputRef}
                     value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
+                    onChange={(e) => setNewComment(e.target.value.slice(0, 150))}
+                    maxLength={150}
                     placeholder={t('Add comment placeholder')}
                     className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400"
                   />
+                  <span className="text-[10px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-2 py-0.5 rounded-full">
+                    {newComment.length}/150
+                  </span>
                 </div>
                 <button 
                   type="submit" 
