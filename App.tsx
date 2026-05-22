@@ -544,6 +544,7 @@ const App: React.FC = () => {
             initialAction={profileAction}
             onClearAction={() => setProfileAction(null)}
             onNavigateToProfile={handleNavigateToProfile}
+            onBack={handleGoHome}
           />
         );
       }
@@ -661,7 +662,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {activeTab !== Tab.CREATE && (
+      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && (
         <nav className="h-[76px] lg:h-[80px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative pb-5 lg:pb-0 px-2 lg:px-8">
           <button 
             onClick={handleGoHome}
