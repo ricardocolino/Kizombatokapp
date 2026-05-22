@@ -472,7 +472,16 @@ const App: React.FC = () => {
           onRequireAuth={() => setActiveTab(Tab.PROFILE)} 
           initialPostId={targetPostId} 
           feedFilter={feedFilter}
-          onClearFilter={() => setFeedFilter(null)}
+          onClearFilter={() => {
+            if (feedFilter) {
+              const targetUserId = feedFilter.userId;
+              setFeedFilter(null);
+              setTargetPostId(null);
+              handleNavigateToProfile(targetUserId);
+            } else {
+              setFeedFilter(null);
+            }
+          }}
           refreshTrigger={homeRefreshTrigger}
           onViewStories={(userId, allUserIds) => {
             if (user && userId === user.id) {
@@ -662,7 +671,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && (
+      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && (
         <nav className="h-[76px] lg:h-[80px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative pb-5 lg:pb-0 px-2 lg:px-8">
           <button 
             onClick={handleGoHome}
