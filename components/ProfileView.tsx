@@ -1109,20 +1109,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
         <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500 text-black">
-          <header className="h-20 bg-white border-b border-zinc-100 flex items-center px-6 shrink-0 gap-4 pt-4">
+          <header className="h-14 bg-white border-b border-zinc-100 flex items-center px-4 shrink-0 gap-3">
             <button 
               onClick={() => setShowExternalUrl(false)}
-              className="w-12 h-12 rounded-xl bg-zinc-50 flex items-center justify-center text-black active:scale-90 transition-all border border-zinc-100"
+              className="w-9 h-9 rounded-lg bg-zinc-50 flex items-center justify-center text-black active:scale-90 transition-all border border-zinc-100"
             >
-              <ChevronLeft size={28} />
+              <ChevronLeft size={20} />
             </button>
-            <div className="flex flex-col">
-              <span className="text-sm font-black uppercase tracking-widest">{t('Secure Payment')}</span>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
-                <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">huzty Payments</span>
-              </div>
-            </div>
+            <span className="text-xs font-black uppercase tracking-widest text-zinc-950">{t('Secure Payment')}</span>
           </header>
           
           <div className="flex-1 relative bg-white">
