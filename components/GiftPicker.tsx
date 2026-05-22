@@ -109,7 +109,6 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
           <Coins size={16} className="text-amber-500" />
           <span className="text-sm font-black text-amber-700">{balance}</span>
         </div>
-        <h3 className="font-black text-lg">{t('Send Gift')}</h3>
         <button 
           onClick={onClose}
           className="w-10 h-10 bg-zinc-50 rounded-full flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
@@ -169,9 +168,6 @@ const GiftPicker: React.FC<GiftPickerProps> = ({ liveId, currentUser, onClose, o
         >
           {t('Recharge Coins')}
         </button>
-        <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">
-          huzty • {t('Creator Support')}
-        </p>
       </div>
     </motion.div>
   );

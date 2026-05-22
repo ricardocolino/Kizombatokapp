@@ -173,6 +173,28 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     };
   }, [showComments, showGifts, showShare, showRecharge]);
 
+  useEffect(() => {
+    if (showGifts) {
+      document.body.classList.add('gifts-open');
+    } else {
+      document.body.classList.remove('gifts-open');
+    }
+    return () => {
+      document.body.classList.remove('gifts-open');
+    };
+  }, [showGifts]);
+
+  useEffect(() => {
+    if (showRecharge) {
+      document.body.classList.add('recharge-open');
+    } else {
+      document.body.classList.remove('recharge-open');
+    }
+    return () => {
+      document.body.classList.remove('recharge-open');
+    };
+  }, [showRecharge]);
+
   const handleCommentsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (loadingMoreComments || !hasMoreComments) return;

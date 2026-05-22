@@ -546,7 +546,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   return (
     <div className="h-full w-full bg-black relative overflow-hidden">
       <style>{`
-        body.comments-open .feed-navigation-tabs {
+        body.comments-open .feed-navigation-tabs,
+        body.gifts-open .feed-navigation-tabs,
+        body.recharge-open .feed-navigation-tabs {
           display: none !important;
         }
       `}</style>
