@@ -1440,9 +1440,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     <button 
                       type="submit" 
                       disabled={!newComment.trim()}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${newComment.trim() ? 'text-blue-500 active:scale-90' : 'text-zinc-300 pointer-events-none'}`}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${newComment.trim() ? 'text-purple-600 active:scale-90' : 'text-zinc-300 pointer-events-none'}`}
                     >
-                      <Send size={18} className={newComment.trim() ? 'fill-blue-500' : ''} />
+                      <Send size={18} className={newComment.trim() ? 'fill-purple-600' : ''} />
                     </button>
                   </div>
                 </div>
