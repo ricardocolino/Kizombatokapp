@@ -63,6 +63,95 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const PAGE_SIZE = 6;
   const VIEW_RATE = 0.001; // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
 
+  const [topGivers, setTopGivers] = useState<{
+    id: string;
+    username: string;
+    name?: string;
+    avatar_url?: string;
+    totalCoins: number;
+    giftCount: number;
+  }[]>([]);
+  const [loadingGivers, setLoadingGivers] = useState(false);
+  const [showGiversList, setShowGiversList] = useState(false);
+
+  const fetchTopGivers = async () => {
+    setLoadingGivers(true);
+    try {
+      const { data: userLives, error: livesError } = await supabase
+        .from('lives')
+        .select('id')
+        .eq('host_id', userId);
+
+      if (livesError) throw livesError;
+
+      const liveIds = userLives?.map(l => l.id) || [];
+      const giversMap: { [key: string]: { totalCoins: number; giftCount: number; sender_id: string } } = {};
+
+      if (liveIds.length > 0) {
+        const { data: liveGifts, error: giftsError } = await supabase
+          .from('live_gifts')
+          .select('sender_id, price_at_time')
+          .in('live_id', liveIds);
+
+        if (giftsError) throw giftsError;
+
+        if (liveGifts) {
+          liveGifts.forEach(gift => {
+            const sid = gift.sender_id;
+            const price = gift.price_at_time || 0;
+            if (!giversMap[sid]) {
+              giversMap[sid] = { totalCoins: 0, giftCount: 0, sender_id: sid };
+            }
+            giversMap[sid].totalCoins += price;
+            giversMap[sid].giftCount += 1;
+          });
+        }
+      }
+
+      const uniqueSenderIds = Object.keys(giversMap);
+      const finalGiversList: {
+        id: string;
+        username: string;
+        name?: string;
+        avatar_url?: string;
+        totalCoins: number;
+        giftCount: number;
+      }[] = [];
+
+      if (uniqueSenderIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, name, avatar_url')
+          .in('id', uniqueSenderIds);
+
+        if (profilesError) throw profilesError;
+
+        if (profilesData) {
+          profilesData.forEach(p => {
+            const stats = giversMap[p.id];
+            if (stats) {
+              finalGiversList.push({
+                id: p.id,
+                username: p.username,
+                name: p.name,
+                avatar_url: p.avatar_url,
+                totalCoins: stats.totalCoins,
+                giftCount: stats.giftCount,
+              });
+            }
+          });
+        }
+      }
+
+      finalGiversList.sort((a, b) => b.totalCoins - a.totalCoins);
+      setTopGivers(finalGiversList);
+    } catch (err) {
+      console.error("Error fetching givers:", err);
+    } finally {
+      setLoadingGivers(false);
+    }
+  };
+
   // Ouvir mensagens do iframe de pagamentos
   useEffect(() => {
     const handlePaymentMessage = async (event: MessageEvent) => {
@@ -1135,7 +1224,149 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
               </div>
 
+              {/* Botão de Presenteadores */}
+              <button 
+                onClick={() => {
+                  fetchTopGivers();
+                  setShowGiversList(true);
+                }}
+                className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 text-black rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 border border-zinc-200/50"
+              >
+                <Gift size={16} className="text-purple-600" />
+                {t('Presenteadores', 'Maiores Presenteadores')}
+              </button>
+
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Givers View (Full Screen, white background) */}
+      {showGiversList && (
+        <div className="fixed inset-0 z-[110] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+          {/* Header */}
+          <header className="sticky top-0 bg-white flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
+            <button 
+              onClick={() => setShowGiversList(false)}
+              className="text-black hover:opacity-70 transition-all p-1"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div className="flex flex-col flex-1">
+              <span className="text-sm font-black uppercase tracking-widest">{t('Presenteadores', 'Maiores Presenteadores')}</span>
+            </div>
+          </header>
+
+          {/* Supporters List */}
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            {loadingGivers ? (
+              <div className="h-48 flex items-center justify-center flex-col gap-2">
+                <Loader2 className="animate-spin text-purple-600" size={24} />
+                <span className="text-xs text-zinc-400 uppercase tracking-widest font-black">{t('Loading')}...</span>
+              </div>
+            ) : topGivers.length === 0 ? (
+              <div className="h-[60vh] flex flex-col items-center justify-center text-center gap-4 px-4">
+                <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400">
+                  <Gift size={28} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-sm text-zinc-900">{t('Ainda sem presentes', 'Nenhum presente recebido')}</h3>
+                  <p className="text-xs text-zinc-400 max-w-xs">{t('Os teus maiores apoiadores de transmissões ao vivo aparecerão listados aqui.', 'As moedas recebidas de fãs em directos ou publicações destacarão os teus maiores apoiadores!')}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 py-6 animate-in fade-in duration-300">
+                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-none mb-2">
+                  {t('Classificação de Apoiadores', 'Classificação de Apoiadores por Nível')}
+                </p>
+
+                {topGivers.map((giver, index) => {
+                  // Determina o nível baseado na quantia total
+                  let levelLabel = t('Apoiador Bronze');
+                  let levelColor = 'bg-zinc-100 text-zinc-600 border border-zinc-200';
+                  let levelBadge = '⭐';
+                  
+                  if (giver.totalCoins >= 1000) {
+                    levelLabel = t('Apoiador Diamante');
+                    levelColor = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
+                    levelBadge = '💎';
+                  } else if (giver.totalCoins >= 500) {
+                    levelLabel = t('Apoiador Ouro');
+                    levelColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                    levelBadge = '👑';
+                  } else if (giver.totalCoins >= 100) {
+                    levelLabel = t('Apoiador Prata');
+                    levelColor = 'bg-slate-100 text-slate-700 border border-slate-300';
+                    levelBadge = '🥈';
+                  }
+
+                  const avatarUrlResolved = parseMediaUrl(giver.avatar_url);
+
+                  return (
+                    <div 
+                      key={giver.id}
+                      onClick={() => {
+                        if (onNavigateToProfile) {
+                          setShowGiversList(false);
+                          setShowMonetization(false);
+                          onNavigateToProfile(giver.id);
+                        }
+                      }}
+                      className="flex items-center justify-between p-4 bg-zinc-50 hover:bg-zinc-100/80 active:scale-[0.99] border border-zinc-100 rounded-2xl cursor-pointer transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Posicional Badge */}
+                        <div className="w-6 text-center text-xs font-black text-zinc-400">
+                          #{index + 1}
+                        </div>
+
+                        {/* Avatar */}
+                        <div className="relative w-11 h-11 shrink-0">
+                          {giver.avatar_url ? (
+                            <img
+                              src={avatarUrlResolved}
+                              key={giver.avatar_url}
+                              alt={giver.username}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover rounded-full border border-zinc-200"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-zinc-100 rounded-full flex items-center justify-center text-zinc-500 font-bold uppercase text-sm border border-zinc-200">
+                              {giver.username.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Informações básicas e nível */}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-black text-black leading-none">
+                            {giver.name || giver.username}
+                          </span>
+                          <span className="text-[10px] text-zinc-400 leading-none">
+                            @{giver.username}
+                          </span>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${levelColor}`}>
+                              {levelBadge} {levelLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Total de moedas e presentes discretos */}
+                      <div className="text-right flex flex-col justify-center items-end">
+                        <span className="text-xs font-black text-black leading-none">
+                          {giver.totalCoins} Coins
+                        </span>
+                        <span className="text-[9px] text-zinc-400 mt-1">
+                          {giver.giftCount} {giver.giftCount === 1 ? t('Presente') : t('Presentes')}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
