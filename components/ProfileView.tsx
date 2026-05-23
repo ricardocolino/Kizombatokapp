@@ -1158,6 +1158,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             <div className="flex flex-col gap-10 py-8">
               
+              {/* Botão de Presenteadores */}
+              <button 
+                onClick={() => {
+                  fetchTopGivers();
+                  setShowGiversList(true);
+                }}
+                className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 text-black rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 border border-zinc-200/50"
+              >
+                <Gift size={16} className="text-purple-600" />
+                {t('Presenteadores', 'Maiores Presenteadores')}
+              </button>
+
               {/* Card de Ganhos de Presentes */}
               <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4">
                 <div className="flex items-center gap-3">
@@ -1223,18 +1235,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </span>
                 </div>
               </div>
-
-              {/* Botão de Presenteadores */}
-              <button 
-                onClick={() => {
-                  fetchTopGivers();
-                  setShowGiversList(true);
-                }}
-                className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 text-black rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 border border-zinc-200/50"
-              >
-                <Gift size={16} className="text-purple-600" />
-                {t('Presenteadores', 'Maiores Presenteadores')}
-              </button>
 
             </div>
           </div>
