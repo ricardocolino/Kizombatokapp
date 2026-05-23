@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -715,18 +715,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       className="h-full w-full bg-white overflow-y-auto pb-20 no-scrollbar relative text-black"
     >
       {/* Top Navigation Overlay */}
-      <header className="sticky top-0 bg-white/80 backdrop-blur-md flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
+      <header className="sticky top-0 bg-white/80 backdrop-blur-md flex items-center px-4 h-14 border-b border-white z-50 gap-3">
         {onBack && (
           <button 
             onClick={onBack}
             className="p-1 -ml-1 text-black hover:opacity-60 transition-all flex items-center justify-center rounded-full"
           >
-            <ChevronLeft size={24} />
+            <ArrowLeft size={24} />
           </button>
         )}
         <div className="flex flex-col flex-1">
           <h1 className="font-bold text-sm text-black">{profile.name || profile.username}</h1>
-          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{userPosts.length} {t('Posts')}</span>
         </div>
         <div className="flex gap-4 shrink-0">
           {isOwnProfile && (
