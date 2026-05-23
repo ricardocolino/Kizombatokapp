@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -43,6 +43,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [loadingMoreFollows, setLoadingMoreFollows] = useState(false);
 
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showMonetization, setShowMonetization] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [newWalletAddress, setNewWalletAddress] = useState('');
@@ -779,6 +780,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="text-xl font-light tracking-tight">{t('Language')}</span>
             </button>
 
+            <button 
+              onClick={() => {
+                setShowMonetization(true);
+                setShowMenu(false);
+              }} 
+              className="w-full flex items-center gap-4 text-zinc-800 group"
+            >
+              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
+                <DollarSign size={22} strokeWidth={1.5} />
+              </div>
+              <span className="text-xl font-light tracking-tight">{t('Monetização', 'Monetização')}</span>
+            </button>
+
             <button
               onClick={() => {
                 setShowMenu(false);
@@ -1030,6 +1044,97 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   {t('Stay in group')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monetization View (Full Screen) */}
+      {showMonetization && (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+          {/* Header */}
+          <header className="sticky top-0 bg-white flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
+            <button 
+              onClick={() => setShowMonetization(false)}
+              className="text-black hover:opacity-70 transition-all p-1"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div className="flex flex-col flex-1">
+              <span className="text-sm font-black uppercase tracking-widest">{t('Monetização')}</span>
+            </div>
+          </header>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="flex flex-col gap-10 py-8">
+              
+              {/* Card de Ganhos de Presentes */}
+              <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                    <Gift size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Gifts Received', 'Presentes Recebidos')}</h3>
+                    <p className="text-zinc-500 text-[10px] font-light mt-1">{t('Earned from post and live gifts', 'Ganhos de presentes em vídeos e transmissões')}</p>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-zinc-100 flex items-baseline justify-between">
+                  <span className="text-2xl font-bold tracking-tight">{(profile?.redeemable_balance || 0).toFixed(0)} <span className="text-xs font-semibold text-zinc-400">Coins</span></span>
+                  <span className="text-sm font-semibold text-zinc-500">≈ $ {((profile?.redeemable_balance || 0) / 100).toFixed(5)} USD</span>
+                </div>
+              </div>
+
+              {/* Card de Ganhos de Views */}
+              <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold">
+                    <span className="text-sm">▶</span>
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Views Earnings', 'Ganhos de Visualizações')}</h3>
+                    <p className="text-zinc-500 text-[10px] font-light mt-1">{t('Based on your total views count', 'Com base no total de visualizações de seus vídeos')}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center bg-white rounded-2xl p-4 border border-zinc-100">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">{t('Total Views')}</span>
+                    <span className="text-sm font-black text-black">{stats.views}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">{t('Views Rate')}</span>
+                    <span className="text-[10px] font-semibold text-zinc-500">{VIEW_RATE} Coin / View</span>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-zinc-100 flex items-baseline justify-between">
+                  <span className="text-2xl font-bold tracking-tight">{(stats.views * VIEW_RATE).toFixed(3)} <span className="text-xs font-semibold text-zinc-400">Coins</span></span>
+                  <span className="text-sm font-semibold text-zinc-500">≈ $ {((stats.views * VIEW_RATE) / 100).toFixed(5)} USD</span>
+                </div>
+              </div>
+
+              {/* Card de Resumo de Ganhos Totais */}
+              <div className="bg-black text-white rounded-3xl p-8 flex flex-col gap-6 shadow-xl shadow-black/10">
+                <div className="space-y-1">
+                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Estimated Monetization', 'Monetização Estimada')}</h3>
+                  <p className="text-xs text-zinc-400 font-light">{t('Combine views and gifts earnings', 'Combinação de ganhos de views e presentes')}</p>
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <span className="text-4xl font-semibold tracking-tighter">
+                    $ {(((profile?.redeemable_balance || 0) + (stats.views * VIEW_RATE)) / 100).toFixed(5)}
+                  </span>
+                  <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest">USD</span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-zinc-800 pt-4 text-xs">
+                  <span className="text-zinc-400 font-medium">{t('Total Coins Earned', 'Total de Moedas Ganhas')}</span>
+                  <span className="font-bold text-white">
+                    {((profile?.redeemable_balance || 0) + (stats.views * VIEW_RATE)).toFixed(3)} Coins
+                  </span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
