@@ -1390,7 +1390,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <p className="text-6xl font-semibold tracking-tighter leading-none">${(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} AngoCoins</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} Huzty Coins</p>
               </div>
 
               <div className="space-y-8 pt-10">

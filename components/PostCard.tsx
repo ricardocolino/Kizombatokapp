@@ -1535,7 +1535,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                  </div>
                  <div>
                    <h3 className="text-sm font-black uppercase tracking-widest">{t('Send Gift', 'Enviar Presente')}</h3>
-                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">{t('Support creator coins', 'Apoia o criador com AngoCoins')}</p>
                  </div>
                </div>
                <button onClick={() => !sendingGift && setShowGifts(false)} className="w-10 h-10 flex items-center justify-center bg-zinc-50 rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
@@ -1588,10 +1587,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               >
                 {t('Recharge Coins')}
               </button>
-              <p className="text-[9px] text-zinc-500 text-center uppercase tracking-widest font-black leading-relaxed">
-                {t('Deduction message', 'O valor será descontado do teu saldo e enviado para o autor.')} <br/>
-                huzty • {t('Creator Support', 'Apoio ao Criador')}
-              </p>
             </div>
           </div>
         </div>
