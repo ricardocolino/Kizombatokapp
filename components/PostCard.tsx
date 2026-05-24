@@ -329,12 +329,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           hlsRef.current = hls;
           
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            if (previousTime > 0) {
-              video.currentTime = previousTime;
-            }
-            if (isFullyVisible && !isPaused) {
-              video.play().catch(() => {});
-            }
+            setTimeout(() => {
+              try {
+                if (previousTime > 0 && videoRef.current) {
+                  videoRef.current.currentTime = previousTime;
+                }
+              } catch (err) {
+                console.warn("Could not restore HLS currentTime:", err);
+              }
+              if (isFullyVisible && !isPaused && videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
+            }, 50);
           });
           
           hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -355,21 +361,33 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = optimizedUrl;
-          if (previousTime > 0) {
-            video.currentTime = previousTime;
-          }
+          setTimeout(() => {
+            try {
+              if (previousTime > 0 && videoRef.current) {
+                videoRef.current.currentTime = previousTime;
+              }
+            } catch (err) {
+              console.warn("Could not restore HLS native currentTime:", err);
+            }
+          }, 50);
         }
       } else {
         // Fallback to MP4
         video.src = optimizedUrl;
         
         const onMetadata = () => {
-          if (previousTime > 0) {
-            video.currentTime = previousTime;
-          }
-          if (isFullyVisible && !isPaused) {
-            video.play().catch(() => {});
-          }
+          setTimeout(() => {
+            try {
+              if (previousTime > 0 && videoRef.current) {
+                videoRef.current.currentTime = previousTime;
+              }
+            } catch (err) {
+              console.warn("Could not restore MP4 currentTime:", err);
+            }
+            if (isFullyVisible && !isPaused && videoRef.current) {
+              videoRef.current.play().catch(() => {});
+            }
+          }, 50);
           video.removeEventListener('loadedmetadata', onMetadata);
         };
         video.addEventListener('loadedmetadata', onMetadata);
@@ -569,26 +587,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       handlePause();
     }
   }, [isPaused, handlePause]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handlePlaying = () => setIsPlaying(true);
-    const handlePauseEvent = () => setIsPlaying(false);
-    const handleCanPlay = () => setIsLoading(false);
-
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('pause', handlePauseEvent);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('waiting', () => setIsLoading(true));
-
-    return () => {
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('pause', handlePauseEvent);
-      video.removeEventListener('canplay', handleCanPlay);
-    };
-  }, []);
 
   const handleScrubStart = () => {
     setIsScrubbing(true);
@@ -1187,7 +1185,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             onLoadStart={() => setIsLoading(true)}
             onWaiting={() => setIsLoading(true)}
-            onPlaying={() => setIsLoading(false)}
+            onPlaying={() => {
+              setIsPlaying(true);
+              setIsLoading(false);
+            }}
+            onPause={() => setIsPlaying(false)}
             onCanPlay={() => setIsLoading(false)}
             onError={(e) => {
               // Só marcamos erro se o src for válido e falhou mesmo
