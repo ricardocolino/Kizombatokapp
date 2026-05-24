@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, MoreVertical } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -52,7 +52,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const [netSpeed, setNetSpeed] = useState<'slow' | 'normal'>('normal');
+  const [videoResolution, setVideoResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p'>('144p');
+  const [showResolutionMenu, setShowResolutionMenu] = useState(false);
+
+  useEffect(() => {
+    if (!isFullyVisible) {
+      setShowResolutionMenu(false);
+    }
+  }, [isFullyVisible]);
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
@@ -92,31 +99,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
-  // Detect network speed to adjust resolution (144p to 240p)
-  useEffect(() => {
-    interface NetworkInfo {
-      effectiveType: string;
-      saveData: boolean;
-      addEventListener: (type: string, listener: () => void) => void;
-      removeEventListener: (type: string, listener: () => void) => void;
-    }
-    const nav = navigator as unknown as { connection?: NetworkInfo; mozConnection?: NetworkInfo; webkitConnection?: NetworkInfo };
-    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
-
-    if (conn) {
-      const updateConnection = () => {
-        const type = conn.effectiveType;
-        // Consider slow if type is 2g, 3g or if saveData is on
-        const isSlow = type === 'slow-2g' || type === '2g' || type === '3g' || conn.saveData;
-        setNetSpeed(isSlow ? 'slow' : 'normal');
-      };
-      
-      conn.addEventListener('change', updateConnection);
-      updateConnection();
-      return () => conn.removeEventListener('change', updateConnection);
-    }
-  }, []);
-
   const optimizedUrl = useMemo(() => {
     if (!mediaUrl) return '';
     if (!mediaUrl.startsWith('http')) return mediaUrl;
@@ -124,21 +106,34 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     // Skip optimization for HLS as it handles bitrates internally
     if (mediaUrl.toLowerCase().includes('.m3u8')) return mediaUrl;
 
-    // Target resolutions: 144p (slow) or 240p (normal)
-    const res = netSpeed === 'slow' ? '144p' : '240p';
-    const width = netSpeed === 'slow' ? 256 : 426;
+    let res = videoResolution;
+    let width = 256;
+    let quality = 'low';
+
+    if (videoResolution === '240p') {
+      width = 426;
+      quality = 'medium';
+    } else if (videoResolution === '360p') {
+      width = 640;
+      quality = 'medium';
+    } else if (videoResolution === '480p') {
+      width = 854;
+      quality = 'high';
+    } else if (videoResolution === '720p') {
+      width = 1280;
+      quality = 'high';
+    }
 
     try {
       const url = new URL(mediaUrl);
       url.searchParams.set('res', res);
       url.searchParams.set('w', width.toString());
-      // Common CDN parameter for quality
-      url.searchParams.set('quality', netSpeed === 'slow' ? 'low' : 'medium');
+      url.searchParams.set('quality', quality);
       return url.toString();
     } catch {
       return mediaUrl;
     }
-  }, [mediaUrl, netSpeed]);
+  }, [mediaUrl, videoResolution]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -285,7 +280,30 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         }
       } else {
         // Fallback to MP4
+        const prevTime = video.currentTime;
         video.src = optimizedUrl;
+        
+        if (prevTime > 0) {
+          let restored = false;
+          const restore = () => {
+            if (restored) return;
+            restored = true;
+            try {
+              video.currentTime = prevTime;
+              if (isFullyVisible && !isPaused) {
+                video.play().catch(() => {});
+              }
+            } catch (err) {
+              console.warn("Failed to seek to previous video time:", err);
+            }
+            video.removeEventListener('loadedmetadata', restore);
+            video.removeEventListener('loadeddata', restore);
+            video.removeEventListener('canplay', restore);
+          };
+          video.addEventListener('loadedmetadata', restore);
+          video.addEventListener('loadeddata', restore);
+          video.addEventListener('canplay', restore);
+        }
       }
     } else {
       video.src = "";
@@ -1029,6 +1047,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [comments, post.user_id]);
 
   const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (showResolutionMenu) {
+      setShowResolutionMenu(false);
+      return;
+    }
     if (showComments) return;
 
     const now = Date.now();
@@ -1292,6 +1314,59 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Gifts')}</span>
             </button>
           )}
+
+          {/* Video Resolution Controls Button (3 Dots) */}
+          <div className="relative flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowResolutionMenu(!showResolutionMenu);
+              }} 
+              className="flex flex-col items-center group"
+            >
+              <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+                <MoreVertical size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+              </div>
+              <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Resolução')}</span>
+            </button>
+
+            {/* Resolution Selector Bubble */}
+            {showResolutionMenu && (
+              <div 
+                className="absolute right-12 bottom-0 bg-black/95 backdrop-blur-md border border-white/25 rounded-2xl p-2.5 flex flex-col gap-1.5 min-w-[140px] shadow-2xl z-[90] animate-in fade-in-0 zoom-in-95 duration-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="text-[8px] font-black uppercase text-zinc-400 tracking-widest px-2 pb-1 border-b border-white/10">
+                  {t('Qualidade')}
+                </div>
+                {(['144p', '240p', '360p', '480p', '720p'] as const).map((res) => {
+                  const labelMap = {
+                    '144p': '144p (Mínima)',
+                    '240p': '240p (Baixa)',
+                    '360p': '360p (Média)',
+                    '480p': '480p (Alta)',
+                    '720p': '720p (Máxima)'
+                  };
+                  return (
+                    <button
+                      key={res}
+                      onClick={() => {
+                        setVideoResolution(res);
+                        setShowResolutionMenu(false);
+                      }}
+                      className={`text-left text-xs px-3 py-1.5 rounded-xl transition-all font-semibold ${
+                        videoResolution === res 
+                          ? 'bg-purple-600 text-white shadow-lg' 
+                          : 'text-zinc-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {labelMap[res]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
