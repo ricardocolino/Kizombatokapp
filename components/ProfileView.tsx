@@ -1167,7 +1167,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 text-black rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 border border-zinc-200/50"
               >
                 <Gift size={16} className="text-purple-600" />
-                {t('Presenteadores', 'Maiores Presenteadores')}
+                {t('Presenteadores de lives', 'Maiores Presenteadores de lives')}
               </button>
 
               {/* Card de Ganhos de Presentes */}
