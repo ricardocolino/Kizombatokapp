@@ -54,7 +54,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [videoResolution, setVideoResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p'>('144p');
   const [showResolutionMenu, setShowResolutionMenu] = useState(false);
-  const currentSrcRef = useRef<string>('');
 
   useEffect(() => {
     if (!isFullyVisible) {
@@ -230,36 +229,25 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, []);
 
   useEffect(() => {
-    // Determine if the actual video URL is changing
-    const isSourceChanging = currentSrcRef.current !== optimizedUrl;
-    
-    if (isSourceChanging) {
-      currentSrcRef.current = optimizedUrl;
-      setVideoError(false);
-      setIsLoading(true);
-      setIsPlaying(false);
-    }
+    setVideoError(false);
+    setIsLoading(true);
+    setIsPlaying(false);
     
     const video = videoRef.current;
     if (!video) return;
 
+    // Capture current time if switching sources for the same video
+    const prevTime = video.currentTime;
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
     if (optimizedUrl && isNearScreen) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
-          // If already initialized for this exact URL, just manage play state
-          if (hlsRef.current && hlsRef.current.url === optimizedUrl) {
-            if (isFullyVisible && !isPaused && video.paused) {
-              video.play().catch(() => {});
-            }
-            return;
-          }
-
-          // Cleanup previous HLS instance if URL is different
-          if (hlsRef.current) {
-            hlsRef.current.destroy();
-            hlsRef.current = null;
-          }
-
           const hls = new Hls({
             capLevelToPlayerSize: true,
             autoStartLoad: true,
@@ -269,6 +257,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           hlsRef.current = hls;
           
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (prevTime > 0) {
+              video.currentTime = prevTime;
+            }
             if (isFullyVisible && !isPaused) {
               video.play().catch(() => {});
             }
@@ -291,69 +282,61 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          const absoluteUrl = new URL(optimizedUrl, window.location.href).href;
-          if (video.src !== absoluteUrl) {
-            video.src = optimizedUrl;
-          } else if (isFullyVisible && !isPaused && video.paused) {
-            video.play().catch(() => {});
+          video.src = optimizedUrl;
+          if (prevTime > 0) {
+            const handleMetadata = () => {
+              video.currentTime = prevTime;
+              video.removeEventListener('loadedmetadata', handleMetadata);
+            };
+            video.addEventListener('loadedmetadata', handleMetadata);
           }
         }
       } else {
         // Fallback to MP4
-        const absoluteUrl = optimizedUrl ? new URL(optimizedUrl, window.location.href).href : '';
-        if (video.src === absoluteUrl) {
-          // Same source already loaded, just play if visible and not paused
-          if (isFullyVisible && !isPaused && video.paused) {
-            video.play().catch(() => {});
-          }
-          return;
-        }
-
-        // Cleanup HLS if switching to standard MP4
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-
-        const prevTime = video.currentTime;
         video.src = optimizedUrl;
-        
         if (prevTime > 0) {
-          let restored = false;
-          const restore = () => {
-            if (restored) return;
-            restored = true;
-            try {
-              video.currentTime = prevTime;
-              if (isFullyVisible && !isPaused) {
-                video.play().catch(() => {});
-              }
-            } catch (err) {
-              console.warn("Failed to seek to previous video time:", err);
-            }
-            video.removeEventListener('loadedmetadata', restore);
-            video.removeEventListener('loadeddata', restore);
-            video.removeEventListener('canplay', restore);
+          const handleMetadata = () => {
+            video.currentTime = prevTime;
+            video.removeEventListener('loadedmetadata', handleMetadata);
           };
-          video.addEventListener('loadedmetadata', restore);
-          video.addEventListener('loadeddata', restore);
-          video.addEventListener('canplay', restore);
+          video.addEventListener('loadedmetadata', handleMetadata);
         }
       }
     } else {
+      video.src = "";
+      video.load();
+    }
+
+    return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
       video.src = "";
       video.load();
-      currentSrcRef.current = "";
-    }
-
-    return () => {
-      // Don't fully destroy on component updates unless it's unmounting
     };
   }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused]);
+
+  // Synchronize HLS stream level dynamically when selection changes
+  useEffect(() => {
+    const hls = hlsRef.current;
+    if (!hls || !hls.levels || hls.levels.length === 0) return;
+
+    const targetHeight = parseInt(videoResolution, 10);
+    let closestIndex = 0;
+    let minDiff = Infinity;
+    
+    hls.levels.forEach((level, index) => {
+      const height = level.height || 0;
+      const diff = Math.abs(height - targetHeight);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIndex = index;
+      }
+    });
+
+    hls.currentLevel = closestIndex;
+  }, [videoResolution]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
