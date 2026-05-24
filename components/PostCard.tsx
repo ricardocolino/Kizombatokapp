@@ -54,7 +54,28 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [netSpeed, setNetSpeed] = useState<'slow' | 'normal'>('normal');
   const [showResolutionPopup, setShowResolutionPopup] = useState(false);
-  const [userResolution, setUserResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>('auto');
+  const [userResolution, setUserResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>(() => {
+    return (localStorage.getItem('user_video_resolution') || 'auto') as '144p' | '240p' | '360p' | '480p' | '720p' | 'auto';
+  });
+
+  const changeUserResolution = (res: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto') => {
+    localStorage.setItem('user_video_resolution', res);
+    setUserResolution(res);
+    window.dispatchEvent(new CustomEvent('video-resolution-changed', { detail: res }));
+  };
+
+  useEffect(() => {
+    const handleResolutionChange = (e: Event) => {
+      const customEvent = e as CustomEvent<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>;
+      if (customEvent.detail !== userResolution) {
+        setUserResolution(customEvent.detail);
+      }
+    };
+    window.addEventListener('video-resolution-changed', handleResolutionChange);
+    return () => {
+      window.removeEventListener('video-resolution-changed', handleResolutionChange);
+    };
+  }, [userResolution]);
 
   const handleDecreaseResolution = () => {
     const resolutions = ['144p', '240p', '360p', '480p', '720p'] as const;
@@ -65,7 +86,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
     const currentIndex = resolutions.indexOf(targetRes);
     if (currentIndex > 0) {
-      setUserResolution(resolutions[currentIndex - 1]);
+      changeUserResolution(resolutions[currentIndex - 1]);
     }
   };
 
@@ -78,7 +99,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
     const currentIndex = resolutions.indexOf(targetRes);
     if (currentIndex < resolutions.length - 1 && currentIndex !== -1) {
-      setUserResolution(resolutions[currentIndex + 1]);
+      changeUserResolution(resolutions[currentIndex + 1]);
     }
   };
 
@@ -1727,7 +1748,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               {(['auto', '144p', '240p', '360p', '480p', '720p'] as const).map((r) => (
                 <button
                   key={r}
-                  onClick={() => setUserResolution(r)}
+                  onClick={() => changeUserResolution(r)}
                   className={`py-4 px-4 rounded-3xl text-[11px] font-black uppercase tracking-widest border transition-all flex flex-col items-center justify-center gap-1 ${
                     userResolution === r 
                       ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30' 
