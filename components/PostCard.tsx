@@ -247,7 +247,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       hlsRef.current = null;
     }
 
-    if (optimizedUrl && isNearScreen) {
+    if (optimizedUrl && isNearScreen && isFullyVisible) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
           const hls = new Hls({
@@ -289,7 +289,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       }
     } else {
       video.src = "";
-      video.load();
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      try {
+        video.load();
+      } catch {
+        // Ignora possíveis erros ao resetar e carregar o vídeo vazio
+      }
     }
 
     return () => {

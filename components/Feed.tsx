@@ -41,7 +41,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [isMuted, setIsMuted] = useState(false);
   const [feedType, setFeedType] = useState<'for_you' | 'following' | 'education'>('for_you');
   const [user, setUser] = useState<User | null>(null);
-  const [displayLimit, setDisplayLimit] = useState(15);
+  const [displayLimit, setDisplayLimit] = useState(5);
   const pageRef = React.useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 15;
@@ -462,7 +462,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       appCache.clear(); // Limpa tudo para garantir fresh start
     }
     fetchPosts();
-    setDisplayLimit(15); 
+    setDisplayLimit(5); 
   }, [initialPostId, feedType, user, fetchPosts, feedFilter, refreshTrigger]);
 
   // Intersection Observer for Infinite Scroll - Only for internal displayLimit
@@ -475,12 +475,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       (entries) => {
         if (entries[0].isIntersecting) {
           // Increment limit internally, but don't fetch from network
-          setDisplayLimit(prev => Math.min(prev + 15, posts.length));
+          setDisplayLimit(prev => Math.min(prev + 5, posts.length));
         }
       },
       { 
         threshold: 0,
-        rootMargin: '100% 0px'
+        rootMargin: '150px 0px'
       }
     );
 
