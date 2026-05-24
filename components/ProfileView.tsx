@@ -1140,7 +1140,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Monetization View (Full Screen) */}
       {showMonetization && (
-        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+        <div className="fixed inset-0 z-[120] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
           {/* Header */}
           <header className="sticky top-0 bg-white flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
             <button 
@@ -1243,7 +1243,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Top Givers View (Full Screen, white background) */}
       {showGiversList && (
-        <div className="fixed inset-0 z-[110] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+        <div className="fixed inset-0 z-[130] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
           {/* Header */}
           <header className="sticky top-0 bg-white flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
             <button 
@@ -1427,9 +1427,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 }}
                 className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/50 text-zinc-800 shadow-sm">
-                  <Settings size={20} strokeWidth={1.5} />
-                </div>
+                <Settings size={26} strokeWidth={1.5} className="text-zinc-800" />
                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
                   {t('Payment Method')}
                 </span>
@@ -1441,9 +1439,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 }}
                 className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
-                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center border border-purple-100 text-purple-600 shadow-sm">
-                  <DollarSign size={20} strokeWidth={1.5} />
-                </div>
+                <DollarSign size={26} strokeWidth={1.5} className="text-purple-600" />
                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
                   {t('Monetização')}
                 </span>
