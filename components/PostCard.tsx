@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, Heart } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -247,7 +247,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       hlsRef.current = null;
     }
 
-    if (optimizedUrl && isNearScreen && isFullyVisible) {
+    if (optimizedUrl && isNearScreen) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
           const hls = new Hls({
@@ -289,15 +289,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       }
     } else {
       video.src = "";
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-      try {
-        video.load();
-      } catch {
-        // Ignora possíveis erros ao resetar e carregar o vídeo vazio
-      }
+      video.load();
     }
 
     return () => {
@@ -1159,7 +1151,21 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
         {videoError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 text-center">
-            {/* Aviso de erro e botões removidos para manter a interface limpa */}
+            <AlertCircle size={48} className="text-zinc-400 mb-3" />
+            <p className="text-white text-sm font-medium mb-4">Falha ao carregar o vídeo</p>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setVideoError(false);
+                if (videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                  handlePlay();
+                }
+              }}
+              className="px-6 py-2 bg-white text-black rounded-full text-sm font-bold active:scale-95 transition-all"
+            >
+              Tentar de novo
+            </button>
           </div>
         )}
 
