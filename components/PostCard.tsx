@@ -54,6 +54,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [videoResolution, setVideoResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p'>('144p');
   const [showResolutionMenu, setShowResolutionMenu] = useState(false);
+  const currentSrcRef = useRef<string>('');
 
   useEffect(() => {
     if (!isFullyVisible) {
@@ -229,22 +230,36 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, []);
 
   useEffect(() => {
-    setVideoError(false);
-    setIsLoading(true);
-    setIsPlaying(false);
+    // Determine if the actual video URL is changing
+    const isSourceChanging = currentSrcRef.current !== optimizedUrl;
+    
+    if (isSourceChanging) {
+      currentSrcRef.current = optimizedUrl;
+      setVideoError(false);
+      setIsLoading(true);
+      setIsPlaying(false);
+    }
     
     const video = videoRef.current;
     if (!video) return;
 
-    // Cleanup previous HLS instance
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-
     if (optimizedUrl && isNearScreen) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
+          // If already initialized for this exact URL, just manage play state
+          if (hlsRef.current && hlsRef.current.url === optimizedUrl) {
+            if (isFullyVisible && !isPaused && video.paused) {
+              video.play().catch(() => {});
+            }
+            return;
+          }
+
+          // Cleanup previous HLS instance if URL is different
+          if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+          }
+
           const hls = new Hls({
             capLevelToPlayerSize: true,
             autoStartLoad: true,
@@ -276,10 +291,30 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = optimizedUrl;
+          const absoluteUrl = new URL(optimizedUrl, window.location.href).href;
+          if (video.src !== absoluteUrl) {
+            video.src = optimizedUrl;
+          } else if (isFullyVisible && !isPaused && video.paused) {
+            video.play().catch(() => {});
+          }
         }
       } else {
         // Fallback to MP4
+        const absoluteUrl = optimizedUrl ? new URL(optimizedUrl, window.location.href).href : '';
+        if (video.src === absoluteUrl) {
+          // Same source already loaded, just play if visible and not paused
+          if (isFullyVisible && !isPaused && video.paused) {
+            video.play().catch(() => {});
+          }
+          return;
+        }
+
+        // Cleanup HLS if switching to standard MP4
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+
         const prevTime = video.currentTime;
         video.src = optimizedUrl;
         
@@ -306,15 +341,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         }
       }
     } else {
-      video.src = "";
-      video.load();
-    }
-
-    return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      video.src = "";
+      video.load();
+      currentSrcRef.current = "";
+    }
+
+    return () => {
+      // Don't fully destroy on component updates unless it's unmounting
     };
   }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused]);
 
