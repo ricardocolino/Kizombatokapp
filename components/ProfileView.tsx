@@ -1419,30 +1419,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {/* Method & Monetization Buttons */}
-            <div className="py-10 border-b border-zinc-100 flex items-center justify-center gap-12">
+            <div className="py-10 border-b border-zinc-100 flex items-center justify-center gap-6">
               <button 
                 onClick={() => {
                   setNewWalletAddress(profile?.wallet_address || '');
                   setShowWalletModal(true);
                 }}
-                className="flex flex-col items-center gap-3 group transition-all"
+                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
-                <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
-                  <Settings size={22} strokeWidth={1.2} />
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/50 text-zinc-800 shadow-sm">
+                  <Settings size={20} strokeWidth={1.5} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Payment Method')}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
+                  {t('Payment Method')}
+                </span>
               </button>
 
               <button 
                 onClick={() => {
                   setShowMonetization(true);
                 }}
-                className="flex flex-col items-center gap-3 group transition-all"
+                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
-                <div className="w-14 h-14 rounded-xl border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform bg-zinc-50 hover:bg-zinc-100">
-                  <DollarSign size={22} strokeWidth={1.2} stroke="#7c3aed" className="text-purple-600 animate-pulse" />
+                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center border border-purple-100 text-purple-600 shadow-sm">
+                  <DollarSign size={20} strokeWidth={1.5} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Monetização')}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
+                  {t('Monetização')}
+                </span>
               </button>
             </div>
 
