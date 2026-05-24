@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, MoreHorizontal } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -53,6 +53,34 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [netSpeed, setNetSpeed] = useState<'slow' | 'normal'>('normal');
+  const [showResolutionPopup, setShowResolutionPopup] = useState(false);
+  const [userResolution, setUserResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>('auto');
+
+  const handleDecreaseResolution = () => {
+    const resolutions = ['144p', '240p', '360p', '480p', '720p'] as const;
+    let currentRes: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto' = userResolution;
+    if (currentRes === 'auto') {
+      currentRes = netSpeed === 'slow' ? '144p' : '240p';
+    }
+    const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
+    const currentIndex = resolutions.indexOf(targetRes);
+    if (currentIndex > 0) {
+      setUserResolution(resolutions[currentIndex - 1]);
+    }
+  };
+
+  const handleIncreaseResolution = () => {
+    const resolutions = ['144p', '240p', '360p', '480p', '720p'] as const;
+    let currentRes: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto' = userResolution;
+    if (currentRes === 'auto') {
+      currentRes = netSpeed === 'slow' ? '144p' : '240p';
+    }
+    const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
+    const currentIndex = resolutions.indexOf(targetRes);
+    if (currentIndex < resolutions.length - 1 && currentIndex !== -1) {
+      setUserResolution(resolutions[currentIndex + 1]);
+    }
+  };
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
@@ -124,21 +152,40 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     // Skip optimization for HLS as it handles bitrates internally
     if (mediaUrl.toLowerCase().includes('.m3u8')) return mediaUrl;
 
-    // Target resolutions: 144p (slow) or 240p (normal)
-    const res = netSpeed === 'slow' ? '144p' : '240p';
-    const width = netSpeed === 'slow' ? 256 : 426;
+    const actualResolution = userResolution === 'auto' 
+      ? (netSpeed === 'slow' ? '144p' : '240p') 
+      : userResolution;
+
+    let width = 426;
+    let quality = 'medium';
+
+    if (actualResolution === '144p') {
+      width = 256;
+      quality = 'low';
+    } else if (actualResolution === '240p') {
+      width = 426;
+      quality = 'medium';
+    } else if (actualResolution === '360p') {
+      width = 640;
+      quality = 'medium';
+    } else if (actualResolution === '480p') {
+      width = 854;
+      quality = 'high';
+    } else if (actualResolution === '720p') {
+      width = 1280;
+      quality = 'high';
+    }
 
     try {
       const url = new URL(mediaUrl);
-      url.searchParams.set('res', res);
+      url.searchParams.set('res', actualResolution);
       url.searchParams.set('w', width.toString());
-      // Common CDN parameter for quality
-      url.searchParams.set('quality', netSpeed === 'slow' ? 'low' : 'medium');
+      url.searchParams.set('quality', quality);
       return url.toString();
     } catch {
       return mediaUrl;
     }
-  }, [mediaUrl, netSpeed]);
+  }, [mediaUrl, netSpeed, userResolution]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -155,7 +202,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const commentsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge;
+    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge || showResolutionPopup;
     const feed = document.querySelector('.feed-container') as HTMLElement;
     if (!feed) return;
     
@@ -171,7 +218,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       feed.style.setProperty('overflow-y', 'scroll', 'important');
       feed.style.setProperty('touch-action', 'auto', 'important');
     };
-  }, [showComments, showGifts, showShare, showRecharge]);
+  }, [showComments, showGifts, showShare, showRecharge, showResolutionPopup]);
 
   useEffect(() => {
     if (showGifts) {
@@ -241,6 +288,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     const video = videoRef.current;
     if (!video) return;
 
+    const previousTime = video.currentTime || 0;
+
     // Cleanup previous HLS instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -259,6 +308,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           hlsRef.current = hls;
           
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (previousTime > 0) {
+              video.currentTime = previousTime;
+            }
             if (isFullyVisible && !isPaused) {
               video.play().catch(() => {});
             }
@@ -282,10 +334,25 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = optimizedUrl;
+          if (previousTime > 0) {
+            video.currentTime = previousTime;
+          }
         }
       } else {
         // Fallback to MP4
         video.src = optimizedUrl;
+        
+        const onMetadata = () => {
+          if (previousTime > 0) {
+            video.currentTime = previousTime;
+          }
+          if (isFullyVisible && !isPaused) {
+            video.play().catch(() => {});
+          }
+          video.removeEventListener('loadedmetadata', onMetadata);
+        };
+        video.addEventListener('loadedmetadata', onMetadata);
+        video.load();
       }
     } else {
       video.src = "";
@@ -1292,6 +1359,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Gifts')}</span>
             </button>
           )}
+
+          <button onClick={() => setShowResolutionPopup(true)} className="flex flex-col items-center group">
+            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
+              <MoreHorizontal size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Res.', 'Res.')}</span>
+          </button>
         </div>
       )}
 
@@ -1602,6 +1676,77 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {showRecharge && (
         <RechargeModal onClose={() => setShowRecharge(false)} />
+      )}
+
+      {/* Resolution Drawer */}
+      {showResolutionPopup && (
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col justify-end touch-none"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowResolutionPopup(false)} />
+          <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black max-w-md mx-auto w-full">
+            <div className="flex items-center justify-between mb-8">
+               <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+                   <MoreHorizontal size={24} />
+                 </div>
+                 <div>
+                   <h3 className="text-sm font-black uppercase tracking-widest">{t('Video Quality', 'Qualidade de Vídeo')}</h3>
+                 </div>
+               </div>
+               <button onClick={() => setShowResolutionPopup(false)} className="w-10 h-10 flex items-center justify-center bg-zinc-50 rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
+                 <X size={20} strokeWidth={2.5}/>
+               </button>
+            </div>
+
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={handleDecreaseResolution}
+                disabled={userResolution === '144p'}
+                className="flex-1 py-4 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-3xl font-black uppercase tracking-widest text-[11px] transition-all active:scale-95 border border-zinc-200/50 flex items-center justify-center gap-2"
+              >
+                <ChevronDown size={16} className="text-purple-600" />
+                {t('Decrease', 'Diminuir')}
+              </button>
+              
+              <button
+                onClick={handleIncreaseResolution}
+                disabled={userResolution === '720p'}
+                className="flex-1 py-4 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-3xl font-black uppercase tracking-widest text-[11px] transition-all active:scale-95 border border-zinc-200/50 flex items-center justify-center gap-2"
+              >
+                <ChevronUp size={16} className="text-purple-600" />
+                {t('Increase', 'Aumentar')}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+              {(['auto', '144p', '240p', '360p', '480p', '720p'] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setUserResolution(r)}
+                  className={`py-4 px-4 rounded-3xl text-[11px] font-black uppercase tracking-widest border transition-all flex flex-col items-center justify-center gap-1 ${
+                    userResolution === r 
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30' 
+                      : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/50'
+                  }`}
+                >
+                  <span className="font-extrabold">{r === 'auto' ? t('Automatic', 'Automático') : r}</span>
+                  <span className={`text-[9px] font-black ${userResolution === r ? 'text-purple-200' : 'text-zinc-500'}`}>
+                    {r === 'auto' ? `(${netSpeed === 'slow' ? '144p' : '240p'})` : 
+                     r === '144p' ? t('Eco', 'Poupança') :
+                     r === '240p' ? t('Low', 'Baixa') :
+                     r === '360p' ? t('Medium', 'Média') :
+                     r === '480p' ? t('High', 'Alta') : t('HD', 'HD')}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
