@@ -1418,19 +1418,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
             </div>
 
-            {/* Method Button */}
-            <div className="py-10 border-b border-zinc-100">
+            {/* Method & Monetization Buttons */}
+            <div className="py-10 border-b border-zinc-100 flex items-center justify-center gap-12">
               <button 
                 onClick={() => {
                   setNewWalletAddress(profile?.wallet_address || '');
                   setShowWalletModal(true);
                 }}
-                className="flex flex-col items-center gap-3 group transition-all mx-auto"
+                className="flex flex-col items-center gap-3 group transition-all"
               >
                 <div className="w-14 h-14 rounded-full border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform">
                   <Settings size={22} strokeWidth={1.2} />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Payment Method')}</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setShowMonetization(true);
+                }}
+                className="flex flex-col items-center gap-3 group transition-all"
+              >
+                <div className="w-14 h-14 rounded-xl border border-zinc-100 text-black flex items-center justify-center group-active:scale-95 transition-transform bg-zinc-50 hover:bg-zinc-100">
+                  <DollarSign size={22} strokeWidth={1.2} stroke="#7c3aed" className="text-purple-600 animate-pulse" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{t('Monetização')}</span>
               </button>
             </div>
 
