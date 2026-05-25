@@ -47,9 +47,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     fetchProfileData();
   }, [userId]);
 
+  const isValidBep20Address = (address: string): boolean => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address.trim());
+  };
+
   const nextStep = async () => {
     setError(null);
     if (step === 1) {
+      if (name && name.trim().length > 20) {
+        setError(t('Name too long', 'Nome muito longo (máximo 20 caracteres)'));
+        return;
+      }
       if (!username) {
         setError(t('Username is required'));
         return;
@@ -108,8 +116,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   };
 
   const handleFinish = async () => {
-    if (!walletAddress || walletAddress.trim().length < 10) {
+    if (!walletAddress) {
       setError(t('Wallet address is mandatory'));
+      return;
+    }
+
+    if (!isValidBep20Address(walletAddress)) {
+      setError(t('Invalid BEP-20 address format', 'Endereço BEP-20 inválido. Deve começar com 0x e conter 40 caracteres hexadecimais.'));
       return;
     }
 
@@ -117,6 +130,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     setError(null);
     try {
       console.log('Iniciando finalização do onboarding para:', userId);
+
+      // Verify if the wallet address is already stored under another account
+      const { data: existingWallet, error: walletCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('wallet_address', walletAddress.trim())
+        .maybeSingle();
+
+      if (walletCheckError) throw walletCheckError;
+
+      if (existingWallet && existingWallet.id !== userId) {
+        throw new Error(t('Wallet address already in use', 'Este endereço de carteira já está em uso por outro utilizador.'));
+      }
       
       // Check username one last time
       const { data: userWithUsername } = await supabase
@@ -185,9 +211,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
               <input 
                 type="text" 
                 value={name}
-                onChange={(e) => setName(e.target.value.slice(0, 50))}
+                onChange={(e) => setName(e.target.value.slice(0, 20))}
                 placeholder={t('Name')}
-                maxLength={50}
+                maxLength={20}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all"
               />
             </div>

@@ -581,6 +581,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     setEditError(null);
 
     try {
+      if (editForm.name && editForm.name.trim().length > 20) {
+        throw new Error(t('Name too long (max 20 characters)', 'Nome muito longo (máximo 20 caracteres)'));
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -606,8 +610,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const handleSaveWallet = async () => {
     if (!newWalletAddress.trim()) return;
+
+    const isValidCep20 = /^0x[a-fA-F0-9]{40}$/.test(newWalletAddress.trim());
+    if (!isValidCep20) {
+      alert(t('Invalid BEP-20 address format', 'Endereço BEP-20 inválido. Deve começar com 0x e conter 40 caracteres hexadecimais.'));
+      return;
+    }
+
     setSaving(true);
     try {
+      // Check duplicated wallets in database
+      const { data: existingWallet, error: walletCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('wallet_address', newWalletAddress.trim())
+        .maybeSingle();
+
+      if (walletCheckError) throw walletCheckError;
+
+      if (existingWallet && existingWallet.id !== userId) {
+        alert(t('Wallet address already in use', 'Este endereço de carteira já está sendo utilizado por outra conta.'));
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({ wallet_address: newWalletAddress.trim() })
@@ -1607,8 +1633,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <input 
                   type="text" 
                   value={editForm.name}
-                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                  onChange={(e) => setEditForm({...editForm, name: e.target.value.slice(0, 20)})}
                   placeholder={t('Name')}
+                  maxLength={20}
                   className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black placeholder:text-zinc-200"
                 />
               </div>
