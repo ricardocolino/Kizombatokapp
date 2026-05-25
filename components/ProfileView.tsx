@@ -1445,7 +1445,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {/* Method & Monetization Buttons */}
-            <div className="py-10 border-b border-zinc-100 flex items-center justify-center gap-6">
+            <div className="py-10 flex items-center justify-center gap-6">
               <button 
                 onClick={() => {
                   setNewWalletAddress(profile?.wallet_address || '');
@@ -1471,23 +1471,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </span>
               </button>
             </div>
-
-            {/* Estatísticas de Conteúdo - Movido para o fim */}
-            <div className="py-10 border-b border-zinc-100 w-full">
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-3 mt-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100">
-                   <span className="text-sm font-black text-black">{stats.views}</span>
-                   <span className="text-[8px] text-zinc-400 uppercase font-bold tracking-widest">{t('Total Views')}</span>
-                </div>
-              </div>
-            </div>
-
-              <div className="text-center pt-8">
-                <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">huzty Security</p>
-              </div>
-            </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Navegador Interno Personalizado */}
       {showExternalUrl && (
