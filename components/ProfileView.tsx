@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -41,6 +41,86 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [followListPage, setFollowListPage] = useState(0);
   const [hasMoreFollows, setHasMoreFollows] = useState(true);
   const [loadingMoreFollows, setLoadingMoreFollows] = useState(false);
+
+  const [selectedPostForEdit, setSelectedPostForEdit] = useState<Post | null>(null);
+  const [privatePostIds, setPrivatePostIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('private_posts') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleTogglePrivacy = async (post: Post) => {
+    if (!post) return;
+    const isCurrentlyPrivate = post.is_private || privatePostIds.includes(post.id);
+    const newPrivateStatus = !isCurrentlyPrivate;
+    
+    try {
+      // 1. Update in local storage fallback
+      let updatedList = [...privatePostIds];
+      if (newPrivateStatus) {
+        if (!updatedList.includes(post.id)) {
+          updatedList.push(post.id);
+        }
+      } else {
+        updatedList = updatedList.filter(id => id !== post.id);
+      }
+      setPrivatePostIds(updatedList);
+      localStorage.setItem('private_posts', JSON.stringify(updatedList));
+
+      // Update local posts array state
+      setUserPosts(prev => prev.map(p => {
+        if (p.id === post.id) {
+          return { ...p, is_private: newPrivateStatus };
+        }
+        return p;
+      }));
+
+      // 2. Try to update in Supabase
+      await supabase
+        .from('posts')
+        .update({ is_private: newPrivateStatus })
+        .eq('id', post.id);
+
+    } catch (err) {
+      console.error("Error setting video privacy:", err);
+    }
+    
+    setSelectedPostForEdit(null);
+  };
+
+  const handleDeletePost = async (post: Post) => {
+    if (!post) return;
+    
+    const confirmDelete = window.confirm(t('Are you sure you want to delete this video?', 'Tem a certeza que deseja eliminar este vídeo?'));
+    if (!confirmDelete) return;
+
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id);
+
+      if (error) {
+        console.error("Supabase delete failed:", error);
+      }
+
+      // Update UI state
+      setUserPosts(prev => prev.filter(p => p.id !== post.id));
+      
+      // Also remove it from local private list if present
+      const updatedPrivate = privatePostIds.filter(id => id !== post.id);
+      setPrivatePostIds(updatedPrivate);
+      localStorage.setItem('private_posts', JSON.stringify(updatedPrivate));
+
+    } catch (err) {
+      console.error("Error deleting video:", err);
+    }
+
+    setSelectedPostForEdit(null);
+  };
 
   const [showDashboard, setShowDashboard] = useState(false);
   const [showMonetization, setShowMonetization] = useState(false);
@@ -263,16 +343,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       .range(from, to);
 
     if (!error && data) {
+      const filtered = isOwnProfile 
+        ? data 
+        : data.filter(post => !post.is_private && !privatePostIds.includes(post.id));
+
       if (page === 0) {
-        setUserPosts(data || []);
+        setUserPosts(filtered || []);
       } else {
-        setUserPosts(prev => [...prev, ...(data || [])]);
+        setUserPosts(prev => [...prev, ...(filtered || [])]);
       }
       setHasMorePosts(data ? data.length === PAGE_SIZE : false);
     }
     
     if (page !== 0) setLoadingMore(false);
-  }, [userId]);
+  }, [userId, isOwnProfile, privatePostIds]);
 
   const fetchRepostedPosts = React.useCallback(async () => {
     setTabLoading(true);
@@ -1083,33 +1167,47 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-0.5 p-0.5">
-            {currentGridData.map(post => (
-              <div 
-                key={post.id} 
-                onClick={() => onNavigateToPost && onNavigateToPost(post.id, { 
-                  userId, 
-                  userName: profile.name || profile.username, 
-                  type: activeTab === 'posts' ? 'user' : 'reposted' 
-                })}
-                className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
-              >
-                {post.media_type === 'video' ? (
-                  <video 
-                    src={parseMediaUrl(post.media_url)} 
-                    className="w-full h-full object-cover" 
-                    muted 
-                    playsInline 
-                    preload="metadata"
-                    poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined} 
-                  />
-                ) : (
-                  <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
-                )}
-                <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-bold text-white drop-shadow-sm">
-                  <span className="text-[7px]">▶</span> {post.views}
+            {currentGridData.map(post => {
+              const isPostPrivate = post.is_private || privatePostIds.includes(post.id);
+              return (
+                <div 
+                  key={post.id} 
+                  onClick={() => {
+                    if (isOwnProfile && activeTab === 'posts') {
+                      setSelectedPostForEdit(post);
+                    } else if (onNavigateToPost && profile) {
+                      onNavigateToPost(post.id, { 
+                        userId, 
+                        userName: profile.name || profile.username, 
+                        type: activeTab === 'posts' ? 'user' : 'reposted' 
+                      });
+                    }
+                  }}
+                  className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
+                >
+                  {isPostPrivate && isOwnProfile && (
+                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-1 rounded-full border border-white/10 flex items-center justify-center z-10 w-6 h-6">
+                      <Lock size={12} strokeWidth={2.5} className="text-white" />
+                    </div>
+                  )}
+                  {post.media_type === 'video' ? (
+                    <video 
+                      src={parseMediaUrl(post.media_url)} 
+                      className="w-full h-full object-cover" 
+                      muted 
+                      playsInline 
+                      preload="metadata"
+                      poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined} 
+                    />
+                  ) : (
+                    <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
+                  )}
+                  <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-bold text-white drop-shadow-sm">
+                    <span className="text-[7px]">▶</span> {post.views}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
             {loadingMore && (
               <div className="col-span-3 py-8 flex justify-center">
@@ -1889,6 +1987,100 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Options Bottom Sheet Modal */}
+      {selectedPostForEdit && (
+        <div className="fixed inset-0 z-[1000] flex items-end justify-center">
+          {/* Semi-transparent dark background */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            onClick={() => setSelectedPostForEdit(null)} 
+          />
+          
+          {/* The bottom sheet */}
+          <div className="relative bg-white w-full max-w-md rounded-t-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 border-t border-zinc-100 p-6 pb-12 z-10 text-black">
+            {/* Minimalist Top Indicator */}
+            <div className="flex justify-center mb-6">
+              <div className="w-12 h-1.5 bg-zinc-200 rounded-full" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                {t('Video Options', 'Opções da Publicação')}
+              </h3>
+              <button 
+                onClick={() => setSelectedPostForEdit(null)} 
+                className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-black hover:bg-zinc-200 transition-all active:scale-95"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Options layout inspired by standard bottom sheet */}
+            <div className="flex items-center gap-6 overflow-x-auto no-scrollbar py-2 justify-center">
+              {/* Option 1: Watch Video */}
+              <button 
+                onClick={() => {
+                  if (onNavigateToPost && selectedPostForEdit) {
+                    onNavigateToPost(selectedPostForEdit.id, { 
+                      userId, 
+                      userName: profile?.name || profile?.username || '', 
+                      type: activeTab === 'posts' ? 'user' : 'reposted' 
+                    });
+                  }
+                  setSelectedPostForEdit(null);
+                }}
+                className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+              >
+                <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                  <Play size={20} strokeWidth={1.5} className="fill-black text-black" />
+                </div>
+                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                  {t('Watch Video', 'Ver Vídeo')}
+                </span>
+              </button>
+
+              {/* Option 2: Privacy settings */}
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => handleTogglePrivacy(selectedPostForEdit)}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+                >
+                  <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                    {selectedPostForEdit.is_private || privatePostIds.includes(selectedPostForEdit.id) ? (
+                      <Unlock size={20} strokeWidth={1.5} />
+                    ) : (
+                      <Lock size={20} strokeWidth={1.5} />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                    {selectedPostForEdit.is_private || privatePostIds.includes(selectedPostForEdit.id) 
+                      ? t('Make Public', 'Tornar Público') 
+                      : t('Make Private', 'Tornar Privado')
+                    }
+                  </span>
+                </button>
+              )}
+
+              {/* Option 3: Delete */}
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => handleDeletePost(selectedPostForEdit)}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none text-red-600"
+                >
+                  <div className="w-14 h-14 bg-red-50 border border-red-100 group-hover:bg-red-100 rounded-2xl flex items-center justify-center text-red-500 shadow-sm">
+                    <Trash2 size={20} strokeWidth={1.5} />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                    {t('Delete', 'Eliminar')}
+                  </span>
+                </button>
               )}
             </div>
           </div>

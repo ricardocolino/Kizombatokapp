@@ -177,7 +177,22 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           combinedPosts = data || [];
         }
 
-        if (active) setPosts(combinedPosts);
+        if (active) {
+          let localPrivatePosts: string[] = [];
+          try {
+            localPrivatePosts = JSON.parse(localStorage.getItem('private_posts') || '[]');
+          } catch { /* ignore */ }
+
+          const filteredPosts = combinedPosts.filter(p => {
+            const isAuthor = currentUserId && p.user_id === currentUserId;
+            const isPrivate = p.is_private === true || localPrivatePosts.includes(p.id);
+            if (isPrivate && !isAuthor) {
+              return false;
+            }
+            return true;
+          });
+          setPosts(filteredPosts);
+        }
 
       } catch (error) {
         console.error("Error loading discovery:", error);

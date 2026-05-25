@@ -418,6 +418,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       setHasMore(rawPosts.length >= PAGE_SIZE);
 
       let sortedPosts = [...rawPosts];
+      
+      // Filter out posts that are private (unless we are the author)
+      let localPrivatePosts: string[] = [];
+      try {
+        localPrivatePosts = JSON.parse(localStorage.getItem('private_posts') || '[]');
+      } catch { /* ignore */ }
+
+      sortedPosts = sortedPosts.filter(p => {
+        const isAuthor = user && p.user_id === user.id;
+        const isPrivate = p.is_private === true || localPrivatePosts.includes(p.id);
+        if (isPrivate && !isAuthor) {
+          return false;
+        }
+        return true;
+      });
+
       if (currentPage === 0) {
         if (initialPostId) {
           const targetPost = sortedPosts.find(p => p.id === initialPostId);
