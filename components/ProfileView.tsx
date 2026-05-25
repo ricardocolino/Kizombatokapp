@@ -132,7 +132,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState(10);
-  const [activeTab, setActiveTab] = useState<'posts' | 'reposts'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'private'>('posts');
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -907,7 +907,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   if (!profile) return <div className="p-20 text-center text-zinc-600 uppercase font-black tracking-widest text-xs">{t('Profile not found')}</div>;
 
-  const currentGridData = activeTab === 'posts' ? userPosts : repostedPosts;
+  const currentGridData = (() => {
+    if (activeTab === 'private') {
+      return userPosts.filter(p => p.is_private || privatePostIds.includes(p.id));
+    }
+    if (activeTab === 'reposts') {
+      return repostedPosts;
+    }
+    // 'posts' tab
+    if (isOwnProfile) {
+      return userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
+    }
+    return userPosts;
+  })();
 
   return (
     <div 
@@ -1143,11 +1155,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
           { id: 'posts', label: t('Posts') }, 
-          { id: 'reposts', label: t('Reposts') }
+          { id: 'reposts', label: t('Reposts') },
+          ...(isOwnProfile ? [{ id: 'private', label: t('Private', 'Privados') }] : [])
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'posts' | 'reposts')}
+            onClick={() => setActiveTab(tab.id as 'posts' | 'reposts' | 'private')}
             className="flex-1 flex flex-col items-center justify-center pt-4 transition-all relative"
           >
             <span className={`text-[11px] font-bold uppercase tracking-widest pb-3 ${activeTab === tab.id ? 'text-black' : 'text-zinc-300'}`}>
@@ -1173,13 +1186,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <div 
                   key={post.id} 
                   onClick={() => {
-                    if (isOwnProfile && activeTab === 'posts') {
+                    if (isOwnProfile && (activeTab === 'posts' || activeTab === 'private')) {
                       setSelectedPostForEdit(post);
                     } else if (onNavigateToPost && profile) {
                       onNavigateToPost(post.id, { 
                         userId, 
                         userName: profile.name || profile.username, 
-                        type: activeTab === 'posts' ? 'user' : 'reposted' 
+                        type: activeTab === 'reposts' ? 'reposted' : 'user' 
                       });
                     }
                   }}
@@ -1221,7 +1234,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <Box size={24} strokeWidth={1} />
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.3em]">
-                  {activeTab === 'posts' ? t('No posts yet') : t('No reposts yet')}
+                  {activeTab === 'posts' 
+                    ? t('No posts yet') 
+                    : activeTab === 'reposts' 
+                    ? t('No reposts yet') 
+                    : t('No private posts yet', 'Sem vídeos privados')
+                  }
                 </p>
               </div>
             )}
