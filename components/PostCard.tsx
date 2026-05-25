@@ -1259,7 +1259,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {/* Heart animations for double tap */}
+        {/* ThumbsUp animations for double tap */}
         {doubleTapHearts.map(heart => (
           <div 
             key={heart.id} 
@@ -1269,7 +1269,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               top: `${heart.y - 40}px`
             }}
           >
-            <Heart size={80} className="text-red-500 fill-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]" />
+            <ThumbsUp size={80} className="text-purple-500 fill-purple-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
           </div>
         ))}
 
