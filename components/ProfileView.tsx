@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3 } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -120,6 +120,94 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     setSelectedPostForEdit(null);
+  };
+
+  // Save post edit/caption state
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [updateLoading, setUpdateLoading] = useState(false);
+
+  // Statistics modal state
+  const [viewingStatsPost, setViewingStatsPost] = useState<Post | null>(null);
+  const [postStatsData, setPostStatsData] = useState<{
+    views: number;
+    likes: number;
+    reposts: number;
+    giftsCoins: number;
+  } | null>(null);
+  const [loadingPostStats, setLoadingPostStats] = useState(false);
+
+  const handleUpdateCaption = async () => {
+    if (!editingPost) return;
+    setUpdateLoading(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ content: newPostContent || null })
+        .eq('id', editingPost.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setUserPosts(prev => prev.map(p => {
+        if (p.id === editingPost.id) {
+          return { ...p, content: newPostContent || null };
+        }
+        return p;
+      }));
+
+      alert(t('Caption updated successfully', 'Legenda atualizada com sucesso!'));
+      setEditingPost(null);
+    } catch (err) {
+      console.error("Error updating video title:", err);
+      alert(t('Error updating title', 'Erro ao atualizar o título do vídeo'));
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  const handleOpenStats = async (post: Post) => {
+    setViewingStatsPost(post);
+    setLoadingPostStats(true);
+    setSelectedPostForEdit(null); // Close active bottom sheet first
+
+    try {
+      // Fetch likes count
+      const { count: likesCount } = await supabase
+        .from('reactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('type', 'like');
+
+      // Fetch reposts count
+      const { count: repostsCount } = await supabase
+        .from('reposts')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+
+      // Get gifts from localStorage
+      let giftsCoinsValue = 0;
+      try {
+        giftsCoinsValue = Number(localStorage.getItem(`post_gifts_${post.id}`) || '0');
+      } catch { /* ignore */ }
+
+      setPostStatsData({
+        views: post.views || 0,
+        likes: likesCount || 0,
+        reposts: repostsCount || 0,
+        giftsCoins: giftsCoinsValue
+      });
+    } catch (err) {
+      console.error("Error loading post stats:", err);
+      setPostStatsData({
+        views: post.views || 0,
+        likes: 0,
+        reposts: 0,
+        giftsCoins: 0
+      });
+    } finally {
+      setLoadingPostStats(false);
+    }
   };
 
   const [showDashboard, setShowDashboard] = useState(false);
@@ -2059,12 +2147,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
                   <Play size={20} strokeWidth={1.5} className="fill-black text-black" />
                 </div>
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
                   {t('Watch Video', 'Ver Vídeo')}
                 </span>
               </button>
 
-              {/* Option 2: Privacy settings */}
+              {/* Option 2: Edit Title/Caption */}
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => {
+                    setEditingPost(selectedPostForEdit);
+                    setNewPostContent(selectedPostForEdit.content || '');
+                    setSelectedPostForEdit(null);
+                  }}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+                >
+                  <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                    <Edit3 size={20} strokeWidth={1.5} />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
+                    {t('Edit Caption', 'Editar Título')}
+                  </span>
+                </button>
+              )}
+
+              {/* Option 3: Privacy settings */}
               {selectedPostForEdit && (
                 <button 
                   onClick={() => handleTogglePrivacy(selectedPostForEdit)}
@@ -2077,7 +2184,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       <Lock size={20} strokeWidth={1.5} />
                     )}
                   </div>
-                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
                     {selectedPostForEdit.is_private || privatePostIds.includes(selectedPostForEdit.id) 
                       ? t('Make Public', 'Tornar Público') 
                       : t('Make Private', 'Tornar Privado')
@@ -2086,7 +2193,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </button>
               )}
 
-              {/* Option 3: Delete */}
+              {/* Option 4: Video Statistics */}
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => handleOpenStats(selectedPostForEdit)}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+                >
+                  <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                    <BarChart3 size={20} strokeWidth={1.5} />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
+                    {t('Statistics', 'Estatísticas')}
+                  </span>
+                </button>
+              )}
+
+              {/* Option 5: Delete */}
               {selectedPostForEdit && (
                 <button 
                   onClick={() => handleDeletePost(selectedPostForEdit)}
@@ -2095,11 +2217,173 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <div className="w-14 h-14 bg-red-50 border border-red-100 group-hover:bg-red-100 rounded-2xl flex items-center justify-center text-red-500 shadow-sm">
                     <Trash2 size={20} strokeWidth={1.5} />
                   </div>
-                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[80px]">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
                     {t('Delete', 'Eliminar')}
                   </span>
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Caption/Title Modal */}
+      {editingPost && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => setEditingPost(null)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 text-black">
+            <div className="p-8 flex flex-col gap-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black uppercase tracking-widest text-black">
+                  {t('Edit Caption', 'Editar Título')}
+                </h3>
+                <button onClick={() => setEditingPost(null)} className="text-zinc-400 hover:text-black transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                  {t('Video Caption', 'Título/Legenda do Vídeo')}
+                </label>
+                <textarea 
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder={t('Write a caption...', 'Escreve uma legenda para o teu vídeo...')}
+                  className="w-full h-24 p-4 border border-zinc-150 rounded-2xl text-xs placeholder-zinc-400 bg-zinc-50 outline-none focus:border-purple-500 transition-colors resize-none text-black"
+                  maxLength={150}
+                />
+                <div className="text-[9px] text-zinc-400 self-end font-bold uppercase">
+                  {newPostContent.length}/150
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setEditingPost(null)}
+                  className="flex-1 h-12 bg-zinc-50 hover:bg-zinc-100 border border-zinc-150 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-500 active:scale-95 transition-all"
+                >
+                  {t('Cancel', 'Cancelar')}
+                </button>
+                <button 
+                  onClick={handleUpdateCaption}
+                  disabled={updateLoading}
+                  className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {updateLoading ? (
+                    <Loader2 size={14} className="animate-spin text-white" />
+                  ) : (
+                    t('Save', 'Guardar')
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Video Statistics Modal */}
+      {viewingStatsPost && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => setViewingStatsPost(null)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 text-black">
+            <div className="p-8 flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b border-zinc-100 pb-4">
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-black">
+                    {t('Post Analytics', 'Estatísticas')}
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight mt-0.5">
+                    {t('Performance Overview', 'Visão Geral')}
+                  </p>
+                </div>
+                <button onClick={() => setViewingStatsPost(null)} className="text-zinc-400 hover:text-black transition-colors w-8 h-8 rounded-full bg-zinc-50 flex items-center justify-center">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {loadingPostStats ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 size={32} className="animate-spin text-purple-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                    {t('Loading metrics...', 'A carregar...')}
+                  </span>
+                </div>
+              ) : postStatsData ? (
+                <div className="flex flex-col gap-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Views */}
+                    <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex flex-col">
+                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider mb-1">
+                        {t('Views', 'Visualizações')}
+                      </span>
+                      <span className="text-lg font-black font-mono text-black">
+                        {postStatsData.views}
+                      </span>
+                    </div>
+
+                    {/* Likes */}
+                    <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex flex-col">
+                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider mb-1">
+                        {t('Likes', 'Likes')}
+                      </span>
+                      <span className="text-lg font-black font-mono text-black">
+                        {postStatsData.likes}
+                      </span>
+                    </div>
+
+                    {/* Reposts */}
+                    <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex flex-col">
+                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider mb-1">
+                        {t('Reposts', 'Republicações')}
+                      </span>
+                      <span className="text-lg font-black font-mono text-black">
+                        {postStatsData.reposts}
+                      </span>
+                    </div>
+
+                    {/* Gifts Revenue */}
+                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl flex flex-col">
+                      <span className="text-[10px] text-purple-600 font-black uppercase tracking-wider mb-1">
+                        {t('Gifts Revenue', 'Receita de Presentes')}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-black text-purple-700 font-mono">
+                          {postStatsData.giftsCoins}
+                        </span>
+                        <span className="text-[9px] font-black text-purple-500 uppercase tracking-tight">Coins</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Highlight box */}
+                  <div className="p-4 bg-zinc-950 text-white rounded-2xl flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] text-zinc-500 font-black uppercase tracking-widest">
+                        {t('Estimated Earnings', 'Rendimento Estimado')}
+                      </span>
+                      <span className="text-xs font-black tracking-tight mt-0.5">
+                        USDT ({t('Network', 'Rede')} BEP-20)
+                      </span>
+                    </div>
+                    <div className="text-right flex flex-col">
+                      <span className="text-base font-black font-mono text-purple-400">
+                        ${(postStatsData.views * VIEW_RATE).toFixed(4)}
+                      </span>
+                      <span className="text-[8px] text-zinc-400 font-bold uppercase">
+                        ${VIEW_RATE} {t('per view', 'por view')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <button 
+                onClick={() => setViewingStatsPost(null)}
+                className="w-full h-12 bg-zinc-50 border border-zinc-100 hover:bg-zinc-100 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-500 active:scale-95 transition-all mt-2"
+              >
+                {t('Close', 'Fechar')}
+              </button>
             </div>
           </div>
         </div>
