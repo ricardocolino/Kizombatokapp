@@ -13,7 +13,7 @@ interface ProfileViewProps {
   isOwnProfile?: boolean;
   initialAction?: string | null;
   onClearAction?: () => void;
-  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' }) => void;
+  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' }) => void;
   onNavigateToProfile?: (userId: string) => void;
   onBack?: () => void;
 }
@@ -1280,7 +1280,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       onNavigateToPost(post.id, { 
                         userId, 
                         userName: profile.name || profile.username, 
-                        type: activeTab === 'reposts' ? 'reposted' : 'user' 
+                        type: activeTab === 'reposts' ? 'reposted' : activeTab === 'private' ? 'private' : 'user'
                       });
                     }
                   }}
@@ -2138,7 +2138,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       onNavigateToPost(selectedPostForEdit.id, { 
                         userId, 
                         userName: profile?.name || profile?.username || '', 
-                        type: activeTab === 'reposts' ? 'reposted' : 'user' 
+                        type: activeTab === 'reposts' ? 'reposted' : activeTab === 'private' ? 'private' : 'user'
                       });
                     }
                     setSelectedPostForEdit(null);
@@ -2315,7 +2315,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="flex flex-col gap-5">
                   <div className="grid grid-cols-2 gap-4">
                     {/* Views */}
-                    <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex flex-col">
+                    <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex flex-col col-span-2">
                       <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider mb-1">
                         {t('Views', 'Visualizações')}
                       </span>
@@ -2342,19 +2342,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       <span className="text-lg font-black font-mono text-black">
                         {postStatsData.reposts}
                       </span>
-                    </div>
-
-                    {/* Gifts Revenue */}
-                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl flex flex-col">
-                      <span className="text-[10px] text-purple-600 font-black uppercase tracking-wider mb-1">
-                        {t('Gifts Revenue', 'Receita de Presentes')}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-lg font-black text-purple-700 font-mono">
-                          {postStatsData.giftsCoins}
-                        </span>
-                        <span className="text-[9px] font-black text-purple-500 uppercase tracking-tight">Coins</span>
-                      </div>
                     </div>
                   </div>
 

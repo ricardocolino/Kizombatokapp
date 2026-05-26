@@ -16,7 +16,7 @@ interface FeedProps {
   onJoinLive?: (liveId: string) => void;
   initialPostId?: string | null;
   isPaused?: boolean;
-  feedFilter?: { userId: string; userName: string; type: 'user' | 'reposted' } | null;
+  feedFilter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' } | null;
   onClearFilter?: () => void;
   refreshTrigger?: number;
 }
@@ -355,7 +355,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         .range(from, to);
 
       if (feedFilter) {
-        if (feedFilter.type === 'user') {
+        if (feedFilter.type === 'user' || feedFilter.type === 'private') {
           query = query.eq('user_id', feedFilter.userId);
         } else if (feedFilter.type === 'reposted') {
           const { data: reposts } = await supabase
@@ -430,6 +430,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         const isPrivate = p.is_private === true || localPrivatePosts.includes(p.id);
         if (isPrivate && !isAuthor) {
           return false;
+        }
+        if (feedFilter) {
+          if (feedFilter.type === 'private') {
+            return isPrivate;
+          } else if (feedFilter.type === 'user') {
+            return !isPrivate;
+          }
         }
         return true;
       });
@@ -604,6 +611,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           <div className="flex-1 flex justify-center pr-10">
             <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg text-center px-4">
               {feedFilter.type === 'user' && `${t('Videos from')} ${feedFilter.userName}`}
+              {feedFilter.type === 'private' && `${t('Private Videos of', 'Vídeos privados de')} ${feedFilter.userName}`}
               {feedFilter.type === 'reposted' && `${t('Videos reposted by')} ${feedFilter.userName}`}
             </span>
           </div>
