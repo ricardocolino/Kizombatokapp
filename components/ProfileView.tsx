@@ -2137,7 +2137,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     onNavigateToPost(selectedPostForEdit.id, { 
                       userId, 
                       userName: profile?.name || profile?.username || '', 
-                      type: activeTab === 'posts' ? 'user' : 'reposted' 
+                      type: activeTab === 'reposts' ? 'reposted' : 'user' 
                     });
                   }
                   setSelectedPostForEdit(null);
