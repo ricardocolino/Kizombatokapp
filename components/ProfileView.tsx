@@ -2129,28 +2129,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {/* Options layout inspired by standard bottom sheet */}
-            <div className="flex items-center gap-6 overflow-x-auto no-scrollbar py-2 justify-center">
+            <div className="flex items-center gap-6 overflow-x-auto no-scrollbar py-2 justify-start sm:justify-center px-4 w-full">
               {/* Option 1: Watch Video */}
-              <button 
-                onClick={() => {
-                  if (onNavigateToPost && selectedPostForEdit) {
-                    onNavigateToPost(selectedPostForEdit.id, { 
-                      userId, 
-                      userName: profile?.name || profile?.username || '', 
-                      type: activeTab === 'reposts' ? 'reposted' : 'user' 
-                    });
-                  }
-                  setSelectedPostForEdit(null);
-                }}
-                className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
-              >
-                <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
-                  <Play size={20} strokeWidth={1.5} className="fill-black text-black" />
-                </div>
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
-                  {t('Watch Video', 'Ver Vídeo')}
-                </span>
-              </button>
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => {
+                    if (onNavigateToPost && selectedPostForEdit) {
+                      onNavigateToPost(selectedPostForEdit.id, { 
+                        userId, 
+                        userName: profile?.name || profile?.username || '', 
+                        type: activeTab === 'reposts' ? 'reposted' : 'user' 
+                      });
+                    }
+                    setSelectedPostForEdit(null);
+                  }}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+                >
+                  <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                    <Play size={20} strokeWidth={1.5} className="fill-black text-black" />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
+                    {t('Watch Video', 'Ver Vídeo')}
+                  </span>
+                </button>
+              )}
 
               {/* Option 2: Edit Title/Caption */}
               {selectedPostForEdit && (
