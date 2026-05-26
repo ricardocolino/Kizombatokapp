@@ -1425,7 +1425,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onMouseUp={handleScrubEnd}
             onMouseLeave={handleScrubEnd}
           >
-            <div ref={scrubRef} className="w-full h-1.5 bg-white/20 relative overflow-hidden group hover:h-2 transition-all">
+            <div ref={scrubRef} className="w-full h-[2px] bg-white/20 relative overflow-hidden group hover:h-[4px] transition-all">
               <div 
                 className="absolute top-0 left-0 h-full bg-purple-600 transition-all"
                 style={{ width: `${(currentTime / duration) * 100}%` }}
