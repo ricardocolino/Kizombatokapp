@@ -52,6 +52,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const isAdActive = React.useRef(false);
   const currentVideoIndex = React.useRef<number>(0);
   const nextAllowedTriggerIndex = React.useRef<number>(4); // Starts at index 4 (5th post)
+  const [sessionLoaded, setSessionLoaded] = useState(false);
+  const viewedIndices = React.useRef<Set<number>>(new Set());
 
   const handleNextPost = React.useCallback(() => {
     if (scrollContainerRef.current) {
@@ -200,6 +202,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             if (!isNaN(index)) {
               currentVideoIndex.current = index;
               
+              // Se o usuário não tiver logado depois de 3 vídeos ir a página de login automaticamente
+              if (sessionLoaded && !user) {
+                viewedIndices.current.add(index);
+                if (viewedIndices.current.size > 3) {
+                  if (onRequireAuth) {
+                    onRequireAuth();
+                    return;
+                  }
+                }
+              }
+
               // Se já passou ou alcançou o próximo index de trigger permitido e NÃO há ad ativo
               if (index >= nextAllowedTriggerIndex.current) {
                 if (!isAdActive.current) {
@@ -227,11 +240,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, triggerAd]);
+  }, [posts, triggerAd, sessionLoaded, user, onRequireAuth]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setSessionLoaded(true);
     });
   }, []);
 
