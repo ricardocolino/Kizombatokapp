@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Send, Gift as GiftIcon } from 'lucide-react';
+import { Send, Gift as GiftIcon, X } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import UserActionModal from './UserActionModal';
 import { AnimatePresence } from 'motion/react';
@@ -11,6 +11,7 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
+  parent_id?: string | null;
   profiles?: {
     username: string;
     name: string | null;
@@ -40,6 +41,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
   const [isSilenced, setIsSilenced] = useState(false);
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
   const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string, bio?: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -157,12 +159,15 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
     if (!newMessage.trim() || !currentUser) return;
 
     const messageContent = newMessage.trim();
+    const parentIdToSave = replyingTo?.id || null;
     setNewMessage('');
+    setReplyingTo(null);
 
     const { error } = await supabase.from('live_messages').insert({
       live_id: liveId,
       user_id: currentUser.id,
       content: messageContent,
+      parent_id: parentIdToSave,
     });
 
     if (error) {
@@ -230,21 +235,45 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       );
     }
 
+    const parentMsg = msg.parent_id ? messages.find(m => m.id === msg.parent_id) : null;
+
     return (
       <div 
         key={msg.id} 
-        onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
-        className="flex items-start gap-1.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5 cursor-pointer active:opacity-70 transition-all"
+        className="flex items-start gap-1.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5"
       >
         <img 
           src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
           alt={msg.profiles?.username}
-          className="w-7 h-7 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm"
+          onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
+          className="w-7 h-7 rounded-full border border-white/10 object-cover flex-shrink-0 mt-0.5 shadow-sm cursor-pointer active:scale-95 transition-all"
         />
         <div className="flex-1 flex flex-col min-w-0 px-0.5">
-          <span className="text-[11px] font-black text-zinc-300 tracking-wide mb-0 truncate drop-shadow-md">
-            {msg.profiles?.name || `@${msg.profiles?.username || 'user'}`}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span 
+              onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
+              className="text-[11px] font-black text-zinc-300 tracking-wide mb-0 truncate drop-shadow-md cursor-pointer hover:underline"
+            >
+              {msg.profiles?.name || `@${msg.profiles?.username || 'user'}`}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setReplyingTo(msg);
+              }}
+              className="text-[9px] text-purple-400 font-bold bg-purple-500/10 hover:bg-purple-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all"
+            >
+              {t('Reply', 'Responder')}
+            </button>
+          </div>
+          {msg.parent_id && (
+            <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-bold bg-white/5 py-0.5 px-2 rounded-lg mb-1 w-max">
+              <span className="opacity-60">↳ {t('Replied to', 'Respondeu a')}</span>
+              <span className="text-purple-400">
+                {parentMsg ? `@${parentMsg.profiles?.username || 'user'}` : t('a comment', 'um comentário')}
+              </span>
+            </div>
+          )}
           <span className="text-[13px] text-white leading-snug break-words font-black whitespace-pre-wrap drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">{msg.content}</span>
         </div>
       </div>
@@ -278,7 +307,26 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         </div>
       </div>
 
-      <div className="p-3 flex items-center gap-2">
+      <div className="p-3 flex flex-col gap-2">
+        {replyingTo && (
+          <div className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 flex items-center justify-between text-white animate-in slide-in-from-bottom-1 duration-200">
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">
+                {t('Replying to', 'A responder a')} @{replyingTo.profiles?.username || 'user'}
+              </span>
+              <span className="text-xs text-zinc-300 truncate max-w-[200px]">
+                {replyingTo.content}
+              </span>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setReplyingTo(null)}
+              className="text-zinc-400 hover:text-white p-1 rounded-full cursor-pointer hover:bg-white/5 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
           <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-md border rounded-full px-4 py-2 transition-all shadow-lg ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-white/10 border-white/20 focus-within:bg-white/20 focus-within:border-white/30'}`}>
             <input
