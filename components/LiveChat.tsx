@@ -42,7 +42,23 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
   const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string, bio?: string } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<{ username: string; name: string | null; avatar_url: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      supabase
+        .from('profiles')
+        .select('username, name, avatar_url')
+        .eq('id', currentUser.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setCurrentUserProfile(data);
+          }
+        });
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (!liveId) return;
@@ -186,6 +202,26 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
     setNewMessage('');
     setReplyingTo(null);
 
+    // Create a unique temporary id
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Generate optimistic user profile details
+    const optimisticMessage: Message = {
+      id: tempId,
+      user_id: currentUser.id,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      parent_id: parentIdToSave,
+      profiles: {
+        username: currentUserProfile?.username || currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'user',
+        name: currentUserProfile?.name || currentUser.user_metadata?.name || currentUser.user_metadata?.full_name || null,
+        avatar_url: currentUserProfile?.avatar_url || currentUser.user_metadata?.avatar_url || `https://picsum.photos/seed/${currentUser.id}/100/100`,
+      }
+    };
+
+    // Optimistically update message list so it renders instantly
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     const insertPayload: { live_id: string; user_id: string; content: string; parent_id?: string } = {
       live_id: liveId,
       user_id: currentUser.id,
@@ -196,22 +232,49 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       insertPayload.parent_id = parentIdToSave;
     }
 
-    const { error } = await supabase.from('live_messages').insert(insertPayload);
+    const { data, error } = await supabase
+      .from('live_messages')
+      .insert(insertPayload)
+      .select('*, profiles(username, name, avatar_url)')
+      .maybeSingle();
 
     if (error) {
       console.error('Error sending message:', error);
+      // Remove optimistic message if insert failed
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+
       // Se a coluna parent_id não existir na tabela do banco de dados ainda, tentamos reenviar sem ela!
       if (parentIdToSave && (error.message?.includes('parent_id') || error.code === '42703')) {
         console.log('Retrying message send without parent_id column...');
-        const { error: retryError } = await supabase.from('live_messages').insert({
-          live_id: liveId,
-          user_id: currentUser.id,
-          content: messageContent,
-        });
+        const retryTempId = `retry_${Date.now()}`;
+        const retryOptimisticMessage: Message = {
+          ...optimisticMessage,
+          id: retryTempId,
+          parent_id: null,
+        };
+        setMessages((prev) => [...prev, retryOptimisticMessage]);
+
+        const { data: retryData, error: retryError } = await supabase
+          .from('live_messages')
+          .insert({
+            live_id: liveId,
+            user_id: currentUser.id,
+            content: messageContent,
+          })
+          .select('*, profiles(username, name, avatar_url)')
+          .maybeSingle();
+
         if (retryError) {
           console.error('Retry error without parent_id:', retryError);
+          setMessages((prev) => prev.filter((m) => m.id !== retryTempId));
+        } else if (retryData) {
+          // Replace retry optimistic with real database message
+          setMessages((prev) => prev.map((m) => (m.id === retryTempId ? (retryData as Message) : m)));
         }
       }
+    } else if (data) {
+      // Replace optimistic message with real database message
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? (data as Message) : m)));
     }
   };
 
