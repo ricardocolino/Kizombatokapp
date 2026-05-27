@@ -236,6 +236,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         };
 
         setMessages((prev) => {
+          if (prev.some(m => m.content === systemMsg.content)) return prev;
           if (prev.some(m => m.id === systemMsg.id)) return prev;
           const updated = [...prev, systemMsg];
           return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
