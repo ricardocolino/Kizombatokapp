@@ -45,6 +45,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!liveId) return;
+
     const fetchGifts = async () => {
       const { data } = await supabase.from('gift_types').select('*');
       if (data) {
@@ -56,30 +58,34 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
     // Fetch initial messages
     const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('live_messages')
-        .select('*, profiles(username, name, avatar_url)')
-        .eq('live_id', liveId)
-        .order('created_at', { ascending: true })
-        .limit(100);
+      try {
+        const { data, error } = await supabase
+          .from('live_messages')
+          .select('*, profiles(username, name, avatar_url)')
+          .eq('live_id', liveId)
+          .order('created_at', { ascending: true })
+          .limit(100);
 
-      if (error) {
-        console.error('Error fetching messages:', error);
-      } else {
-        const msgs = data || [];
-        // Check if current user is silenced by scanning history
-        if (currentUser) {
-          const modMsgs = msgs.filter(m => m.content.startsWith('__MOD_'));
-          const mySilences = modMsgs.filter(m => 
-            m.content === `__MOD_SILENCE:${currentUser.id}__` || 
-            m.content === `__MOD_UNSILENCE:${currentUser.id}__`
-          );
-          if (mySilences.length > 0) {
-            const lastStatus = mySilences[mySilences.length - 1].content;
-            setIsSilenced(lastStatus.startsWith('__MOD_SILENCE'));
+        if (error) {
+          console.error('Error fetching messages:', error);
+        } else {
+          const msgs = data || [];
+          // Check if current user is silenced by scanning history
+          if (currentUser) {
+            const modMsgs = msgs.filter(m => m.content.startsWith('__MOD_'));
+            const mySilences = modMsgs.filter(m => 
+              m.content === `__MOD_SILENCE:${currentUser.id}__` || 
+              m.content === `__MOD_UNSILENCE:${currentUser.id}__`
+            );
+            if (mySilences.length > 0) {
+              const lastStatus = mySilences[mySilences.length - 1].content;
+              setIsSilenced(lastStatus.startsWith('__MOD_SILENCE'));
+            }
           }
+          setMessages(msgs);
         }
-        setMessages(msgs);
+      } catch (err) {
+        console.error('Exception fetching messages:', err);
       }
     };
 
@@ -87,7 +93,7 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
     // Subscribe to new messages
     const channel = supabase
-      .channel(`live_messages:${liveId}`)
+      .channel(`live_messages_${liveId}_${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -97,30 +103,46 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
           filter: `live_id=eq.${liveId}`,
         },
         async (payload) => {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('username, name, avatar_url')
-            .eq('id', payload.new.user_id)
-            .single();
+          try {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('username, name, avatar_url')
+              .eq('id', payload.new.user_id)
+              .maybeSingle();
 
-          const newMessage = {
-            ...payload.new,
-            profiles: profileData,
-          } as Message;
+            const newMessage = {
+              ...payload.new,
+              profiles: profileData || undefined,
+            } as Message;
 
-          // React to mod actions
-          if (currentUser && newMessage.content.startsWith('__MOD_')) {
-            if (newMessage.content === `__MOD_SILENCE:${currentUser.id}__`) {
-              setIsSilenced(true);
-            } else if (newMessage.content === `__MOD_UNSILENCE:${currentUser.id}__`) {
-              setIsSilenced(false);
+            // React to mod actions
+            if (currentUser && newMessage.content && newMessage.content.startsWith('__MOD_')) {
+              if (newMessage.content === `__MOD_SILENCE:${currentUser.id}__`) {
+                setIsSilenced(true);
+              } else if (newMessage.content === `__MOD_UNSILENCE:${currentUser.id}__`) {
+                setIsSilenced(false);
+              }
             }
-          }
 
-          setMessages((prev) => {
-            const updated = [...prev, newMessage];
-            return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
-          });
+            setMessages((prev) => {
+              // Prevent duplicate messages
+              if (prev.some(m => m.id === newMessage.id)) return prev;
+              const updated = [...prev, newMessage];
+              return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
+            });
+          } catch (e) {
+            console.error('Error handling realtime message payload:', e);
+            // Fallback: append message anyway
+            const newMessage = {
+              ...payload.new,
+              profiles: undefined,
+            } as Message;
+            setMessages((prev) => {
+              if (prev.some(m => m.id === newMessage.id)) return prev;
+              const updated = [...prev, newMessage];
+              return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
+            });
+          }
         }
       )
       .on('broadcast', { event: 'system_notice' }, (payload) => {
@@ -157,22 +179,39 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() || !currentUser) return;
+    if (!newMessage.trim() || !currentUser || !liveId) return;
 
     const messageContent = newMessage.trim();
     const parentIdToSave = replyingTo?.id || null;
     setNewMessage('');
     setReplyingTo(null);
 
-    const { error } = await supabase.from('live_messages').insert({
+    const insertPayload: { live_id: string; user_id: string; content: string; parent_id?: string } = {
       live_id: liveId,
       user_id: currentUser.id,
       content: messageContent,
-      parent_id: parentIdToSave,
-    });
+    };
+
+    if (parentIdToSave) {
+      insertPayload.parent_id = parentIdToSave;
+    }
+
+    const { error } = await supabase.from('live_messages').insert(insertPayload);
 
     if (error) {
       console.error('Error sending message:', error);
+      // Se a coluna parent_id não existir na tabela do banco de dados ainda, tentamos reenviar sem ela!
+      if (parentIdToSave && (error.message?.includes('parent_id') || error.code === '42703')) {
+        console.log('Retrying message send without parent_id column...');
+        const { error: retryError } = await supabase.from('live_messages').insert({
+          live_id: liveId,
+          user_id: currentUser.id,
+          content: messageContent,
+        });
+        if (retryError) {
+          console.error('Retry error without parent_id:', retryError);
+        }
+      }
     }
   };
 
