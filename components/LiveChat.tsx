@@ -558,32 +558,32 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
             </button>
           </div>
         )}
-        <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
-          <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-md border rounded-full px-4 py-2 transition-all shadow-lg ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-white/10 border-white/20 focus-within:bg-white/20 focus-within:border-white/30'}`}>
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              disabled={isSilenced}
-              placeholder={isSilenced ? t('Silenced') : t('Say something')}
-              className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0 disabled:opacity-50 font-medium"
-            />
-          </div>
-          <button 
-            type="submit"
-            disabled={!newMessage.trim() || isSilenced}
-            className="flex-shrink-0 w-10 h-10 bg-purple-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-purple-600/30"
-          >
-            <Send size={18} />
-          </button>
-        </form>
-        
-        {/* Extra Actions (Like, Gift, etc.) */}
-        {extraActions && (
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {extraActions}
-          </div>
-        )}
+        <div className="flex items-center gap-2 w-full min-w-0">
+          {extraActions && (
+            <div className="flex-shrink-0 flex items-center gap-2">
+              {extraActions}
+            </div>
+          )}
+          <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-2 min-w-0">
+            <div className={`flex-1 min-w-0 relative group flex items-center backdrop-blur-md border rounded-full px-4 py-2 transition-all shadow-lg ${isSilenced ? 'bg-red-500/10 border-red-500/20' : 'bg-white/10 border-white/20 focus-within:bg-white/20 focus-within:border-white/30'}`}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                disabled={isSilenced}
+                placeholder={isSilenced ? t('Silenced') : t('Say something')}
+                className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0 disabled:opacity-50 font-medium"
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={!newMessage.trim() || isSilenced}
+              className="flex-shrink-0 w-10 h-10 bg-purple-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-xl shadow-purple-600/30"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
       </div>
 
       <AnimatePresence>
