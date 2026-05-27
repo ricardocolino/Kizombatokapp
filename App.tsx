@@ -124,6 +124,7 @@ const App: React.FC = () => {
         isFromGallery,
         trimStart,
         trimEnd,
+        reusedAudioUrl,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -165,16 +166,44 @@ const App: React.FC = () => {
           const videoArgs = [];
           // Trim se necessário
           const hasTrim = trimStart > 0 || trimEnd > 0;
+
+          let audioInputFileExists = false;
+          if (reusedAudioUrl) {
+            try {
+              console.log('[FFmpeg] Descarregando áudio reutilizado do link:', reusedAudioUrl);
+              const audioData = await fetchFile(reusedAudioUrl);
+              await ffmpeg.writeFile('/audio_input.mp4', audioData);
+              audioInputFileExists = true;
+              console.log('[FFmpeg] Áudio para dublagem descarregado com sucesso.');
+            } catch (err) {
+              console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
+            }
+          }
+
+          // Input de vídeo:
           if (hasTrim) {
             videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
           }
-          
           videoArgs.push('-i', '/input.mp4');
+
+          // Input de áudio (se houver):
+          if (audioInputFileExists) {
+            if (hasTrim) {
+              videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
+            }
+            videoArgs.push('-i', '/audio_input.mp4');
+          }
+
           if (filterParts.length > 0) {
             videoArgs.push('-vf', filterParts.join(','));
           }
 
-          // Configurações de compressão
+          // Se tiver áudio reutilizado, mapeamos vídeo do input 0 e áudio do input 1
+          if (audioInputFileExists) {
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0');
+          }
+
+          // Configurações de compressão e codificação
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
