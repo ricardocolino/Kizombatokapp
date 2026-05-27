@@ -43,7 +43,30 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
   const [selectedUser, setSelectedUser] = useState<{ id: string, username: string, avatarUrl?: string, bio?: string } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<{ username: string; name: string | null; avatar_url: string } | null>(null);
+  const [activeNotification, setActiveNotification] = useState<{ id: string; messageId: string; senderName: string; content: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeNotification) {
+      const timer = setTimeout(() => {
+        setActiveNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeNotification]);
+
+  const scrollToMessage = (msgId: string) => {
+    setTimeout(() => {
+      const element = document.getElementById(`msg-${msgId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('bg-purple-500/30', 'px-2', 'rounded-xl');
+        setTimeout(() => {
+          element.classList.remove('bg-purple-500/30', 'px-2', 'rounded-xl');
+        }, 3000);
+      }
+    }, 100);
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -141,6 +164,20 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
             }
 
             setMessages((prev) => {
+              // Check if this is a reply to current user's message
+              if (currentUser && newMessage.parent_id && newMessage.user_id !== currentUser.id) {
+                const parentMsg = prev.find(m => m.id === newMessage.parent_id);
+                if (parentMsg && parentMsg.user_id === currentUser.id) {
+                  const senderName = profileData?.name || `@${profileData?.username || 'user'}`;
+                  setActiveNotification({
+                    id: Date.now().toString(),
+                    messageId: newMessage.id,
+                    senderName,
+                    content: newMessage.content,
+                  });
+                }
+              }
+
               // Prevent duplicate messages
               if (prev.some(m => m.id === newMessage.id)) return prev;
               const updated = [...prev, newMessage];
@@ -154,6 +191,18 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
               profiles: undefined,
             } as Message;
             setMessages((prev) => {
+              if (currentUser && newMessage.parent_id && newMessage.user_id !== currentUser.id) {
+                const parentMsg = prev.find(m => m.id === newMessage.parent_id);
+                if (parentMsg && parentMsg.user_id === currentUser.id) {
+                  setActiveNotification({
+                    id: Date.now().toString(),
+                    messageId: newMessage.id,
+                    senderName: '@user',
+                    content: newMessage.content,
+                  });
+                }
+              }
+
               if (prev.some(m => m.id === newMessage.id)) return prev;
               const updated = [...prev, newMessage];
               return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
@@ -312,8 +361,9 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       return (
         <div 
           key={msg.id} 
+          id={`msg-${msg.id}`}
           onClick={() => handleUserClick(msg.user_id, msg.profiles?.username || 'user', msg.profiles?.avatar_url)}
-          className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-sm animate-in slide-in-from-left duration-300 cursor-pointer active:scale-95 transition-all"
+          className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-600/10 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-sm animate-in slide-in-from-left duration-300 cursor-pointer active:scale-95 transition-all transition-all duration-500"
         >
           <div className="relative">
             <img 
@@ -343,7 +393,8 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
     return (
       <div 
         key={msg.id} 
-        className="flex items-start gap-1.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5"
+        id={`msg-${msg.id}`}
+        className="flex items-start gap-1.5 max-w-full group animate-in fade-in slide-in-from-bottom-1 duration-300 py-0.5 rounded-xl transition-all duration-500"
       >
         <img 
           src={msg.profiles?.avatar_url || `https://picsum.photos/seed/${msg.user_id}/100/100`}
@@ -387,6 +438,29 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-transparent">
+      {activeNotification && (
+        <div className="absolute top-4 left-4 right-4 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div 
+            onClick={() => {
+              scrollToMessage(activeNotification.messageId);
+              setActiveNotification(null);
+            }}
+            className="p-3 bg-purple-950/90 border border-purple-500/40 backdrop-blur-xl rounded-2xl shadow-2xl flex items-start gap-2.5 cursor-pointer hover:bg-purple-900/95 active:scale-95 transition-all text-white"
+          >
+            <div className="w-8 h-8 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-300 flex-shrink-0 mt-0.5">
+              ↳
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="block text-xs font-black text-purple-300">
+                {activeNotification.senderName} {t('replied to you', 'respondeu ao seu comentário')}
+              </span>
+              <span className="block text-[11px] text-zinc-300 truncate font-semibold">
+                &ldquo;{activeNotification.content}&rdquo;
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       <div 
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide"
