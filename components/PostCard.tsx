@@ -533,7 +533,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           if (reusedAudioRef.current) {
             const videoTime = videoRef.current ? videoRef.current.currentTime : 0;
             const diff = Math.abs(reusedAudioRef.current.currentTime - videoTime);
-            if (diff > 0.15) {
+            if (diff > 0.15 && reusedAudioRef.current.readyState >= 1) {
               reusedAudioRef.current.currentTime = videoTime;
             }
             reusedAudioRef.current.play().catch(e => console.error("Audio play failed:", e));
@@ -1206,10 +1206,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     const diff = Math.abs(audioTime - videoTime);
                     const isLooping = videoTime < lastTimeRef.current;
                     // Only synchronize if there's a loop state or a significant drift (>0.5s) to avoid seeking loops
-                    if (isLooping || diff > 0.5) {
+                    if ((isLooping || diff > 0.5) && reusedAudioRef.current.readyState >= 1) {
                       reusedAudioRef.current.currentTime = videoTime;
                     }
                     lastTimeRef.current = videoTime;
+
+                    // Ensure playing alignment: if video is playing, audio should be playing too
+                    if (!videoRef.current.paused && reusedAudioRef.current.paused && isPlaying) {
+                      reusedAudioRef.current.play().catch(e => console.error("Audio resume onTimeUpdate failed:", e));
+                    }
                   }
                 }
               }}
@@ -1220,12 +1225,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             onLoadStart={() => setIsLoading(true)}
             onSeeking={() => {
-              if (reusedAudioRef.current && videoRef.current) {
+              if (reusedAudioRef.current && videoRef.current && reusedAudioRef.current.readyState >= 1) {
                 reusedAudioRef.current.currentTime = videoRef.current.currentTime;
               }
             }}
             onSeeked={() => {
-              if (reusedAudioRef.current && videoRef.current) {
+              if (reusedAudioRef.current && videoRef.current && reusedAudioRef.current.readyState >= 1) {
                 reusedAudioRef.current.currentTime = videoRef.current.currentTime;
               }
             }}
@@ -1241,7 +1246,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               if (reusedAudioRef.current) {
                 const videoTime = videoRef.current ? videoRef.current.currentTime : 0;
                 const diff = Math.abs(reusedAudioRef.current.currentTime - videoTime);
-                if (diff > 0.15) {
+                if (diff > 0.15 && reusedAudioRef.current.readyState >= 1) {
                   reusedAudioRef.current.currentTime = videoTime;
                 }
                 reusedAudioRef.current.play().catch(e => console.error("Audio play onPlaying failed:", e));
@@ -1272,6 +1277,19 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               src={parseMediaUrl(post.reused_audio_url)}
               loop
               muted={isMuted}
+              onCanPlay={() => {
+                if (videoRef.current && !videoRef.current.paused && isPlaying) {
+                  reusedAudioRef.current?.play().catch(e => console.error("Audio auto-play onCanPlay failed:", e));
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (reusedAudioRef.current && videoRef.current) {
+                  const videoTime = videoRef.current.currentTime;
+                  if (reusedAudioRef.current.readyState >= 1) {
+                    reusedAudioRef.current.currentTime = videoTime;
+                  }
+                }
+              }}
             />
           )}
 
