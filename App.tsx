@@ -252,7 +252,9 @@ const App: React.FC = () => {
           is_education: isEducation ? 1 : 0,
           is_ready: true,
           views: 0,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          reused_audio_url: uploadData.reusedAudioUrl || null,
+          reused_audio_post_id: uploadData.reusedAudioPostId || null
         });
         if (insertError) throw insertError;
       }
