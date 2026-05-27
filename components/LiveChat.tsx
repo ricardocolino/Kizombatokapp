@@ -36,7 +36,6 @@ interface LiveChatProps {
 const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, isHost = false }) => {
   const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [notices, setNotices] = useState<{ id: string; content: string; type: 'join' | 'like' }[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSilenced, setIsSilenced] = useState(false);
   const [gifts, setGifts] = useState<Record<string, Gift>>({});
@@ -130,9 +129,13 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
 
     fetchMessages();
 
-    // Subscribe to new messages
+    // Subscribe to new messages & broadcasts
     const channel = supabase
-      .channel(`live_messages_${liveId}_${Date.now()}`)
+      .channel(`live_room:${liveId}`, {
+        config: {
+          broadcast: { self: true },
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -212,29 +215,54 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
       )
       .on('broadcast', { event: 'system_notice' }, (payload) => {
         if (!payload || !payload.payload) return;
-        const id = Date.now().toString() + Math.random().toString();
-        const content = payload.payload.type === 'join' 
-          ? t('Entered the live')
-          : t('Liked the live');
         
-        const displayName = payload.payload.name || (payload.payload.username ? `@${payload.payload.username}` : '@user');
-        
-        setNotices(prev => [...prev, { 
-          id, 
-          content: `${displayName} ${content}`,
-          type: payload.payload.type 
-        }].slice(-3)); // Show max 3 latest notices
+        const type = payload.payload.type;
+        const userId = payload.payload.userId || '';
+        const username = payload.payload.username || 'user';
+        const name = payload.payload.name || null;
+        const avatarUrl = payload.payload.avatarUrl || `https://picsum.photos/seed/${userId}/100/100`;
+        const displayName = name || (username ? `@${username}` : '@user');
 
-        setTimeout(() => {
-          setNotices(prev => prev.filter(n => n.id !== id));
-        }, 4000);
-      })
-      .subscribe();
+        const systemMsg: Message = {
+          id: `system_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: `system_${type}`,
+          content: `SYSTEM_${type.toUpperCase()}:${displayName}`,
+          created_at: new Date().toISOString(),
+          profiles: {
+            username,
+            name,
+            avatar_url: avatarUrl,
+          }
+        };
+
+        setMessages((prev) => {
+          if (prev.some(m => m.id === systemMsg.id)) return prev;
+          const updated = [...prev, systemMsg];
+          return updated.length > 100 ? updated.slice(updated.length - 100) : updated;
+        });
+      });
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED' && !isHost && currentUser) {
+        // Send join notice broadcast
+        channel.send({
+          type: 'broadcast',
+          event: 'system_notice',
+          payload: {
+            type: 'join',
+            userId: currentUser.id,
+            username: currentUserProfile?.username || currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'user',
+            name: currentUserProfile?.name || currentUser.user_metadata?.name || null,
+            avatarUrl: currentUserProfile?.avatar_url || currentUser.user_metadata?.avatar_url || null,
+          }
+        });
+      }
+    });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [liveId, currentUser, t]);
+  }, [liveId, currentUser, t, isHost, currentUserProfile]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -351,8 +379,46 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
   const renderMessage = (msg: Message) => {
     const isGift = msg.content.startsWith('GIFT_SENT:');
     const isModAction = msg.content.startsWith('__MOD_');
+    const isSystemJoin = msg.content.startsWith('SYSTEM_JOIN:');
+    const isSystemLike = msg.content.startsWith('SYSTEM_LIKE:');
 
     if (isModAction) return null;
+
+    if (isSystemJoin) {
+      const displayName = msg.content.substring(12);
+      return (
+        <div 
+          key={msg.id} 
+          id={`msg-${msg.id}`}
+          className="flex items-center gap-1.5 animate-in slide-in-from-left duration-500 fade-in py-1 px-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 my-1 max-w-max"
+        >
+          <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-emerald-400 text-[10px]">🚀</span>
+          </div>
+          <span className="text-[11px] font-black text-emerald-400 drop-shadow-md drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            {displayName} {t('Entered the live', 'entrou na live')}
+          </span>
+        </div>
+      );
+    }
+
+    if (isSystemLike) {
+      const displayName = msg.content.substring(12);
+      return (
+        <div 
+          key={msg.id} 
+          id={`msg-${msg.id}`}
+          className="flex items-center gap-1.5 animate-in slide-in-from-left duration-500 fade-in py-1 px-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 my-1 max-w-max"
+        >
+          <div className="w-5 h-5 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-purple-400 text-[10px]">💖</span>
+          </div>
+          <span className="text-[11px] font-black text-purple-400 drop-shadow-md drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            {displayName} {t('Liked the live', 'curtiu a live')}
+          </span>
+        </div>
+      );
+    }
     
     if (isGift) {
       const giftId = msg.content.split(':')[1];
@@ -470,18 +536,6 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         }}
       >
         {filteredMessages.map((msg) => renderMessage(msg))}
-        
-        {/* System Notices (Join/Like) */}
-        <div className="space-y-1.5 pt-2">
-          {notices.map(notice => (
-            <div key={notice.id} className="flex items-center gap-1.5 animate-in slide-in-from-left duration-500 fade-in">
-              <div className={`w-1.5 h-1.5 rounded-full ${notice.type === 'join' ? 'bg-emerald-500' : 'bg-purple-500'} animate-pulse`} />
-              <span className={`text-[11px] font-black tracking-tight ${notice.type === 'join' ? 'text-emerald-400' : 'text-purple-400'} drop-shadow-md drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]`}>
-                {notice.content}
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="p-3 flex flex-col gap-2">

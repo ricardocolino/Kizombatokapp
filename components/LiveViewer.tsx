@@ -199,7 +199,23 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
     setActiveGift(null);
 
     // Initialize broadcast channel
-    const broadcastChannel = supabase.channel(`live_messages:${currentLiveId}`);
+    const broadcastChannel = supabase.channel(`live_room:${currentLiveId}`, {
+      config: {
+        broadcast: { self: true },
+      },
+    })
+    .on('broadcast', { event: 'system_notice' }, (payload) => {
+      if (payload && payload.payload) {
+        if (payload.payload.type === 'like' && payload.payload.userId) {
+          updatePoints(payload.payload.userId, 1, {
+            username: payload.payload.username,
+            name: payload.payload.name,
+            avatar_url: payload.payload.avatarUrl
+          });
+        }
+      }
+    })
+    .subscribe();
     broadcastChannelRef.current = broadcastChannel;
 
     const fetchLiveData = async () => {
@@ -300,21 +316,6 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
 
         // Increment viewer count
         await supabase.rpc('increment_viewer_count', { live_id: currentLiveId });
-
-        // Send Join Notice
-        if (currentUser && broadcastChannelRef.current) {
-          broadcastChannelRef.current.send({
-            type: 'broadcast',
-            event: 'system_notice',
-            payload: { 
-              type: 'join', 
-              userId: currentUser.id,
-              username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || 'User',
-              name: currentUser.user_metadata?.name || null,
-              avatarUrl: currentUser.user_metadata?.avatar_url || null
-            }
-          });
-        }
       } catch (err) {
         console.error('Error joining live:', err);
         setStatus('Erro ao entrar no canal de voz/vídeo');
@@ -342,15 +343,6 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
           }
         }
       )
-      .on('broadcast', { event: 'system_notice' }, (payload) => {
-        if (payload.payload.type === 'like' && payload.payload.userId) {
-          updatePoints(payload.payload.userId, 1, {
-            username: payload.payload.username,
-            name: payload.payload.name,
-            avatar_url: payload.payload.avatarUrl
-          });
-        }
-      })
       .subscribe();
 
     // Subscribe to messages for points

@@ -108,6 +108,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
     let statusChannel: RealtimeChannel | null = null;
     let messagesChannel: RealtimeChannel | null = null;
     let giftsChannel: RealtimeChannel | null = null;
+    let systemNoticeChannel: RealtimeChannel | null = null;
     let agoraClient: IAgoraRTCClient | null = null;
 
     const startLiveSession = async () => {
@@ -157,13 +158,20 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
               setLikesCount(payload.new.likes_count || 0);
             }
           )
+          .subscribe();
+
+        // Subscribe to system notices (likes, joins, etc.) for points
+        systemNoticeChannel = supabase
+          .channel(`live_room:${data.id}`)
           .on('broadcast', { event: 'system_notice' }, (payload) => {
-            if (payload.payload.type === 'like' && payload.payload.userId) {
-              updatePoints(payload.payload.userId, 1, {
-                username: payload.payload.username,
-                name: payload.payload.name,
-                avatar_url: payload.payload.avatarUrl
-              });
+            if (payload && payload.payload) {
+              if (payload.payload.type === 'like' && payload.payload.userId) {
+                updatePoints(payload.payload.userId, 1, {
+                  username: payload.payload.username,
+                  name: payload.payload.name,
+                  avatar_url: payload.payload.avatarUrl
+                });
+              }
             }
           })
           .subscribe();
@@ -243,6 +251,7 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         if (statusChannel) supabase.removeChannel(statusChannel);
         if (messagesChannel) supabase.removeChannel(messagesChannel);
         if (giftsChannel) supabase.removeChannel(giftsChannel);
+        if (systemNoticeChannel) supabase.removeChannel(systemNoticeChannel);
       };
       cleanupSession();
     };
