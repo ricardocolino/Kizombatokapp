@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp, Music } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
+import { parseMediaUrl } from '../services/mediaUtils';
+import { Post } from '../types';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -21,12 +23,15 @@ interface CreatePostProps {
     trimStart: number;
     trimEnd: number;
     recordingSeconds: number;
+    reusedAudioUrl?: string | null;
+    reusedAudioPostId?: string | null;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
+  preSelectedSound?: Post | null;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post' }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', preSelectedSound }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
@@ -58,6 +63,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
+
+  const reusedAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (preSelectedSound && preSelectedSound.media_url) {
+      const audioUrl = parseMediaUrl(preSelectedSound.media_url);
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.loop = false;
+      reusedAudioRef.current = audio;
+
+      return () => {
+        audio.pause();
+        reusedAudioRef.current = null;
+      };
+    }
+  }, [preSelectedSound]);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -383,6 +405,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
         await videoPromise;
         
+        if (reusedAudioRef.current) {
+          reusedAudioRef.current.currentTime = 0;
+          reusedAudioRef.current.play().catch(e => {
+            console.error('Erro ao iniciar reprodução do áudio reutilizado:', e);
+          });
+        }
+
         setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
@@ -405,6 +434,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   }, [isRecording]);
 
   const stopRecording = React.useCallback(async () => {
+    if (reusedAudioRef.current) {
+      reusedAudioRef.current.pause();
+    }
     if (isRecordingRef.current) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -645,7 +677,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         isFromGallery,
         trimStart,
         trimEnd,
-        recordingSeconds
+        recordingSeconds,
+        reusedAudioUrl: preSelectedSound ? parseMediaUrl(preSelectedSound.media_url) : undefined,
+        reusedAudioPostId: preSelectedSound?.id || undefined
       });
       onCreated();
       return;
@@ -1079,6 +1113,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
                  <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">{countdown}</span>
+              </div>
+            )}
+
+            {preSelectedSound && (
+              <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md rounded-full border border-white/20 px-3 py-1.5 flex items-center gap-2 z-[60] shadow-lg">
+                <Music size={14} className="text-purple-400 animate-[spin_4s_linear_infinite]" />
+                <span className="text-[10px] sm:text-xs font-black text-white/90 max-w-[120px] sm:max-w-[200px] truncate">
+                  {t('Usando som de')} {preSelectedSound.profiles?.name || `@${preSelectedSound.profiles?.username}`}
+                </span>
               </div>
             )}
 

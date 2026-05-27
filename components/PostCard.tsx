@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, MoreHorizontal } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, MoreHorizontal, Music } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -23,6 +23,7 @@ interface PostCardProps {
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
   onJoinLive?: (liveId: string) => void;
   isPaused?: boolean;
+  onUseSound?: (post: Post) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -42,7 +43,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onRequireAuth,
   onViewStories,
   onJoinLive,
-  isPaused
+  isPaused,
+  onUseSound
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1389,6 +1391,24 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
             <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Res.', 'Res.')}</span>
           </button>
+
+          {post.media_type === 'video' && (
+            <button 
+              onClick={() => {
+                if (!isLoggedIn && onRequireAuth) {
+                  onRequireAuth();
+                } else if (onUseSound) {
+                  onUseSound(post);
+                }
+              }} 
+              className="flex flex-col items-center group/sound mt-1 sm:mt-1.5"
+            >
+              <div className="p-1 w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-black/40 rounded-full border border-white/10 transition-transform group-hover/sound:scale-110 active:scale-95 flex items-center justify-center overflow-hidden">
+                <Music size={18} className="text-white drop-shadow-xl animate-[spin_4s_linear_infinite]" />
+              </div>
+              <span className="text-[7px] sm:text-[8px] uppercase font-black text-white/80 drop-shadow-md tracking-wider mt-1 text-center">{t('Usar som', 'Usar som')}</span>
+            </button>
+          )}
         </div>
       )}
 

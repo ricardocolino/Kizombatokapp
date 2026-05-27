@@ -18,6 +18,7 @@ import Onboarding from './components/Onboarding';
 import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
+import { Post } from './types';
 import LiveViewer from './components/LiveViewer';
 import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
@@ -41,6 +42,8 @@ interface UploadData {
   trimStart: number;
   trimEnd: number;
   recordingSeconds: number;
+  reusedAudioUrl?: string | null;
+  reusedAudioPostId?: string | null;
 }
 
 const App: React.FC = () => {
@@ -61,6 +64,7 @@ const App: React.FC = () => {
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [reusedAudioPost, setReusedAudioPost] = useState<Post | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -496,6 +500,11 @@ const App: React.FC = () => {
             setIsHosting(false);
           }}
           isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
+          onUseSound={(post) => {
+            setReusedAudioPost(post);
+            setIsCreatingStory(false);
+            setActiveTab(Tab.CREATE);
+          }}
         />;
       case Tab.DISCOVER:
         return <Discovery 
@@ -506,6 +515,7 @@ const App: React.FC = () => {
         return <CreatePost 
           onCreated={() => { 
             setIsCreatingStory(false);
+            setReusedAudioPost(null);
             setActiveTab(Tab.HOME); 
           }} 
           onBackgroundUpload={handleBackgroundUpload}
@@ -514,6 +524,7 @@ const App: React.FC = () => {
             setActiveLiveId(null);
           }}
           initialType={isCreatingStory ? 'story' : 'post'}
+          preSelectedSound={reusedAudioPost}
         />;
       case Tab.LIVE:
         return <LiveList 
