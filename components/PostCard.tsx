@@ -425,6 +425,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const reusedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (reusedAudioRef.current) {
@@ -530,7 +531,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           setIsPlaying(true);
           
           if (reusedAudioRef.current) {
-            reusedAudioRef.current.currentTime = videoRef.current ? videoRef.current.currentTime : 0;
+            const videoTime = videoRef.current ? videoRef.current.currentTime : 0;
+            const diff = Math.abs(reusedAudioRef.current.currentTime - videoTime);
+            if (diff > 0.15) {
+              reusedAudioRef.current.currentTime = videoTime;
+            }
             reusedAudioRef.current.play().catch(e => console.error("Audio play failed:", e));
           }
 
@@ -1194,12 +1199,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               disableRemotePlayback
               onTimeUpdate={() => {
                 if (videoRef.current && !isScrubbing) {
-                  setCurrentTime(videoRef.current.currentTime);
-                  if (reusedAudioRef.current && !reusedAudioRef.current.paused) {
-                    const diff = Math.abs(reusedAudioRef.current.currentTime - videoRef.current.currentTime);
-                    if (diff > 0.25) {
-                      reusedAudioRef.current.currentTime = videoRef.current.currentTime;
+                  const videoTime = videoRef.current.currentTime;
+                  setCurrentTime(videoTime);
+                  if (reusedAudioRef.current) {
+                    const audioTime = reusedAudioRef.current.currentTime;
+                    const diff = Math.abs(audioTime - videoTime);
+                    const isLooping = videoTime < lastTimeRef.current;
+                    // Only synchronize if there's a loop state or a significant drift (>0.5s) to avoid seeking loops
+                    if (isLooping || diff > 0.5) {
+                      reusedAudioRef.current.currentTime = videoTime;
                     }
+                    lastTimeRef.current = videoTime;
                   }
                 }
               }}
@@ -1209,12 +1219,31 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               }
             }}
             onLoadStart={() => setIsLoading(true)}
-            onWaiting={() => setIsLoading(true)}
+            onSeeking={() => {
+              if (reusedAudioRef.current && videoRef.current) {
+                reusedAudioRef.current.currentTime = videoRef.current.currentTime;
+              }
+            }}
+            onSeeked={() => {
+              if (reusedAudioRef.current && videoRef.current) {
+                reusedAudioRef.current.currentTime = videoRef.current.currentTime;
+              }
+            }}
+            onWaiting={() => {
+              setIsLoading(true);
+              if (reusedAudioRef.current) {
+                reusedAudioRef.current.pause();
+              }
+            }}
             onPlaying={() => {
               setIsPlaying(true);
               setIsLoading(false);
               if (reusedAudioRef.current) {
-                reusedAudioRef.current.currentTime = videoRef.current ? videoRef.current.currentTime : 0;
+                const videoTime = videoRef.current ? videoRef.current.currentTime : 0;
+                const diff = Math.abs(reusedAudioRef.current.currentTime - videoTime);
+                if (diff > 0.15) {
+                  reusedAudioRef.current.currentTime = videoTime;
+                }
                 reusedAudioRef.current.play().catch(e => console.error("Audio play onPlaying failed:", e));
               }
             }}
