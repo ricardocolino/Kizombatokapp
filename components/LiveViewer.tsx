@@ -649,9 +649,10 @@ const LiveViewer: React.FC<LiveViewerProps> = ({ liveId, currentUser, onClose, o
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
+        <div className="flex-1 min-h-[280px] flex flex-col justify-end mt-4 mb-4 overflow-hidden">
           <div className="h-[320px] w-full pointer-events-auto">
             <LiveChat 
+              key={`${currentLiveId}_${currentUser?.id || 'guest'}`}
               liveId={currentLiveId} 
               currentUser={currentUser} 
               extraActions={

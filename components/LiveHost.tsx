@@ -502,10 +502,11 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
         )}
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col justify-end mt-4 mb-4 overflow-hidden">
+        <div className="flex-1 min-h-[280px] flex flex-col justify-end mt-4 mb-4 overflow-hidden">
           {isStarting && liveId && (
             <div className="h-[320px] w-full pointer-events-auto">
               <LiveChat 
+                key={`${liveId}_${currentUser?.id || 'host'}`}
                 liveId={liveId} 
                 currentUser={currentUser} 
                 isHost={true}

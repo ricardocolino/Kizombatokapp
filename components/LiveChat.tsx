@@ -124,12 +124,13 @@ const LiveChat: React.FC<LiveChatProps> = ({ liveId, currentUser, extraActions, 
         }
       )
       .on('broadcast', { event: 'system_notice' }, (payload) => {
+        if (!payload || !payload.payload) return;
         const id = Date.now().toString() + Math.random().toString();
         const content = payload.payload.type === 'join' 
           ? t('Entered the live')
           : t('Liked the live');
         
-        const displayName = payload.payload.name || `@${payload.payload.username}`;
+        const displayName = payload.payload.name || (payload.payload.username ? `@${payload.payload.username}` : '@user');
         
         setNotices(prev => [...prev, { 
           id, 
