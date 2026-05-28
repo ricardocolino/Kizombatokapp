@@ -38,6 +38,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [copiedMergeError, setCopiedMergeError] = useState(false);
   
   // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
@@ -536,12 +538,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const processMergeIfAudioSelected = React.useCallback(async (videoBlob: Blob): Promise<Blob> => {
     if (preSelectedSound && preSelectedSound.media_url) {
       try {
+        setMergeError(null);
         const audioUrl = parseMediaUrl(preSelectedSound.media_url);
         console.log('[MediaMerge] Iniciando Canvas + Web Audio Merge com som:', audioUrl);
         const mergedBlob = await mergeVideoAndAudioCanvas(videoBlob, audioUrl);
         return mergedBlob;
       } catch (err) {
         console.error('[MediaMerge] Falha na mesclagem em tempo real, continuando com vídeo original:', err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setMergeError(errorMessage);
         return videoBlob;
       } finally {
         setProcessingVideo(false);
@@ -1178,6 +1183,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
+    setMergeError(null);
+    setCopiedMergeError(false);
     setIsFromGallery(false);
 
     // Resetar para câmera frontal e desligar flash
@@ -1243,6 +1250,46 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             >
               <X size={24} />
             </button>
+
+            {/* Error overlay for Canvas + Web Audio Merge Failure */}
+            {mergeError && (
+              <div className="absolute top-20 left-6 right-6 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 z-[200] bg-zinc-950/95 backdrop-blur-md border border-red-500/40 p-5 rounded-[20px] text-white shadow-2xl flex flex-col gap-3 animate-in fade-in slide-in-from-top duration-300">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="text-red-400 shrink-0 animate-bounce" size={20} />
+                    <span className="text-[12px] font-bold uppercase tracking-widest text-red-300">Erro de Mixagem do Áudio</span>
+                  </div>
+                  <button 
+                    onClick={() => setMergeError(null)} 
+                    className="text-white/40 hover:text-white transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                
+                <p className="text-[11px] leading-relaxed text-red-100 bg-red-950/40 p-3 rounded-lg border border-red-800/30 overflow-auto font-mono max-h-32 text-left whitespace-pre-wrap selection:bg-red-500 selection:text-white break-all">
+                  {mergeError}
+                </p>
+
+                <div className="text-[10px] text-zinc-400 font-medium">
+                  Informação do sistema: O vídeo original está pronto a ser partilhado mas sem o som de fundo. Podes copiar e enviar este erro ao desenvolvedor para analisar (pode ser CORS, formato de som ou restrição de rede).
+                </div>
+
+                <div className="flex justify-end gap-2 mt-1">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(mergeError).then(() => {
+                        setCopiedMergeError(true);
+                        setTimeout(() => setCopiedMergeError(false), 2000);
+                      });
+                    }}
+                    className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-[10px] uppercase tracking-wider font-extrabold transition-all"
+                  >
+                    {copiedMergeError ? 'Copiado!' : 'Copiar Detalhes do Erro'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Right Sidebar Buttons */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-8 z-50">
