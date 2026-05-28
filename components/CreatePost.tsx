@@ -349,6 +349,207 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     });
   };
 
+  const mergeVideoAndAudioCanvas = (
+    videoBlob: Blob,
+    audioUrlUrl: string
+  ): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      setProcessingVideo(true);
+      
+      const video = document.createElement('video');
+      video.style.display = 'none';
+      document.body.appendChild(video);
+      
+      video.src = URL.createObjectURL(videoBlob);
+      video.muted = true;
+      video.playsInline = true;
+      video.currentTime = 0;
+
+      const audio = document.createElement('audio');
+      audio.style.display = 'none';
+      document.body.appendChild(audio);
+      
+      audio.src = audioUrlUrl;
+      audio.crossOrigin = 'anonymous';
+
+      let loadedCount = 0;
+      const checkLoaded = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          startProcessing();
+        }
+      };
+
+      video.onloadeddata = checkLoaded;
+      audio.onloadeddata = checkLoaded;
+
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('Tempo limite excedido ao misturar áudio'));
+      }, 25000);
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        try { video.pause(); } catch { void 0; }
+        try { audio.pause(); } catch { void 0; }
+        try { document.body.removeChild(video); } catch { void 0; }
+        try { document.body.removeChild(audio); } catch { void 0; }
+      };
+
+      video.onerror = () => {
+        cleanup();
+        reject(new Error('Erro ao carregar o vídeo para mixagem'));
+      };
+
+      audio.onerror = () => {
+        cleanup();
+        reject(new Error('Erro ao carregar o áudio de fundo para mixagem. Verifique permissões/CORS.'));
+      };
+
+      const startProcessing = () => {
+        try {
+          const width = video.videoWidth || 720;
+          const height = video.videoHeight || 1280;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            cleanup();
+            reject(new Error('Não foi possível inicializar o canvas de vídeo'));
+            return;
+          }
+
+          const extendedWindow = window as unknown as Window & { webkitAudioContext?: typeof AudioContext };
+          const AudioContextClass = window.AudioContext || extendedWindow.webkitAudioContext;
+          if (!AudioContextClass) {
+            cleanup();
+            reject(new Error('AudioContext não suportado neste navegador'));
+            return;
+          }
+          const audioCtx = new AudioContextClass();
+          const destination = audioCtx.createMediaStreamDestination();
+
+          // Mix background audio
+          const audioSource = audioCtx.createMediaElementSource(audio);
+          audioSource.connect(destination);
+
+          // Mix original video audio if exists
+          try {
+            const videoSource = audioCtx.createMediaElementSource(video);
+            videoSource.connect(destination);
+          } catch (err) {
+            console.warn('Original video audio source could not be linked, but continuing:', err);
+          }
+
+          const extendedCanvas = canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream };
+          if (!extendedCanvas.captureStream) {
+            cleanup();
+            audioCtx.close();
+            reject(new Error('Canvas captureStream não suportado neste navegador'));
+            return;
+          }
+
+          const canvasStream = extendedCanvas.captureStream(30);
+          const videoTrack = canvasStream.getVideoTracks()[0];
+          const audioTrack = destination.stream.getAudioTracks()[0];
+
+          if (!videoTrack) {
+            cleanup();
+            audioCtx.close();
+            reject(new Error('Falha ao obter track de vídeo do canvas'));
+            return;
+          }
+
+          const tracks = [videoTrack];
+          if (audioTrack) {
+            tracks.push(audioTrack);
+          }
+          const combinedStream = new MediaStream(tracks);
+
+          let recorder: MediaRecorder;
+          const recordedChunks: Blob[] = [];
+
+          let mimeType = 'video/webm;codecs=vp8,opus';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/mp4;codecs=avc1,mp4a';
+          }
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = '';
+          }
+
+          try {
+            recorder = new MediaRecorder(combinedStream, mimeType ? { mimeType } : undefined);
+          } catch {
+            recorder = new MediaRecorder(combinedStream);
+          }
+
+          recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+
+          recorder.onstop = () => {
+            cleanup();
+            audioCtx.close();
+            const finalBlob = new Blob(recordedChunks, { type: 'video/mp4' });
+            resolve(finalBlob);
+          };
+
+          recorder.start();
+          video.play();
+          audio.play();
+
+          let animationFrameId: number;
+          const drawFrame = () => {
+            if (video.ended || video.paused) {
+              cancelAnimationFrame(animationFrameId);
+              if (recorder.state !== 'inactive') {
+                recorder.stop();
+              }
+              return;
+            }
+
+            ctx.drawImage(video, 0, 0, width, height);
+            animationFrameId = requestAnimationFrame(drawFrame);
+          };
+
+          animationFrameId = requestAnimationFrame(drawFrame);
+
+          video.onended = () => {
+            cancelAnimationFrame(animationFrameId);
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            }
+          };
+
+        } catch (err) {
+          cleanup();
+          reject(err);
+        }
+      };
+    });
+  };
+
+  const processMergeIfAudioSelected = React.useCallback(async (videoBlob: Blob): Promise<Blob> => {
+    if (preSelectedSound && preSelectedSound.media_url) {
+      try {
+        const audioUrl = parseMediaUrl(preSelectedSound.media_url);
+        console.log('[MediaMerge] Iniciando Canvas + Web Audio Merge com som:', audioUrl);
+        const mergedBlob = await mergeVideoAndAudioCanvas(videoBlob, audioUrl);
+        return mergedBlob;
+      } catch (err) {
+        console.error('[MediaMerge] Falha na mesclagem em tempo real, continuando com vídeo original:', err);
+        return videoBlob;
+      } finally {
+        setProcessingVideo(false);
+      }
+    }
+    return videoBlob;
+  }, [preSelectedSound]);
+
   const handleNativeVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -360,8 +561,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setError(null);
       }
       
-      setMediaFiles([file]);
-      setPreviewUrls([URL.createObjectURL(file)]);
+      const finalBlob = await processMergeIfAudioSelected(file);
+      
+      setMediaFiles([finalBlob]);
+      setPreviewUrls([URL.createObjectURL(finalBlob)]);
       setIsFromGallery(true);
       stopCamera();
     }
@@ -457,8 +660,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
             }
             
-            setMediaFiles([videoBlob]);
-            setPreviewUrls([URL.createObjectURL(videoBlob)]);
+            const finalBlob = await processMergeIfAudioSelected(videoBlob);
+            
+            setMediaFiles([finalBlob]);
+            setPreviewUrls([URL.createObjectURL(finalBlob)]);
             setIsFromGallery(false);
             setTrimStart(0);
             setTrimEnd(recordingSeconds);
@@ -470,7 +675,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, recordingSeconds]);
+  }, [stopCamera, recordingSeconds, processMergeIfAudioSelected]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -492,11 +697,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setError(null);
       }
 
-      const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+      const fileToProcess = selectedFiles[0];
+      const finalBlob = await processMergeIfAudioSelected(fileToProcess);
+      
+      const finalFiles = [...selectedFiles];
+      finalFiles[0] = new File([finalBlob], fileToProcess.name, { type: finalBlob.type });
+
+      const newPreviewUrls = finalFiles.map(file => URL.createObjectURL(file));
       
       previewUrls.forEach(url => URL.revokeObjectURL(url));
       
-      setMediaFiles(selectedFiles);
+      setMediaFiles(finalFiles);
       setPreviewUrls(newPreviewUrls);
       setIsFromGallery(true);
       setTrimStart(0);
