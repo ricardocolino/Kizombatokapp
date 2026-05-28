@@ -144,17 +144,53 @@ app.get("/api/health", (req, res) => {
 app.get("/api/proxy-media", async (req, res) => {
   const url = req.query.url as string;
   if (!url) {
-    return res.status(400).send("Falta o parametro url");
+    return res.status(400).send("Falta o parâmetro url");
   }
 
+  let finalUrl = url;
   try {
-    console.log(`>>> [PROXY] Buscando media de: ${url}`);
-    const response = await fetch(url);
+    // 1. Se for uma URL do Cloudflare Worker, reescrevemos para o R2 Público
+    // pois o nosso backend não sofre restrições de CORS e evita desafios de bloqueio de bot do Cloudflare!
+    const r2PublicUrl = process.env.R2_PUBLIC_URL;
+    const workerUrl = process.env.R2_WORKER_URL || "https://little-thunder-1b1c.anastacia6000.workers.dev";
+    
+    if (r2PublicUrl) {
+      try {
+        const parsedUrl = new URL(url);
+        const parsedWorkerUrl = new URL(workerUrl);
+        
+        if (parsedUrl.hostname === parsedWorkerUrl.hostname) {
+          const parsedPublicUrl = new URL(r2PublicUrl);
+          parsedUrl.hostname = parsedPublicUrl.hostname;
+          parsedUrl.port = parsedPublicUrl.port || "";
+          parsedUrl.protocol = parsedPublicUrl.protocol || "https:";
+          finalUrl = parsedUrl.toString();
+          console.log(`>>> [PROXY] Reescreveu URL do Worker para R2 Público: de [${url}] para [${finalUrl}]`);
+        }
+      } catch (err) {
+        console.warn(">>> [PROXY] Falha ao tentar reescrever/analisar URL:", err);
+      }
+    }
+
+    console.log(`>>> [PROXY] Buscando média de: ${finalUrl}`);
+    
+    // 2. Adicionar cabeçalho User-Agent robusto para evitar bloqueio por bot-protection
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "Accept": "*/*"
+    };
+
+    const response = await fetch(finalUrl, { headers });
     if (!response.ok) {
-      throw new Error(`Erro ao baixar a media: ${response.statusText}`);
+      const errorText = await response.text().catch(() => "Nenhum detalhe adicional");
+      console.error(`>>> [PROXY] Falha ao obter recurso. Status: ${response.status} ${response.statusText}, Corpo: ${errorText}`);
+      throw new Error(`HTTP ${response.status} ${response.statusText}: ${errorText.substring(0, 300)}`);
     }
 
     const contentType = response.headers.get("content-type") || "application/octet-stream";
+    const contentLength = response.headers.get("content-length") || "unknown";
+    console.log(`>>> [PROXY] Sucesso! Tipo de Conteúdo: ${contentType}, Tamanho: ${contentLength}`);
+
     res.setHeader("Content-Type", contentType);
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");

@@ -179,19 +179,27 @@ const App: React.FC = () => {
             }
 
             try {
-              console.log('[FFmpeg] Descarregando áudio reutilizado do link (via proxy):', reusedAudioUrl);
+              console.log('[FFmpeg] Descarregando áudio reutilizado do link (via proxy de áudio):', reusedAudioUrl);
               const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
-              const audioData = await fetchFile(proxyUrl);
+              
+              const response = await fetch(proxyUrl);
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`O servidor proxy retornou erro HTTP ${response.status}: ${errorText}`);
+              }
+              
+              const audioBlob = await response.blob();
+              const audioData = await fetchFile(audioBlob);
               
               const extension = reusedAudioUrl.split('.').pop()?.split('?')[0] || 'mp4';
               audioFileName = `/audio_source.${extension}`;
               
               await ffmpeg.writeFile(audioFileName, audioData);
-              console.log(`[FFmpeg] Áudio descarregado e salvo no sistema de ficheiros virtual em ${audioFileName}.`);
+              console.log(`[FFmpeg] Áudio descarregado com sucesso (${audioBlob.size} bytes) e gravado em ${audioFileName}.`);
               audioInputFileExists = true;
             } catch (err) {
               console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
-              throw new Error(`Falha ao descarregar/extrair som para dublar: ${err instanceof Error ? err.message : String(err)}`);
+              throw new Error(`Falha ao descarregar som para dublar: ${err instanceof Error ? err.message : String(err)}`);
             }
           }
 
