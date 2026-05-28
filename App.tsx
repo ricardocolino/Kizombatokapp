@@ -20,7 +20,7 @@ import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import { Post } from './types';
 import LiveViewer from './components/LiveViewer';
-import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
+import { Clapperboard, Compass, Tv, Bell, User as UserIcon, AlertTriangle } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -65,6 +65,7 @@ const App: React.FC = () => {
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [reusedAudioPost, setReusedAudioPost] = useState<Post | null>(null);
+  const [ffmpegErrorModal, setFfmpegErrorModal] = useState<string | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -142,9 +143,17 @@ const App: React.FC = () => {
       // --- PROCESSAMENTO FFmpeg (Background) ---
       if (isVideo && (!isFromGallery || reusedAudioUrl)) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
+        const ffmpegLogs: string[] = [];
         
         try {
           const ffmpeg = new FFmpeg();
+          
+          // Capturar logs internos do FFmpeg para depuração rica
+          ffmpeg.on('log', ({ message }) => {
+            console.log('[FFmpeg Log]', message);
+            ffmpegLogs.push(message);
+          });
+
           const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
           await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -164,14 +173,16 @@ const App: React.FC = () => {
               console.log('[FFmpeg] Vídeo de entrada silenciado com sucesso.');
             } catch (err) {
               console.error('[FFmpeg] Erro ao silenciar vídeo original:', err);
+              throw new Error(`Falha ao silenciar áudio do vídeo original: ${err instanceof Error ? err.message : String(err)}`);
             }
 
             try {
-              console.log('[FFmpeg] Descarregando áudio reutilizado do link:', reusedAudioUrl);
-              const audioData = await fetchFile(reusedAudioUrl);
+              console.log('[FFmpeg] Descarregando áudio reutilizado do link (via proxy):', reusedAudioUrl);
+              const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
+              const audioData = await fetchFile(proxyUrl);
               await ffmpeg.writeFile('/audio_source.mp4', audioData);
               
-              console.log('[FFmpeg] Extraindo áudio do vídeo ou áudio de origem...');
+              console.log('[FFmpeg] Extraindo áudio do vídeo ou áudio de origem para dublagem...');
               await ffmpeg.exec([
                 '-i', '/audio_source.mp4',
                 '-vn',
@@ -185,6 +196,7 @@ const App: React.FC = () => {
               console.log('[FFmpeg] Áudio extraído e preparado com sucesso.');
             } catch (err) {
               console.error('[FFmpeg] Erro ao descarregar ou extrair áudio para dublagem:', err);
+              throw new Error(`Falha ao descarregar/extrair som para dublar: ${err instanceof Error ? err.message : String(err)}`);
             }
           }
 
@@ -248,10 +260,11 @@ const App: React.FC = () => {
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
           
-        } catch (procErr) {
+        } catch (procErr: unknown) {
           console.error('Erro no processamento FFmpeg background:', procErr);
-          // Fallback para o original se falhar, mas avisamos o task
-          setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
+          const err = procErr as Error;
+          const lastLogs = ffmpegLogs.slice(-20).join('\n');
+          throw new Error(`${err.message || String(procErr)}\n\n[FFmpeg Exec LOGS]:\n${lastLogs}`);
         }
       } else if (isVideo && isFromGallery && uploadType === 'post') {
         // Se for da galeria, apenas geramos a thumbnail via browser
@@ -324,6 +337,7 @@ const App: React.FC = () => {
       console.error('Background upload error:', err);
       const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
+      setFfmpegErrorModal(message);
     }
   };
 
@@ -698,6 +712,54 @@ const App: React.FC = () => {
           onClose={() => setActiveLiveId(null)} 
           onNavigateToProfile={handleNavigateToProfile}
         />
+      )}
+
+      {ffmpegErrorModal && (
+        <div id="ffmpeg-error-modal" className="fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-purple-500/30 rounded-2xl w-full max-w-xl p-6 flex flex-col gap-4 text-white shadow-2xl relative">
+            <div className="flex items-center gap-2 text-purple-500 font-extrabold uppercase tracking-wide text-xs">
+              <AlertTriangle size={18} className="text-purple-500" />
+              <span>Falha na Integração de Vídeo/Áudio (Dublagem)</span>
+            </div>
+            
+            <h3 className="text-lg font-black tracking-tight text-white mt-1">
+              Houve um erro ao processar o vídeo da tua dublagem.
+            </h3>
+            
+            <p className="text-xs text-zinc-400">
+              Ocorreu um erro no processador FFmpeg. Copia os detalhes abaixo para que possamos analisar e resolver isso para ti:
+            </p>
+
+            <div className="relative">
+              <pre className="font-mono text-[10px] bg-black/60 border border-zinc-800 p-4 rounded-lg overflow-y-auto max-h-[220px] text-zinc-300 whitespace-pre-wrap select-all">
+                {ffmpegErrorModal}
+              </pre>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(ffmpegErrorModal);
+                  const btn = document.getElementById('copy-btn-error');
+                  if (btn) {
+                    btn.innerHTML = 'Copiado!';
+                    setTimeout(() => btn.innerHTML = 'Copiar Detalhes', 2000);
+                  }
+                }}
+                id="copy-btn-error"
+                className="absolute right-2 top-2 bg-purple-600/80 hover:bg-purple-600 border border-purple-400/20 text-[9px] font-black uppercase text-white px-2.5 py-1 rounded transition-all active:scale-95"
+              >
+                Copiar Detalhes
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                onClick={() => setFfmpegErrorModal(null)}
+                className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 text-white/80"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showOnboarding && user && (

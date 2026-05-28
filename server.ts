@@ -141,6 +141,34 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/api/proxy-media", async (req, res) => {
+  const url = req.query.url as string;
+  if (!url) {
+    return res.status(400).send("Falta o parametro url");
+  }
+
+  try {
+    console.log(`>>> [PROXY] Buscando media de: ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Erro ao baixar a media: ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.send(buffer);
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error(">>> [PROXY] Erro no proxy-media:", error);
+    res.status(500).send(`Erro de Proxy: ${error.message}`);
+  }
+});
+
 // NOWPayments Integration
 app.post("/api/payments/create", async (req, res) => {
   console.log(">>> [API] Payment Create Request received:", req.body);
