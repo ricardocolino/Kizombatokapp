@@ -140,7 +140,7 @@ const App: React.FC = () => {
       let finalThumbnailUrl = null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
-      if (isVideo && !isFromGallery) {
+      if (isVideo && (!isFromGallery || reusedAudioUrl)) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
         
         try {
@@ -153,6 +153,19 @@ const App: React.FC = () => {
 
           const videoData = await fetchFile(mediaFile);
           await ffmpeg.writeFile('/input.mp4', videoData);
+
+          let audioInputFileExists = false;
+          if (reusedAudioUrl) {
+            try {
+              console.log('[FFmpeg] Descarregando áudio reutilizado do link:', reusedAudioUrl);
+              const audioData = await fetchFile(reusedAudioUrl);
+              await ffmpeg.writeFile('/audio_input.mp4', audioData);
+              audioInputFileExists = true;
+              console.log('[FFmpeg] Áudio para dublagem descarregado com sucesso.');
+            } catch (err) {
+              console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
+            }
+          }
 
           const filterParts = [];
           // Redimensionar e garantir dimensões pares
@@ -174,8 +187,21 @@ const App: React.FC = () => {
           }
           videoArgs.push('-i', '/input.mp4');
 
+          // Input de áudio (se houver):
+          if (audioInputFileExists) {
+            if (hasTrim) {
+              videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
+            }
+            videoArgs.push('-i', '/audio_input.mp4');
+          }
+
           if (filterParts.length > 0) {
             videoArgs.push('-vf', filterParts.join(','));
+          }
+
+          // Se tiver áudio reutilizado, mapeamos vídeo do input 0 e áudio do input 1
+          if (audioInputFileExists) {
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0');
           }
 
           // Configurações de compressão e codificação de vídeo normal
@@ -257,7 +283,9 @@ const App: React.FC = () => {
           is_ready: true,
           views: 0,
           created_at: new Date().toISOString(),
-          reused_audio_url: reusedAudioUrl || null,
+          reused_audio_url: reusedAudioUrl 
+            ? (reusedAudioUrl.includes('?') ? `${reusedAudioUrl}&merged=true` : `${reusedAudioUrl}?merged=true`)
+            : null,
           reused_audio_post_id: reusedAudioPostId || null
         });
         if (insertError) throw insertError;

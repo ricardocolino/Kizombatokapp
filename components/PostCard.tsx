@@ -427,6 +427,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const reusedAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastTimeRef = useRef<number>(0);
 
+  const isAudioMerged = useMemo(() => {
+    return !!(post.reused_audio_url?.includes('merged=true') || post.reused_audio_url?.includes('#merged'));
+  }, [post.reused_audio_url]);
+
   useEffect(() => {
     if (reusedAudioRef.current) {
       reusedAudioRef.current.muted = isMuted;
@@ -1192,7 +1196,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 transition: 'opacity 0.3s ease-in-out'
               }}
               loop
-              muted={post.reused_audio_url ? true : isMuted}
+              muted={(post.reused_audio_url && !isAudioMerged) ? true : isMuted}
               playsInline
               preload={isFullyVisible ? "auto" : "metadata"}
               disablePictureInPicture
@@ -1271,7 +1275,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           />
           )}
 
-          {post.reused_audio_url && isNearScreen && (
+          {post.reused_audio_url && !isAudioMerged && isNearScreen && (
             <audio
               ref={reusedAudioRef}
               src={parseMediaUrl(post.reused_audio_url)}
