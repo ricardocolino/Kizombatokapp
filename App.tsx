@@ -156,6 +156,16 @@ const App: React.FC = () => {
 
           let audioInputFileExists = false;
           if (reusedAudioUrl) {
+            // Se houver áudio reutilizado, nós silenciamos completamente o vídeo original do mic/gravação!
+            try {
+              console.log('[FFmpeg] Silenciando vídeo original de entrada...');
+              await ffmpeg.exec(['-i', '/input.mp4', '-an', '-c:v', 'copy', '/input_silent.mp4']);
+              await ffmpeg.rename('/input_silent.mp4', '/input.mp4');
+              console.log('[FFmpeg] Vídeo de entrada silenciado com sucesso.');
+            } catch (err) {
+              console.error('[FFmpeg] Erro ao silenciar vídeo original:', err);
+            }
+
             try {
               console.log('[FFmpeg] Descarregando áudio reutilizado do link:', reusedAudioUrl);
               const audioData = await fetchFile(reusedAudioUrl);
