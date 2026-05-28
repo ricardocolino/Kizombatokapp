@@ -16,6 +16,7 @@ import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import { uploadToR2 } from './services/uploadService';
+import { getProxyMediaUrl } from './services/apiConfig';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import { Post } from './types';
@@ -199,9 +200,10 @@ const App: React.FC = () => {
                   throw new Error(`Erro HTTP no download direto: ${response.status}`);
                 }
               } catch (directErr) {
-                console.warn('[FFmpeg] Download direto falhou (CORS, SPA fallback ou indisponibilidade). Recorrendo ao proxy de média...', directErr);
-                // 2. Fallback para o servidor proxy
-                const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
+                console.warn('[FFmpeg] Download direto falhou (CORS, SPA fallback ou indisponibilidade). Recorrendo ao proxy de média absoluto...', directErr);
+                // 2. Fallback para o servidor proxy absoluto do Node.js backend
+                const proxyUrl = getProxyMediaUrl(reusedAudioUrl);
+                console.log('[FFmpeg] Requisitando áudio via proxy absoluto:', proxyUrl);
                 response = await fetch(proxyUrl);
                 if (!response.ok) {
                   const errorText = await response.text();
