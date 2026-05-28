@@ -333,6 +333,41 @@ app.post("/api/live/session", async (req, res) => {
   }
 });
 
+// Audio CORS proxy route to allow Canvas / Web Audio processing with no CORS block
+app.get("/api/proxy/audio", async (req, res) => {
+  const audioUrl = req.query.url as string;
+  if (!audioUrl) {
+    return res.status(400).json({ error: "Missing url parameter" });
+  }
+
+  try {
+    console.log(`>>> [PROXY] Fetching audio from: ${audioUrl}`);
+    const response = await fetch(audioUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio from storage: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (contentType) {
+      res.setHeader("Content-Type", contentType);
+    } else {
+      res.setHeader("Content-Type", "audio/mpeg");
+    }
+
+    // Explicit CORS headers
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.send(buffer);
+  } catch (err) {
+    console.error(">>> [PROXY] Error proxying audio:", err);
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // Fallback for non-existent API routes to avoid returning HTML
 app.all("/api/*all", (req, res) => {
   console.warn(`>>> [API FALLBACK] Route not found: ${req.method} ${req.url}`);

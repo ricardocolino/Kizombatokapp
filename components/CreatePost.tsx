@@ -31,6 +31,14 @@ interface CreatePostProps {
   preSelectedSound?: Post | null;
 }
 
+const getProxiedAudioUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) {
+    return `/api/proxy/audio?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
 const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', preSelectedSound }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
@@ -71,7 +79,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   useEffect(() => {
     if (preSelectedSound && preSelectedSound.media_url) {
       const audioUrl = parseMediaUrl(preSelectedSound.media_url);
-      const audio = new Audio(audioUrl);
+      const proxiedUrl = getProxiedAudioUrl(audioUrl);
+      const audio = new Audio(proxiedUrl);
       audio.preload = 'auto';
       audio.loop = false;
       reusedAudioRef.current = audio;
@@ -589,8 +598,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       try {
         setMergeError(null);
         const audioUrl = parseMediaUrl(preSelectedSound.media_url);
-        console.log('[MediaMerge] Iniciando Canvas + Web Audio Merge com som:', audioUrl);
-        const mergedBlob = await mergeVideoAndAudioCanvas(videoBlob, audioUrl);
+        const proxiedAudioUrl = getProxiedAudioUrl(audioUrl);
+        console.log('[MediaMerge] Iniciando Canvas + Web Audio Merge com som:', proxiedAudioUrl);
+        const mergedBlob = await mergeVideoAndAudioCanvas(videoBlob, proxiedAudioUrl);
         return mergedBlob;
       } catch (err) {
         console.error('[MediaMerge] Falha na mesclagem em tempo real, continuando com vídeo original:', err);
@@ -716,7 +726,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
 
         // 2. Backing audio source (re-used audio element or fresh new one)
-        const backingAudio = reusedAudioRef.current || new Audio(parseMediaUrl(preSelectedSound.media_url));
+        const backingAudio = reusedAudioRef.current || new Audio(getProxiedAudioUrl(parseMediaUrl(preSelectedSound.media_url)));
         backingAudio.crossOrigin = 'anonymous';
         backingAudio.currentTime = 0;
         
