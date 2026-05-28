@@ -158,17 +158,19 @@ const App: React.FC = () => {
           await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-
-          const videoData = await fetchFile(mediaFile);
+          });          const videoData = await fetchFile(mediaFile);
           await ffmpeg.writeFile('/input.mp4', videoData);
 
           let audioInputFileExists = false;
+          let audioFileName = '';
           if (reusedAudioUrl) {
             // Se houver áudio reutilizado, nós silenciamos completamente o vídeo original do mic/gravação!
             try {
               console.log('[FFmpeg] Silenciando vídeo original de entrada...');
-              await ffmpeg.exec(['-i', '/input.mp4', '-an', '-c:v', 'copy', '/input_silent.mp4']);
+              const silenceExitCode = await ffmpeg.exec(['-i', '/input.mp4', '-an', '-c:v', 'copy', '/input_silent.mp4']);
+              if (silenceExitCode !== 0) {
+                throw new Error(`Falha ao silenciar vídeo original (código de saída: ${silenceExitCode}).`);
+              }
               await ffmpeg.rename('/input_silent.mp4', '/input.mp4');
               console.log('[FFmpeg] Vídeo de entrada silenciado com sucesso.');
             } catch (err) {
@@ -180,22 +182,15 @@ const App: React.FC = () => {
               console.log('[FFmpeg] Descarregando áudio reutilizado do link (via proxy):', reusedAudioUrl);
               const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
               const audioData = await fetchFile(proxyUrl);
-              await ffmpeg.writeFile('/audio_source.mp4', audioData);
               
-              console.log('[FFmpeg] Extraindo áudio do vídeo ou áudio de origem para dublagem...');
-              await ffmpeg.exec([
-                '-i', '/audio_source.mp4',
-                '-vn',
-                '-ar', '44100',
-                '-ac', '2',
-                '-b:a', '192k',
-                '/dub_audio.aac'
-              ]);
+              const extension = reusedAudioUrl.split('.').pop()?.split('?')[0] || 'mp4';
+              audioFileName = `/audio_source.${extension}`;
               
+              await ffmpeg.writeFile(audioFileName, audioData);
+              console.log(`[FFmpeg] Áudio descarregado e salvo no sistema de ficheiros virtual em ${audioFileName}.`);
               audioInputFileExists = true;
-              console.log('[FFmpeg] Áudio extraído e preparado com sucesso.');
             } catch (err) {
-              console.error('[FFmpeg] Erro ao descarregar ou extrair áudio para dublagem:', err);
+              console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
               throw new Error(`Falha ao descarregar/extrair som para dublar: ${err instanceof Error ? err.message : String(err)}`);
             }
           }
@@ -225,7 +220,7 @@ const App: React.FC = () => {
             if (hasTrim) {
               videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
             }
-            videoArgs.push('-i', '/dub_audio.aac');
+            videoArgs.push('-i', audioFileName);
           }
 
           if (filterParts.length > 0) {
@@ -249,12 +244,22 @@ const App: React.FC = () => {
             '-y', '/output.mp4'
           );
 
-          await ffmpeg.exec(videoArgs);
+          console.log('[FFmpeg] Executando merge final com argumentos:', videoArgs);
+          const finalExitCode = await ffmpeg.exec(videoArgs);
+          if (finalExitCode !== 0) {
+            throw new Error(`O processamento final do FFmpeg falhou (código de saída: ${finalExitCode}).`);
+          }
+
           const videoOutput = await ffmpeg.readFile('/output.mp4');
           finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
           
           // Gerar Thumbnail via FFmpeg para ser mais preciso
-          await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+          console.log('[FFmpeg] Gerando miniatura do vídeo renderizado...');
+          const thumbExitCode = await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
+          if (thumbExitCode !== 0) {
+            throw new Error(`A geração de miniatura do vídeo falhou (código de saída: ${thumbExitCode}).`);
+          }
+
           const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
           const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
