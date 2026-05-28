@@ -6,7 +6,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp, Music } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-import { uploadToR2 } from '../services/uploadService';
+import { uploadToR2, mixAndUploadToR2 } from '../services/uploadService';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Post } from '../types';
@@ -1156,7 +1156,34 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
 
-      if (isVideo) {
+      if (isVideo && preSelectedSound && preSelectedSound.media_url) {
+        console.log('[Upload] Som seleccionado. A enviar para o Cloudflare Mixagem Worker...');
+        const audioUrl = parseMediaUrl(preSelectedSound.media_url);
+        const fileExt = (mediaFiles[0] as File).name?.split('.').pop() || 'mp4';
+        const fileName = `${userId}-${timestamp}.${fileExt}`;
+        const folder = uploadType === 'story' ? 'stories' : 'posts';
+        
+        try {
+          // Chamar o Cloudflare Mixagem Worker do utilizador
+          finalMediaUrl = await mixAndUploadToR2(mediaFiles[0], audioUrl, folder, fileName);
+          console.log('[Upload] Cloudflare Mixagem Worker teve sucesso. URL:', finalMediaUrl);
+          finalMediaBlob = null; // Já processado e enviado pelo Worker
+        } catch (mixErr) {
+          console.error('[Upload] Cloudflare Mixagem Worker falhou, a usar upload tradicional:', mixErr);
+          // Fallback para upload tradicional sem mixagem se o worker falhar por qualquer motivo
+          finalMediaBlob = mediaFiles[0];
+        }
+
+        // Gerar Thumbnail do vídeo no browser canvas
+        console.log('[Upload] A gerar thumbnail...');
+        try {
+          const thumbBlob = await generateThumbnail(mediaFiles[0]);
+          const thumbFileName = `${userId}-${timestamp}.jpg`;
+          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+        } catch (thumbErr) {
+          console.error('[Upload] Erro ao gerar thumbnail para mix:', thumbErr);
+        }
+      } else if (isVideo) {
         // 6. Adicionar verificação antes do processamento
         const originalVideo = mediaFiles[0];
         if (originalVideo.type === 'video/mp4' || originalVideo.type === 'video/quicktime') {

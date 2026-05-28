@@ -15,7 +15,7 @@ import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
-import { uploadToR2 } from './services/uploadService';
+import { uploadToR2, mixAndUploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import { Post } from './types';
@@ -124,6 +124,7 @@ const App: React.FC = () => {
         isFromGallery,
         trimStart,
         trimEnd,
+        reusedAudioUrl,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,12 +134,44 @@ const App: React.FC = () => {
       const timestamp = Date.now();
       const isVideo = mediaFile.type.startsWith('video/');
 
-      let finalMediaBlob = mediaFile;
+      let finalMediaBlob: Blob | null = mediaFile;
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
 
-      // --- PROCESSAMENTO FFmpeg (Background) ---
-      if (isVideo && !isFromGallery) {
+      // --- PROCESSAMENTO COM MIX WORKER OU FFmpeg (Background) ---
+      if (isVideo && reusedAudioUrl) {
+        setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
+        const fileExt = (mediaFile as File).name?.split('.').pop() || 'mp4';
+        const fileName = `${userId}-${timestamp}.${fileExt}`;
+        const folder = uploadType === 'story' ? 'stories' : 'posts';
+        
+        try {
+          console.log('[Background Upload] Som seleccionado. A enviar para o Cloudflare Mixagem Worker...');
+          finalMediaUrl = await mixAndUploadToR2(
+            mediaFile, 
+            reusedAudioUrl, 
+            folder, 
+            fileName,
+            (p) => {
+              setUploadTask(prev => prev ? { ...prev, progress: 10 + (p * 0.75) } : null);
+            }
+          );
+          console.log('[Background Upload] Cloudflare Mixagem Worker teve sucesso. URL:', finalMediaUrl);
+          finalMediaBlob = null; // Já processado e enviado pelo Worker
+        } catch (mixErr) {
+          console.error('[Background Upload] Cloudflare Mixagem Worker falhou, a usar upload tradicional:', mixErr);
+          finalMediaBlob = mediaFile;
+        }
+
+        // Gerar Thumbnail no browser canvas
+        try {
+          const thumbBlob = await generateThumbnail(mediaFile);
+          const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
+          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+        } catch (thumbErr) {
+          console.error('[Background Upload] Erro ao gerar thumbnail para mix:', thumbErr);
+        }
+      } else if (isVideo && !isFromGallery) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
         
         try {
@@ -215,20 +248,22 @@ const App: React.FC = () => {
 
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
 
-      // Upload do Ficheiro Final
-      const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
-      const fileName = `${userId}-${timestamp}.${fileExt}`;
-      const folder = uploadType === 'story' ? 'stories' : 'posts';
-      
-      // Upload com progresso real
-      finalMediaUrl = await uploadToR2(
-        finalMediaBlob, 
-        folder, 
-        fileName, 
-        (p) => {
-          setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
-        }
-      );
+      // Upload do Ficheiro Final (Apenas se ainda não foi feito upload pelo Mix Worker)
+      if (finalMediaBlob) {
+        const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
+        const fileName = `${userId}-${timestamp}.${fileExt}`;
+        const folder = uploadType === 'story' ? 'stories' : 'posts';
+        
+        // Upload com progresso real
+        finalMediaUrl = await uploadToR2(
+          finalMediaBlob, 
+          folder, 
+          fileName, 
+          (p) => {
+            setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
+          }
+        );
+      }
       
       // Salvar no Supabase
       if (uploadType === 'story') {
