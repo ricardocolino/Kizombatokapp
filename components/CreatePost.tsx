@@ -81,14 +81,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   }, [preSelectedSound]);
 
-  useEffect(() => {
-    if (isRecording && recordingSeconds > 0 && reusedAudioRef.current && reusedAudioRef.current.paused) {
-      reusedAudioRef.current.play().catch(e => {
-        console.error('Erro ao iniciar reprodução do áudio reutilizado:', e);
-      });
-    }
-  }, [isRecording, recordingSeconds]);
-
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
@@ -415,6 +407,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         
         if (reusedAudioRef.current) {
           reusedAudioRef.current.currentTime = 0;
+          reusedAudioRef.current.play().catch(e => {
+            console.error('Erro ao iniciar reprodução do áudio reutilizado:', e);
+          });
         }
 
         setIsRecording(true);
