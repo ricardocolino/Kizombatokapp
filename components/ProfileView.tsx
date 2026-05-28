@@ -5,7 +5,6 @@ import { Profile, Post } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3 } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
-import { getBackendBaseUrl } from '../services/apiConfig';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
 
@@ -703,8 +702,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       
       // Para pagamentos, usamos o servidor principal (App URL), não o Worker
       // Isto é necessário porque o Worker não tem as rotas de pagamento
-      const baseUrl = getBackendBaseUrl();
-      const endpoint = `${baseUrl}/api/payments/create`;
+      const endpoint = 'https://ais-dev-zrifqkgbujknyfw6lb6hhi-7031768075.europe-west2.run.app/api/payments/create';
 
       console.log(`>>> [DEPOSIT] Chamando endpoint: ${endpoint}`);
 

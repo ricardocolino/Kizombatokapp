@@ -27,8 +27,6 @@ export interface Post {
   is_education: boolean;
   is_ready: boolean;
   created_at: string;
-  reused_audio_url?: string | null;
-  reused_audio_post_id?: string | null;
   profiles?: Profile;
   _count?: {
     reactions: number;

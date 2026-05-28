@@ -16,12 +16,11 @@ import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import { uploadToR2 } from './services/uploadService';
-import { getProxyMediaUrl } from './services/apiConfig';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import { Post } from './types';
 import LiveViewer from './components/LiveViewer';
-import { Clapperboard, Compass, Tv, Bell, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -66,7 +65,6 @@ const App: React.FC = () => {
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [reusedAudioPost, setReusedAudioPost] = useState<Post | null>(null);
-  const [ffmpegErrorModal, setFfmpegErrorModal] = useState<string | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -126,8 +124,6 @@ const App: React.FC = () => {
         isFromGallery,
         trimStart,
         trimEnd,
-        reusedAudioUrl,
-        reusedAudioPostId,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -142,105 +138,19 @@ const App: React.FC = () => {
       let finalThumbnailUrl = null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
-      if (isVideo && (!isFromGallery || reusedAudioUrl)) {
+      if (isVideo && !isFromGallery) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
-        const ffmpegLogs: string[] = [];
         
         try {
           const ffmpeg = new FFmpeg();
-          
-          // Capturar logs internos do FFmpeg para depuração rica
-          ffmpeg.on('log', ({ message }) => {
-            console.log('[FFmpeg Log]', message);
-            ffmpegLogs.push(message);
-          });
-
           const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
           await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });          const videoData = await fetchFile(mediaFile);
+          });
+
+          const videoData = await fetchFile(mediaFile);
           await ffmpeg.writeFile('/input.mp4', videoData);
-
-          let audioInputFileExists = false;
-          let audioFileName = '';
-          if (reusedAudioUrl) {
-            // Se houver áudio reutilizado, nós silenciamos completamente o vídeo original do mic/gravação!
-            try {
-              console.log('[FFmpeg] Silenciando vídeo original de entrada...');
-              const silenceExitCode = await ffmpeg.exec(['-i', '/input.mp4', '-an', '-c:v', 'copy', '/input_silent.mp4']);
-              if (silenceExitCode !== 0) {
-                throw new Error(`Falha ao silenciar vídeo original (código de saída: ${silenceExitCode}).`);
-              }
-              await ffmpeg.rename('/input_silent.mp4', '/input.mp4');
-              console.log('[FFmpeg] Vídeo de entrada silenciado com sucesso.');
-            } catch (err) {
-              console.error('[FFmpeg] Erro ao silenciar vídeo original:', err);
-              throw new Error(`Falha ao silenciar áudio do vídeo original: ${err instanceof Error ? err.message : String(err)}`);
-            }
-
-            try {
-              console.log('[FFmpeg] Descarregando som de:', reusedAudioUrl);
-              let response: Response;
-              let fetchedDirectly = false;
-
-              // 1. Tentar fazer o fetch direto do R2 primeiro, conforme sugerido pelo usuário (CORS está configurado!)
-              try {
-                console.log('[FFmpeg] Tentando descarregar diretamente sem proxy do link:', reusedAudioUrl);
-                response = await fetch(reusedAudioUrl, { mode: 'cors' });
-                if (response.ok) {
-                  // Validar imediatamente se não é uma página HTML de SPA ou erro retornado como JSON
-                  const ct = response.headers.get('content-type') || '';
-                  if (ct.includes('text/html') || ct.includes('application/json')) {
-                    throw new Error(`Resposta direta retornou tipo inválido (${ct}), provavelmente fora do storage ou fallback do SPA.`);
-                  }
-                  fetchedDirectly = true;
-                  console.log('[FFmpeg] Descarregado diretamente com sucesso!');
-                } else {
-                  throw new Error(`Erro HTTP no download direto: ${response.status}`);
-                }
-              } catch (directErr) {
-                console.warn('[FFmpeg] Download direto falhou (CORS, SPA fallback ou indisponibilidade). Recorrendo ao proxy de média absoluto...', directErr);
-                // 2. Fallback para o servidor proxy absoluto do Node.js backend
-                const proxyUrl = getProxyMediaUrl(reusedAudioUrl);
-                console.log('[FFmpeg] Requisitando áudio via proxy absoluto:', proxyUrl);
-                response = await fetch(proxyUrl);
-                if (!response.ok) {
-                  const errorText = await response.text();
-                  throw new Error(`O servidor proxy retornou erro HTTP ${response.status}: ${errorText}`);
-                }
-              }
-
-              // 3. Validar a resposta
-              const contentType = response.headers.get('content-type') || '';
-              if (contentType.includes('text/html') || contentType.includes('application/json')) {
-                const textDetail = await response.text();
-                throw new Error(`A resposta recebida é inválida, não é ficheiro de áudio/vídeo (${contentType}). Detalhe: ${textDetail.substring(0, 200)}`);
-              }
-
-              const audioBlob = await response.blob();
-
-              // Validação extra do tamanho do arquivo (se for muito pequeno, pode ser erro em formato de texto)
-              if (audioBlob.size < 1024) {
-                const textDetail = await audioBlob.text();
-                if (textDetail.includes('<html') || textDetail.includes('<!DOCTYPE') || textDetail.includes('{')) {
-                  throw new Error(`Ficheiro descarregado é inválido (tamanho crítico de ${audioBlob.size} bytes). Conteúdo: ${textDetail.substring(0, 150)}`);
-                }
-              }
-
-              const audioData = await fetchFile(audioBlob);
-
-              const extension = reusedAudioUrl.split('.').pop()?.split('?')[0] || 'mp4';
-              audioFileName = `/audio_source.${extension}`;
-
-              await ffmpeg.writeFile(audioFileName, audioData);
-              console.log(`[FFmpeg] Áudio gravado com sucesso (${audioBlob.size} bytes) em ${audioFileName} via ${fetchedDirectly ? 'Download Direto' : 'Proxy'}.`);
-              audioInputFileExists = true;
-            } catch (err) {
-              console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
-              throw new Error(`Falha ao descarregar som para dublar: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }
 
           const filterParts = [];
           // Redimensionar e garantir dimensões pares
@@ -255,31 +165,16 @@ const App: React.FC = () => {
           const videoArgs = [];
           // Trim se necessário
           const hasTrim = trimStart > 0 || trimEnd > 0;
-
-          // Input de vídeo:
           if (hasTrim) {
             videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
           }
+          
           videoArgs.push('-i', '/input.mp4');
-
-          // Input de áudio (se houver):
-          if (audioInputFileExists) {
-            if (hasTrim) {
-              videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
-            }
-            videoArgs.push('-i', audioFileName);
-          }
-
           if (filterParts.length > 0) {
             videoArgs.push('-vf', filterParts.join(','));
           }
 
-          // Se tiver áudio reutilizado, mapeamos vídeo do input 0 e áudio do input 1
-          if (audioInputFileExists) {
-            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
-          }
-
-          // Configurações de compressão e codificação de vídeo normal
+          // Configurações de compressão
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
@@ -291,32 +186,21 @@ const App: React.FC = () => {
             '-y', '/output.mp4'
           );
 
-          console.log('[FFmpeg] Executando merge final com argumentos:', videoArgs);
-          const finalExitCode = await ffmpeg.exec(videoArgs);
-          if (finalExitCode !== 0) {
-            throw new Error(`O processamento final do FFmpeg falhou (código de saída: ${finalExitCode}).`);
-          }
-
+          await ffmpeg.exec(videoArgs);
           const videoOutput = await ffmpeg.readFile('/output.mp4');
           finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
           
           // Gerar Thumbnail via FFmpeg para ser mais preciso
-          console.log('[FFmpeg] Gerando miniatura do vídeo renderizado...');
-          const thumbExitCode = await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
-          if (thumbExitCode !== 0) {
-            throw new Error(`A geração de miniatura do vídeo falhou (código de saída: ${thumbExitCode}).`);
-          }
-
+          await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
           const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
           const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
           
-        } catch (procErr: unknown) {
+        } catch (procErr) {
           console.error('Erro no processamento FFmpeg background:', procErr);
-          const err = procErr as Error;
-          const lastLogs = ffmpegLogs.slice(-20).join('\n');
-          throw new Error(`${err.message || String(procErr)}\n\n[FFmpeg Exec LOGS]:\n${lastLogs}`);
+          // Fallback para o original se falhar, mas avisamos o task
+          setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
         }
       } else if (isVideo && isFromGallery && uploadType === 'post') {
         // Se for da galeria, apenas geramos a thumbnail via browser
@@ -368,11 +252,7 @@ const App: React.FC = () => {
           is_education: isEducation ? 1 : 0,
           is_ready: true,
           views: 0,
-          created_at: new Date().toISOString(),
-          reused_audio_url: reusedAudioUrl 
-            ? (reusedAudioUrl.includes('?') ? `${reusedAudioUrl}&merged=true` : `${reusedAudioUrl}?merged=true`)
-            : null,
-          reused_audio_post_id: reusedAudioPostId || null
+          created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;
       }
@@ -389,7 +269,6 @@ const App: React.FC = () => {
       console.error('Background upload error:', err);
       const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
-      setFfmpegErrorModal(message);
     }
   };
 
@@ -764,54 +643,6 @@ const App: React.FC = () => {
           onClose={() => setActiveLiveId(null)} 
           onNavigateToProfile={handleNavigateToProfile}
         />
-      )}
-
-      {ffmpegErrorModal && (
-        <div id="ffmpeg-error-modal" className="fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-purple-500/30 rounded-2xl w-full max-w-xl p-6 flex flex-col gap-4 text-white shadow-2xl relative">
-            <div className="flex items-center gap-2 text-purple-500 font-extrabold uppercase tracking-wide text-xs">
-              <AlertTriangle size={18} className="text-purple-500" />
-              <span>Falha na Integração de Vídeo/Áudio (Dublagem)</span>
-            </div>
-            
-            <h3 className="text-lg font-black tracking-tight text-white mt-1">
-              Houve um erro ao processar o vídeo da tua dublagem.
-            </h3>
-            
-            <p className="text-xs text-zinc-400">
-              Ocorreu um erro no processador FFmpeg. Copia os detalhes abaixo para que possamos analisar e resolver isso para ti:
-            </p>
-
-            <div className="relative">
-              <pre className="font-mono text-[10px] bg-black/60 border border-zinc-800 p-4 rounded-lg overflow-y-auto max-h-[220px] text-zinc-300 whitespace-pre-wrap select-all">
-                {ffmpegErrorModal}
-              </pre>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(ffmpegErrorModal);
-                  const btn = document.getElementById('copy-btn-error');
-                  if (btn) {
-                    btn.innerHTML = 'Copiado!';
-                    setTimeout(() => btn.innerHTML = 'Copiar Detalhes', 2000);
-                  }
-                }}
-                id="copy-btn-error"
-                className="absolute right-2 top-2 bg-purple-600/80 hover:bg-purple-600 border border-purple-400/20 text-[9px] font-black uppercase text-white px-2.5 py-1 rounded transition-all active:scale-95"
-              >
-                Copiar Detalhes
-              </button>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-2">
-              <button
-                onClick={() => setFfmpegErrorModal(null)}
-                className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 text-white/80"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {showOnboarding && user && (

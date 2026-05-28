@@ -395,12 +395,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
 
-        // Iniciar gravação de vídeo silenciosa se houver dublagem
+        // Iniciar gravação de vídeo
         const videoPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
           position: facingMode,
-          disableAudio: preSelectedSound ? true : false
+          disableAudio: false
         });
 
         await videoPromise;
