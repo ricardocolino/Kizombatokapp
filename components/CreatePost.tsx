@@ -3,13 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp, Music } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
-import { uploadToR2, mixAndUploadToR2 } from '../services/uploadService';
+import { uploadToR2 } from '../services/uploadService';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
-import { parseMediaUrl } from '../services/mediaUtils';
-import { Post } from '../types';
 
 interface CreatePostProps {
   onCreated: () => void;
@@ -23,31 +21,18 @@ interface CreatePostProps {
     trimStart: number;
     trimEnd: number;
     recordingSeconds: number;
-    reusedAudioUrl?: string | null;
-    reusedAudioPostId?: string | null;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
-  preSelectedSound?: Post | null;
 }
 
-const getProxiedAudioUrl = (url: string) => {
-  if (!url) return '';
-  if (url.startsWith('http')) {
-    return `/api/proxy/audio?url=${encodeURIComponent(url)}`;
-  }
-  return url;
-};
-
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', preSelectedSound }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post' }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [mergeError, setMergeError] = useState<string | null>(null);
-  const [copiedMergeError, setCopiedMergeError] = useState(false);
   
   // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
@@ -73,30 +58,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
-
-  const reusedAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (preSelectedSound && preSelectedSound.media_url) {
-      const audioUrl = parseMediaUrl(preSelectedSound.media_url);
-      const proxiedUrl = getProxiedAudioUrl(audioUrl);
-      const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
-      audio.src = proxiedUrl;
-      audio.preload = 'auto';
-      audio.loop = false;
-      reusedAudioRef.current = audio;
-
-      return () => {
-        audio.pause();
-        reusedAudioRef.current = null;
-      };
-    }
-  }, [preSelectedSound]);
-
-  const webStreamRef = useRef<MediaStream | null>(null);
-  const webRecorderRef = useRef<MediaRecorder | null>(null);
-  const webAudioCtxRef = useRef<AudioContext | null>(null);
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -268,51 +229,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   }, []); // Revertido para array vazio para não reiniciar ao escolher som
 
-  // Gerenciar o preview da câmera no navegador (WebRTC)
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() && showCamera) {
-      let activeStream: MediaStream | null = null;
-      navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingMode === 'user' ? 'user' : 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      }).then(stream => {
-        activeStream = stream;
-        webStreamRef.current = stream;
-        
-        const container = document.getElementById('cameraPreview');
-        if (container) {
-          const oldVideo = document.getElementById('webCameraVideo');
-          if (oldVideo) oldVideo.remove();
-
-          const videoEl = document.createElement('video');
-          videoEl.id = 'webCameraVideo';
-          videoEl.srcObject = stream;
-          videoEl.autoplay = true;
-          videoEl.playsInline = true;
-          videoEl.muted = true;
-          videoEl.className = `w-full h-full object-cover absolute inset-0 z-10 ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`;
-          container.appendChild(videoEl);
-        }
-      }).catch(err => {
-        console.error('Erro ao acessar webcam:', err);
-        setError('Não foi possível acessar a câmera do navegador. Verifique as permissões.');
-      });
-
-      return () => {
-        if (activeStream) {
-          activeStream.getTracks().forEach(track => track.stop());
-        }
-        webStreamRef.current = null;
-        const videoEl = document.getElementById('webCameraVideo');
-        if (videoEl) videoEl.remove();
-      };
-    }
-  }, [showCamera, facingMode]);
-
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
     const isPreview = previewUrls.length > 0;
@@ -411,10 +327,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     });
   };
 
-  const processMergeIfAudioSelected = React.useCallback(async (videoBlob: Blob): Promise<Blob> => {
-    return videoBlob;
-  }, []);
-
   const handleNativeVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -426,10 +338,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setError(null);
       }
       
-      const finalBlob = await processMergeIfAudioSelected(file);
-      
-      setMediaFiles([finalBlob]);
-      setPreviewUrls([URL.createObjectURL(finalBlob)]);
+      setMediaFiles([file]);
+      setPreviewUrls([URL.createObjectURL(file)]);
       setIsFromGallery(true);
       stopCamera();
     }
@@ -473,13 +383,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
         await videoPromise;
         
-        if (reusedAudioRef.current) {
-          reusedAudioRef.current.currentTime = 0;
-          reusedAudioRef.current.play().catch(e => {
-            console.error('Erro ao iniciar reprodução do áudio reutilizado:', e);
-          });
-        }
-
         setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
@@ -492,91 +395,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       return;
     }
 
-    // Gravação no Navegador (WebRTC) padrão, sem mixagem dinâmica em tempo real (será feito com FFmpeg)
-    try {
-      setRecordedFacingMode(facingMode);
-      if (!webStreamRef.current) {
-        throw new Error("Câmara não inicializada no navegador.");
-      }
-
-      const cameraStream = webStreamRef.current;
-      const videoTrack = cameraStream.getVideoTracks()[0];
-      const micTrack = cameraStream.getAudioTracks()[0];
-
-      if (!videoTrack) {
-        throw new Error("Não foi encontrada nenhuma faixa de vídeo na câmara.");
-      }
-
-      // Combinar vídeo da câmara e áudio do microfone diretamente para a gravação
-      const tracks: MediaStreamTrack[] = [videoTrack];
-      if (micTrack) {
-        tracks.push(micTrack);
-      }
-      
-      const recordStream = new MediaStream(tracks);
-
-      let mimeType = 'video/webm;codecs=vp8,opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/mp4;codecs=avc1,mp4a';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = '';
-      }
-
-      let recorder: MediaRecorder;
-      try {
-        recorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
-      } catch {
-        recorder = new MediaRecorder(recordStream);
-      }
-
-      webRecorderRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const videoBlob = new Blob(chunksRef.current, { type: 'video/mp4' });
-        
-        const isOk = await checkVideoDuration(videoBlob);
-        setIsVideoTooLong(!isOk);
-        if (!isOk) {
-          setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
-        }
-
-        setMediaFiles([videoBlob]);
-        setPreviewUrls([URL.createObjectURL(videoBlob)]);
-        setIsFromGallery(false);
-        setTrimStart(0);
-        
-        // Capturar o valor real gravado no momento de finalizar
-        setTrimEnd(recordingSeconds);
-        stopCamera();
-      };
-
-      // Tocar som de fundo normalmente pelas caixas de som e iniciar gravação do vídeo
-      if (reusedAudioRef.current) {
-        reusedAudioRef.current.currentTime = 0;
-        reusedAudioRef.current.play().catch(e => {
-          console.error('[Web Recording] Erro ao iniciar som:', e);
-        });
-      }
-
-      recorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(prev => prev + 1);
-      }, 1000);
-
-    } catch (err) {
-      console.error("[Web Recording] Erro na gravação do navegador:", err);
-      setError(`Erro ao iniciar gravação no navegador: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    // Fallback for non-native (WebRTC already removed, but keeping structure)
+    setError("Gravação não suportada nesta plataforma.");
   };
 
   const isRecordingRef = useRef(false);
@@ -585,9 +405,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   }, [isRecording]);
 
   const stopRecording = React.useCallback(async () => {
-    if (reusedAudioRef.current) {
-      reusedAudioRef.current.pause();
-    }
     if (isRecordingRef.current) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -608,10 +425,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
             }
             
-            const finalBlob = await processMergeIfAudioSelected(videoBlob);
-            
-            setMediaFiles([finalBlob]);
-            setPreviewUrls([URL.createObjectURL(finalBlob)]);
+            setMediaFiles([videoBlob]);
+            setPreviewUrls([URL.createObjectURL(videoBlob)]);
             setIsFromGallery(false);
             setTrimStart(0);
             setTrimEnd(recordingSeconds);
@@ -620,23 +435,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         } catch (e) {
           console.error("Erro ao parar gravação nativa:", e);
         }
-      } else {
-        // Plataforma Web / Navegador
-        try {
-          if (webRecorderRef.current && webRecorderRef.current.state !== 'inactive') {
-            webRecorderRef.current.stop();
-          }
-          if (webAudioCtxRef.current) {
-            webAudioCtxRef.current.close().catch(() => {});
-            webAudioCtxRef.current = null;
-          }
-        } catch (err) {
-          console.error("[Web Recording] Erro ao parar gravação no navegador:", err);
-        }
       }
       setIsRecording(false);
     }
-  }, [stopCamera, recordingSeconds, processMergeIfAudioSelected]);
+  }, [stopCamera, recordingSeconds]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -658,17 +460,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setError(null);
       }
 
-      const fileToProcess = selectedFiles[0];
-      const finalBlob = await processMergeIfAudioSelected(fileToProcess);
-      
-      const finalFiles = [...selectedFiles];
-      finalFiles[0] = new File([finalBlob], fileToProcess.name, { type: finalBlob.type });
-
-      const newPreviewUrls = finalFiles.map(file => URL.createObjectURL(file));
+      const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
       
       previewUrls.forEach(url => URL.revokeObjectURL(url));
       
-      setMediaFiles(finalFiles);
+      setMediaFiles(selectedFiles);
       setPreviewUrls(newPreviewUrls);
       setIsFromGallery(true);
       setTrimStart(0);
@@ -849,9 +645,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         isFromGallery,
         trimStart,
         trimEnd,
-        recordingSeconds,
-        reusedAudioUrl: preSelectedSound ? parseMediaUrl(preSelectedSound.media_url) : undefined,
-        reusedAudioPostId: preSelectedSound?.id || undefined
+        recordingSeconds
       });
       onCreated();
       return;
@@ -916,34 +710,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
 
-      if (isVideo && preSelectedSound && preSelectedSound.media_url) {
-        console.log('[Upload] Som seleccionado. A enviar para o Cloudflare Mixagem Worker...');
-        const audioUrl = parseMediaUrl(preSelectedSound.media_url);
-        const fileExt = (mediaFiles[0] as File).name?.split('.').pop() || 'mp4';
-        const fileName = `${userId}-${timestamp}.${fileExt}`;
-        const folder = uploadType === 'story' ? 'stories' : 'posts';
-        
-        try {
-          // Chamar o Cloudflare Mixagem Worker do utilizador
-          finalMediaUrl = await mixAndUploadToR2(mediaFiles[0], audioUrl, folder, fileName);
-          console.log('[Upload] Cloudflare Mixagem Worker teve sucesso. URL:', finalMediaUrl);
-          finalMediaBlob = null; // Já processado e enviado pelo Worker
-        } catch (mixErr) {
-          console.error('[Upload] Cloudflare Mixagem Worker falhou, a usar upload tradicional:', mixErr);
-          // Fallback para upload tradicional sem mixagem se o worker falhar por qualquer motivo
-          finalMediaBlob = mediaFiles[0];
-        }
-
-        // Gerar Thumbnail do vídeo no browser canvas
-        console.log('[Upload] A gerar thumbnail...');
-        try {
-          const thumbBlob = await generateThumbnail(mediaFiles[0]);
-          const thumbFileName = `${userId}-${timestamp}.jpg`;
-          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-        } catch (thumbErr) {
-          console.error('[Upload] Erro ao gerar thumbnail para mix:', thumbErr);
-        }
-      } else if (isVideo) {
+      if (isVideo) {
         // 6. Adicionar verificação antes do processamento
         const originalVideo = mediaFiles[0];
         if (originalVideo.type === 'video/mp4' || originalVideo.type === 'video/quicktime') {
@@ -1162,20 +929,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   const cancelSelection = () => {
-    if (reusedAudioRef.current) {
-      try {
-        reusedAudioRef.current.pause();
-        reusedAudioRef.current.currentTime = 0;
-      } catch (err) {
-        console.error('Erro ao parar som selecionado no cancelSelection:', err);
-      }
-    }
     previewUrls.forEach(url => URL.revokeObjectURL(url));
     setMediaFiles([]);
     setPreviewUrls([]);
     setError(null);
-    setMergeError(null);
-    setCopiedMergeError(false);
     setIsFromGallery(false);
 
     // Resetar para câmera frontal e desligar flash
@@ -1215,20 +972,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   loop 
                   playsInline 
                   muted={false}
-                  onPlay={(e) => {
-                    if (reusedAudioRef.current) {
-                      const video = e.currentTarget;
-                      reusedAudioRef.current.currentTime = video.currentTime;
-                      reusedAudioRef.current.play().catch(err => {
-                        console.error('Erro ao sincronizar play do áudio de fundo:', err);
-                      });
-                    }
-                  }}
-                  onPause={() => {
-                    if (reusedAudioRef.current) {
-                      reusedAudioRef.current.pause();
-                    }
-                  }}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -1236,13 +979,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     }
                     if (video.currentTime > trimEnd) {
                       video.currentTime = trimStart;
-                    }
-                    
-                    // Sincronizar o tempo do áudio com o vídeo se houver desvio sutil
-                    if (reusedAudioRef.current && !reusedAudioRef.current.paused) {
-                      if (Math.abs(reusedAudioRef.current.currentTime - video.currentTime) > 0.3) {
-                        reusedAudioRef.current.currentTime = video.currentTime;
-                      }
                     }
                   }}
                 />
@@ -1262,46 +998,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             >
               <X size={24} />
             </button>
-
-            {/* Error overlay for Canvas + Web Audio Merge Failure */}
-            {mergeError && (
-              <div className="absolute top-20 left-6 right-6 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 z-[200] bg-zinc-950/95 backdrop-blur-md border border-red-500/40 p-5 rounded-[20px] text-white shadow-2xl flex flex-col gap-3 animate-in fade-in slide-in-from-top duration-300">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="text-red-400 shrink-0 animate-bounce" size={20} />
-                    <span className="text-[12px] font-bold uppercase tracking-widest text-red-300">Erro de Mixagem do Áudio</span>
-                  </div>
-                  <button 
-                    onClick={() => setMergeError(null)} 
-                    className="text-white/40 hover:text-white transition-colors"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                
-                <p className="text-[11px] leading-relaxed text-red-100 bg-red-950/40 p-3 rounded-lg border border-red-800/30 overflow-auto font-mono max-h-32 text-left whitespace-pre-wrap selection:bg-red-500 selection:text-white break-all">
-                  {mergeError}
-                </p>
-
-                <div className="text-[10px] text-zinc-400 font-medium">
-                  Informação do sistema: O vídeo original está pronto a ser partilhado mas sem o som de fundo. Podes copiar e enviar este erro ao desenvolvedor para analisar (pode ser CORS, formato de som ou restrição de rede).
-                </div>
-
-                <div className="flex justify-end gap-2 mt-1">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(mergeError).then(() => {
-                        setCopiedMergeError(true);
-                        setTimeout(() => setCopiedMergeError(false), 2000);
-                      });
-                    }}
-                    className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-[10px] uppercase tracking-wider font-extrabold transition-all"
-                  >
-                    {copiedMergeError ? 'Copiado!' : 'Copiar Detalhes do Erro'}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Right Sidebar Buttons */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-8 z-50">
@@ -1383,15 +1079,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
                  <span className="text-[140px] font-black italic text-white animate-pulse drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">{countdown}</span>
-              </div>
-            )}
-
-            {preSelectedSound && (
-              <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md rounded-full border border-white/20 px-3 py-1.5 flex items-center gap-2 z-[60] shadow-lg">
-                <Music size={14} className="text-purple-400 animate-[spin_4s_linear_infinite]" />
-                <span className="text-[10px] sm:text-xs font-black text-white/90 max-w-[120px] sm:max-w-[200px] truncate">
-                  {t('Usando som de')} {preSelectedSound.profiles?.name || `@${preSelectedSound.profiles?.username}`}
-                </span>
               </div>
             )}
 

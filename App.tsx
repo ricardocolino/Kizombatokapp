@@ -18,7 +18,6 @@ import Onboarding from './components/Onboarding';
 import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
-import { Post } from './types';
 import LiveViewer from './components/LiveViewer';
 import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
@@ -42,8 +41,6 @@ interface UploadData {
   trimStart: number;
   trimEnd: number;
   recordingSeconds: number;
-  reusedAudioUrl?: string | null;
-  reusedAudioPostId?: string | null;
 }
 
 const App: React.FC = () => {
@@ -64,7 +61,6 @@ const App: React.FC = () => {
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [reusedAudioPost, setReusedAudioPost] = useState<Post | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -124,7 +120,6 @@ const App: React.FC = () => {
         isFromGallery,
         trimStart,
         trimEnd,
-        reusedAudioUrl,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -134,122 +129,12 @@ const App: React.FC = () => {
       const timestamp = Date.now();
       const isVideo = mediaFile.type.startsWith('video/');
 
-      let finalMediaBlob: Blob | null = mediaFile;
+      let finalMediaBlob = mediaFile;
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
 
-      // --- PROCESSAMENTO COM MIX FFmpeg (Background) ---
-      if (isVideo && reusedAudioUrl) {
-        setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
-        
-        try {
-          console.log('[Background Upload] Iniciando mixagem de áudio e vídeo com FFmpeg no browser...');
-          const ffmpeg = new FFmpeg();
-          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-
-          // 1. Escrever o vídeo de entrada
-          const videoData = await fetchFile(mediaFile);
-          await ffmpeg.writeFile('/input.mp4', videoData);
-
-          // 2. Escrever o áudio selecionado (utilizando proxy CORS para evitar bloqueio)
-          const proxiedAudioUrl = `/api/proxy/audio?url=${encodeURIComponent(reusedAudioUrl)}`;
-          const audioData = await fetchFile(proxiedAudioUrl);
-          await ffmpeg.writeFile('/audio.mp3', audioData);
-
-          // 3. Preparar argumentos
-          const videoArgs = [];
-          const hasTrim = trimStart > 0 || trimEnd > 0;
-          if (hasTrim) {
-            videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
-          }
-
-          const filterParts = [];
-          filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
-          filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
-          
-          if (recordedFacingMode === 'rear') {
-            filterParts.push('vflip,hflip');
-          }
-
-          const baseArgs = [...videoArgs, '-i', '/input.mp4', '-i', '/audio.mp3'];
-          if (filterParts.length > 0) {
-            baseArgs.push('-vf', filterParts.join(','));
-          }
-
-          // Tentar misturar áudio do microfone/vídeo original com o som de fundo (amix)
-          try {
-            const mixCommand = [
-              ...baseArgs,
-              '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]',
-              '-map', '0:v',
-              '-map', '[a]',
-              '-c:v', 'libx264',
-              '-preset', 'ultrafast',
-              '-crf', '32',
-              '-pix_fmt', 'yuv420p',
-              '-c:a', 'aac',
-              '-b:a', '96k',
-              '-movflags', '+faststart',
-              '-y', '/output.mp4'
-            ];
-            console.log('[FFmpeg Mix] Executando comando mix:', mixCommand.join(' '));
-            await ffmpeg.exec(mixCommand);
-          } catch (mixErr) {
-            console.warn('[FFmpeg Mix] Falha na mixagem (provavelmente o vídeo original não tem áudio). Fazendo fallback para overlay:', mixErr);
-            const fallbackCommand = [
-              ...baseArgs,
-              '-map', '0:v',
-              '-map', '1:a',
-              '-c:v', 'libx264',
-              '-preset', 'ultrafast',
-              '-crf', '32',
-              '-pix_fmt', 'yuv420p',
-              '-c:a', 'aac',
-              '-b:a', '96k',
-              '-shortest',
-              '-movflags', '+faststart',
-              '-y', '/output.mp4'
-            ];
-            console.log('[FFmpeg Mix] Executando comando fallback:', fallbackCommand.join(' '));
-            await ffmpeg.exec(fallbackCommand);
-          }
-
-          const videoOutput = await ffmpeg.readFile('/output.mp4');
-          finalMediaBlob = new Blob([videoOutput], { type: 'video/mp4' });
-          console.log('[Background Upload] Mixagem FFmpeg finalizada com sucesso!');
-
-          // Gerar Thumbnail com FFmpeg para ser perfeitamente preciso
-          try {
-            await ffmpeg.exec(['-ss', '0.3', '-i', '/output.mp4', '-vframes', '1', '-f', 'image2', '/thumb.jpg']);
-            const thumbOutput = await ffmpeg.readFile('/thumb.jpg');
-            const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
-            const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
-            finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-          } catch (thumbErr) {
-            console.error('[Background Upload] Erro ao gerar thumbnail com FFmpeg:', thumbErr);
-            // Fallback thumbnail do browser
-            const thumbBlob = await generateThumbnail(mediaFile);
-            const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
-            finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-          }
-
-        } catch (err) {
-          console.error('[Background Upload] Falha crítica na mixagem FFmpeg:', err);
-          finalMediaBlob = mediaFile; // Upload original se tudo der errado
-          
-          try {
-            const thumbBlob = await generateThumbnail(mediaFile);
-            const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
-            finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-          } catch (thumbErr2) {
-            console.error('[Background Upload] Erro no fallback de thumbnail:', thumbErr2);
-          }
-        }
-      } else if (isVideo && !isFromGallery) {
+      // --- PROCESSAMENTO FFmpeg (Background) ---
+      if (isVideo && !isFromGallery) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
         
         try {
@@ -326,22 +211,20 @@ const App: React.FC = () => {
 
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
 
-      // Upload do Ficheiro Final (Apenas se ainda não foi feito upload pelo Mix Worker)
-      if (finalMediaBlob) {
-        const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
-        const fileName = `${userId}-${timestamp}.${fileExt}`;
-        const folder = uploadType === 'story' ? 'stories' : 'posts';
-        
-        // Upload com progresso real
-        finalMediaUrl = await uploadToR2(
-          finalMediaBlob, 
-          folder, 
-          fileName, 
-          (p) => {
-            setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
-          }
-        );
-      }
+      // Upload do Ficheiro Final
+      const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
+      const fileName = `${userId}-${timestamp}.${fileExt}`;
+      const folder = uploadType === 'story' ? 'stories' : 'posts';
+      
+      // Upload com progresso real
+      finalMediaUrl = await uploadToR2(
+        finalMediaBlob, 
+        folder, 
+        fileName, 
+        (p) => {
+          setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
+        }
+      );
       
       // Salvar no Supabase
       if (uploadType === 'story') {
@@ -613,11 +496,6 @@ const App: React.FC = () => {
             setIsHosting(false);
           }}
           isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
-          onUseSound={(post) => {
-            setReusedAudioPost(post);
-            setIsCreatingStory(false);
-            setActiveTab(Tab.CREATE);
-          }}
         />;
       case Tab.DISCOVER:
         return <Discovery 
@@ -628,7 +506,6 @@ const App: React.FC = () => {
         return <CreatePost 
           onCreated={() => { 
             setIsCreatingStory(false);
-            setReusedAudioPost(null);
             setActiveTab(Tab.HOME); 
           }} 
           onBackgroundUpload={handleBackgroundUpload}
@@ -637,7 +514,6 @@ const App: React.FC = () => {
             setActiveLiveId(null);
           }}
           initialType={isCreatingStory ? 'story' : 'post'}
-          preSelectedSound={reusedAudioPost}
         />;
       case Tab.LIVE:
         return <LiveList 
