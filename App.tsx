@@ -188,13 +188,18 @@ const App: React.FC = () => {
                 console.log('[FFmpeg] Tentando descarregar diretamente sem proxy do link:', reusedAudioUrl);
                 response = await fetch(reusedAudioUrl, { mode: 'cors' });
                 if (response.ok) {
+                  // Validar imediatamente se não é uma página HTML de SPA ou erro retornado como JSON
+                  const ct = response.headers.get('content-type') || '';
+                  if (ct.includes('text/html') || ct.includes('application/json')) {
+                    throw new Error(`Resposta direta retornou tipo inválido (${ct}), provavelmente fora do storage ou fallback do SPA.`);
+                  }
                   fetchedDirectly = true;
                   console.log('[FFmpeg] Descarregado diretamente com sucesso!');
                 } else {
                   throw new Error(`Erro HTTP no download direto: ${response.status}`);
                 }
               } catch (directErr) {
-                console.warn('[FFmpeg] Download direto falhou (provavelmente CORS ou rede). Usando proxy...', directErr);
+                console.warn('[FFmpeg] Download direto falhou (CORS, SPA fallback ou indisponibilidade). Recorrendo ao proxy de média...', directErr);
                 // 2. Fallback para o servidor proxy
                 const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
                 response = await fetch(proxyUrl);
