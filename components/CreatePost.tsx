@@ -80,7 +80,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     if (preSelectedSound && preSelectedSound.media_url) {
       const audioUrl = parseMediaUrl(preSelectedSound.media_url);
       const proxiedUrl = getProxiedAudioUrl(audioUrl);
-      const audio = new Audio(proxiedUrl);
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = proxiedUrl;
       audio.preload = 'auto';
       audio.loop = false;
       reusedAudioRef.current = audio;
@@ -409,210 +411,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     });
   };
 
-  const mergeVideoAndAudioCanvas = (
-    videoBlob: Blob,
-    audioUrlUrl: string
-  ): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      setProcessingVideo(true);
-      
-      const video = document.createElement('video');
-      video.style.display = 'none';
-      document.body.appendChild(video);
-      
-      video.src = URL.createObjectURL(videoBlob);
-      video.muted = true;
-      video.playsInline = true;
-      video.currentTime = 0;
-
-      const audio = document.createElement('audio');
-      audio.style.display = 'none';
-      document.body.appendChild(audio);
-      
-      audio.src = audioUrlUrl;
-      audio.crossOrigin = 'anonymous';
-
-      let loadedCount = 0;
-      const checkLoaded = () => {
-        loadedCount++;
-        if (loadedCount === 2) {
-          startProcessing();
-        }
-      };
-
-      video.onloadeddata = checkLoaded;
-      audio.onloadeddata = checkLoaded;
-
-      const timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('Tempo limite excedido ao misturar áudio'));
-      }, 25000);
-
-      const cleanup = () => {
-        clearTimeout(timeoutId);
-        try { video.pause(); } catch { void 0; }
-        try { audio.pause(); } catch { void 0; }
-        try { document.body.removeChild(video); } catch { void 0; }
-        try { document.body.removeChild(audio); } catch { void 0; }
-      };
-
-      video.onerror = () => {
-        cleanup();
-        reject(new Error('Erro ao carregar o vídeo para mixagem'));
-      };
-
-      audio.onerror = () => {
-        cleanup();
-        reject(new Error('Erro ao carregar o áudio de fundo para mixagem. Verifique permissões/CORS.'));
-      };
-
-      const startProcessing = () => {
-        try {
-          const width = video.videoWidth || 720;
-          const height = video.videoHeight || 1280;
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            cleanup();
-            reject(new Error('Não foi possível inicializar o canvas de vídeo'));
-            return;
-          }
-
-          const extendedWindow = window as unknown as Window & { webkitAudioContext?: typeof AudioContext };
-          const AudioContextClass = window.AudioContext || extendedWindow.webkitAudioContext;
-          if (!AudioContextClass) {
-            cleanup();
-            reject(new Error('AudioContext não suportado neste navegador'));
-            return;
-          }
-          const audioCtx = new AudioContextClass();
-          const destination = audioCtx.createMediaStreamDestination();
-
-          // Mix background audio
-          const audioSource = audioCtx.createMediaElementSource(audio);
-          audioSource.connect(destination);
-
-          // Mix original video audio if exists
-          try {
-            const videoSource = audioCtx.createMediaElementSource(video);
-            videoSource.connect(destination);
-          } catch (err) {
-            console.warn('Original video audio source could not be linked, but continuing:', err);
-          }
-
-          const extendedCanvas = canvas as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream };
-          if (!extendedCanvas.captureStream) {
-            cleanup();
-            audioCtx.close();
-            reject(new Error('Canvas captureStream não suportado neste navegador'));
-            return;
-          }
-
-          const canvasStream = extendedCanvas.captureStream(30);
-          const videoTrack = canvasStream.getVideoTracks()[0];
-          const audioTrack = destination.stream.getAudioTracks()[0];
-
-          if (!videoTrack) {
-            cleanup();
-            audioCtx.close();
-            reject(new Error('Falha ao obter track de vídeo do canvas'));
-            return;
-          }
-
-          const tracks = [videoTrack];
-          if (audioTrack) {
-            tracks.push(audioTrack);
-          }
-          const combinedStream = new MediaStream(tracks);
-
-          let recorder: MediaRecorder;
-          const recordedChunks: Blob[] = [];
-
-          let mimeType = 'video/webm;codecs=vp8,opus';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/mp4;codecs=avc1,mp4a';
-          }
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = '';
-          }
-
-          try {
-            recorder = new MediaRecorder(combinedStream, mimeType ? { mimeType } : undefined);
-          } catch {
-            recorder = new MediaRecorder(combinedStream);
-          }
-
-          recorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
-              recordedChunks.push(event.data);
-            }
-          };
-
-          recorder.onstop = () => {
-            cleanup();
-            audioCtx.close();
-            const finalBlob = new Blob(recordedChunks, { type: 'video/mp4' });
-            resolve(finalBlob);
-          };
-
-          recorder.start();
-          video.play();
-          audio.play();
-
-          let animationFrameId: number;
-          const drawFrame = () => {
-            if (video.ended || video.paused) {
-              cancelAnimationFrame(animationFrameId);
-              if (recorder.state !== 'inactive') {
-                recorder.stop();
-              }
-              return;
-            }
-
-            ctx.drawImage(video, 0, 0, width, height);
-            animationFrameId = requestAnimationFrame(drawFrame);
-          };
-
-          animationFrameId = requestAnimationFrame(drawFrame);
-
-          video.onended = () => {
-            cancelAnimationFrame(animationFrameId);
-            if (recorder.state !== 'inactive') {
-              recorder.stop();
-            }
-          };
-
-        } catch (err) {
-          cleanup();
-          reject(err);
-        }
-      };
-    });
-  };
-
   const processMergeIfAudioSelected = React.useCallback(async (videoBlob: Blob): Promise<Blob> => {
-    if (preSelectedSound && preSelectedSound.media_url) {
-      try {
-        setMergeError(null);
-        const audioUrl = parseMediaUrl(preSelectedSound.media_url);
-        const proxiedAudioUrl = getProxiedAudioUrl(audioUrl);
-        console.log('[MediaMerge] Iniciando Canvas + Web Audio Merge com som:', proxiedAudioUrl);
-        const mergedBlob = await mergeVideoAndAudioCanvas(videoBlob, proxiedAudioUrl);
-        return mergedBlob;
-      } catch (err) {
-        console.error('[MediaMerge] Falha na mesclagem em tempo real, continuando com vídeo original:', err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setMergeError(errorMessage);
-        return videoBlob;
-      } finally {
-        setProcessingVideo(false);
-      }
-    }
     return videoBlob;
-  }, [preSelectedSound]);
+  }, []);
 
   const handleNativeVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -691,7 +492,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       return;
     }
 
-    // Gravação no Navegador (WebRTC) utilizando Mixagem Digital em Tempo Real com Web Audio API
+    // Gravação no Navegador (WebRTC) padrão, sem mixagem dinâmica em tempo real (será feito com FFmpeg)
     try {
       setRecordedFacingMode(facingMode);
       if (!webStreamRef.current) {
@@ -706,54 +507,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         throw new Error("Não foi encontrada nenhuma faixa de vídeo na câmara.");
       }
 
-      let finalAudioStream: MediaStream | null = null;
-
-      if (preSelectedSound && preSelectedSound.media_url) {
-        const AudioContextClass = window.AudioContext || (window as unknown as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) {
-          throw new Error("Web Audio API não suportada neste navegador.");
-        }
-        const audioCtx = new AudioContextClass();
-        webAudioCtxRef.current = audioCtx;
-
-        const destination = audioCtx.createMediaStreamDestination();
-
-        // 1. Microphone source
-        if (micTrack) {
-          const micStream = new MediaStream([micTrack]);
-          const micSource = audioCtx.createMediaStreamSource(micStream);
-          micSource.connect(destination);
-        }
-
-        // 2. Backing audio source (re-used audio element or fresh new one)
-        const backingAudio = reusedAudioRef.current || new Audio(getProxiedAudioUrl(parseMediaUrl(preSelectedSound.media_url)));
-        backingAudio.crossOrigin = 'anonymous';
-        backingAudio.currentTime = 0;
-        
-        const bgSource = audioCtx.createMediaElementSource(backingAudio);
-        
-        // Connect to destination stream (to be recorded)
-        bgSource.connect(destination);
-        
-        // Connect to speaker destination (so user hears it in real-time while recording!)
-        bgSource.connect(audioCtx.destination);
-        
-        reusedAudioRef.current = backingAudio;
-        finalAudioStream = destination.stream;
-      } else {
-        // No background sound seleccionado, usar o microfone da câmara diretamente
-        if (micTrack) {
-          finalAudioStream = new MediaStream([micTrack]);
-        }
-      }
-
-      // Combinar vídeo da câmara e o áudio mixado em tempo real
+      // Combinar vídeo da câmara e áudio do microfone diretamente para a gravação
       const tracks: MediaStreamTrack[] = [videoTrack];
-      if (finalAudioStream && finalAudioStream.getAudioTracks()[0]) {
-        tracks.push(finalAudioStream.getAudioTracks()[0]);
+      if (micTrack) {
+        tracks.push(micTrack);
       }
       
-      const mixedStream = new MediaStream(tracks);
+      const recordStream = new MediaStream(tracks);
 
       let mimeType = 'video/webm;codecs=vp8,opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
@@ -765,9 +525,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       let recorder: MediaRecorder;
       try {
-        recorder = new MediaRecorder(mixedStream, mimeType ? { mimeType } : undefined);
+        recorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
       } catch {
-        recorder = new MediaRecorder(mixedStream);
+        recorder = new MediaRecorder(recordStream);
       }
 
       webRecorderRef.current = recorder;
@@ -798,7 +558,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         stopCamera();
       };
 
-      // Tocar som de fundo e iniciar gravação
+      // Tocar som de fundo normalmente pelas caixas de som e iniciar gravação do vídeo
       if (reusedAudioRef.current) {
         reusedAudioRef.current.currentTime = 0;
         reusedAudioRef.current.play().catch(e => {
@@ -814,7 +574,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }, 1000);
 
     } catch (err) {
-      console.error("[Web Recording] Erro na gravação em tempo real no browser:", err);
+      console.error("[Web Recording] Erro na gravação do navegador:", err);
       setError(`Erro ao iniciar gravação no navegador: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
@@ -1402,6 +1162,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   const cancelSelection = () => {
+    if (reusedAudioRef.current) {
+      try {
+        reusedAudioRef.current.pause();
+        reusedAudioRef.current.currentTime = 0;
+      } catch (err) {
+        console.error('Erro ao parar som selecionado no cancelSelection:', err);
+      }
+    }
     previewUrls.forEach(url => URL.revokeObjectURL(url));
     setMediaFiles([]);
     setPreviewUrls([]);
@@ -1447,6 +1215,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   loop 
                   playsInline 
                   muted={false}
+                  onPlay={(e) => {
+                    if (reusedAudioRef.current) {
+                      const video = e.currentTarget;
+                      reusedAudioRef.current.currentTime = video.currentTime;
+                      reusedAudioRef.current.play().catch(err => {
+                        console.error('Erro ao sincronizar play do áudio de fundo:', err);
+                      });
+                    }
+                  }}
+                  onPause={() => {
+                    if (reusedAudioRef.current) {
+                      reusedAudioRef.current.pause();
+                    }
+                  }}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -1454,6 +1236,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     }
                     if (video.currentTime > trimEnd) {
                       video.currentTime = trimStart;
+                    }
+                    
+                    // Sincronizar o tempo do áudio com o vídeo se houver desvio sutil
+                    if (reusedAudioRef.current && !reusedAudioRef.current.paused) {
+                      if (Math.abs(reusedAudioRef.current.currentTime - video.currentTime) > 0.3) {
+                        reusedAudioRef.current.currentTime = video.currentTime;
+                      }
                     }
                   }}
                 />
