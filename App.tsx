@@ -179,23 +179,55 @@ const App: React.FC = () => {
             }
 
             try {
-              console.log('[FFmpeg] Descarregando áudio reutilizado do link (via proxy de áudio):', reusedAudioUrl);
-              const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
-              
-              const response = await fetch(proxyUrl);
-              if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`O servidor proxy retornou erro HTTP ${response.status}: ${errorText}`);
+              console.log('[FFmpeg] Descarregando som de:', reusedAudioUrl);
+              let response: Response;
+              let fetchedDirectly = false;
+
+              // 1. Tentar fazer o fetch direto do R2 primeiro, conforme sugerido pelo usuário (CORS está configurado!)
+              try {
+                console.log('[FFmpeg] Tentando descarregar diretamente sem proxy do link:', reusedAudioUrl);
+                response = await fetch(reusedAudioUrl, { mode: 'cors' });
+                if (response.ok) {
+                  fetchedDirectly = true;
+                  console.log('[FFmpeg] Descarregado diretamente com sucesso!');
+                } else {
+                  throw new Error(`Erro HTTP no download direto: ${response.status}`);
+                }
+              } catch (directErr) {
+                console.warn('[FFmpeg] Download direto falhou (provavelmente CORS ou rede). Usando proxy...', directErr);
+                // 2. Fallback para o servidor proxy
+                const proxyUrl = `/api/proxy-media?url=${encodeURIComponent(reusedAudioUrl)}`;
+                response = await fetch(proxyUrl);
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  throw new Error(`O servidor proxy retornou erro HTTP ${response.status}: ${errorText}`);
+                }
               }
-              
+
+              // 3. Validar a resposta
+              const contentType = response.headers.get('content-type') || '';
+              if (contentType.includes('text/html') || contentType.includes('application/json')) {
+                const textDetail = await response.text();
+                throw new Error(`A resposta recebida é inválida, não é ficheiro de áudio/vídeo (${contentType}). Detalhe: ${textDetail.substring(0, 200)}`);
+              }
+
               const audioBlob = await response.blob();
+
+              // Validação extra do tamanho do arquivo (se for muito pequeno, pode ser erro em formato de texto)
+              if (audioBlob.size < 1024) {
+                const textDetail = await audioBlob.text();
+                if (textDetail.includes('<html') || textDetail.includes('<!DOCTYPE') || textDetail.includes('{')) {
+                  throw new Error(`Ficheiro descarregado é inválido (tamanho crítico de ${audioBlob.size} bytes). Conteúdo: ${textDetail.substring(0, 150)}`);
+                }
+              }
+
               const audioData = await fetchFile(audioBlob);
-              
+
               const extension = reusedAudioUrl.split('.').pop()?.split('?')[0] || 'mp4';
               audioFileName = `/audio_source.${extension}`;
-              
+
               await ffmpeg.writeFile(audioFileName, audioData);
-              console.log(`[FFmpeg] Áudio descarregado com sucesso (${audioBlob.size} bytes) e gravado em ${audioFileName}.`);
+              console.log(`[FFmpeg] Áudio gravado com sucesso (${audioBlob.size} bytes) em ${audioFileName} via ${fetchedDirectly ? 'Download Direto' : 'Proxy'}.`);
               audioInputFileExists = true;
             } catch (err) {
               console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
