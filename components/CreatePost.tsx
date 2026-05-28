@@ -83,6 +83,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   }, [preSelectedSound]);
 
+  const webStreamRef = useRef<MediaStream | null>(null);
+  const webRecorderRef = useRef<MediaRecorder | null>(null);
+  const webAudioCtxRef = useRef<AudioContext | null>(null);
+
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
@@ -252,6 +256,51 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       isStartingRef.current = false;
     }
   }, []); // Revertido para array vazio para não reiniciar ao escolher som
+
+  // Gerenciar o preview da câmera no navegador (WebRTC)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() && showCamera) {
+      let activeStream: MediaStream | null = null;
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facingMode === 'user' ? 'user' : 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      }).then(stream => {
+        activeStream = stream;
+        webStreamRef.current = stream;
+        
+        const container = document.getElementById('cameraPreview');
+        if (container) {
+          const oldVideo = document.getElementById('webCameraVideo');
+          if (oldVideo) oldVideo.remove();
+
+          const videoEl = document.createElement('video');
+          videoEl.id = 'webCameraVideo';
+          videoEl.srcObject = stream;
+          videoEl.autoplay = true;
+          videoEl.playsInline = true;
+          videoEl.muted = true;
+          videoEl.className = `w-full h-full object-cover absolute inset-0 z-10 ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`;
+          container.appendChild(videoEl);
+        }
+      }).catch(err => {
+        console.error('Erro ao acessar webcam:', err);
+        setError('Não foi possível acessar a câmera do navegador. Verifique as permissões.');
+      });
+
+      return () => {
+        if (activeStream) {
+          activeStream.getTracks().forEach(track => track.stop());
+        }
+        webStreamRef.current = null;
+        const videoEl = document.getElementById('webCameraVideo');
+        if (videoEl) videoEl.remove();
+      };
+    }
+  }, [showCamera, facingMode]);
 
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
@@ -632,8 +681,132 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       return;
     }
 
-    // Fallback for non-native (WebRTC already removed, but keeping structure)
-    setError("Gravação não suportada nesta plataforma.");
+    // Gravação no Navegador (WebRTC) utilizando Mixagem Digital em Tempo Real com Web Audio API
+    try {
+      setRecordedFacingMode(facingMode);
+      if (!webStreamRef.current) {
+        throw new Error("Câmara não inicializada no navegador.");
+      }
+
+      const cameraStream = webStreamRef.current;
+      const videoTrack = cameraStream.getVideoTracks()[0];
+      const micTrack = cameraStream.getAudioTracks()[0];
+
+      if (!videoTrack) {
+        throw new Error("Não foi encontrada nenhuma faixa de vídeo na câmara.");
+      }
+
+      let finalAudioStream: MediaStream | null = null;
+
+      if (preSelectedSound && preSelectedSound.media_url) {
+        const AudioContextClass = window.AudioContext || (window as unknown as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextClass) {
+          throw new Error("Web Audio API não suportada neste navegador.");
+        }
+        const audioCtx = new AudioContextClass();
+        webAudioCtxRef.current = audioCtx;
+
+        const destination = audioCtx.createMediaStreamDestination();
+
+        // 1. Microphone source
+        if (micTrack) {
+          const micStream = new MediaStream([micTrack]);
+          const micSource = audioCtx.createMediaStreamSource(micStream);
+          micSource.connect(destination);
+        }
+
+        // 2. Backing audio source (re-used audio element or fresh new one)
+        const backingAudio = reusedAudioRef.current || new Audio(parseMediaUrl(preSelectedSound.media_url));
+        backingAudio.crossOrigin = 'anonymous';
+        backingAudio.currentTime = 0;
+        
+        const bgSource = audioCtx.createMediaElementSource(backingAudio);
+        
+        // Connect to destination stream (to be recorded)
+        bgSource.connect(destination);
+        
+        // Connect to speaker destination (so user hears it in real-time while recording!)
+        bgSource.connect(audioCtx.destination);
+        
+        reusedAudioRef.current = backingAudio;
+        finalAudioStream = destination.stream;
+      } else {
+        // No background sound seleccionado, usar o microfone da câmara diretamente
+        if (micTrack) {
+          finalAudioStream = new MediaStream([micTrack]);
+        }
+      }
+
+      // Combinar vídeo da câmara e o áudio mixado em tempo real
+      const tracks: MediaStreamTrack[] = [videoTrack];
+      if (finalAudioStream && finalAudioStream.getAudioTracks()[0]) {
+        tracks.push(finalAudioStream.getAudioTracks()[0]);
+      }
+      
+      const mixedStream = new MediaStream(tracks);
+
+      let mimeType = 'video/webm;codecs=vp8,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/mp4;codecs=avc1,mp4a';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = '';
+      }
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(mixedStream, mimeType ? { mimeType } : undefined);
+      } catch {
+        recorder = new MediaRecorder(mixedStream);
+      }
+
+      webRecorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const videoBlob = new Blob(chunksRef.current, { type: 'video/mp4' });
+        
+        const isOk = await checkVideoDuration(videoBlob);
+        setIsVideoTooLong(!isOk);
+        if (!isOk) {
+          setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
+        }
+
+        setMediaFiles([videoBlob]);
+        setPreviewUrls([URL.createObjectURL(videoBlob)]);
+        setIsFromGallery(false);
+        setTrimStart(0);
+        
+        // Capturar o valor real gravado no momento de finalizar
+        setTrimEnd(recordingSeconds);
+        stopCamera();
+      };
+
+      // Tocar som de fundo e iniciar gravação
+      if (reusedAudioRef.current) {
+        reusedAudioRef.current.currentTime = 0;
+        reusedAudioRef.current.play().catch(e => {
+          console.error('[Web Recording] Erro ao iniciar som:', e);
+        });
+      }
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = window.setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+
+    } catch (err) {
+      console.error("[Web Recording] Erro na gravação em tempo real no browser:", err);
+      setError(`Erro ao iniciar gravação no navegador: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   const isRecordingRef = useRef(false);
@@ -676,6 +849,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           }
         } catch (e) {
           console.error("Erro ao parar gravação nativa:", e);
+        }
+      } else {
+        // Plataforma Web / Navegador
+        try {
+          if (webRecorderRef.current && webRecorderRef.current.state !== 'inactive') {
+            webRecorderRef.current.stop();
+          }
+          if (webAudioCtxRef.current) {
+            webAudioCtxRef.current.close().catch(() => {});
+            webAudioCtxRef.current = null;
+          }
+        } catch (err) {
+          console.error("[Web Recording] Erro ao parar gravação no navegador:", err);
         }
       }
       setIsRecording(false);
