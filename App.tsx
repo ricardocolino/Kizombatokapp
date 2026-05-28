@@ -159,11 +159,22 @@ const App: React.FC = () => {
             try {
               console.log('[FFmpeg] Descarregando áudio reutilizado do link:', reusedAudioUrl);
               const audioData = await fetchFile(reusedAudioUrl);
-              await ffmpeg.writeFile('/audio_input.mp4', audioData);
+              await ffmpeg.writeFile('/audio_source.mp4', audioData);
+              
+              console.log('[FFmpeg] Extraindo áudio do vídeo ou áudio de origem...');
+              await ffmpeg.exec([
+                '-i', '/audio_source.mp4',
+                '-vn',
+                '-ar', '44100',
+                '-ac', '2',
+                '-b:a', '192k',
+                '/dub_audio.aac'
+              ]);
+              
               audioInputFileExists = true;
-              console.log('[FFmpeg] Áudio para dublagem descarregado com sucesso.');
+              console.log('[FFmpeg] Áudio extraído e preparado com sucesso.');
             } catch (err) {
-              console.error('[FFmpeg] Erro ao descarregar áudio para dublagem:', err);
+              console.error('[FFmpeg] Erro ao descarregar ou extrair áudio para dublagem:', err);
             }
           }
 
@@ -192,7 +203,7 @@ const App: React.FC = () => {
             if (hasTrim) {
               videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
             }
-            videoArgs.push('-i', '/audio_input.mp4');
+            videoArgs.push('-i', '/dub_audio.aac');
           }
 
           if (filterParts.length > 0) {
@@ -201,7 +212,7 @@ const App: React.FC = () => {
 
           // Se tiver áudio reutilizado, mapeamos vídeo do input 0 e áudio do input 1
           if (audioInputFileExists) {
-            videoArgs.push('-map', '0:v:0', '-map', '1:a:0');
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
           }
 
           // Configurações de compressão e codificação de vídeo normal
