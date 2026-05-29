@@ -19,7 +19,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Clapperboard, Compass, Tv, Bell, User as UserIcon } from 'lucide-react';
+import { Home, Compass, Radio, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
 
 export enum Tab {
@@ -672,25 +672,23 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && (
-        <nav className="h-[76px] lg:h-[80px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative pb-5 lg:pb-0 px-2 lg:px-8">
+        <nav className="h-[60px] lg:h-[64px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2 lg:px-8">
           <button 
             onClick={handleGoHome}
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
-            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+            className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.HOME ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Clapperboard size={24} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">{t('Home')}</span>
+            <Home size={26} strokeWidth={activeTab === Tab.HOME ? 2.5 : 2} />
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.DISCOVER); }}
-            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+            className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.DISCOVER ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Compass size={24} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">{t('Discovery')}</span>
+            <Compass size={26} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
           </button>
           <button 
             onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-            className="flex flex-col items-center group outline-none"
+            className="flex items-center justify-center group outline-none"
           >
             <div className="w-12 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] group-active:scale-90 transition-all border border-white/10">
               <span className="text-xl font-black italic tracking-wide select-none">Z</span>
@@ -698,31 +696,28 @@ const App: React.FC = () => {
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.LIVE); }}
-            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+            className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <Tv size={24} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">{t('Live')}</span>
+            <Radio size={26} strokeWidth={activeTab === Tab.LIVE ? 2.5 : 2} />
           </button>
           <button 
             onClick={() => { setActiveTab(Tab.INBOX); }}
-            className={`flex flex-col items-center gap-1.5 transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+            className={`flex items-center justify-center transition-all outline-none relative ${activeTab === Tab.INBOX ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
             <div className="relative">
-              <Bell size={24} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
+              <Bell size={26} strokeWidth={activeTab === Tab.INBOX ? 2.5 : 2} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 rounded-full flex items-center justify-center text-[8px] font-black border border-black shadow-lg">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </div>
               )}
             </div>
-            <span className="text-[9px] font-black uppercase tracking-widest">{t('Messages')}</span>
           </button>
           <button 
             onClick={() => { setViewProfileId(null); setActiveTab(Tab.PROFILE); }}
-            className={`flex flex-col items-center gap-1.5 transition-all outline-none ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
+            className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.PROFILE && !viewProfileId ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
           >
-            <UserIcon size={24} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">{t('Profile')}</span>
+            <UserIcon size={26} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
           </button>
         </nav>
       )}

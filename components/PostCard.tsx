@@ -1517,28 +1517,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
             <div className="grid grid-cols-3 gap-6 mb-8">
               {[
-                { amount: 1, img: "https://cdn-icons-png.flaticon.com/512/1087/1087420.png", key: 'Flower', fallback: 'Flor' },
-                { amount: 5, img: "https://cdn-icons-png.flaticon.com/512/2107/2107845.png", key: 'Heart', fallback: 'Coração' },
-                { amount: 10, img: "https://cdn-icons-png.flaticon.com/512/1828/1828884.png", key: 'Star', fallback: 'Estrela' },
-                { amount: 20, img: "https://cdn-icons-png.flaticon.com/512/426/426833.png", key: 'Fire', fallback: 'Fogo' },
-                { amount: 50, img: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png", key: 'Trophy', fallback: 'Troféu' },
-                { amount: 100, img: "https://cdn-icons-png.flaticon.com/512/1071/1071985.png", key: 'Diamond', fallback: 'Diamante' }
-              ].map(({ amount, img, key, fallback }) => (
+                { amount: 1 },
+                { amount: 5 },
+                { amount: 10 },
+                { amount: 20 },
+                { amount: 50 },
+                { amount: 100 }
+              ].map(({ amount }) => (
                 <button 
                   key={amount}
                   onClick={() => handleSendGift(amount)}
                   disabled={sendingGift}
-                  className="flex flex-col items-center gap-3 p-4 bg-zinc-50 border border-zinc-100 rounded-3xl hover:border-amber-500/30 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center p-6 bg-zinc-50 border border-zinc-100 rounded-3xl hover:border-amber-500/30 transition-all active:scale-95 disabled:opacity-55"
                 >
-                  <div className="w-14 h-14 flex items-center justify-center">
-                    <img src={img} alt={t(key, fallback)} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[11px] font-black uppercase tracking-tighter">{t(key, fallback)}</span>
-                    <span className="text-[10px] font-black text-amber-500 uppercase flex items-center gap-1">
-                      {amount} <AngoCoinIcon size={12} />
-                    </span>
-                  </div>
+                  <span className="text-sm font-black text-amber-500 uppercase flex items-center gap-1.5">
+                    {amount} <AngoCoinIcon size={14} />
+                  </span>
                 </button>
               ))}
             </div>
