@@ -625,7 +625,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   }
 
   return (
-    <div className="h-full w-full bg-black relative overflow-hidden">
+    <div className="h-full w-full bg-black relative overflow-hidden flex flex-col">
       <style>{`
         body.comments-open .feed-navigation-tabs,
         body.gifts-open .feed-navigation-tabs,
@@ -639,43 +639,43 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="feed-navigation-tabs absolute top-2 sm:top-3 left-2 sm:left-4 p-4 flex justify-start items-center gap-5 sm:gap-7 z-50 pointer-events-none">
+        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center justify-center gap-5 sm:gap-7 z-50 shrink-0 select-none px-4">
           <button 
             onClick={() => setFeedType('following')}
-            className={`text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-105' : 'text-white/40 hover:text-white/80'}`}
+            className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'following' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
           >
             {t('Following')}
-            {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1.5 rounded-full" />}
+            {feedType === 'following' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
           </button>
           <button 
             onClick={() => setFeedType('for_you')}
-            className={`text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-105' : 'text-white/40 hover:text-white/80'}`}
+            className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'for_you' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
           >
             {t('For You')}
-            {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1.5 rounded-full" />}
+            {feedType === 'for_you' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
           </button>
 
           {sessionLoaded && user && (
             <button 
               onClick={() => setShowGameIntro(true)}
-              className="text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all flex items-center gap-1.5 text-white/40 hover:text-white/80 hover:scale-105 active:scale-95"
+              className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-95"
               title={t('Games', 'Jogos')}
             >
-              <Gamepad2 size={18} className="sm:w-5 sm:h-5 text-white" />
+              <Gamepad2 size={13} className="text-zinc-400 group-hover:text-white" />
               <span>{t('Games', 'Jogos')}</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
+        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center px-4 z-50 shrink-0 select-none">
           <button 
             onClick={onClearFilter}
-            className="p-2 bg-black/20 backdrop-blur-md rounded-full text-white pointer-events-auto active:scale-90 transition-transform"
+            className="p-1.5 bg-white/10 rounded-full text-white active:scale-90 transition-transform"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={20} />
           </button>
-          <div className="flex-1 flex justify-center pr-10">
-            <span className="text-sm sm:text-base font-black uppercase tracking-widest text-white drop-shadow-lg text-center px-4">
+          <div className="flex-1 flex justify-center pr-8">
+            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-white text-center px-4">
               {feedFilter.type === 'user' && `${t('Videos from')} ${feedFilter.userName}`}
               {feedFilter.type === 'private' && `${t('Private Videos of', 'Vídeos privados de')} ${feedFilter.userName}`}
               {feedFilter.type === 'reposted' && `${t('Videos reposted by')} ${feedFilter.userName}`}
@@ -702,7 +702,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         </button>
       </div>
 
-      <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
+      <div className="flex-1 min-h-0 relative">
+        <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
         {posts.slice(0, displayLimit).map((post, index) => (
           <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
             <PostCard 
@@ -747,6 +748,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </div>
         )}
       </div>
+    </div>
 
       {showGameIntro && (
         <div className="fixed inset-0 z-[190] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0">

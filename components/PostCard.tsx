@@ -1228,27 +1228,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
           <button onClick={toggleLike} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-600 fill-purple-600' : 'text-white'}`} />
+              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-500 fill-purple-500' : 'text-white fill-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
           </button>
 
           <button onClick={() => { setShowComments(true); fetchComments(true); }} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-              <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+              <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white fill-white drop-shadow-xl" />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
           </button>
 
           <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-              <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+              <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white fill-white drop-shadow-xl" />
             </div>
           </button>
 
           <button onClick={toggleRepost} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110 relative flex items-center justify-center">
-              <Repeat size={28} className="sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all text-white" />
+              <Repeat size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.reposted ? 'text-purple-400' : 'text-white'}`} />
               {metadata.reposted && (
                 <div className="absolute inset-0 flex items-center justify-center mb-1">
                   <span className="text-[10px] sm:text-[14px] font-black text-white drop-shadow-md">✓</span>
@@ -1261,7 +1261,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {isLoggedIn && !metadata.isOwnPost && (
             <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
               <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
+                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white fill-white drop-shadow-xl" />
               </div>
             </button>
           )}
