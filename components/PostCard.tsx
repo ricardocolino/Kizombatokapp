@@ -1231,7 +1231,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-600 fill-purple-600' : 'text-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
-            <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Likes')}</span>
           </button>
 
           <button onClick={() => { setShowComments(true); fetchComments(true); }} className="flex flex-col items-center group">
@@ -1239,14 +1238,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.commentsCount}</span>
-            <span className="text-[8px] uppercase tracking-tighter opacity-70 text-white drop-shadow-md">{t('Comments')}</span>
           </button>
 
           <button onClick={() => setShowShare(true)} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
               <Share2 size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
             </div>
-            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Share')}</span>
           </button>
 
           <button onClick={toggleRepost} className="flex flex-col items-center group">
@@ -1266,7 +1263,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
                 <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
               </div>
-              <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Gifts')}</span>
             </button>
           )}
         </div>
