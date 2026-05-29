@@ -638,7 +638,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
+        <div className="feed-navigation-tabs absolute top-0 right-0 p-4 flex justify-end items-center gap-4 sm:gap-6 z-50 pointer-events-none">
           {sessionLoaded && user && (
             <button 
               onClick={handleOpenGame}
