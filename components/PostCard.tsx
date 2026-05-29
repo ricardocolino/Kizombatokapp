@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, MoreHorizontal } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -52,56 +52,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const [netSpeed, setNetSpeed] = useState<'slow' | 'normal'>('normal');
-  const [showResolutionPopup, setShowResolutionPopup] = useState(false);
-  const [userResolution, setUserResolution] = useState<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>(() => {
-    return (localStorage.getItem('user_video_resolution') || 'auto') as '144p' | '240p' | '360p' | '480p' | '720p' | 'auto';
-  });
-
-  const changeUserResolution = (res: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto') => {
-    localStorage.setItem('user_video_resolution', res);
-    setUserResolution(res);
-    window.dispatchEvent(new CustomEvent('video-resolution-changed', { detail: res }));
-  };
-
-  useEffect(() => {
-    const handleResolutionChange = (e: Event) => {
-      const customEvent = e as CustomEvent<'144p' | '240p' | '360p' | '480p' | '720p' | 'auto'>;
-      if (customEvent.detail !== userResolution) {
-        setUserResolution(customEvent.detail);
-      }
-    };
-    window.addEventListener('video-resolution-changed', handleResolutionChange);
-    return () => {
-      window.removeEventListener('video-resolution-changed', handleResolutionChange);
-    };
-  }, [userResolution]);
-
-  const handleDecreaseResolution = () => {
-    const resolutions = ['144p', '240p', '360p', '480p', '720p'] as const;
-    let currentRes: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto' = userResolution;
-    if (currentRes === 'auto') {
-      currentRes = netSpeed === 'slow' ? '144p' : '240p';
-    }
-    const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
-    const currentIndex = resolutions.indexOf(targetRes);
-    if (currentIndex > 0) {
-      changeUserResolution(resolutions[currentIndex - 1]);
-    }
-  };
-
-  const handleIncreaseResolution = () => {
-    const resolutions = ['144p', '240p', '360p', '480p', '720p'] as const;
-    let currentRes: '144p' | '240p' | '360p' | '480p' | '720p' | 'auto' = userResolution;
-    if (currentRes === 'auto') {
-      currentRes = netSpeed === 'slow' ? '144p' : '240p';
-    }
-    const targetRes = currentRes as '144p' | '240p' | '360p' | '480p' | '720p';
-    const currentIndex = resolutions.indexOf(targetRes);
-    if (currentIndex < resolutions.length - 1 && currentIndex !== -1) {
-      changeUserResolution(resolutions[currentIndex + 1]);
-    }
-  };
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
@@ -141,72 +91,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
-  // Detect network speed to adjust resolution (144p to 240p)
-  useEffect(() => {
-    interface NetworkInfo {
-      effectiveType: string;
-      saveData: boolean;
-      addEventListener: (type: string, listener: () => void) => void;
-      removeEventListener: (type: string, listener: () => void) => void;
-    }
-    const nav = navigator as unknown as { connection?: NetworkInfo; mozConnection?: NetworkInfo; webkitConnection?: NetworkInfo };
-    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
-
-    if (conn) {
-      const updateConnection = () => {
-        const type = conn.effectiveType;
-        // Consider slow if type is 2g, 3g or if saveData is on
-        const isSlow = type === 'slow-2g' || type === '2g' || type === '3g' || conn.saveData;
-        setNetSpeed(isSlow ? 'slow' : 'normal');
-      };
-      
-      conn.addEventListener('change', updateConnection);
-      updateConnection();
-      return () => conn.removeEventListener('change', updateConnection);
-    }
-  }, []);
-
   const optimizedUrl = useMemo(() => {
-    if (!mediaUrl) return '';
-    if (!mediaUrl.startsWith('http')) return mediaUrl;
-    
-    // Skip optimization for HLS as it handles bitrates internally
-    if (mediaUrl.toLowerCase().includes('.m3u8')) return mediaUrl;
-
-    const actualResolution = userResolution === 'auto' 
-      ? (netSpeed === 'slow' ? '144p' : '240p') 
-      : userResolution;
-
-    let width = 426;
-    let quality = 'medium';
-
-    if (actualResolution === '144p') {
-      width = 256;
-      quality = 'low';
-    } else if (actualResolution === '240p') {
-      width = 426;
-      quality = 'medium';
-    } else if (actualResolution === '360p') {
-      width = 640;
-      quality = 'medium';
-    } else if (actualResolution === '480p') {
-      width = 854;
-      quality = 'high';
-    } else if (actualResolution === '720p') {
-      width = 1280;
-      quality = 'high';
-    }
-
-    try {
-      const url = new URL(mediaUrl);
-      url.searchParams.set('res', actualResolution);
-      url.searchParams.set('w', width.toString());
-      url.searchParams.set('quality', quality);
-      return url.toString();
-    } catch {
-      return mediaUrl;
-    }
-  }, [mediaUrl, netSpeed, userResolution]);
+    return mediaUrl || '';
+  }, [mediaUrl]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -223,7 +110,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const commentsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge || showResolutionPopup;
+    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge;
     const feed = document.querySelector('.feed-container') as HTMLElement;
     if (!feed) return;
     
@@ -239,7 +126,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       feed.style.setProperty('overflow-y', 'scroll', 'important');
       feed.style.setProperty('touch-action', 'auto', 'important');
     };
-  }, [showComments, showGifts, showShare, showRecharge, showResolutionPopup]);
+  }, [showComments, showGifts, showShare, showRecharge]);
 
   useEffect(() => {
     if (showGifts) {
@@ -1382,13 +1269,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Gifts')}</span>
             </button>
           )}
-
-          <button onClick={() => setShowResolutionPopup(true)} className="flex flex-col items-center group">
-            <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-              <MoreHorizontal size={28} className="sm:w-[34px] sm:h-[34px] text-white drop-shadow-xl" />
-            </div>
-            <span className="text-[9px] sm:text-[10px] font-black text-white uppercase drop-shadow-md tracking-widest">{t('Res.', 'Res.')}</span>
-          </button>
         </div>
       )}
 
@@ -1699,77 +1579,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
       {showRecharge && (
         <RechargeModal onClose={() => setShowRecharge(false)} />
-      )}
-
-      {/* Resolution Drawer */}
-      {showResolutionPopup && (
-        <div 
-          className="fixed inset-0 z-[9999] flex flex-col justify-end touch-none"
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowResolutionPopup(false)} />
-          <div className="relative bg-white rounded-t-[40px] p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black max-w-md mx-auto w-full">
-            <div className="flex items-center justify-between mb-8">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
-                   <MoreHorizontal size={24} />
-                 </div>
-                 <div>
-                   <h3 className="text-sm font-black uppercase tracking-widest">{t('Video Quality', 'Qualidade de Vídeo')}</h3>
-                 </div>
-               </div>
-               <button onClick={() => setShowResolutionPopup(false)} className="w-10 h-10 flex items-center justify-center bg-zinc-50 rounded-full text-zinc-400 hover:bg-zinc-100 transition-colors">
-                 <X size={20} strokeWidth={2.5}/>
-               </button>
-            </div>
-
-            <div className="flex gap-4 mb-6">
-              <button
-                onClick={handleDecreaseResolution}
-                disabled={userResolution === '144p'}
-                className="flex-1 py-4 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-3xl font-black uppercase tracking-widest text-[11px] transition-all active:scale-95 border border-zinc-200/50 flex items-center justify-center gap-2"
-              >
-                <ChevronDown size={16} className="text-purple-600" />
-                {t('Decrease', 'Diminuir')}
-              </button>
-              
-              <button
-                onClick={handleIncreaseResolution}
-                disabled={userResolution === '720p'}
-                className="flex-1 py-4 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-3xl font-black uppercase tracking-widest text-[11px] transition-all active:scale-95 border border-zinc-200/50 flex items-center justify-center gap-2"
-              >
-                <ChevronUp size={16} className="text-purple-600" />
-                {t('Increase', 'Aumentar')}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-              {(['auto', '144p', '240p', '360p', '480p', '720p'] as const).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => changeUserResolution(r)}
-                  className={`py-4 px-4 rounded-3xl text-[11px] font-black uppercase tracking-widest border transition-all flex flex-col items-center justify-center gap-1 ${
-                    userResolution === r 
-                      ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30' 
-                      : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200/50'
-                  }`}
-                >
-                  <span className="font-extrabold">{r === 'auto' ? t('Automatic', 'Automático') : r}</span>
-                  <span className={`text-[9px] font-black ${userResolution === r ? 'text-purple-200' : 'text-zinc-500'}`}>
-                    {r === 'auto' ? `(${netSpeed === 'slow' ? '144p' : '240p'})` : 
-                     r === '144p' ? t('Eco', 'Poupança') :
-                     r === '240p' ? t('Low', 'Baixa') :
-                     r === '360p' ? t('Medium', 'Média') :
-                     r === '480p' ? t('High', 'Alta') : t('HD', 'HD')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
