@@ -715,7 +715,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               onRequireAuth={onRequireAuth}
               onViewStories={onViewStories}
               onJoinLive={onJoinLive}
-              isPaused={isPaused || showExternalUrl}
+              isPaused={isPaused || showExternalUrl || showGameIntro}
             />
           </div>
         ))}
@@ -749,104 +749,110 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       </div>
 
       {showGameIntro && (
-        <div className="fixed inset-0 z-[190] bg-white flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500 text-black overflow-y-auto">
-          {/* Header */}
-          <header className="h-14 bg-white border-b border-zinc-100 flex items-center px-4 shrink-0 justify-between">
-            <div className="flex items-center gap-3">
+        <div className="fixed inset-0 z-[190] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0">
+          {/* Backdrop Click to Close */}
+          <div className="absolute inset-0" onClick={() => setShowGameIntro(false)} />
+          
+          {/* Mobile Shell Card */}
+          <div className="relative bg-white w-full h-[85vh] sm:h-[680px] sm:max-w-md sm:rounded-[32px] rounded-t-[32px] flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 duration-300 text-black overflow-hidden z-10">
+            {/* Header */}
+            <header className="h-14 bg-white border-b border-zinc-100 flex items-center px-4 shrink-0 justify-between">
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowGameIntro(false)}
+                  className="w-10 h-10 rounded-full bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-800 active:scale-95 transition-all border border-zinc-100/60"
+                >
+                  <ChevronLeft size={22} strokeWidth={2.5} />
+                </button>
+                <h2 className="text-sm font-black uppercase tracking-wider text-zinc-950">{t('Games', 'Jogos')}</h2>
+              </div>
               <button 
                 onClick={() => setShowGameIntro(false)}
-                className="w-10 h-10 rounded-full bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-800 active:scale-95 transition-all border border-zinc-100/60"
+                className="w-10 h-10 rounded-full bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
               >
-                <ChevronLeft size={22} strokeWidth={2.5} />
+                <X size={20} strokeWidth={2.5} />
               </button>
-              <h2 className="text-sm font-black uppercase tracking-wider text-zinc-950">{t('Games', 'Jogos')}</h2>
-            </div>
-            <button 
-              onClick={() => setShowGameIntro(false)}
-              className="w-10 h-10 rounded-full bg-zinc-50 hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
-          </header>
+            </header>
 
-          {/* Content */}
-          <div className="flex-1 max-w-md mx-auto w-full px-6 py-8 flex flex-col justify-between">
-            <div>
-              {/* Promo Info */}
-              <div className="text-center mb-8 mt-4 animate-in fade-in duration-500">
-                <div className="w-16 h-16 bg-amber-100/80 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-sm">
-                  <Gamepad2 size={36} className="text-amber-500 animate-[bounce_2s_infinite]" />
+            {/* Content Scrollable */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col justify-between no-scrollbar">
+              <div>
+                {/* Promo Info */}
+                <div className="text-center mb-6 mt-2">
+                  <div className="w-14 h-14 bg-amber-100/80 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm animate-pulse-slow">
+                    <Gamepad2 size={32} className="text-amber-500 animate-[bounce_2s_infinite]" />
+                  </div>
+                  <h1 className="text-xl font-black text-zinc-950 uppercase tracking-tight mb-2">
+                    Ganhe Moedas a Jogar! 🪙
+                  </h1>
+                  <p className="text-xs font-semibold text-zinc-500 leading-relaxed max-w-sm mx-auto">
+                    Diverte-te com os nossos jogos favoritos e acumula <span className="font-extrabold text-amber-500 text-sm">Huzty Coins</span> reais diretamente no teu saldo de forma simples!
+                  </p>
                 </div>
-                <h1 className="text-2xl font-black text-zinc-950 uppercase tracking-tight mb-2">
-                  Ganhe Moedas a Jogar! 🪙
-                </h1>
-                <p className="text-sm font-medium text-zinc-500 leading-relaxed max-w-sm mx-auto">
-                  Diverte-te com os nossos jogos favoritos e acumula <span className="font-extrabold text-amber-500">Huzty Coins</span> reais diretamente no teu saldo de forma simples!
-                </p>
+
+                {/* Game Cards Section */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 block mb-1">
+                    {t('Featured Game', 'Jogo em Destaque')}
+                  </span>
+
+                  {/* Card do Jogo de Dama */}
+                  <button
+                    onClick={() => {
+                      setShowGameIntro(false);
+                      handleOpenGame();
+                    }}
+                    className="w-full text-left bg-gradient-to-br from-zinc-50 to-zinc-100/50 hover:from-white hover:to-white border border-zinc-200/80 hover:border-purple-500/40 rounded-3xl p-4 flex items-center justify-between gap-4 transition-all hover:shadow-lg hover:shadow-zinc-100 active:scale-98 group cursor-pointer"
+                  >
+                    <div className="flex-1">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-[8px] font-black uppercase text-purple-600 tracking-wider mb-2">
+                        🔥 {t('Active Reward', 'Recompensa Ativa')}
+                      </div>
+                      <h3 className="text-base font-black text-zinc-950 uppercase tracking-tight leading-none group-hover:text-purple-600 transition-colors">
+                        Dama
+                      </h3>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                        Jogo de Tabuleiro
+                      </p>
+                      <p className="text-xs font-medium text-zinc-500 leading-relaxed line-clamp-2">
+                        Desafia o teu raciocínio no clássico tabuleiro e converte as tuas pontuações em moedas reais!
+                      </p>
+                    </div>
+
+                    {/* Icon/Mini-board Draw for Checkers/Dama */}
+                    <div className="shrink-0 relative">
+                      <div className="w-16 h-16 grid grid-cols-4 grid-rows-4 border border-zinc-300 rounded-xl overflow-hidden shadow-sm">
+                        {Array.from({ length: 16 }).map((_, i) => {
+                          const row = Math.floor(i / 4);
+                          const col = i % 4;
+                          const isDark = (row + col) % 2 === 1;
+                          return (
+                            <div
+                              key={i}
+                              className={`relative flex items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`}
+                            >
+                              {isDark && (i === 1 || i === 7) && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500 border border-red-700 shadow-sm" />
+                              )}
+                              {isDark && (i === 8 || i === 14) && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-zinc-100 border border-zinc-400 shadow-sm" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-purple-600 text-white rounded-full flex items-center justify-center font-black text-[10px] border border-white shadow-md">
+                        →
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
-              {/* Game Cards Section */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 block mb-1">
-                  {t('Featured Game', 'Jogo em Destaque')}
-                </span>
-
-                {/* Card do Jogo de Dama */}
-                <button
-                  onClick={() => {
-                    setShowGameIntro(false);
-                    handleOpenGame();
-                  }}
-                  className="w-full text-left bg-gradient-to-br from-zinc-50 to-zinc-100/50 hover:from-white hover:to-white border border-zinc-200/80 hover:border-purple-500/40 rounded-3xl p-5 flex items-center justify-between gap-4 transition-all hover:shadow-xl hover:shadow-zinc-100 active:scale-98 group cursor-pointer"
-                >
-                  <div className="flex-1">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 text-[9px] font-black uppercase text-purple-600 tracking-wider mb-2.5">
-                      🔥 {t('Active Reward', 'Recompensa Ativa')}
-                    </div>
-                    <h3 className="text-lg font-black text-zinc-950 uppercase tracking-tight leading-tight group-hover:text-purple-600 transition-colors">
-                      Dama
-                    </h3>
-                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                      Jogo de Tabuleiro
-                    </p>
-                    <p className="text-xs font-medium text-zinc-500 leading-relaxed line-clamp-2 pr-2">
-                      Desafia o teu raciocínio no clássico tabuleiro e converte as tuas pontuações em moedas reais!
-                    </p>
-                  </div>
-
-                  {/* Icon/Mini-board Draw for Checkers/Dama */}
-                  <div className="shrink-0 relative">
-                    <div className="w-20 h-20 grid grid-cols-4 grid-rows-4 border border-zinc-300 rounded overflow-hidden shadow-md">
-                      {Array.from({ length: 16 }).map((_, i) => {
-                        const row = Math.floor(i / 4);
-                        const col = i % 4;
-                        const isDark = (row + col) % 2 === 1;
-                        return (
-                          <div
-                            key={i}
-                            className={`relative flex items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`}
-                          >
-                            {isDark && (i === 1 || i === 7) && (
-                              <div className="w-3.5 h-3.5 rounded-full bg-red-500 border border-red-700 shadow-sm" />
-                            )}
-                            {isDark && (i === 8 || i === 14) && (
-                              <div className="w-3.5 h-3.5 rounded-full bg-zinc-100 border border-zinc-400 shadow-sm" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center font-black text-xs border border-white shadow-md">
-                      →
-                    </div>
-                  </div>
-                </button>
+              {/* Footer Notice */}
+              <div className="text-center mt-8 text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                ⚡ Huzty Play • {t('Earn by Playing', 'Joga e Ganha')}
               </div>
-            </div>
-
-            {/* Footer Notice */}
-            <div className="text-center mt-12 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-              ⚡ Huzty Play • {t('Earn by Playing', 'Joga e Ganha')}
             </div>
           </div>
         </div>
