@@ -722,7 +722,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               onRequireAuth={onRequireAuth}
               onViewStories={onViewStories}
               onJoinLive={onJoinLive}
-              isPaused={isPaused}
+              isPaused={isPaused || showExternalUrl}
             />
           </div>
         ))}
