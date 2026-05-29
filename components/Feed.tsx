@@ -272,7 +272,27 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       setUser(session?.user ?? null);
       setSessionLoaded(true);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setSessionLoaded(true);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (showExternalUrl) {
+      document.body.classList.add('game-open');
+    } else {
+      document.body.classList.remove('game-open');
+    }
+    return () => {
+      document.body.classList.remove('game-open');
+    };
+  }, [showExternalUrl]);
 
   const fetchBatchMetadata = React.useCallback(async (postsToFetch: Post[]) => {
     if (postsToFetch.length === 0) return;
@@ -610,13 +630,27 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       <style>{`
         body.comments-open .feed-navigation-tabs,
         body.gifts-open .feed-navigation-tabs,
-        body.recharge-open .feed-navigation-tabs {
+        body.recharge-open .feed-navigation-tabs,
+        body.game-open .feed-navigation-tabs {
+          display: none !important;
+        }
+        body.game-open nav {
           display: none !important;
         }
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
         <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex justify-center items-center gap-4 sm:gap-6 z-50 pointer-events-none">
+          {sessionLoaded && user && (
+            <button 
+              onClick={handleOpenGame}
+              className="text-white/80 hover:text-white pointer-events-auto transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center p-2 mr-2 bg-white/10 hover:bg-white/20 rounded-full border border-white/20 shadow-lg"
+              title={t('Games', 'Jogos')}
+            >
+              <Gamepad2 size={24} className="sm:w-7 sm:h-7 text-white" />
+            </button>
+          )}
+
           <button 
             onClick={() => setFeedType('following')}
             className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
@@ -637,14 +671,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           >
             {t('Education')}
             {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
-          </button>
-          
-          <button 
-            onClick={handleOpenGame}
-            className="text-white/60 hover:text-white pointer-events-auto transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center p-1.5 ml-2 bg-white/10 hover:bg-white/20 rounded-full"
-            title={t('Games', 'Jogos')}
-          >
-            <Gamepad2 size={20} className="sm:w-6 sm:h-6 text-white" />
           </button>
         </div>
       ) : (
