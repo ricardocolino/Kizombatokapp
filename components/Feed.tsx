@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2 } from 'lucide-react';
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -54,6 +54,31 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const nextAllowedTriggerIndex = React.useRef<number>(4); // Starts at index 4 (5th post)
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const viewedIndices = React.useRef<Set<number>>(new Set());
+
+  const [showExternalUrl, setShowExternalUrl] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState('');
+  const [iframeLoading, setIframeLoading] = useState(true);
+
+  const handleOpenGame = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      let finalUrl = 'https://minimax-six.vercel.app';
+      
+      if (session) {
+        const authParams = `access_token=${session.access_token}&refresh_token=${session.refresh_token}&expires_in=${session.expires_in}&token_type=bearer&type=recovery`;
+        finalUrl = `${finalUrl}/#${authParams}`;
+      }
+      
+      setIframeLoading(true);
+      setIframeUrl(finalUrl);
+      setShowExternalUrl(true);
+    } catch (err) {
+      console.error("Erro ao obter sessão para o navegador interno:", err);
+      setIframeLoading(true);
+      setIframeUrl('https://minimax-six.vercel.app');
+      setShowExternalUrl(true);
+    }
+  };
 
   const handleNextPost = React.useCallback(() => {
     if (scrollContainerRef.current) {
@@ -613,6 +638,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             {t('Education')}
             {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
           </button>
+          
+          <button 
+            onClick={handleOpenGame}
+            className="text-white/60 hover:text-white pointer-events-auto transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center p-1.5 ml-2 bg-white/10 hover:bg-white/20 rounded-full"
+            title={t('Games', 'Jogos')}
+          >
+            <Gamepad2 size={20} className="sm:w-6 sm:h-6 text-white" />
+          </button>
         </div>
       ) : (
         <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
@@ -695,6 +728,38 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </div>
         )}
       </div>
+
+      {/* Navegador Interno Personalizado para Jogos (Minimax) */}
+      {showExternalUrl && (
+        <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in slide-in-from-bottom-10 duration-500 text-black">
+          <header className="h-14 bg-white border-b border-zinc-100 flex items-center px-4 shrink-0 gap-3">
+            <button 
+              onClick={() => setShowExternalUrl(false)}
+              className="w-9 h-9 rounded-lg bg-zinc-50 flex items-center justify-center text-black active:scale-90 transition-all border border-zinc-100"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-xs font-black uppercase tracking-widest text-zinc-950">{t('Games', 'Jogos')}</span>
+          </header>
+          
+          <div className="flex-1 relative bg-white">
+            {iframeLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
+                <Loader2 className="text-zinc-900 animate-spin mb-4" size={32} />
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest animate-pulse">{t('Loading')}...</span>
+              </div>
+            )}
+            <iframe 
+              src={iframeUrl} 
+              onLoad={() => setIframeLoading(false)}
+              className="w-full h-full border-none"
+              title={t('Games', 'Jogos')}
+              allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
+              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
