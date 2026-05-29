@@ -638,31 +638,32 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="feed-navigation-tabs absolute top-0 right-0 p-4 flex justify-end items-center gap-4 sm:gap-6 z-50 pointer-events-none">
-          {sessionLoaded && user && (
-            <button 
-              onClick={handleOpenGame}
-              className="text-white/80 hover:text-white pointer-events-auto transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center p-2 mr-2 bg-white/10 hover:bg-white/20 rounded-full border border-white/20 shadow-lg"
-              title={t('Games', 'Jogos')}
-            >
-              <Gamepad2 size={24} className="sm:w-7 sm:h-7 text-white" />
-            </button>
-          )}
-
+        <div className="feed-navigation-tabs absolute top-2 sm:top-3 left-2 sm:left-4 p-4 flex justify-start items-center gap-5 sm:gap-7 z-50 pointer-events-none">
           <button 
             onClick={() => setFeedType('following')}
-            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-110' : 'text-white/60'}`}
+            className={`text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all ${feedType === 'following' ? 'text-white scale-105' : 'text-white/40 hover:text-white/80'}`}
           >
             {t('Following')}
-            {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+            {feedType === 'following' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1.5 rounded-full" />}
           </button>
           <button 
             onClick={() => setFeedType('for_you')}
-            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-110' : 'text-white/60'}`}
+            className={`text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all ${feedType === 'for_you' ? 'text-white scale-105' : 'text-white/40 hover:text-white/80'}`}
           >
             {t('For You')}
-            {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
+            {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1.5 rounded-full" />}
           </button>
+
+          {sessionLoaded && user && (
+            <button 
+              onClick={handleOpenGame}
+              className="text-base sm:text-lg font-black uppercase tracking-wider pointer-events-auto transition-all flex items-center gap-1.5 text-white/40 hover:text-white/80 hover:scale-105 active:scale-95"
+              title={t('Games', 'Jogos')}
+            >
+              <Gamepad2 size={18} className="sm:w-5 sm:h-5 text-white" />
+              <span>{t('Games', 'Jogos')}</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="feed-navigation-tabs absolute top-12 sm:top-14 left-0 w-full flex items-center px-4 z-50 pointer-events-none">
