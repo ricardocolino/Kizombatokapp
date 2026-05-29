@@ -39,7 +39,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [feedType, setFeedType] = useState<'for_you' | 'following' | 'education'>('for_you');
+  const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
   const [displayLimit, setDisplayLimit] = useState(15);
   const pageRef = React.useRef(0);
@@ -445,8 +445,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           setLoading(false);
           return;
         }
-      } else if (feedType === 'education') {
-        query = query.eq('is_education', true);
       }
 
       const { data, error } = await query;
@@ -664,13 +662,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           >
             {t('For You')}
             {feedType === 'for_you' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
-          </button>
-          <button 
-            onClick={() => setFeedType('education')}
-            className={`text-base sm:text-lg font-bold pointer-events-auto transition-all ${feedType === 'education' ? 'text-white scale-110' : 'text-white/60'}`}
-          >
-            {t('Education')}
-            {feedType === 'education' && <div className="h-1 w-5 sm:w-6 bg-white mx-auto mt-1 rounded-full" />}
           </button>
         </div>
       ) : (

@@ -24,7 +24,7 @@ export interface Post {
   thumbnail_url: string | null;
   text_overlay: string | null;
   filter: string | null;
-  is_education: boolean;
+  is_education?: boolean;
   is_ready: boolean;
   created_at: string;
   profiles?: Profile;

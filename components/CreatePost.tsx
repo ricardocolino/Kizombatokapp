@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, BookOpen, Settings, ArrowUp } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -15,7 +15,7 @@ interface CreatePostProps {
     mediaFile: File | Blob;
     content: string;
     uploadType: 'post' | 'story';
-    isEducation: boolean;
+    isEducation?: boolean;
     recordedFacingMode: string;
     isFromGallery: boolean;
     trimStart: number;
@@ -53,7 +53,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
-  const [isEducation, setIsEducation] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
@@ -640,7 +639,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         mediaFile: mediaFiles[0],
         content,
         uploadType,
-        isEducation,
         recordedFacingMode,
         isFromGallery,
         trimStart,
@@ -894,7 +892,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           media_url: finalMediaUrl,
           thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
-          is_education: isEducation ? 1 : 0,
+          is_education: false,
           is_ready: true,
           views: 0,
           created_at: new Date().toISOString()
@@ -1232,28 +1230,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               </button>
            </div>
 
-           <div className="flex flex-col gap-6">
-              {uploadType === 'post' && (
-                <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-[28px] p-6 shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white rounded-2xl text-black shadow-sm">
-                      <BookOpen size={22} />
-                    </div>
-                    <div>
-                      <p className="text-[12px] font-black uppercase tracking-widest text-black">{t('Educational Content')}</p>
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{t('Mark as education video')}</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsEducation(!isEducation)}
-                    className={`w-14 h-7 rounded-full transition-all relative ${isEducation ? 'bg-black' : 'bg-zinc-200'}`}
-                  >
-                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${isEducation ? 'left-8' : 'left-1'}`} />
-                  </button>
-                </div>
-              )}
-              
-              <div className="mt-auto pt-12">
+           <div className="flex-1 flex flex-col justify-end pb-8">
+              <div className="mt-auto">
                 <p className="text-center text-zinc-300 text-[9px] font-bold uppercase tracking-[0.3em]">Brilha na banda!</p>
               </div>
            </div>

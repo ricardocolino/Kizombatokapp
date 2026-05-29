@@ -35,7 +35,7 @@ interface UploadData {
   mediaFile: File | Blob;
   content: string;
   uploadType: 'post' | 'story';
-  isEducation: boolean;
+  isEducation?: boolean;
   recordedFacingMode: string;
   isFromGallery: boolean;
   trimStart: number;
@@ -115,7 +115,7 @@ const App: React.FC = () => {
         mediaFile,
         content,
         uploadType,
-        isEducation,
+        isEducation = false,
         recordedFacingMode,
         isFromGallery,
         trimStart,
