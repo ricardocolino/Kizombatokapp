@@ -1389,36 +1389,36 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                    <button onClick={() => setReplyingTo(null)} className="text-zinc-400 hover:text-black transition-colors"><X size={14}/></button>
                 </div>
               )}
-              <form onSubmit={postComment} className="flex items-center gap-3">
-                <div className="flex-1 bg-zinc-50 rounded-full pl-6 pr-1.5 py-1.5 flex items-center justify-between gap-3 border border-zinc-100 focus-within:border-zinc-200 transition-all">
+              <form onSubmit={postComment} className="flex items-center gap-2">
+                {isLoggedIn && !metadata.isOwnPost && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowGifts(true)} 
+                    className="w-[38px] h-[38px] sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-all bg-zinc-100 hover:bg-zinc-200 text-purple-600 active:scale-90"
+                    title={t('Send Gift', 'Enviar Presente')}
+                  >
+                    <Gift size={18} className="fill-purple-600/10" />
+                  </button>
+                )}
+                <div className="flex-1 bg-zinc-50 rounded-full pl-4 pr-1 py-1 flex items-center justify-between gap-2 border border-zinc-100 focus-within:border-zinc-200 transition-all min-w-0">
                   <input 
                     ref={inputRef}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value.slice(0, 150))}
                     maxLength={150}
                     placeholder={t('Add comment placeholder')}
-                    className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400 py-1"
+                    className="flex-1 bg-transparent text-sm outline-none text-black placeholder:text-zinc-400 py-1 pl-1 min-w-0"
                   />
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-2 py-0.5 rounded-full">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[8px] sm:text-[9px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-1.5 py-0.5 rounded-full">
                       {newComment.length}/150
                     </span>
-                    {isLoggedIn && !metadata.isOwnPost && (
-                      <button 
-                        type="button" 
-                        onClick={() => setShowGifts(true)} 
-                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all text-purple-600 hover:bg-zinc-100 active:scale-90"
-                        title={t('Send Gift', 'Enviar Presente')}
-                      >
-                        <Gift size={18} className="fill-purple-600/10" />
-                      </button>
-                    )}
                     <button 
                       type="submit" 
                       disabled={!newComment.trim()}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${newComment.trim() ? 'text-purple-600 active:scale-90' : 'text-zinc-300 pointer-events-none'}`}
+                      className={`w-[34px] h-[34px] rounded-full flex items-center justify-center shrink-0 transition-all ${newComment.trim() ? 'text-purple-600 active:scale-90' : 'text-zinc-300 pointer-events-none'}`}
                     >
-                      <Send size={18} className={newComment.trim() ? 'fill-purple-600' : ''} />
+                      <Send size={16} className={newComment.trim() ? 'fill-purple-600' : ''} />
                     </button>
                   </div>
                 </div>
