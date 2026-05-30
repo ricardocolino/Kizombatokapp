@@ -1254,13 +1254,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>
 
-          {isLoggedIn && !metadata.isOwnPost && (
-            <button onClick={() => setShowGifts(true)} className="flex flex-col items-center group">
-              <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
-                <Gift size={28} className="sm:w-[34px] sm:h-[34px] text-white fill-white drop-shadow-xl" />
-              </div>
-            </button>
-          )}
+
         </div>
       )}
 
@@ -1409,6 +1403,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     <span className="text-[10px] font-black tracking-tighter text-zinc-400 select-none bg-zinc-200/50 px-2 py-0.5 rounded-full">
                       {newComment.length}/150
                     </span>
+                    {isLoggedIn && !metadata.isOwnPost && (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowGifts(true)} 
+                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all text-purple-600 hover:bg-zinc-100 active:scale-90"
+                        title={t('Send Gift', 'Enviar Presente')}
+                      >
+                        <Gift size={18} className="fill-purple-600/10" />
+                      </button>
+                    )}
                     <button 
                       type="submit" 
                       disabled={!newComment.trim()}
