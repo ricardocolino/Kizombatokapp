@@ -1041,14 +1041,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   };
 
   return (
-    <div ref={containerRef} className="relative h-full w-full bg-black flex flex-col items-center justify-center overflow-hidden will-change-transform">
+    <div ref={containerRef} className={`relative h-full w-full bg-black flex flex-col items-center ${showComments ? 'justify-start' : 'justify-center'} overflow-hidden will-change-transform`}>
       {/* Video Content */}
-      <div className="w-full h-full relative cursor-pointer" onClick={handleVideoClick}>
+      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
           {isNearScreen && (
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className="w-full h-full object-cover bg-black"
+              className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
               style={{ 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
                 opacity: isPlaying ? 1 : 0,
@@ -1095,7 +1095,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div className="absolute inset-0 z-0">
                <img 
                  src={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : ''} 
-                 className="w-full h-full object-cover blur-[2px] opacity-50 transition-opacity duration-500"
+                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover blur-[2px] opacity-50'}`}
                  alt=""
                />
             </div>
@@ -1104,7 +1104,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         {/* Text Overlay */}
         {post.text_overlay && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <span className="text-white text-3xl sm:text-4xl font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full">
+            <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-sm sm:text-base px-4' : 'text-3xl sm:text-4xl'}`}>
               {post.text_overlay}
             </span>
           </div>
@@ -1190,7 +1190,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       </div>
 
       {/* Sidebar Controls */}
-      {uiVisible && (
+      {uiVisible && !showComments && (
         <div className="absolute right-2 sm:right-4 bottom-16 sm:bottom-10 flex flex-col gap-3 sm:gap-5 items-center z-30">
           <div className="relative mb-1 sm:mb-2">
             <div 
@@ -1269,7 +1269,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       )}
 
         {/* Caption Area */}
-        {uiVisible && (
+        {uiVisible && !showComments && (
           <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-12 sm:pb-14 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-20">
             <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2 flex-wrap">
               <span 
@@ -1290,7 +1290,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         )}
 
         {/* Progress Bar Container */}
-        {uiVisible && duration > 0 && (
+        {uiVisible && !showComments && duration > 0 && (
           <div 
             className="absolute bottom-0 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
             onTouchStart={handleScrubStart}
@@ -1324,13 +1324,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           onWheel={(e) => e.stopPropagation()}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
-          <div className="relative bg-white h-full flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-50">
-               <div className="flex flex-col">
-                 <span className="text-sm font-black tracking-tighter leading-tight">{metadata.commentsCount} {t('Comments')}</span>
-               </div>
-               <button onClick={() => { setShowComments(false); setReplyingTo(null); }} className="w-10 h-10 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors">
-                 <X size={20} strokeWidth={2.5} />
+          <div className="relative bg-white h-[70vh] flex flex-col rounded-t-3xl shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
+            <div className="relative flex items-center justify-center py-3.5 px-4 border-b border-zinc-100 shrink-0">
+               <span className="text-sm font-bold text-zinc-800 tracking-tight">
+                 {metadata.commentsCount} {t('Comments')}
+               </span>
+               <button 
+                 onClick={() => { setShowComments(false); setReplyingTo(null); }} 
+                 className="absolute right-4 w-8 h-8 flex items-center justify-center hover:bg-zinc-100 rounded-full text-zinc-500 transition-colors"
+               >
+                 <X size={18} strokeWidth={2.5} />
                </button>
             </div>
             
