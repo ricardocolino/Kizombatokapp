@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucid
 import { Post } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
-import { InAppBrowser } from '@awesome-cordova-plugins/in-app-browser';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string, action?: string) => void;
@@ -48,10 +47,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const triggeredAdIndices = React.useRef<Set<number>>(new Set());
-  const isAdActive = React.useRef(false);
-  const currentVideoIndex = React.useRef<number>(0);
-  const nextAllowedTriggerIndex = React.useRef<number>(4); // Starts at index 4 (5th post)
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const viewedIndices = React.useRef<Set<number>>(new Set());
 
@@ -93,132 +88,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, []);
 
-  // Function to trigger the ad
-  const triggerAd = React.useCallback(async (index: number) => {
-    if (isAdActive.current) {
-      console.log("InAppBrowser já está ativo. Bloqueando novas chamadas.");
-      return;
-    }
-    if (triggeredAdIndices.current.has(index)) return;
-    triggeredAdIndices.current.add(index);
-    isAdActive.current = true;
-
-    const adUrl = "https://potterynaggingformerly.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1";
-    
-    const openBrowserWithLogic = async () => {
-      let canClose = false;
-      let timerStarted = false;
-      let targetFinishTime: number | null = null;
-
-      // Manter a configuração do InAppBrowser em background (hidden=yes) e apresentado atrás do APP
-      const options = `location=no,hidden=yes,hideurlbar=yes,hidenavigationbuttons=yes,hardwareback=no,fullscreen=yes`;
-      const browser = InAppBrowser.create(adUrl, '_blank', options);
-      isAdActive.current = true;
-
-      const loadSubscription = browser.on('loadstop').subscribe(() => {
-        console.log('Ad carregado em background');
-        if (!timerStarted) {
-          timerStarted = true;
-          const finishTime = Date.now() + 20000;
-
-          // Start the closure timer only now (after 100% load)
-          setTimeout(async () => {
-            canClose = true;
-            try {
-              browser.close();
-            } catch {
-              console.log(t('Browser closed'));
-            }
-          }, 20000);
-
-          // We need a way to pass values to subsequent loadstop events if they occur
-          // For simplicity, we'll re-calculate remaining time inside each loadstop
-          targetFinishTime = finishTime;
-        }
-
-        const currentTargetFinishTime = targetFinishTime;
-        const remaining = currentTargetFinishTime ? Math.max(0, Math.ceil((currentTargetFinishTime - Date.now()) / 1000)) : 20;
-
-        browser.insertCSS({
-          code: `
-            #app-countdown-timer {
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: rgba(0, 0, 0, 0.9);
-              color: white;
-              padding: 10px 18px;
-              border-radius: 25px;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              font-size: 14px;
-              font-weight: 800;
-              z-index: 2147483647;
-              border: 1px solid rgba(255, 255, 255, 0.2);
-              pointer-events: none;
-              box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-          `
-        });
-
-        browser.executeScript({
-          code: `
-            (function() {
-              var exiting = document.getElementById('app-countdown-timer');
-              if (exiting) exiting.remove();
-              
-              var timerDiv = document.createElement('div');
-              timerDiv.id = 'app-countdown-timer';
-              document.body.appendChild(timerDiv);
-              
-              var timeLeft = ${remaining};
-              timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
-              
-              if (window._appTimer) clearInterval(window._appTimer);
-              window._appTimer = setInterval(function() {
-                timeLeft--;
-                if (timeLeft <= 0) {
-                  timerDiv.innerText = '${t('Closing')}';
-                  clearInterval(window._appTimer);
-                } else {
-                  timerDiv.innerText = '${t('Close in')} ' + timeLeft + 's';
-                }
-              }, 1000);
-            })();
-          `
-        });
-      });
-
-      const exitSubscription = browser.on('exit').subscribe(() => {
-        loadSubscription.unsubscribe();
-        exitSubscription.unsubscribe();
-        
-        // Se fechar antes de 20s (aproximado pelo tempo de load ou simplificado por canClose)
-        if (!canClose) {
-          console.log("Fechado prematuramente, reabrindo...");
-          openBrowserWithLogic();
-        } else {
-          // Quando concluir o seu tempo e o link desaparecer por completo do background
-          isAdActive.current = false;
-          // Usuário vai ter que deslizar mais 5 vídeos a partir do vídeo atual para chamar outro link
-          nextAllowedTriggerIndex.current = currentVideoIndex.current + 5;
-          console.log("Ad finalizado com sucesso. Próximo ad index permitido:", nextAllowedTriggerIndex.current);
-        }
-      });
-    };
-
-    // Pequeno delay conforme solicitado (0.03s = 30ms)
-    setTimeout(() => {
-      openBrowserWithLogic().catch(err => {
-        console.error("Erro ao abrir ad no browser:", err);
-        window.open(adUrl, '_blank');
-        isAdActive.current = false;
-      });
-    }, 30);
-  }, [t]);
-
-  // Intersection Observer to track active post index and trigger ads
+  // Intersection Observer to track active post index
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -226,8 +96,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
             if (!isNaN(index)) {
-              currentVideoIndex.current = index;
-              
               // Se o usuário não tiver logado depois de 3 vídeos ir a página de login automaticamente
               if (sessionLoaded && !user) {
                 viewedIndices.current.add(index);
@@ -236,15 +104,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                     onRequireAuth();
                     return;
                   }
-                }
-              }
-
-              // Se já passou ou alcançou o próximo index de trigger permitido e NÃO há ad ativo
-              if (index >= nextAllowedTriggerIndex.current) {
-                if (!isAdActive.current) {
-                  triggerAd(index);
-                } else {
-                  console.log(`Index ${index} atingido, mas o InAppBrowser está em andamento (tempo total ainda não concluído). Congelando novos links.`);
                 }
               }
             }
@@ -266,7 +125,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, triggerAd, sessionLoaded, user, onRequireAuth]);
+  }, [posts, sessionLoaded, user, onRequireAuth]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
