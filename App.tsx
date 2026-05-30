@@ -691,7 +691,7 @@ const App: React.FC = () => {
             className="flex items-center justify-center group outline-none"
           >
             <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
-              <span className="text-xl font-black italic tracking-wide select-none">Z</span>
+              <span className="text-2xl font-black tracking-wide select-none">+</span>
             </div>
           </button>
           <button 

@@ -1299,7 +1299,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           >
             <div ref={scrubRef} className="w-full h-[2px] bg-white/20 relative overflow-hidden group hover:h-[4px] transition-all">
               <div 
-                className="absolute top-0 left-0 h-full bg-purple-600 transition-all"
+                className="absolute top-0 left-0 h-full bg-zinc-600 transition-all"
                 style={{ width: `${(currentTime / duration) * 100}%` }}
               />
               <div 
