@@ -628,13 +628,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     <div className="h-full w-full bg-black relative overflow-hidden flex flex-col">
       <style>{`
         body.comments-open .feed-navigation-tabs,
-        body.comments-open .desktop-navigation-controls,
         body.gifts-open .feed-navigation-tabs,
-        body.gifts-open .desktop-navigation-controls,
         body.recharge-open .feed-navigation-tabs,
-        body.recharge-open .desktop-navigation-controls,
-        body.game-open .feed-navigation-tabs,
-        body.game-open .desktop-navigation-controls {
+        body.game-open .feed-navigation-tabs {
           display: none !important;
         }
         body.game-open nav {
@@ -689,7 +685,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       )}
 
       {/* Desktop Navigation Controls - Only on Laptop/TV */}
-      <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60] desktop-navigation-controls">
+      <div className="hidden lg:flex fixed right-32 top-1/2 -translate-y-1/2 flex-col gap-6 z-[60]">
         <button 
           onClick={handlePrevPost}
           className="p-4 bg-white/10 backdrop-blur-xl rounded-full text-white hover:bg-purple-600 hover:scale-110 active:scale-90 transition-all border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] group"
