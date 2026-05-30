@@ -1091,10 +1091,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           )}
 
           {/* Placeholder/Poster when not near or loading */}
-          {(!isNearScreen || (!isPlaying && post.thumbnail_url)) && (
-            <div className="absolute inset-0 z-0">
+          {post.thumbnail_url && (
+            <div 
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                opacity: isPlaying ? 0 : 1,
+                transition: 'opacity 0.3s ease-in-out'
+              }}
+            >
                <img 
-                 src={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : ''} 
+                 src={parseMediaUrl(post.thumbnail_url)} 
                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                  alt=""
                />
