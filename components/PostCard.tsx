@@ -1095,7 +1095,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <div className="absolute inset-0 z-0">
                <img 
                  src={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : ''} 
-                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover blur-[2px] opacity-50'}`}
+                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                  alt=""
                />
             </div>
@@ -1107,16 +1107,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-sm sm:text-base px-4' : 'text-3xl sm:text-4xl'}`}>
               {post.text_overlay}
             </span>
-          </div>
-        )}
-
-        {isLoading && !videoError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/40 backdrop-blur-[2px] z-10">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-zinc-800 border-t-zinc-400 rounded-full animate-spin"></div>
-              <Play size={24} className="text-zinc-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20" fill="currentColor" />
-            </div>
-            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em] mt-6 animate-pulse">A carregar...</p>
           </div>
         )}
         
