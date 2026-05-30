@@ -690,7 +690,7 @@ const App: React.FC = () => {
             onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
             className="flex items-center justify-center group outline-none"
           >
-            <div className="w-12 h-9 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] group-active:scale-90 transition-all border border-white/10">
+            <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
               <span className="text-xl font-black italic tracking-wide select-none">Z</span>
             </div>
           </button>
