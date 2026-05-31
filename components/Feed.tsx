@@ -497,6 +497,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         body.game-open nav {
           display: none !important;
         }
+        body.comments-open .feed-item:not(:has(.comments-active-postcard)),
+        body.gifts-open .feed-item:not(:has(.gifts-active-postcard)),
+        body.recharge-open .feed-item:not(:has(.recharge-active-postcard)) {
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
