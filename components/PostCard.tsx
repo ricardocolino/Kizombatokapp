@@ -1043,12 +1043,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   return (
     <div ref={containerRef} className={`relative h-full w-full bg-black flex flex-col items-center ${showComments ? 'justify-start' : 'justify-center'} overflow-hidden will-change-transform`}>
       {/* Video Content */}
-      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
+      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
           {isNearScreen && (
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+              className="w-full h-full bg-black transition-all duration-300 object-cover"
               style={{ 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
                 opacity: isPlaying ? 1 : 0,
@@ -1101,7 +1101,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             >
                <img 
                  src={parseMediaUrl(post.thumbnail_url)} 
-                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                 className="w-full h-full transition-all duration-300 object-cover"
                  alt=""
                />
             </div>
@@ -1313,7 +1313,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           onTouchEnd={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <div className="absolute inset-0 bg-transparent" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]" onClick={() => { setShowComments(false); setReplyingTo(null); }} />
           <div className="relative bg-white h-[70vh] flex flex-col rounded-t-3xl shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden text-black">
             <div className="relative flex items-center justify-center py-3.5 px-4 border-b border-zinc-100 shrink-0">
                <span className="text-sm font-bold text-zinc-800 tracking-tight">
