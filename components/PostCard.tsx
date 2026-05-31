@@ -1320,7 +1320,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>
 
-          {post.mp3_url && (
+          {(post.mp3_url || post.dubbed_from_id) && (
             <button 
               onClick={(e) => { 
                 e.stopPropagation(); 
