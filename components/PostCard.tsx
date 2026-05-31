@@ -1393,7 +1393,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 {isLoggedIn && !metadata.isOwnPost && (
                   <button 
                     type="button" 
-                    onClick={() => setShowGifts(true)} 
+                    onClick={() => {
+                      setShowComments(false);
+                      setShowGifts(true);
+                    }} 
                     className="w-[38px] h-[38px] sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-all bg-zinc-100 hover:bg-zinc-200 text-purple-600 active:scale-90"
                     title={t('Send Gift', 'Enviar Presente')}
                   >
