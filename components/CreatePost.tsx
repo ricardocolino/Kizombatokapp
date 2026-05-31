@@ -707,6 +707,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       let finalMediaBlob: Blob | (File | Blob) = mediaFiles[0];
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
+      let finalMp3Url: string | null = null;
 
       if (isVideo) {
         // 6. Adicionar verificação antes do processamento
@@ -861,6 +862,50 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           const thumbFileName = `${userId}-${timestamp}.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
         }
+
+        // --- EXTRAÇÃO E GRAVAÇÃO DE MP3 NO SUPABASE STORAGE (Se for vídeo da galeria) ---
+        if (isVideo && isFromGallery && uploadType === 'post') {
+          try {
+            console.log('[Upload MP3] Convertendo vídeo da galeria para MP3...');
+            const ffmpeg = await loadFFmpeg();
+
+            try { await ffmpeg.deleteFile('/input_mp3.mp4'); } catch { /* ignore */ }
+            try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
+
+            const videoData = await fetchFile(mediaFiles[0]);
+            await ffmpeg.writeFile('/input_mp3.mp4', videoData);
+
+            await ffmpeg.exec(['-i', '/input_mp3.mp4', '-vn', '-y', '/output_mp3.mp3']);
+            const audioOutput = await ffmpeg.readFile('/output_mp3.mp3');
+            const mp3Blob = new Blob([audioOutput], { type: 'audio/mp3' });
+            
+            const bucketName = 'mp3-audios';
+            const mp3Path = `${userId}/${timestamp}.mp3`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from(bucketName)
+              .upload(mp3Path, mp3Blob, {
+                contentType: 'audio/mp3',
+                cacheControl: '3600',
+                upsert: true
+              });
+              
+            if (uploadError) {
+              console.error('Erro no upload do MP3 no Supabase Storage:', uploadError);
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from(bucketName)
+                .getPublicUrl(mp3Path);
+              finalMp3Url = publicUrl;
+              console.log('MP3 salvo no Supabase Storage:', publicUrl);
+            }
+
+            try { await ffmpeg.deleteFile('/input_mp3.mp4'); } catch { /* ignore */ }
+            try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
+          } catch (mp3Err) {
+            console.error('Erro geral ao processar áudio MP3 no upload da galeria:', mp3Err);
+          }
+        }
       }
 
       // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
@@ -895,6 +940,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           is_education: false,
           is_ready: true,
           views: 0,
+          mp3_url: finalMp3Url,
           created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;

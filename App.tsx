@@ -132,6 +132,7 @@ const App: React.FC = () => {
       let finalMediaBlob = mediaFile;
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
+      let finalMp3Url: string | null = null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
       if (isVideo && !isFromGallery) {
@@ -207,6 +208,51 @@ const App: React.FC = () => {
         } catch (thumbErr) {
           console.error('Erro ao gerar thumbnail browser background:', thumbErr);
         }
+
+        // --- EXTRAÇÃO E GRAVAÇÃO DE MP3 NO SUPABASE STORAGE ---
+        try {
+          console.log('[Upload MP3] Convertendo vídeo da galeria para MP3...');
+          const ffmpeg = new FFmpeg();
+          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
+
+          const videoData = await fetchFile(mediaFile);
+          await ffmpeg.writeFile('/input_mp3.mp4', videoData);
+
+          await ffmpeg.exec(['-i', '/input_mp3.mp4', '-vn', '-y', '/output_mp3.mp3']);
+          const audioOutput = await ffmpeg.readFile('/output_mp3.mp3');
+          const mp3Blob = new Blob([audioOutput], { type: 'audio/mp3' });
+          
+          const bucketName = 'mp3-audios';
+          const mp3Path = `${userId}/${timestamp}.mp3`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(mp3Path, mp3Blob, {
+              contentType: 'audio/mp3',
+              cacheControl: '3600',
+              upsert: true
+            });
+            
+          if (uploadError) {
+            console.error('Erro no upload do MP3 no Supabase Storage:', uploadError);
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from(bucketName)
+              .getPublicUrl(mp3Path);
+            finalMp3Url = publicUrl;
+            console.log('MP3 salvo no Supabase Storage:', publicUrl);
+          }
+
+          // Limpeza
+          try { await ffmpeg.deleteFile('/input_mp3.mp4'); } catch { /* ignore */ }
+          try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
+        } catch (mp3Err) {
+          console.error('Erro ao extrair/enviar áudio MP3 no background:', mp3Err);
+        }
       }
 
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
@@ -248,6 +294,7 @@ const App: React.FC = () => {
           is_education: isEducation ? 1 : 0,
           is_ready: true,
           views: 0,
+          mp3_url: finalMp3Url,
           created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;
