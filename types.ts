@@ -26,6 +26,7 @@ export interface Post {
   filter: string | null;
   is_education?: boolean;
   is_ready: boolean;
+  mp3_url?: string | null;
   created_at: string;
   profiles?: Profile;
   _count?: {

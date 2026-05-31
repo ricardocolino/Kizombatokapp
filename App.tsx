@@ -552,6 +552,7 @@ const App: React.FC = () => {
           onRequireAuth={() => setActiveTab(Tab.PROFILE)} 
           initialPostId={targetPostId} 
           feedFilter={feedFilter}
+          onDub={handleDub}
           onClearFilter={() => {
             if (feedFilter) {
               const targetUserId = feedFilter.userId;
