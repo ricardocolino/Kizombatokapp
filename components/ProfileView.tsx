@@ -1157,9 +1157,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Profile Info Section (Centralizado) */}
-      <div className="px-4 pb-6 pt-10 flex flex-col items-center text-center">
+      <div className="px-4 pb-4 pt-4 flex flex-col items-center text-center">
         <div className="relative">
-          <div className={`w-28 h-28 rounded-xl bg-white p-1 ${hasStories ? 'ring-2 ring-purple-600' : ''}`}>
+          <div className={`w-24 h-24 rounded-xl bg-white p-1 ${hasStories ? 'ring-2 ring-purple-600' : ''}`}>
             <div 
               onClick={() => {
                 if (profile.avatar_url) {
@@ -1173,61 +1173,61 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               {profile.avatar_url ? (
                 <img src={parseMediaUrl(profile.avatar_url)} className="w-full h-full object-cover" alt="" />
               ) : (
-                <span className="text-3xl font-light text-zinc-400">{profile.username[0].toUpperCase()}</span>
+                <span className="text-2xl font-light text-zinc-400">{profile.username[0].toUpperCase()}</span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="mt-4 space-y-1">
-          <h2 className="text-2xl font-bold text-black leading-tight tracking-tight">{profile.name || profile.username}</h2>
-          <p className="text-sm text-zinc-400 font-medium">@{profile.username}</p>
+        <div className="mt-2 space-y-0.5">
+          <h2 className="text-xl font-bold text-black leading-tight tracking-tight">{profile.name || profile.username}</h2>
+          <p className="text-xs text-zinc-400 font-medium">@{profile.username}</p>
         </div>
 
         {profile.bio && (
-          <p className="text-[13px] text-zinc-600 mt-4 leading-relaxed break-words whitespace-pre-wrap max-w-xs font-light">
+          <p className="text-xs text-zinc-600 mt-2 leading-relaxed break-words whitespace-pre-wrap max-w-xs font-light">
             {profile.bio}
           </p>
         )}
 
-        <div className="flex gap-10 mt-10">
+        <div className="flex gap-8 mt-4">
           <button 
             type="button"
             onClick={() => setFollowModalType('following')} 
             className="flex flex-col items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all text-left outline-none"
           >
-            <span className="text-xl font-bold text-black">{stats.following}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Following_count')}</span>
+            <span className="text-lg font-bold text-black">{stats.following}</span>
+            <span className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mt-0.5">{t('Following_count')}</span>
           </button>
           <button 
             type="button"
             onClick={() => setFollowModalType('followers')} 
             className="flex flex-col items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all text-left outline-none"
           >
-            <span className="text-xl font-bold text-black">{stats.followers}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Followers')}</span>
+            <span className="text-lg font-bold text-black">{stats.followers}</span>
+            <span className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mt-0.5">{t('Followers')}</span>
           </button>
           <div className="flex flex-col items-center">
-            <span className="text-xl font-bold text-black">{stats.views}</span>
-            <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mt-1">{t('Views')}</span>
+            <span className="text-lg font-bold text-black">{stats.views}</span>
+            <span className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mt-0.5">{t('Views')}</span>
           </div>
         </div>
 
-        <div className="flex gap-3 mt-10 w-full max-w-xs">
+        <div className="flex gap-3 mt-4 w-full max-w-xs">
           {isOwnProfile ? (
             <>
               <button 
                 onClick={() => setShowDashboard(true)}
-                className="flex-1 h-10 bg-zinc-100 text-black rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 h-9 bg-zinc-100 text-black rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5"
               >
-                <Wallet size={16} />
+                <Wallet size={14} />
                 {t('Wallet')}
               </button>
             </>
           ) : (
             <button 
               onClick={handleFollowToggle}
-              className={`w-full h-10 rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
+              className={`w-full h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 ${
                 isFollowing 
                   ? 'bg-black text-white' 
                   : 'bg-zinc-100 text-black'
