@@ -27,6 +27,8 @@ export interface Post {
   is_education?: boolean;
   is_ready: boolean;
   mp3_url?: string | null;
+  dubbed_from_id?: string | null;
+  dubbed_from?: Post;
   created_at: string;
   profiles?: Profile;
   _count?: {

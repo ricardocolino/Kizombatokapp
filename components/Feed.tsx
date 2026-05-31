@@ -18,7 +18,7 @@ interface FeedProps {
   feedFilter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' } | null;
   onClearFilter?: () => void;
   refreshTrigger?: number;
-  onDub?: (mp3Url: string) => void;
+  onDub?: (mp3Url: string, originalPostId: string) => void;
 }
 
 export interface PostMetadata {

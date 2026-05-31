@@ -23,7 +23,7 @@ interface PostCardProps {
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
   onJoinLive?: (liveId: string) => void;
   isPaused?: boolean;
-  onDub?: (mp3Url: string) => void;
+  onDub?: (mp3Url: string, originalPostId: string) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -104,6 +104,58 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [sendingGift, setSendingGift] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
 
+  const [originalPost, setOriginalPost] = useState<Post | null>(null);
+  const [showAudioDetails, setShowAudioDetails] = useState(false);
+  const [audioDubs, setAudioDubs] = useState<Post[]>([]);
+  const [loadingDubs, setLoadingDubs] = useState(false);
+
+  useEffect(() => {
+    if (post.dubbed_from_id) {
+      const fetchOriginalPost = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('posts')
+            .select('*, profiles!user_id(*)')
+            .eq('id', post.dubbed_from_id)
+            .maybeSingle();
+          if (!error && data) {
+            setOriginalPost(data as Post);
+          }
+        } catch (err) {
+          console.error("Error fetching original post:", err);
+        }
+      };
+      fetchOriginalPost();
+    } else {
+      setOriginalPost(null);
+    }
+  }, [post.dubbed_from_id]);
+
+  const fetchAudioDubs = async (audioPostId: string) => {
+    setLoadingDubs(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*, profiles!user_id(*)')
+        .eq('dubbed_from_id', audioPostId)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setAudioDubs(data as Post[]);
+      }
+    } catch (err) {
+      console.error("Error fetching audio dubs:", err);
+    } finally {
+      setLoadingDubs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showAudioDetails) {
+      const audioPostId = post.dubbed_from_id || post.id;
+      fetchAudioDubs(audioPostId);
+    }
+  }, [showAudioDetails, post.dubbed_from_id, post.id]);
+
   useEffect(() => {
     setIsCaptionExpanded(false);
   }, [post.id]);
@@ -117,7 +169,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const commentsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge;
+    const isAnyPopupOpen = showComments || showGifts || showShare || showRecharge || showAudioDetails;
     const feed = document.querySelector('.feed-container') as HTMLElement;
     if (!feed) return;
     
@@ -133,7 +185,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       feed.style.setProperty('overflow-y', 'scroll', 'important');
       feed.style.setProperty('touch-action', 'auto', 'important');
     };
-  }, [showComments, showGifts, showShare, showRecharge]);
+  }, [showComments, showGifts, showShare, showRecharge, showAudioDetails]);
 
   useEffect(() => {
     if (showGifts) {
@@ -1270,15 +1322,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <button 
               onClick={(e) => { 
                 e.stopPropagation(); 
-                if (onDub) onDub(post.mp3_url); 
+                setShowAudioDetails(true); 
               }} 
               className="flex flex-col items-center group relative mt-1 shrink-0"
-              title="Dublar este vídeo"
+              title="Ver detalhes do áudio"
             >
-              <div className="p-1.5 sm:p-2 bg-purple-600 rounded-full animate-[spin_5s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border border-white/20">
-                <Music size={18} className="text-white" />
+              <div className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border-2 border-white/40 flex items-center justify-center overflow-hidden relative">
+                {(post.dubbed_from_id ? originalPost?.profiles?.avatar_url : post.profiles?.avatar_url) ? (
+                  <img 
+                    src={post.dubbed_from_id ? originalPost?.profiles?.avatar_url || '' : post.profiles?.avatar_url || ''} 
+                    alt="Audio Creator" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <Music size={18} className="text-white" />
+                )}
+                <div className="absolute -bottom-0.5 -right-0.5 bg-purple-600 text-white p-0.5 rounded-full border border-white/20 scale-75 shadow-md">
+                  <Music size={10} className="text-white fill-white" />
+                </div>
               </div>
-              <span className="text-[8px] sm:text-[10px] font-black text-purple-400 drop-shadow-md tracking-tighter uppercase mt-1">Dub</span>
+              <span className="text-[8px] sm:text-[10px] font-black text-purple-400 drop-shadow-md tracking-tighter uppercase mt-1">Áudio</span>
             </button>
           )}
 
@@ -1593,6 +1657,150 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               >
                 {t('Recharge Coins')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAudioDetails && (
+        <div 
+          className="fixed inset-0 z-[1000] flex flex-col justify-end touch-none text-zinc-950 font-sans"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" 
+            onClick={() => setShowAudioDetails(false)} 
+          />
+          <div className="relative bg-white rounded-t-[40px] p-6 sm:p-8 flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out] overflow-hidden">
+            <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-4" />
+
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black uppercase tracking-wider text-purple-600 flex items-center gap-1.5">
+                <Music size={16} />
+                {t('Audio Track', 'Faixa de Áudio')}
+              </h3>
+              <button 
+                onClick={() => setShowAudioDetails(false)} 
+                className="w-8 h-8 flex items-center justify-center bg-zinc-100 rounded-full text-zinc-500 hover:bg-zinc-200 transition-colors"
+                id="btn-close-audio-details"
+              >
+                <X size={18} strokeWidth={2.5}/>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 sm:gap-6 bg-zinc-50 border border-zinc-100 p-4 sm:p-5 rounded-3xl mb-6">
+              <div className="w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] rounded-2xl bg-zinc-200 border border-zinc-100 relative shadow-md overflow-hidden shrink-0">
+                {((post.dubbed_from_id ? originalPost : post)?.profiles?.avatar_url) ? (
+                  <img 
+                    src={(post.dubbed_from_id ? originalPost : post)?.profiles?.avatar_url || ''} 
+                    alt="Audio Creator" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                    <Music size={32} />
+                  </div>
+                )}
+                <div className="absolute top-1 right-1 bg-purple-600 text-white p-1 rounded-full scale-75 animate-[pulse_2s_infinite]">
+                  <Music size={12} className="fill-white" />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h4 className="font-extrabold text-base sm:text-lg text-zinc-900 leading-tight truncate">
+                  {t('Original Sound', 'Som Original')} - {(post.dubbed_from_id ? originalPost : post)?.profiles?.name || (post.dubbed_from_id ? originalPost : post)?.profiles?.username}
+                </h4>
+                <p 
+                  onClick={() => {
+                    const audUser = (post.dubbed_from_id ? originalPost : post)?.user_id;
+                    if (audUser) {
+                      setShowAudioDetails(false);
+                      onNavigateToProfile(audUser);
+                    }
+                  }}
+                  className="text-xs font-bold text-zinc-500 mt-1 cursor-pointer hover:underline flex items-center gap-1"
+                >
+                  @{((post.dubbed_from_id ? originalPost : post)?.profiles?.username) || 'poster'}
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100/50 rounded-full mt-2.5">
+                  <span className="text-[10px] font-black text-purple-700 uppercase tracking-wider">
+                    {audioDubs.length} {audioDubs.length === 1 ? t('dubbing', 'dublagem') : t('dubbings', 'dublagens')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                const originalTarget = post.dubbed_from_id ? originalPost : post;
+                if (onDub && originalTarget?.mp3_url) {
+                  onDub(originalTarget.mp3_url, originalTarget.id);
+                  setShowAudioDetails(false);
+                }
+              }}
+              className="w-full py-4.5 mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full text-sm font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-500/20 shadow-md flex items-center justify-center gap-2.5 transition-all outline-none"
+              id="btn-dub-with-audio"
+            >
+              <Music size={16} className="text-white fill-white" />
+              {t('Dub with this audio', 'Dublar com este Áudio')}
+            </button>
+
+            <div className="flex flex-col flex-1 min-h-[180px] max-h-[300px] overflow-hidden">
+              <h5 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                {t('Dubs created', 'Vídeos Dublados')}
+              </h5>
+
+              {loadingDubs ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-8 gap-2">
+                  <Loader2 className="animate-spin text-purple-600" size={24} />
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t('Loading dubs')}...</p>
+                </div>
+              ) : audioDubs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-zinc-200 rounded-3xl p-6 text-center">
+                  <p className="text-xs font-medium text-zinc-400">
+                    {t('No dubs yet. Be the first to use this sound!', 'Ainda não há dublagens para este áudio. Seja o primeiro!')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto pb-4 no-scrollbar">
+                  {audioDubs.map((dub) => (
+                    <div 
+                      key={dub.id} 
+                      className="aspect-[9/16] relative bg-zinc-150 rounded-2xl overflow-hidden group shadow-sm border border-zinc-100"
+                    >
+                      <img 
+                        src={dub.thumbnail_url || dub.media_url || ''} 
+                        alt={dub.content || "Dub"} 
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-2 flex items-center gap-1.5 pointer-events-none">
+                        <div className="w-5 h-5 rounded-full border border-white/40 overflow-hidden pointer-events-auto cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAudioDetails(false);
+                            onNavigateToProfile(dub.user_id);
+                          }}
+                        >
+                          <img 
+                            src={dub.profiles?.avatar_url || ''} 
+                            alt="Creator" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <span className="text-[9px] font-extrabold text-white truncate drop-shadow">
+                          @{dub.profiles?.username}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

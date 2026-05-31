@@ -22,14 +22,16 @@ interface CreatePostProps {
     trimEnd: number;
     recordingSeconds: number;
     dubbedMp3Url?: string | null;
+    dubbedFromId?: string | null;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
   dubbingMp3Url?: string | null;
+  dubbedFromId?: string | null;
   onClearDubbing?: () => void;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, onClearDubbing }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, dubbedFromId, onClearDubbing }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
@@ -678,7 +680,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         trimStart,
         trimEnd,
         recordingSeconds,
-        dubbedMp3Url: dubbingMp3Url
+        dubbedMp3Url: dubbingMp3Url,
+        dubbedFromId: dubbedFromId
       });
       onCreated();
       return;
@@ -976,6 +979,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           is_ready: true,
           views: 0,
           mp3_url: finalMp3Url,
+          dubbed_from_id: dubbedFromId || null,
           created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;

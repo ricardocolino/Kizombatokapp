@@ -42,6 +42,7 @@ interface UploadData {
   trimEnd: number;
   recordingSeconds: number;
   dubbedMp3Url?: string | null;
+  dubbedFromId?: string | null;
 }
 
 const App: React.FC = () => {
@@ -63,6 +64,7 @@ const App: React.FC = () => {
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dubbingMp3Url, setDubbingMp3Url] = useState<string | null>(null);
+  const [dubbedFromId, setDubbedFromId] = useState<string | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -123,6 +125,7 @@ const App: React.FC = () => {
         trimStart,
         trimEnd,
         dubbedMp3Url,
+        dubbedFromId,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -327,6 +330,7 @@ const App: React.FC = () => {
           is_ready: true,
           views: 0,
           mp3_url: finalMp3Url,
+          dubbed_from_id: dubbedFromId || null,
           created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;
@@ -512,8 +516,9 @@ const App: React.FC = () => {
     setHomeRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDub = (mp3Url: string) => {
+  const handleDub = (mp3Url: string, originalPostId?: string | null) => {
     setDubbingMp3Url(mp3Url);
+    setDubbedFromId(originalPostId || null);
     setActiveTab(Tab.CREATE);
   };
 
@@ -588,6 +593,7 @@ const App: React.FC = () => {
           onCreated={() => { 
             setIsCreatingStory(false);
             setDubbingMp3Url(null);
+            setDubbedFromId(null);
             setActiveTab(Tab.HOME); 
           }} 
           onBackgroundUpload={handleBackgroundUpload}
@@ -597,7 +603,11 @@ const App: React.FC = () => {
           }}
           initialType={isCreatingStory ? 'story' : 'post'}
           dubbingMp3Url={dubbingMp3Url}
-          onClearDubbing={() => setDubbingMp3Url(null)}
+          dubbedFromId={dubbedFromId}
+          onClearDubbing={() => {
+            setDubbingMp3Url(null);
+            setDubbedFromId(null);
+          }}
         />;
       case Tab.LIVE:
         return <LiveList 
