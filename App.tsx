@@ -557,7 +557,10 @@ const App: React.FC = () => {
         <AudioDetailsPage
           postId={viewAudioPostId}
           onBack={() => setViewAudioPostId(null)}
-          onDub={handleDub}
+          onDub={(mp3Url, originalPostId) => {
+            setViewAudioPostId(null);
+            handleDub(mp3Url, originalPostId);
+          }}
           onNavigateToProfile={handleNavigateToProfile}
           onNavigateToPost={(postId) => {
             setViewAudioPostId(null);
