@@ -492,6 +492,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         body.game-open .feed-navigation-tabs {
           display: none !important;
         }
+        body.gifts-open nav,
+        body.recharge-open nav,
         body.game-open nav {
           display: none !important;
         }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface RechargeModalProps {
@@ -11,6 +11,13 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
   const { t } = useTranslation();
   const [iframeUrl, setIframeUrl] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.body.classList.add('recharge-open');
+    return () => {
+      document.body.classList.remove('recharge-open');
+    };
+  }, []);
 
   useEffect(() => {
     const initIframe = async () => {
@@ -43,12 +50,6 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
           <ChevronLeft size={20} />
         </button>
         <span className="text-xs font-black uppercase tracking-widest text-zinc-950">{t('Secure Payment')}</span>
-        <button 
-          onClick={onClose}
-          className="ml-auto p-2 text-zinc-400 hover:text-black transition-colors"
-        >
-          <X size={20} />
-        </button>
       </header>
       
       <div className="flex-1 relative bg-white">
