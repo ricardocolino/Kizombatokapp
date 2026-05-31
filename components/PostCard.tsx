@@ -1333,20 +1333,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="flex flex-col items-center group relative mt-1 shrink-0"
               title="Ver detalhes do áudio"
             >
-              <div className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border-2 border-white/40 flex items-center justify-center overflow-hidden relative">
-                {(post.dubbed_from_id ? originalPost?.profiles?.avatar_url : post.profiles?.avatar_url) ? (
-                  <img 
-                    src={post.dubbed_from_id ? originalPost?.profiles?.avatar_url || '' : post.profiles?.avatar_url || ''} 
-                    alt="Audio Creator" 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <Music size={18} className="text-white" />
-                )}
-                <div className="absolute -bottom-0.5 -right-0.5 bg-purple-600 text-white p-0.5 rounded-full border border-white/20 scale-75 shadow-md">
-                  <Music size={10} className="text-white fill-white" />
-                </div>
+              <div className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border-2 border-white/40 flex items-center justify-center">
+                <Music size={18} className="text-white fill-white" />
               </div>
               <span className="text-[8px] sm:text-[10px] font-black text-purple-400 drop-shadow-md tracking-tighter uppercase mt-1">Áudio</span>
             </button>
