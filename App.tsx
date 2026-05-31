@@ -15,6 +15,7 @@ import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
+import AudioDetailsPage from './components/AudioDetailsPage';
 import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
@@ -65,6 +66,7 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dubbingMp3Url, setDubbingMp3Url] = useState<string | null>(null);
   const [dubbedFromId, setDubbedFromId] = useState<string | null>(null);
+  const [viewAudioPostId, setViewAudioPostId] = useState<string | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -550,6 +552,21 @@ const App: React.FC = () => {
       return <Auth />;
     }
 
+    if (viewAudioPostId) {
+      return (
+        <AudioDetailsPage
+          postId={viewAudioPostId}
+          onBack={() => setViewAudioPostId(null)}
+          onDub={handleDub}
+          onNavigateToProfile={handleNavigateToProfile}
+          onNavigateToPost={(postId) => {
+            setViewAudioPostId(null);
+            handleNavigateToPost(postId);
+          }}
+        />
+      );
+    }
+
     switch (activeTab) {
       case Tab.HOME:
         return <Feed 
@@ -558,6 +575,7 @@ const App: React.FC = () => {
           initialPostId={targetPostId} 
           feedFilter={feedFilter}
           onDub={handleDub}
+          onViewAudio={(audioPostId) => setViewAudioPostId(audioPostId)}
           onClearFilter={() => {
             if (feedFilter) {
               const targetUserId = feedFilter.userId;
@@ -652,7 +670,7 @@ const App: React.FC = () => {
         );
       }
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={(audioPostId) => setViewAudioPostId(audioPostId)} />;
     }
   };
 
@@ -765,7 +783,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && (
+      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
         <nav className="h-[60px] lg:h-[64px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2 lg:px-8">
           <button 
             onClick={handleGoHome}

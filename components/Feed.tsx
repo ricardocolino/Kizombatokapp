@@ -19,6 +19,7 @@ interface FeedProps {
   onClearFilter?: () => void;
   refreshTrigger?: number;
   onDub?: (mp3Url: string, originalPostId: string) => void;
+  onViewAudio?: (audioPostId: string) => void;
 }
 
 export interface PostMetadata {
@@ -33,7 +34,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio }) => {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -586,6 +587,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               onJoinLive={onJoinLive}
               isPaused={isPaused || showExternalUrl || showGameIntro}
               onDub={onDub}
+              onViewAudio={onViewAudio}
             />
           </div>
         ))}

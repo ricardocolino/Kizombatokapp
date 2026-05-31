@@ -24,6 +24,7 @@ interface PostCardProps {
   onJoinLive?: (liveId: string) => void;
   isPaused?: boolean;
   onDub?: (mp3Url: string, originalPostId: string) => void;
+  onViewAudio?: (audioPostId: string) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -44,7 +45,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onViewStories,
   onJoinLive,
   isPaused,
-  onDub
+  onDub,
+  onViewAudio
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1322,7 +1324,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <button 
               onClick={(e) => { 
                 e.stopPropagation(); 
-                setShowAudioDetails(true); 
+                if (onViewAudio) {
+                  onViewAudio(post.dubbed_from_id || post.id);
+                } else {
+                  setShowAudioDetails(true);
+                }
               }} 
               className="flex flex-col items-center group relative mt-1 shrink-0"
               title="Ver detalhes do áudio"
