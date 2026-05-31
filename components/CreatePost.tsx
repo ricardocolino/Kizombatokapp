@@ -365,7 +365,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   const startCountdown = () => {
-    let count = 3;
+    let count = 10;
     setCountdown(count);
     const countInterval = setInterval(async () => {
       count -= 1;
