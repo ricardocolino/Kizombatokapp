@@ -41,6 +41,7 @@ interface UploadData {
   trimStart: number;
   trimEnd: number;
   recordingSeconds: number;
+  dubbedMp3Url?: string | null;
 }
 
 const App: React.FC = () => {
@@ -61,6 +62,7 @@ const App: React.FC = () => {
   const [homeRefreshTrigger, setHomeRefreshTrigger] = useState(0);
   const [uploadTask, setUploadTask] = useState<{ progress: number; active: boolean; error: string | null } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [dubbingMp3Url, setDubbingMp3Url] = useState<string | null>(null);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -120,6 +122,7 @@ const App: React.FC = () => {
         isFromGallery,
         trimStart,
         trimEnd,
+        dubbedMp3Url,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -149,6 +152,19 @@ const App: React.FC = () => {
           const videoData = await fetchFile(mediaFile);
           await ffmpeg.writeFile('/input.mp4', videoData);
 
+          if (dubbedMp3Url) {
+            try {
+              console.log('[FFMPEG Dubbing] Baixando MP3 para dublagem:', dubbedMp3Url);
+              const audioRes = await fetch(dubbedMp3Url);
+              const audioBlob = await audioRes.blob();
+              const audioData = await fetchFile(audioBlob);
+              await ffmpeg.writeFile('/dub_audio.mp3', audioData);
+              console.log('[FFMPEG Dubbing] MP3 carregado com sucesso!');
+            } catch (err) {
+              console.error('Erro ao preparar áudio de dublagem:', err);
+            }
+          }
+
           const filterParts = [];
           // Redimensionar e garantir dimensões pares
           filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
@@ -167,8 +183,18 @@ const App: React.FC = () => {
           }
           
           videoArgs.push('-i', '/input.mp4');
+          if (dubbedMp3Url) {
+            videoArgs.push('-i', '/dub_audio.mp3');
+          }
+
           if (filterParts.length > 0) {
             videoArgs.push('-vf', filterParts.join(','));
+          }
+
+          if (dubbedMp3Url) {
+            // Mapeia o vídeo do primeiro input (0) e o áudio do segundo input (1).
+            // -shortest corta o output assim que o vídeo acaba.
+            videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
           }
 
           // Configurações de compressão
@@ -193,6 +219,12 @@ const App: React.FC = () => {
           const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+          
+          // Limpar arquivos temporários
+          try { await ffmpeg.deleteFile('/input.mp4'); } catch { /* ignore */ }
+          try { await ffmpeg.deleteFile('/dub_audio.mp3'); } catch { /* ignore */ }
+          try { await ffmpeg.deleteFile('/output.mp4'); } catch { /* ignore */ }
+          try { await ffmpeg.deleteFile('/thumb.jpg'); } catch { /* ignore */ }
           
         } catch (procErr) {
           console.error('Erro no processamento FFmpeg background:', procErr);
@@ -480,7 +512,8 @@ const App: React.FC = () => {
     setHomeRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDub = () => {
+  const handleDub = (mp3Url: string) => {
+    setDubbingMp3Url(mp3Url);
     setActiveTab(Tab.CREATE);
   };
 
@@ -553,6 +586,7 @@ const App: React.FC = () => {
         return <CreatePost 
           onCreated={() => { 
             setIsCreatingStory(false);
+            setDubbingMp3Url(null);
             setActiveTab(Tab.HOME); 
           }} 
           onBackgroundUpload={handleBackgroundUpload}
@@ -561,6 +595,8 @@ const App: React.FC = () => {
             setActiveLiveId(null);
           }}
           initialType={isCreatingStory ? 'story' : 'post'}
+          dubbingMp3Url={dubbingMp3Url}
+          onClearDubbing={() => setDubbingMp3Url(null)}
         />;
       case Tab.LIVE:
         return <LiveList 

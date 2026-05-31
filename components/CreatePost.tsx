@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -21,12 +21,15 @@ interface CreatePostProps {
     trimStart: number;
     trimEnd: number;
     recordingSeconds: number;
+    dubbedMp3Url?: string | null;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
+  dubbingMp3Url?: string | null;
+  onClearDubbing?: () => void;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post' }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, onClearDubbing }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
@@ -65,6 +68,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
   const [todayCount, setTodayCount] = useState<number | null>(null);
+  const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dubbingAudioRef.current) {
+        dubbingAudioRef.current.pause();
+        dubbingAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const checkDailyLimit = async () => {
     try {
@@ -383,6 +396,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         await videoPromise;
         
         setIsRecording(true);
+        if (dubbingMp3Url) {
+          try {
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.currentTime = 0;
+            } else {
+              dubbingAudioRef.current = new Audio(dubbingMp3Url);
+            }
+            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+          } catch (audioPlaybackError) {
+            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+          }
+        }
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
@@ -408,6 +433,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+
+      if (dubbingAudioRef.current) {
+        try {
+          dubbingAudioRef.current.pause();
+          dubbingAudioRef.current.currentTime = 0;
+        } catch (err) {
+          console.error("Erro ao parar áudio de dublagem:", err);
+        }
       }
 
       if (Capacitor.isNativePlatform()) {
@@ -643,7 +677,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         isFromGallery,
         trimStart,
         trimEnd,
-        recordingSeconds
+        recordingSeconds,
+        dubbedMp3Url: dubbingMp3Url
       });
       onCreated();
       return;
@@ -1043,6 +1078,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               <X size={24} />
             </button>
 
+            {dubbingMp3Url && (
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-purple-600/90 backdrop-blur-lg rounded-full shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400 text-white">
+                <Music size={14} className="animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Dublagem Ativa</span>
+              </div>
+            )}
+
             {/* Right Sidebar Buttons */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-8 z-50">
               {/* Publish Button (Top) */}
@@ -1151,6 +1193,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             <button onClick={() => onCreated()} className="absolute top-6 left-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
               <X size={24} />
             </button>
+
+            {dubbingMp3Url && (
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-purple-600/90 backdrop-blur-lg rounded-full shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400 text-white animate-pulse">
+                <Music size={14} className="animate-[spin_4s_linear_infinite]" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Modo Dublagem Ativo</span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onClearDubbing) onClearDubbing();
+                  }}
+                  className="ml-1 p-0.5 bg-black/30 hover:bg-black/50 rounded-full transition-transform active:scale-90"
+                  title="Cancelar dublagem"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
 
             <div className="absolute bottom-56 left-0 w-full flex items-center justify-center gap-6 z-40 pointer-events-auto">
               <div className="flex gap-3">

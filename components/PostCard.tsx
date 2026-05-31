@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -23,6 +23,7 @@ interface PostCardProps {
   onViewStories?: (userId: string, allUserIds?: string[]) => void;
   onJoinLive?: (liveId: string) => void;
   isPaused?: boolean;
+  onDub?: (mp3Url: string) => void;
 }
 
 type EnhancedComment = Comment & { 
@@ -42,7 +43,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onRequireAuth,
   onViewStories,
   onJoinLive,
-  isPaused
+  isPaused,
+  onDub
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1263,6 +1265,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.repostsCount}</span>
           </button>
+
+          {post.mp3_url && (
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (onDub) onDub(post.mp3_url); 
+              }} 
+              className="flex flex-col items-center group relative mt-1 shrink-0"
+              title="Dublar este vídeo"
+            >
+              <div className="p-1.5 sm:p-2 bg-purple-600 rounded-full animate-[spin_5s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border border-white/20">
+                <Music size={18} className="text-white" />
+              </div>
+              <span className="text-[8px] sm:text-[10px] font-black text-purple-400 drop-shadow-md tracking-tighter uppercase mt-1">Dub</span>
+            </button>
+          )}
 
 
         </div>
