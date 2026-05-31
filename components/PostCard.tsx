@@ -100,6 +100,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [showGifts, setShowGifts] = useState(false);
   const [showRecharge, setShowRecharge] = useState(false);
   const [sendingGift, setSendingGift] = useState(false);
+  const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
+
+  useEffect(() => {
+    setIsCaptionExpanded(false);
+  }, [post.id]);
   const [comments, setComments] = useState<EnhancedComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<EnhancedComment | null>(null);
@@ -1278,7 +1283,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 • {formatPublishedTime(post.created_at)}
               </span>
             </h3>
-            <p className="text-xs sm:text-sm text-zinc-100 line-clamp-2 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[75%] sm:max-w-[80%] leading-snug">
+            <p 
+              onClick={() => setIsCaptionExpanded(!isCaptionExpanded)}
+              className={`text-xs sm:text-sm text-zinc-100 mt-1 sm:mt-1.5 pointer-events-auto drop-shadow-md max-w-[85%] leading-snug cursor-pointer transition-all ${
+                isCaptionExpanded ? 'line-clamp-none max-h-[160px] overflow-y-auto no-scrollbar' : 'line-clamp-2'
+              }`}
+            >
               {post.content}
             </p>
           </div>
