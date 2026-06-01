@@ -467,20 +467,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           setRecordingSeconds(prev => prev + 1);
         }, 1000);
 
-        // Iniciar a reprodução do áudio de dublagem depois de 20 ms (0,02 s) de gravação
+        // Iniciar a reprodução do áudio de dublagem sincronizado com o início imediato da gravação
         if (dubbingMp3Url) {
-          setTimeout(() => {
-            try {
-              if (dubbingAudioRef.current) {
-                dubbingAudioRef.current.currentTime = 0;
-              } else {
-                dubbingAudioRef.current = new Audio(dubbingMp3Url);
-              }
-              dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
-            } catch (audioPlaybackError) {
-              console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+          try {
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.currentTime = 0;
+            } else {
+              dubbingAudioRef.current = new Audio(dubbingMp3Url);
             }
-          }, 20);
+            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+          } catch (audioPlaybackError) {
+            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+          }
         }
 
         // Concluir a Promise em segundo plano de forma totalmente assíncrona
