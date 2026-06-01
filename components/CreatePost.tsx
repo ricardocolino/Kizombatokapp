@@ -414,8 +414,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           disableAudio: false
         });
 
-        // Tocar o áudio SIMULTANEAMENTE sem dar `await` no videoPromise primeiro,
-        // garantindo que comecem juntos e sincronizados para o merge.
+        await videoPromise;
+
+        // Definir estados e iniciar o cronômetro no momento exato em que a gravação se inicia nativamente (com o bip/done)
+        setIsRecording(true);
+        setRecordingSeconds(0);
+        timerRef.current = window.setInterval(() => {
+          setRecordingSeconds(prev => prev + 1);
+        }, 1000);
+
+        // Iniciar a reprodução do áudio de dublagem sincronizado com o início real da gravação
         if (dubbingMp3Url) {
           try {
             if (dubbingAudioRef.current) {
@@ -428,15 +436,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
           }
         }
-
-        // Definir estados e iniciar o cronômetro IMEDIATAMENTE para iniciar a gravação de imediato sem pausa ou atraso visual
-        setIsRecording(true);
-        setRecordingSeconds(0);
-        timerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => prev + 1);
-        }, 1000);
-
-        await videoPromise;
       } catch (err) {
         console.error("Erro ao iniciar gravação nativa:", err);
         setError("Erro ao iniciar gravação.");
