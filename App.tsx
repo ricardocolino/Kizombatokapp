@@ -181,10 +181,18 @@ const App: React.FC = () => {
           }
           
           const videoArgs = [];
-          // Trim se necessário
+          
+          // Se houver dublagem, precisamos cortar os primeiros 20 ms (0,02 s) do vídeo para sincronizar perfeitamente com o áudio que começou com atraso de 20 ms
+          let startOffset = 0;
+          if (dubbedMp3Url) {
+            startOffset = 0.02;
+          }
+
           const hasTrim = trimStart > 0 || trimEnd > 0;
           if (hasTrim) {
-            videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
+            videoArgs.push('-ss', String(trimStart + startOffset), '-t', String(trimEnd - trimStart));
+          } else if (dubbedMp3Url) {
+            videoArgs.push('-ss', '0.02');
           }
           
           videoArgs.push('-i', '/input.mp4');
