@@ -429,13 +429,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           }
         }
 
-        await videoPromise;
-        
+        // Definir estados e iniciar o cronômetro IMEDIATAMENTE para iniciar a gravação de imediato sem pausa ou atraso visual
         setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
         }, 1000);
+
+        await videoPromise;
       } catch (err) {
         console.error("Erro ao iniciar gravação nativa:", err);
         setError("Erro ao iniciar gravação.");
