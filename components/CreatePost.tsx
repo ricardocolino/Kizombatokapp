@@ -71,6 +71,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
   const [todayCount, setTodayCount] = useState<number | null>(null);
   const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingPromiseRef = useRef<Promise<unknown> | null>(null);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -409,6 +410,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
     const countInterval = setInterval(async () => {
       count -= 1;
+      
+      // Pré-iniciar a gravação de vídeo silenciosamente em segundo plano 1 segundo antes de terminar a contagem para estar quente
+      if (count === 1) {
+        if (Capacitor.isNativePlatform()) {
+          console.log("[Recording] Pré-preparando gravação de vídeo nativa em segundo plano...");
+          setRecordedFacingMode(facingMode);
+          recordingPromiseRef.current = CameraPreview.startRecordVideo({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            position: facingMode,
+            disableAudio: false
+          }).catch(err => {
+            console.error("[Recording] Erro ao pré-iniciar gravação nativa:", err);
+            return null;
+          });
+        }
+      }
+
       if (count === 0) {
         clearInterval(countInterval);
         setCountdown(null);
@@ -425,26 +444,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     if (Capacitor.isNativePlatform()) {
       try {
         setRecordedFacingMode(facingMode);
-        console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
+        console.log(`[Recording] Iniciando gravação real imediata. Câmera: ${facingMode}`);
 
-        // Iniciar gravação de vídeo
-        const videoPromise = CameraPreview.startRecordVideo({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          position: facingMode,
-          disableAudio: false
-        });
+        // Usar a promessa pré-carregada ou iniciar uma nova de fallback
+        let videoPromise = recordingPromiseRef.current;
+        if (!videoPromise) {
+          console.log("[Recording] Gravação não iniciada previamente, iniciando agora...");
+          videoPromise = CameraPreview.startRecordVideo({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            position: facingMode,
+            disableAudio: false
+          });
+        } else {
+          console.log("[Recording] Usando sessão de vídeo pré-preparada com sucesso!");
+        }
 
-        await videoPromise;
-
-        // Definir estados e iniciar o cronômetro no momento exato em que a gravação se inicia nativamente (com o bip/done)
+        // Definir estados e iniciar o cronômetro IMEDIATAMENTE (sem travar de forma síncrona com await)
         setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
         }, 1000);
 
-        // Iniciar a reprodução do áudio de dublagem sincronizado com o início real da gravação
+        // Iniciar a reprodução do áudio de dublagem sincronizado com o início imediato da gravação
         if (dubbingMp3Url) {
           try {
             if (dubbingAudioRef.current) {
@@ -457,6 +480,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
           }
         }
+
+        // Concluir a Promise em segundo plano de forma totalmente assíncrona
+        videoPromise.catch(err => {
+          console.error("Erro assíncrono na resolução da gravação nativa:", err);
+        });
+
+        // Limpar a ref
+        recordingPromiseRef.current = null;
       } catch (err) {
         console.error("Erro ao iniciar gravação nativa:", err);
         setError("Erro ao iniciar gravação.");
