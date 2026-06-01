@@ -386,6 +386,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const startCountdown = () => {
     let count = 15;
     setCountdown(count);
+
+    // Baixar ativamente o MP3 de dublagem em segundo plano durante a contagem regressiva para evitar qualquer atraso ao tocar
+    if (dubbingMp3Url) {
+      console.log("[Dubbing] Iniciando download ativo do áudio em segundo plano...", dubbingMp3Url);
+      fetch(dubbingMp3Url)
+        .then(res => res.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          console.log("[Dubbing] Download do áudio concluído, preparado com URL local:", blobUrl);
+          if (dubbingAudioRef.current) {
+            dubbingAudioRef.current.pause();
+          }
+          dubbingAudioRef.current = new Audio(blobUrl);
+          dubbingAudioRef.current.preload = "auto";
+          dubbingAudioRef.current.load();
+        })
+        .catch(err => {
+          console.error("[Dubbing] Erro ao pré-baixar áudio durante a contagem:", err);
+        });
+    }
+
     const countInterval = setInterval(async () => {
       count -= 1;
       if (count === 0) {
