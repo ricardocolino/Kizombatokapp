@@ -73,6 +73,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    if (dubbingMp3Url) {
+      console.log("[Dubbing] Precarregando áudio:", dubbingMp3Url);
+      dubbingAudioRef.current = new Audio(dubbingMp3Url);
+      dubbingAudioRef.current.preload = "auto";
+      dubbingAudioRef.current.load();
+    } else {
+      if (dubbingAudioRef.current) {
+        dubbingAudioRef.current.pause();
+        dubbingAudioRef.current = null;
+      }
+    }
+    return () => {
+      if (dubbingAudioRef.current) {
+        dubbingAudioRef.current.pause();
+      }
+    };
+  }, [dubbingMp3Url]);
+
+  useEffect(() => {
     return () => {
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
@@ -395,9 +414,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           disableAudio: false
         });
 
-        await videoPromise;
-        
-        setIsRecording(true);
+        // Tocar o áudio SIMULTANEAMENTE sem dar `await` no videoPromise primeiro,
+        // garantindo que comecem juntos e sincronizados para o merge.
         if (dubbingMp3Url) {
           try {
             if (dubbingAudioRef.current) {
@@ -410,6 +428,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
           }
         }
+
+        await videoPromise;
+        
+        setIsRecording(true);
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
