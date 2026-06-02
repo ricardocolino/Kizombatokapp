@@ -388,6 +388,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     let count = 15;
     setCountdown(count);
 
+    // Pré-iniciar a gravação de vídeo nativa silenciosamente em segundo plano imediatamente após o clique para que o microfone ligue a partir do início
+    if (Capacitor.isNativePlatform()) {
+      console.log("[Recording] Pré-preparando gravação de vídeo nativa em segundo plano imediatamente ao clicar...");
+      setRecordedFacingMode(facingMode);
+      recordingPromiseRef.current = CameraPreview.startRecordVideo({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        position: facingMode,
+        disableAudio: false
+      }).catch(err => {
+        console.error("[Recording] Erro ao pré-iniciar gravação nativa imediatamente:", err);
+        return null;
+      });
+    }
+
     // Baixar ativamente o MP3 de dublagem em segundo plano durante a contagem regressiva para evitar qualquer atraso ao tocar
     if (dubbingMp3Url) {
       console.log("[Dubbing] Iniciando download ativo do áudio em segundo plano...", dubbingMp3Url);
@@ -410,23 +425,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
     const countInterval = setInterval(async () => {
       count -= 1;
-      
-      // Pré-iniciar a gravação de vídeo silenciosamente em segundo plano 1 segundo antes de terminar a contagem para estar quente
-      if (count === 1) {
-        if (Capacitor.isNativePlatform()) {
-          console.log("[Recording] Pré-preparando gravação de vídeo nativa em segundo plano...");
-          setRecordedFacingMode(facingMode);
-          recordingPromiseRef.current = CameraPreview.startRecordVideo({
-            width: window.innerWidth,
-            height: window.innerHeight,
-            position: facingMode,
-            disableAudio: false
-          }).catch(err => {
-            console.error("[Recording] Erro ao pré-iniciar gravação nativa:", err);
-            return null;
-          });
-        }
-      }
 
       if (count === 0) {
         clearInterval(countInterval);
