@@ -71,11 +71,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [processingVideo, setProcessingVideo] = useState(false); // Mantido para o estado do botão
   const [todayCount, setTodayCount] = useState<number | null>(null);
   const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingPromiseRef = useRef<Promise<unknown> | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recordingStartedAtCountdownRef = useRef<boolean>(false);
   const recordingStartTimeRef = useRef<number | null>(null);
   const actualRecordingStartTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (previewUrls.length > 0 && dubbingMp3Url) {
+      console.log("[Preview Audio] Inicializando áudio de dublagem para mixagem em tempo real na pré-visualização...");
+      const audio = new Audio(dubbingMp3Url);
+      audio.preload = "auto";
+      audio.load();
+      previewAudioRef.current = audio;
+    } else {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+    }
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+    };
+  }, [previewUrls.length, dubbingMp3Url]);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -1163,6 +1185,32 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   loop 
                   playsInline 
                   muted={false}
+                  onPlay={(e) => {
+                    const video = e.currentTarget;
+                    if (previewAudioRef.current) {
+                      video.volume = 0.5; // Balanço ideal de mixagem: reduz barulho ambiente do mic
+                      previewAudioRef.current.volume = 1.0;
+                      const desiredTime = Math.max(0, video.currentTime - trimStart);
+                      if (Math.abs(previewAudioRef.current.currentTime - desiredTime) > 0.15) {
+                        previewAudioRef.current.currentTime = desiredTime;
+                      }
+                      previewAudioRef.current.play().catch(err => {
+                        console.warn("[Preview Audio] Falha ao reproduzir áudio mixado em tempo real:", err);
+                      });
+                    }
+                  }}
+                  onPause={() => {
+                    if (previewAudioRef.current) {
+                      previewAudioRef.current.pause();
+                    }
+                  }}
+                  onSeeked={(e) => {
+                    const video = e.currentTarget;
+                    if (previewAudioRef.current) {
+                      const desiredTime = Math.max(0, video.currentTime - trimStart);
+                      previewAudioRef.current.currentTime = desiredTime;
+                    }
+                  }}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -1170,6 +1218,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     }
                     if (video.currentTime > trimEnd) {
                       video.currentTime = trimStart;
+                    }
+                    
+                    // Sincronizar o áudio com base no tempo atual do vídeo
+                    if (previewAudioRef.current) {
+                      video.volume = 0.5; // Garante o balanço de som durante a reprodução
+                      previewAudioRef.current.volume = 1.0;
+                      const desiredTime = Math.max(0, video.currentTime - trimStart);
+                      // Se a dessincronização entre áudio e vídeo for maior que 150ms, corrige de imediato
+                      if (Math.abs(previewAudioRef.current.currentTime - desiredTime) > 0.15) {
+                        previewAudioRef.current.currentTime = desiredTime;
+                      }
+                      // Se o vídeo estiver reproduzindo mas o som de dublagem pausou (ex: após loop), inicia
+                      if (!video.paused && previewAudioRef.current.paused) {
+                        previewAudioRef.current.play().catch(() => {});
+                      }
                     }
                   }}
                 />
