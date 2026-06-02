@@ -741,6 +741,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
     
+    if (dubbingAudioRef.current) {
+      try {
+        dubbingAudioRef.current.pause();
+        dubbingAudioRef.current.currentTime = 0;
+      } catch (err) {
+        console.error("Erro ao pausar dublagem no upload:", err);
+      }
+    }
+    
     // Se o pai suportar upload em background, usamos essa via e saímos logo
     if (onBackgroundUpload) {
       onBackgroundUpload({
@@ -1090,6 +1099,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setError(null);
     setIsFromGallery(false);
 
+    if (dubbingAudioRef.current) {
+      try {
+        dubbingAudioRef.current.pause();
+        dubbingAudioRef.current.currentTime = 0;
+      } catch (err) {
+        console.error("Erro ao pausar dublagem ao cancelar:", err);
+      }
+    }
+
     // Resetar para câmera frontal e desligar flash
     setFacingMode('user');
     setIsFlashOn(false);
@@ -1127,6 +1145,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   loop 
                   playsInline 
                   muted={false}
+                  onPlay={(e) => {
+                    const video = e.currentTarget;
+                    if (dubbingAudioRef.current) {
+                      try {
+                        dubbingAudioRef.current.currentTime = video.currentTime;
+                        dubbingAudioRef.current.play().catch(err => console.error("Erro no play() da dublagem no play do preview:", err));
+                      } catch (apiError) {
+                        console.error("Erro ao sincronizar áudio no play:", apiError);
+                      }
+                    }
+                  }}
+                  onPause={() => {
+                    if (dubbingAudioRef.current) {
+                      try {
+                        dubbingAudioRef.current.pause();
+                      } catch (apiError) {
+                        console.error("Erro ao pausar áudio no pause:", apiError);
+                      }
+                    }
+                  }}
                   onTimeUpdate={(e) => {
                     const video = e.currentTarget;
                     if (video.currentTime < trimStart) {
@@ -1134,6 +1172,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     }
                     if (video.currentTime > trimEnd) {
                       video.currentTime = trimStart;
+                    }
+                    if (dubbingAudioRef.current) {
+                      try {
+                        const timeDiff = Math.abs(dubbingAudioRef.current.currentTime - video.currentTime);
+                        if (timeDiff > 0.15) {
+                          dubbingAudioRef.current.currentTime = video.currentTime;
+                        }
+                        if (video.paused) {
+                          dubbingAudioRef.current.pause();
+                        } else {
+                          dubbingAudioRef.current.play().catch(err => console.error("Erro no play() da dublagem no onTimeUpdate:", err));
+                        }
+                      } catch (apiError) {
+                        console.error("Erro de áudio no onTimeUpdate:", apiError);
+                      }
                     }
                   }}
                 />
