@@ -416,8 +416,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }).then(() => {
         const resolveTime = Date.now();
         console.log(`[Recording] Gravação nativa iniciada com sucesso. Resolução após ${((resolveTime - callTime) / 1000).toFixed(2)}s`);
-        // Armazena o momento exato em que a gravação do hardware de facto começou
-        recordingStartTimeRef.current = resolveTime;
+        // Mantemos recordingStartTimeRef.current apontando para o início físico da gravação (callTime),
+        // garantindo que o corte dinâmico no FFmpeg remova do início (0s) até ao início exato da música.
       }).catch(err => {
         console.error("[Recording] Erro ao pré-iniciar gravação nativa aos 15s:", err);
         recordingStartedAtCountdownRef.current = false;
