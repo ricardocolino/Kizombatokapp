@@ -73,6 +73,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingPromiseRef = useRef<Promise<unknown> | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const recordingStartedAtCountdownRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -397,16 +398,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     let count = 15;
     setCountdown(count);
 
-    // Ativar o microfone aos 15 segundos para ligar o hardware do microfone de imediato
-    console.log("[Live Mic] Ativando microfone aos 15 segundos para aquecer o dispositivo...");
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        console.log("[Live Mic] Microfone ativado e pronto aos 15 segundos!");
-        micStreamRef.current = stream;
-      })
-      .catch(err => {
-        console.error("[Live Mic] Erro ao tentar ativar o microfone aos 15 segundos:", err);
+    // Ativar a gravação (incluindo câmera e microfone) imediatamente aos 15 segundos para evitar qualquer reiniciar ou atraso de hardware posterior
+    if (Capacitor.isNativePlatform()) {
+      console.log("[Recording] Iniciando gravação de vídeo nativa (e microfone) de imediato aos 15 segundos...");
+      setRecordedFacingMode(facingMode);
+      recordingStartedAtCountdownRef.current = true;
+      recordingPromiseRef.current = CameraPreview.startRecordVideo({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        position: facingMode,
+        disableAudio: false
+      }).catch(err => {
+        console.error("[Recording] Erro ao pré-iniciar gravação nativa aos 15s:", err);
+        recordingStartedAtCountdownRef.current = false;
+        return null;
       });
+    }
 
     // Baixar ativamente o MP3 de dublagem em segundo plano durante a contagem regressiva para evitar qualquer atraso ao tocar
     if (dubbingMp3Url) {
@@ -444,29 +451,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const startActualRecording = async () => {
     chunksRef.current = [];
     
-    // Parar e liberar o stream temporário do microfone para que a gravação nativa mestre possa usá-lo com exclusividade
-    if (micStreamRef.current) {
-      try {
-        micStreamRef.current.getTracks().forEach(track => track.stop());
-        micStreamRef.current = null;
-        console.log("[Live Mic] Stream temporário de 15s liberado. Iniciando gravação real.");
-      } catch (err) {
-        console.error("[Live Mic] Erro ao fechar o stream temporário do microfone:", err);
-      }
-    }
-    
     if (Capacitor.isNativePlatform()) {
       try {
         setRecordedFacingMode(facingMode);
-        console.log(`[Recording] Iniciando gravação real imediata. Câmera: ${facingMode}`);
-
-        // Gravação propriamente dita começa agora no 0
-        const videoPromise = CameraPreview.startRecordVideo({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          position: facingMode,
-          disableAudio: false
-        });
+        
+        // Se já começamos a gravação contínua no início do contador (15s), NÃO reiniciamos nada para evitar engasgos de áudio/vídeo!
+        if (recordingStartedAtCountdownRef.current) {
+          console.log("[Recording] Mantendo a gravação nativa já iniciada aos 15s com sucesso para evitar qualquer reiniciar!");
+        } else {
+          console.log("[Recording] Gravação não iniciada aos 15s, iniciando agora no 0 como fallback...");
+          await CameraPreview.startRecordVideo({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            position: facingMode,
+            disableAudio: false
+          });
+        }
 
         // Definir estados e iniciar o cronômetro IMEDIATAMENTE (sem travar de forma síncrona com await)
         setIsRecording(true);
@@ -488,11 +488,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
           }
         }
-
-        // Concluir a Promise em segundo plano de forma totalmente assíncrona
-        videoPromise.catch(err => {
-          console.error("Erro assíncrono na resolução da gravação nativa:", err);
-        });
 
         // Limpar a ref
         recordingPromiseRef.current = null;
@@ -545,12 +540,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             setMediaFiles([videoBlob]);
             setPreviewUrls([URL.createObjectURL(videoBlob)]);
             setIsFromGallery(false);
-            setTrimStart(0);
-            setTrimEnd(recordingSeconds);
+            if (recordingStartedAtCountdownRef.current) {
+              console.log("[Recording] Configurando recorte do vídeo para iniciar em 15s de gravação contínua...");
+              setTrimStart(15);
+              setTrimEnd(15 + recordingSeconds);
+            } else {
+              setTrimStart(0);
+              setTrimEnd(recordingSeconds);
+            }
             stopCamera();
           }
         } catch (e) {
           console.error("Erro ao parar gravação nativa:", e);
+        } finally {
+          recordingStartedAtCountdownRef.current = false;
         }
       }
       setIsRecording(false);
