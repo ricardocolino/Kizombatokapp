@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music } from 'lucide-react';
+import { X, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -1347,19 +1347,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   </div>
                 </button>
 
-                <div className="w-12 h-12 flex items-center justify-center">
-                  <button 
-                    onClick={isRecording ? stopRecording : () => {
-                      if (mediaFiles.length > 0) {
-                        stopCamera();
-                      }
-                    }} 
-                    className={`flex flex-col items-center gap-1 transition-all duration-300 ${recordingSeconds > 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-                  >
-                    <div className="p-3.5 bg-yellow-500 rounded-full text-black shadow-[0_10px_30px_rgba(234,179,8,0.4)] active:scale-90"><CheckCircle2 size={26} /></div>
-                    <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">{t('Done')}</span>
-                  </button>
-                </div>
+                <div className="w-12 h-12" />
               </div>
 
               {/* Upload Type Selector */}
