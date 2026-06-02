@@ -74,6 +74,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const recordingPromiseRef = useRef<Promise<unknown> | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recordingStartedAtCountdownRef = useRef<boolean>(false);
+  const recordingStartTimeRef = useRef<number | null>(null);
+  const actualRecordingStartTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -403,14 +405,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       console.log("[Recording] Iniciando gravação de vídeo nativa (e microfone) de imediato aos 15 segundos...");
       setRecordedFacingMode(facingMode);
       recordingStartedAtCountdownRef.current = true;
+      const callTime = Date.now();
+      recordingStartTimeRef.current = callTime; // Fallback imediato do início da chamada
+      
       recordingPromiseRef.current = CameraPreview.startRecordVideo({
         width: window.innerWidth,
         height: window.innerHeight,
         position: facingMode,
         disableAudio: false
+      }).then(() => {
+        const resolveTime = Date.now();
+        console.log(`[Recording] Gravação nativa iniciada com sucesso. Resolução após ${((resolveTime - callTime) / 1000).toFixed(2)}s`);
+        // Armazena o momento exato em que a gravação do hardware de facto começou
+        recordingStartTimeRef.current = resolveTime;
       }).catch(err => {
         console.error("[Recording] Erro ao pré-iniciar gravação nativa aos 15s:", err);
         recordingStartedAtCountdownRef.current = false;
+        recordingStartTimeRef.current = null;
         return null;
       });
     }
@@ -458,8 +469,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         // Se já começamos a gravação contínua no início do contador (15s), NÃO reiniciamos nada para evitar engasgos de áudio/vídeo!
         if (recordingStartedAtCountdownRef.current) {
           console.log("[Recording] Mantendo a gravação nativa já iniciada aos 15s com sucesso para evitar qualquer reiniciar!");
+          // Marca o início real do vídeo de post (momento em que o contador atinge 0)
+          actualRecordingStartTimeRef.current = Date.now();
         } else {
           console.log("[Recording] Gravação não iniciada aos 15s, iniciando agora no 0 como fallback...");
+          actualRecordingStartTimeRef.current = null;
+          recordingStartTimeRef.current = null;
           await CameraPreview.startRecordVideo({
             width: window.innerWidth,
             height: window.innerHeight,
@@ -540,8 +555,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             setMediaFiles([videoBlob]);
             setPreviewUrls([URL.createObjectURL(videoBlob)]);
             setIsFromGallery(false);
-            if (recordingStartedAtCountdownRef.current) {
-              console.log("[Recording] Configurando recorte do vídeo para iniciar em 15s de gravação contínua...");
+            if (recordingStartedAtCountdownRef.current && recordingStartTimeRef.current && actualRecordingStartTimeRef.current) {
+              // Calcular o tempo dinâmico real de pré-gravação decorrido
+              const preRecordDuration = (actualRecordingStartTimeRef.current - recordingStartTimeRef.current) / 1000;
+              console.log(`[Recording] Configurando recorte dinâmico. Inicia real após ${preRecordDuration.toFixed(2)}s de pré-gravação de vídeo.`);
+              // Garante um valor razoável para evitar qualquer inconsistência
+              const validatedTrim = Math.max(0, Math.min(15, preRecordDuration));
+              setTrimStart(validatedTrim);
+              setTrimEnd(validatedTrim + recordingSeconds);
+            } else if (recordingStartedAtCountdownRef.current) {
+              console.log("[Recording] Tempo de pré-gravação não pôde ser calculado dinamicamente, usando fallback de 15s...");
               setTrimStart(15);
               setTrimEnd(15 + recordingSeconds);
             } else {
