@@ -72,6 +72,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [todayCount, setTodayCount] = useState<number | null>(null);
   const dubbingAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingPromiseRef = useRef<Promise<unknown> | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -97,6 +98,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
         dubbingAudioRef.current = null;
+      }
+      if (micStreamRef.current) {
+        try {
+          micStreamRef.current.getTracks().forEach(track => track.stop());
+        } catch (e) {
+          console.error("Erro ao limpar micStream no unmount:", e);
+        }
+        micStreamRef.current = null;
       }
     };
   }, []);
@@ -388,20 +397,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     let count = 15;
     setCountdown(count);
 
-    // Iniciar a gravação de vídeo nativa imediatamente aos 15 segundos para ligar o microfone
-    if (Capacitor.isNativePlatform()) {
-      console.log("[Recording] Pré-preparando gravação de vídeo nativa aos 15 segundos para ligar o microfone...");
-      setRecordedFacingMode(facingMode);
-      recordingPromiseRef.current = CameraPreview.startRecordVideo({
-        width: window.innerWidth,
-        height: window.innerHeight,
-        position: facingMode,
-        disableAudio: false
-      }).catch(err => {
-        console.error("[Recording] Erro ao pré-iniciar gravação nativa no início da contagem (15s):", err);
-        return null;
+    // Ativar o microfone aos 15 segundos para ligar o hardware do microfone de imediato
+    console.log("[Live Mic] Ativando microfone aos 15 segundos para aquecer o dispositivo...");
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        console.log("[Live Mic] Microfone ativado e pronto aos 15 segundos!");
+        micStreamRef.current = stream;
+      })
+      .catch(err => {
+        console.error("[Live Mic] Erro ao tentar ativar o microfone aos 15 segundos:", err);
       });
-    }
 
     // Baixar ativamente o MP3 de dublagem em segundo plano durante a contagem regressiva para evitar qualquer atraso ao tocar
     if (dubbingMp3Url) {
@@ -439,24 +444,29 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const startActualRecording = async () => {
     chunksRef.current = [];
     
+    // Parar e liberar o stream temporário do microfone para que a gravação nativa mestre possa usá-lo com exclusividade
+    if (micStreamRef.current) {
+      try {
+        micStreamRef.current.getTracks().forEach(track => track.stop());
+        micStreamRef.current = null;
+        console.log("[Live Mic] Stream temporário de 15s liberado. Iniciando gravação real.");
+      } catch (err) {
+        console.error("[Live Mic] Erro ao fechar o stream temporário do microfone:", err);
+      }
+    }
+    
     if (Capacitor.isNativePlatform()) {
       try {
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação real imediata. Câmera: ${facingMode}`);
 
-        // Usar a promessa pré-carregada ou iniciar uma nova de fallback
-        let videoPromise = recordingPromiseRef.current;
-        if (!videoPromise) {
-          console.log("[Recording] Gravação não iniciada previamente, iniciando agora...");
-          videoPromise = CameraPreview.startRecordVideo({
-            width: window.innerWidth,
-            height: window.innerHeight,
-            position: facingMode,
-            disableAudio: false
-          });
-        } else {
-          console.log("[Recording] Usando sessão de vídeo pré-preparada com sucesso!");
-        }
+        // Gravação propriamente dita começa agora no 0
+        const videoPromise = CameraPreview.startRecordVideo({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          position: facingMode,
+          disableAudio: false
+        });
 
         // Definir estados e iniciar o cronômetro IMEDIATAMENTE (sem travar de forma síncrona com await)
         setIsRecording(true);
