@@ -79,8 +79,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const actualRecordingStartTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (previewUrls.length > 0 && dubbingMp3Url) {
-      console.log("[Preview Audio] Inicializando áudio de dublagem para mixagem em tempo real na pré-visualização...");
+    // Apenas inicializar o áudio de preview se for vídeo vindo da galeria
+    // Para gravações nativas da câmera, a mixagem no arquivo de vídeo final já foi feita e o áudio é reproduzido nativamente pelo reprodutor de vídeo
+    if (previewUrls.length > 0 && dubbingMp3Url && isFromGallery) {
+      console.log("[Preview Audio] Inicializando áudio de dublagem para mixagem em tempo real na pré-visualização (Vídeo da Galeria)...");
       const audio = new Audio(dubbingMp3Url);
       audio.preload = "auto";
       audio.load();
@@ -97,7 +99,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         previewAudioRef.current = null;
       }
     };
-  }, [previewUrls.length, dubbingMp3Url]);
+  }, [previewUrls.length, dubbingMp3Url, isFromGallery]);
 
   useEffect(() => {
     if (dubbingMp3Url) {
@@ -168,7 +170,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   }, [previewUrls.length]);
 
-  const loadFFmpeg = async (): Promise<FFmpeg> => {
+  const loadFFmpeg = React.useCallback(async (): Promise<FFmpeg> => {
     if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
     const ffmpeg = new FFmpeg();
     
@@ -185,7 +187,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     ffmpegRef.current = ffmpeg;
     setFfmpegLoaded(true);
     return ffmpeg;
-  };
+  }, [ffmpegLoaded]);
 
   const isStartingRef = useRef(false);
 
@@ -574,25 +576,89 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
             }
             
-            setMediaFiles([videoBlob]);
-            setPreviewUrls([URL.createObjectURL(videoBlob)]);
-            setIsFromGallery(false);
+            let finalVideoBlob = videoBlob;
+            let finalTrimStart = 0;
+            let finalTrimEnd = recordingSeconds;
+
             if (recordingStartedAtCountdownRef.current && recordingStartTimeRef.current && actualRecordingStartTimeRef.current) {
               // Calcular o tempo dinâmico real de pré-gravação decorrido
               const preRecordDuration = (actualRecordingStartTimeRef.current - recordingStartTimeRef.current) / 1000;
               console.log(`[Recording] Configurando recorte dinâmico. Inicia real após ${preRecordDuration.toFixed(2)}s de pré-gravação de vídeo.`);
               // Garante um valor razoável para evitar qualquer inconsistência
-              const validatedTrim = Math.max(0, Math.min(15, preRecordDuration));
-              setTrimStart(validatedTrim);
-              setTrimEnd(validatedTrim + recordingSeconds);
+              finalTrimStart = Math.max(0, Math.min(15, preRecordDuration));
+              finalTrimEnd = finalTrimStart + recordingSeconds;
             } else if (recordingStartedAtCountdownRef.current) {
               console.log("[Recording] Tempo de pré-gravação não pôde ser calculado dinamicamente, usando fallback de 15s...");
-              setTrimStart(15);
-              setTrimEnd(15 + recordingSeconds);
-            } else {
-              setTrimStart(0);
-              setTrimEnd(recordingSeconds);
+              finalTrimStart = 15;
+              finalTrimEnd = 15 + recordingSeconds;
             }
+
+            // Real-time mixing similar to TikTok
+            if (dubbingMp3Url) {
+              console.log("[Realtime Mix] Iniciando mixagem do áudio de dublagem em tempo real...");
+              setProcessingVideo(true);
+              try {
+                const ffmpeg = await loadFFmpeg();
+                
+                // Limpar qualquer ficheiro temporário remanescente
+                const cleanupFiles = ['/input.mp4', '/dub.mp3', '/output_mixed.mp4'];
+                for (const f of cleanupFiles) {
+                  try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+                }
+
+                // Carrega o vídeo bruto gravado
+                const videoData = await fetchFile(videoBlob);
+                await ffmpeg.writeFile('/input.mp4', videoData);
+
+                // Baixar/Carregar áudio de dublagem
+                console.log("[Realtime Mix] Buscando áudio de dublagem...");
+                const audioRes = await fetch(dubbingMp3Url);
+                const audioBlob = await audioRes.blob();
+                const audioData = await fetchFile(audioBlob);
+                await ffmpeg.writeFile('/dub.mp3', audioData);
+
+                // Calcular o atraso (em segundos para milissegundos) para a música entrar no compasso exato
+                const delayMs = Math.round(finalTrimStart * 1000);
+                console.log(`[Realtime Mix] Aplicando atraso de ${delayMs}ms no áudio de dublagem...`);
+
+                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, atraso na música
+                const filterString = `[0:a]volume=1.5[a1];[1:a]adelay=${delayMs}|${delayMs}[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+                
+                const mixArgs = [
+                  '-i', '/input.mp4',
+                  '-i', '/dub.mp3',
+                  '-filter_complex', filterString,
+                  '-map', '0:v:0',
+                  '-map', '[outa]',
+                  '-c:v', 'copy', // Copiar o conteúdo de vídeo sem alteração para rapidez absoluta
+                  '-c:a', 'aac',
+                  '-b:a', '128k',
+                  '-y', '/output_mixed.mp4'
+                ];
+
+                console.log("[Realtime Mix] Executando mixagem FFmpeg de ultra velocidade...");
+                await ffmpeg.exec(mixArgs);
+
+                const mixedOutput = await ffmpeg.readFile('/output_mixed.mp4');
+                finalVideoBlob = new Blob([mixedOutput], { type: 'video/mp4' });
+                console.log("[Realtime Mix] Mixagem em tempo real concluída com sucesso!");
+
+                // Limpeza final de arquivos locais
+                for (const f of cleanupFiles) {
+                  try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+                }
+              } catch (mixErr) {
+                console.error("[Realtime Mix] Erro ao misturar áudios em tempo real:", mixErr);
+              } finally {
+                setProcessingVideo(false);
+              }
+            }
+
+            setMediaFiles([finalVideoBlob]);
+            setPreviewUrls([URL.createObjectURL(finalVideoBlob)]);
+            setIsFromGallery(false);
+            setTrimStart(finalTrimStart);
+            setTrimEnd(finalTrimEnd);
             stopCamera();
           }
         } catch (e) {
@@ -603,7 +669,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
       setIsRecording(false);
     }
-  }, [stopCamera, recordingSeconds]);
+  }, [stopCamera, recordingSeconds, dubbingMp3Url, loadFFmpeg]);
 
   // Auto-stop recording when max duration is reached
   useEffect(() => {
@@ -810,7 +876,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         trimStart,
         trimEnd,
         recordingSeconds,
-        dubbedMp3Url: dubbingMp3Url,
+        // Se gravamos nativamente com música, o áudio já está fundido de forma perfeita no mediaFile
+        // Passando null como dubbedMp3Url impede que o background processing (em App.tsx) subscreva todo o áudio com apenas a música pura,
+        // protegendo o nosso mix em tempo real da voz e batida
+        dubbedMp3Url: (dubbingMp3Url && !isFromGallery) ? null : dubbingMp3Url,
         dubbedFromId: dubbedFromId
       });
       onCreated();
