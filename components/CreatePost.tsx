@@ -1338,7 +1338,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </div>
                 
                 <button 
-                  onClick={initiateRecording} 
+                  onClick={isRecording ? stopRecording : initiateRecording} 
                   disabled={isStarting} 
                   className="relative flex items-center justify-center disabled:opacity-50"
                 >
