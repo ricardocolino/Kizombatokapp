@@ -189,8 +189,8 @@ const App: React.FC = () => {
           
           videoArgs.push('-i', '/input.mp4');
           if (dubbedMp3Url) {
-            // Elimina os primeiros 25 ms (0.025 s) do áudio de dublagem para sincronização perfeita
-            videoArgs.push('-ss', '0.025', '-i', '/dub_audio.mp3');
+            // Elimina os primeiros 0 ms (0.00 s) do áudio de dublagem para sincronização perfeita
+            videoArgs.push('-ss', '0.00', '-i', '/dub_audio.mp3');
           }
 
           if (filterParts.length > 0) {
