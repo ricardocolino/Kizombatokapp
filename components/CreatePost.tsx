@@ -543,7 +543,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             } else {
               dubbingAudioRef.current = new Audio(dubbingMp3Url);
             }
-            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+            // Adicionado atraso preciso de 0.01 segundos (10ms) para perfeito sincronismo com a gravação nativa
+            setTimeout(() => {
+              if (dubbingAudioRef.current) {
+                dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+              }
+            }, 10);
           } catch (audioPlaybackError) {
             console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
           }
