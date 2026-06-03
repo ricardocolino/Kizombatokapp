@@ -638,8 +638,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 const audioData = await fetchFile(audioBlob);
                 await ffmpeg.writeFile('/dub.mp3', audioData);
 
-                // Calcular o atraso (em segundos para milissegundos) para a música entrar no compasso exato
-                const delayMs = Math.round(finalTrimStart * 1000);
+                // Calcular o atraso (em segundos para milissegundos) para a música entrar no compasso exato com ajuste fino de 0.01 segundos
+                const delayMs = Math.round((finalTrimStart + 0.01) * 1000);
                 console.log(`[Realtime Mix] Aplicando atraso de ${delayMs}ms no áudio de dublagem...`);
 
                 // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, atraso na música
