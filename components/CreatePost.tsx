@@ -103,11 +103,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   }, [previewUrls.length, dubbingMp3Url, isFromGallery]);
 
   useEffect(() => {
+    let active = true;
+    let localBlobUrl = '';
     if (dubbingMp3Url) {
-      console.log("[Dubbing] Precarregando áudio:", dubbingMp3Url);
-      dubbingAudioRef.current = new Audio(dubbingMp3Url);
-      dubbingAudioRef.current.preload = "auto";
-      dubbingAudioRef.current.load();
+      console.log("[Dubbing] Baixando e pré-carregando áudio em formato Blob...", dubbingMp3Url);
+      fetch(dubbingMp3Url)
+        .then(res => res.blob())
+        .then(blob => {
+          if (!active) return;
+          localBlobUrl = URL.createObjectURL(blob);
+          dubbingAudioRef.current = new Audio(localBlobUrl);
+          dubbingAudioRef.current.preload = "auto";
+          dubbingAudioRef.current.load();
+          console.log("[Dubbing] Áudio de dublagem totalmente carregado e pronto para reprodução instantânea pura!");
+        })
+        .catch(err => {
+          console.error("[Dubbing] Erro ao carregar em Blob, usando fallback de URL direta:", err);
+          if (!active) return;
+          dubbingAudioRef.current = new Audio(dubbingMp3Url);
+          dubbingAudioRef.current.preload = "auto";
+          dubbingAudioRef.current.load();
+        });
     } else {
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
@@ -115,8 +131,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
     }
     return () => {
+      active = false;
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
+      }
+      if (localBlobUrl) {
+        try { URL.revokeObjectURL(localBlobUrl); } catch { /* ignore */ }
       }
     };
   }, [dubbingMp3Url]);
@@ -410,13 +430,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setIsSensorStarting(true);
     chunksRef.current = [];
     try {
-      // 1. Ativar de forma robusta e síncrona a gravação física (câmara, microfone e codec de hardware)
+      const callTime = Date.now();
+
+      // 1. Ativar gravação física de modo assíncrono (não bloqueante)
       if (Capacitor.isNativePlatform()) {
-        console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato...");
+        console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato em background...");
         setRecordedFacingMode(facingMode);
 
-        const callTime = Date.now();
-        
         const startPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
@@ -425,66 +445,52 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         });
 
         recordingPromiseRef.current = startPromise;
-        await startPromise; // Garante que aguardamos a inicialização 100% livre de atrasos físicos
 
-        const resolveTime = Date.now();
-        console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
-        recordingStartTimeRef.current = resolveTime;
+        // Trata o sucesso da inicialização física em segundo plano
+        startPromise.then(() => {
+          const resolveTime = Date.now();
+          console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
+          recordingStartTimeRef.current = resolveTime;
+          setIsSensorStarting(false);
+          recordingPromiseRef.current = null;
+        }).catch(err => {
+          console.error("[Sensors] Erro ao iniciar gravação física nativa:", err);
+          stopRecording();
+        });
       } else {
         throw new Error("Gravação não suportada nesta plataforma.");
       }
 
-      // Baixar e pré-carregar ativamente o MP3 de dublagem para sincronismo imediato se houver
+      // 2. Tocar o áudio de dublagem IMEDIATAMENTE (sem esperar o startPromise se resolver)
       if (dubbingMp3Url) {
-        console.log("[Dubbing] Descarregando dublagem para evitar atraso pós-sensor...");
         try {
-          const res = await fetch(dubbingMp3Url);
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          if (dubbingAudioRef.current) {
-            dubbingAudioRef.current.pause();
+          if (!dubbingAudioRef.current) {
+            dubbingAudioRef.current = new Audio(dubbingMp3Url);
+            dubbingAudioRef.current.preload = "auto";
+            dubbingAudioRef.current.load();
           }
-          dubbingAudioRef.current = new Audio(blobUrl);
-          dubbingAudioRef.current.preload = "auto";
-          dubbingAudioRef.current.load();
-          console.log("[Dubbing] Áudio carregado e pré-atribuído com sucesso!");
-        } catch (err) {
-          console.error("[Dubbing] Erro no pré-carregamento do áudio durante ativação do sensor:", err);
+          dubbingAudioRef.current.currentTime = 0;
+          console.log("[Dubbing] Acionando áudio de dublagem instantaneamente...");
+          dubbingAudioRef.current.play().catch(e => {
+            console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.play().catch(pErr => console.error("Falha total:", pErr));
+            }
+          });
+        } catch (audioPlaybackError) {
+          console.error("Erro na preparação síncrona do áudio de dublagem:", audioPlaybackError);
         }
       }
 
-      // Iniciar estados e cronômetro IMEDIATAMENTE após todos os recursos estarem ativos
+      // 3. Registar o início instantâneo da gravação pelo toque
+      actualRecordingStartTimeRef.current = Date.now();
+
+      // 4. Iniciar estados e cronômetro de UI imediatamente
       setIsRecording(true);
       setRecordingSeconds(0);
       timerRef.current = window.setInterval(() => {
         setRecordingSeconds(prev => prev + 1);
       }, 1000);
-
-      // Iniciar a reprodução do áudio de dublagem sincronizado com o início imediato da gravação
-      if (dubbingMp3Url) {
-        try {
-          if (dubbingAudioRef.current) {
-            dubbingAudioRef.current.currentTime = 0;
-          } else {
-            dubbingAudioRef.current = new Audio(dubbingMp3Url);
-          }
-          console.log("[Dubbing] Acionando áudio de dublagem de forma ultra síncrona com o sensor...");
-          await dubbingAudioRef.current.play();
-          console.log("[Dubbing] Áudio de dublagem está de facto a tocar sincronizado!");
-        } catch (audioPlaybackError) {
-          console.error("Não foi possível tocar o áudio com Promise síncrona, usando fallback assíncrono imediato:", audioPlaybackError);
-          if (dubbingAudioRef.current) {
-            dubbingAudioRef.current.play().catch(e => console.error("Falha no play() alternativo:", e));
-          }
-        }
-      }
-
-      // Definimos o início real pós confirmação tátil do sensor e da saída de áudio
-      actualRecordingStartTimeRef.current = Date.now();
-
-      // Limpar a ref e desativar o indicador de sensores ligando
-      recordingPromiseRef.current = null;
-      setIsSensorStarting(false);
 
     } catch (err) {
       console.error("[Sensors] Erro ao conectar os sensores ou iniciar gravação:", err);
@@ -533,17 +539,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             let finalTrimStart = 0;
             let finalTrimEnd = recordingSeconds;
 
-            if (recordingStartedAtCountdownRef.current && recordingStartTimeRef.current && actualRecordingStartTimeRef.current) {
-              // Calcular o tempo dinâmico real de pré-gravação decorrido
-              const preRecordDuration = (actualRecordingStartTimeRef.current - recordingStartTimeRef.current) / 1000;
-              console.log(`[Recording] Configurando recorte dinâmico. Inicia real após ${preRecordDuration.toFixed(2)}s de pré-gravação de vídeo.`);
-              // Garante um valor razoável para evitar qualquer inconsistência
-              finalTrimStart = Math.max(0, Math.min(15, preRecordDuration));
-              finalTrimEnd = finalTrimStart + recordingSeconds;
-            } else if (recordingStartedAtCountdownRef.current) {
-              console.log("[Recording] Tempo de pré-gravação não pôde ser calculado dinamicamente, usando fallback de 15s...");
-              finalTrimStart = 15;
-              finalTrimEnd = 15 + recordingSeconds;
+            let delayTimeMs = 0;
+            let offsetTimeSec = 0;
+
+            if (recordingStartTimeRef.current && actualRecordingStartTimeRef.current) {
+              const diffMs = actualRecordingStartTimeRef.current - recordingStartTimeRef.current;
+              console.log(`[Recording Sync Info] actualAudioStartTime: ${actualRecordingStartTimeRef.current}, nativeVideoStartTime: ${recordingStartTimeRef.current}, diffMs: ${diffMs}`);
+              if (diffMs > 0) {
+                // Vídeo iniciou fisicamente ANTES do áudio da dublagem. Logo atrasamos o áudio para alinhar com a boca
+                delayTimeMs = diffMs;
+                console.log(`[Recording Sync] Vídeo começou primeiro. Aplicando atraso de áudio de ${delayTimeMs}ms.`);
+              } else if (diffMs < 0) {
+                // Áudio iniciou fisicamente ANTES do vídeo. Logo encurtamos a música no início com -ss
+                offsetTimeSec = -diffMs / 1000;
+                console.log(`[Recording Sync] Áudio começou primeiro. Truncando início da faixa de dublagem em ${offsetTimeSec.toFixed(3)}s.`);
+              }
             }
 
             // Real-time mixing similar to TikTok
@@ -570,15 +580,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 const audioData = await fetchFile(audioBlob);
                 await ffmpeg.writeFile('/dub.mp3', audioData);
 
-                // Calcular o atraso (em segundos para milissegundos) para a música entrar no compasso exato
-                const delayMs = Math.round(finalTrimStart * 1000);
-                console.log(`[Realtime Mix] Aplicando atraso de ${delayMs}ms no áudio de dublagem...`);
+                // Configurar argumentos de input para o áudio de dublagem para sincronismo perfeito
+                const audioInputArgs: string[] = [];
+                if (offsetTimeSec > 0) {
+                  audioInputArgs.push('-ss', String(offsetTimeSec));
+                  console.log(`[Realtime Mix] Adicionando offset de -ss ${offsetTimeSec.toFixed(3)}s ao áudio de dublagem.`);
+                }
 
-                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, atraso na música
-                const filterString = `[0:a]volume=1.5[a1];[1:a]adelay=${delayMs}|${delayMs}[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, atraso na música se aplicável
+                let filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+                if (delayTimeMs > 0) {
+                  const roundedDelay = Math.round(delayTimeMs);
+                  console.log(`[Realtime Mix] Aplicando atraso de adelay=${roundedDelay}ms no áudio de dublagem.`);
+                  filterString = `[0:a]volume=1.5[a1];[1:a]adelay=${roundedDelay}|${roundedDelay}[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+                }
                 
                 const mixArgs = [
                   '-i', '/input.mp4',
+                  ...audioInputArgs,
                   '-i', '/dub.mp3',
                   '-filter_complex', filterString,
                   '-map', '0:v:0',
