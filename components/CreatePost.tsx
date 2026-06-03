@@ -42,7 +42,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdown: number | null = null;
   const [showCamera, setShowCamera] = useState(false);
   const [maxDuration, setMaxDuration] = useState(15); 
   const [facingMode, setFacingMode] = useState<'user' | 'rear'>('user');
@@ -420,15 +420,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     if (isRecording || countdown !== null || isSensorStarting) return;
     
     setIsSensorStarting(true);
+    chunksRef.current = [];
     try {
       // 1. Ativar de forma robusta e síncrona a gravação física (câmara, microfone e codec de hardware)
       if (Capacitor.isNativePlatform()) {
         console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato...");
         setRecordedFacingMode(facingMode);
-        recordingStartedAtCountdownRef.current = true;
         const callTime = Date.now();
-        recordingStartTimeRef.current = callTime; // Fallback temporário do tempo de chamada
-
+        
         const startPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
           height: window.innerHeight,
@@ -441,8 +440,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
         const resolveTime = Date.now();
         console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
-        // Guarda o tempo preciso de gravação real para manter o sincronismo total
         recordingStartTimeRef.current = resolveTime;
+      } else {
+        throw new Error("Gravação não suportada nesta plataforma.");
       }
 
       // Baixar e pré-carregar ativamente o MP3 de dublagem para sincronismo imediato se houver
@@ -464,107 +464,45 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       }
 
-      // Desativa o indicador de estado de ativação de sensores e inicia a contagem da dublagem
+      // Iniciar estados e cronômetro IMEDIATAMENTE após todos os recursos estarem ativos
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = window.setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+
+      // Iniciar a reprodução do áudio de dublagem sincronizado com o início imediato da gravação
+      if (dubbingMp3Url) {
+        try {
+          if (dubbingAudioRef.current) {
+            dubbingAudioRef.current.currentTime = 0;
+          } else {
+            dubbingAudioRef.current = new Audio(dubbingMp3Url);
+          }
+          console.log("[Dubbing] Acionando áudio de dublagem de forma ultra síncrona com o sensor...");
+          await dubbingAudioRef.current.play();
+          console.log("[Dubbing] Áudio de dublagem está de facto a tocar sincronizado!");
+        } catch (audioPlaybackError) {
+          console.error("Não foi possível tocar o áudio com Promise síncrona, usando fallback assíncrono imediato:", audioPlaybackError);
+          if (dubbingAudioRef.current) {
+            dubbingAudioRef.current.play().catch(e => console.error("Falha no play() alternativo:", e));
+          }
+        }
+      }
+
+      // Definimos o início real pós confirmação tátil do sensor e da saída de áudio
+      actualRecordingStartTimeRef.current = Date.now();
+
+      // Limpar a ref e desativar o indicador de sensores ligando
+      recordingPromiseRef.current = null;
       setIsSensorStarting(false);
-      startCountdown();
 
     } catch (err) {
-      console.error("[Sensors] Erro ao conectar os sensores:", err);
-      setError("Não foi possível conectar com os sensores de vídeo e microfone de forma sincronizada.");
+      console.error("[Sensors] Erro ao conectar os sensores ou iniciar gravação:", err);
+      setError(err instanceof Error ? err.message : "Não foi possível conectar com os sensores de vídeo e microfone.");
       setIsSensorStarting(false);
-      recordingStartedAtCountdownRef.current = false;
       recordingStartTimeRef.current = null;
     }
-  };
-
-  const startCountdown = () => {
-    let count = 15;
-    setCountdown(count);
-
-    const countInterval = setInterval(async () => {
-      count -= 1;
-
-      if (count === 0) {
-        clearInterval(countInterval);
-        setCountdown(null);
-        startActualRecording();
-      } else {
-        setCountdown(count);
-      }
-    }, 1000);
-  };
-
-  const startActualRecording = async () => {
-    chunksRef.current = [];
-    
-    if (Capacitor.isNativePlatform()) {
-      try {
-        setRecordedFacingMode(facingMode);
-        
-        // Se já começamos a gravação contínua no início do contador (15s), NÃO reiniciamos nada para evitar engasgos de áudio/vídeo!
-        if (recordingStartedAtCountdownRef.current) {
-          console.log("[Recording] Mantendo a gravação nativa já iniciada aos 15s com sucesso para evitar qualquer reiniciar!");
-          
-          // Se o promise de inicialização do hardware ainda não resolveu, aguardamos por ele
-          if (recordingPromiseRef.current) {
-            console.log("[Recording] Aguardando a inicialização física da gravação de vídeo pelo CameraPreview...");
-            await recordingPromiseRef.current;
-            console.log("[Recording] Hardware de gravação de vídeo ativado e ativo!");
-          }
-        } else {
-          console.log("[Recording] Gravação não iniciada aos 15s, iniciando agora no 0 como fallback...");
-          const startPromise = CameraPreview.startRecordVideo({
-            width: window.innerWidth,
-            height: window.innerHeight,
-            position: facingMode,
-            disableAudio: false
-          });
-          recordingPromiseRef.current = startPromise;
-          await startPromise;
-          recordingStartTimeRef.current = Date.now();
-        }
-
-        // Definir estados e iniciar o cronômetro IMEDIATAMENTE (sem travar de forma síncrona com await)
-        setIsRecording(true);
-        setRecordingSeconds(0);
-        timerRef.current = window.setInterval(() => {
-          setRecordingSeconds(prev => prev + 1);
-        }, 1000);
-
-        // Iniciar a reprodução do áudio de dublagem sincronizado com o início imediato da gravação
-        if (dubbingMp3Url) {
-          try {
-            if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.currentTime = 0;
-            } else {
-              dubbingAudioRef.current = new Audio(dubbingMp3Url);
-            }
-            console.log("[Dubbing] Acionando áudio de dublagem de forma ultra síncrona com o sensor...");
-            // O play() retorna uma Promise que resolve exatamente após o áudio começar a tocar de facto na saída do sistema
-            await dubbingAudioRef.current.play();
-            console.log("[Dubbing] Áudio de dublagem está de facto a tocar sincronizado!");
-          } catch (audioPlaybackError) {
-            console.error("Não foi possível tocar o áudio com Promise síncrona, usando fallback assíncrono imediato:", audioPlaybackError);
-            if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.play().catch(e => console.error("Falha no play() alternativo:", e));
-            }
-          }
-        }
-
-        // Definimos o início real da música/dublagem pós confirmação tátil do sensor e da saída de áudio
-        actualRecordingStartTimeRef.current = Date.now();
-
-        // Limpar a ref
-        recordingPromiseRef.current = null;
-      } catch (err) {
-        console.error("Erro ao iniciar gravação nativa:", err);
-        setError("Erro ao iniciar gravação.");
-      }
-      return;
-    }
-
-    // Fallback for non-native (WebRTC already removed, but keeping structure)
-    setError("Gravação não suportada nesta plataforma.");
   };
 
   const isRecordingRef = useRef(false);
