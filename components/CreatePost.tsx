@@ -204,43 +204,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setIsFlashOn(false);
   }, []);
 
-  const preWarmMicrophone = React.useCallback(async () => {
-    if (!Capacitor.isNativePlatform()) return;
-    try {
-      console.log("[Warming Mic] Iniciando pré-aquecimento do microfone...");
-      if (micStreamRef.current) {
-        try {
-          micStreamRef.current.getTracks().forEach(track => track.stop());
-        } catch { /* ignore */ }
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-      console.log("[Warming Mic] Microfone pré-aquecido e ativo com sucesso!");
-    } catch (e) {
-      console.warn("[Warming Mic] Erro ao pré-aquecer o microfone:", e);
-    }
-  }, []);
-
   const requestPermissions = React.useCallback(async () => {
     if (Capacitor.isNativePlatform()) {
       try {
-        // Request Camera and Microphone for recording
-        // This is the "como antes" part - requesting camera and microphone explicitly
         console.log('Requesting camera/mic permissions...');
         
-        // Use getUserMedia trick to trigger OS prompt for both camera and mic
+        // Use a single getUserMedia call once on mount to trigger the OS prompt for both camera and mic
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
           stream.getTracks().forEach(track => track.stop());
         } catch (e) {
-          console.warn("Erro ao pedir permissões via getUserMedia:", e);
+          console.warn("Erro ao pedir permissões iniciais via getUserMedia:", e);
         }
 
         const camStatus = await CameraPreview.requestPermissions();
         console.log('Camera permissions:', camStatus);
-
-        // Pré-aquecer microfone
-        await preWarmMicrophone();
       } catch (err) {
         console.error('Error requesting permissions:', err);
       }
@@ -253,7 +231,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         console.warn("Erro ao pedir permissões no browser:", e);
       }
     }
-  }, [preWarmMicrophone]);
+  }, []);
 
   useEffect(() => {
     // Small delay to ensure bridge is ready
@@ -286,20 +264,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       // Ensure any previous instance is stopped
       try { await CameraPreview.stop(); } catch { /* ignore */ }
       
-      // Request permissions explicitly for both camera and microphone
-      // This is important for video recording to work with audio
-      try {
-        // Request both once to ensure permissions are granted for the session
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        stream.getTracks().forEach(track => track.stop());
-        
-        const status = await CameraPreview.requestPermissions();
-        if (status.camera !== 'granted') {
-          setError("Precisamos de acesso à câmara para funcionar.");
-          return;
-        }
-      } catch (e) {
-        console.warn("Erro ao pedir permissões nativas:", e);
+      const status = await CameraPreview.requestPermissions();
+      if (status.camera !== 'granted') {
+        setError("Precisamos de acesso à câmara para funcionar.");
+        return;
       }
 
       await CameraPreview.start({
@@ -312,16 +280,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       });
       setShowCamera(true);
       setError(null);
-
-      // Pré-aquecer o microfone nativo para que esteja pronto de imediato
-      await preWarmMicrophone();
     } catch (err: unknown) {
       console.error("Erro ao iniciar câmera nativa:", err);
     } finally {
       setIsStarting(false);
       isStartingRef.current = false;
     }
-  }, [preWarmMicrophone]); // Revertido para incluir preWarmMicrophone
+  }, []);
 
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
@@ -450,17 +415,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato...");
         setRecordedFacingMode(facingMode);
 
-        // Parar o microfone de pré-aquecimento para liberar o recurso de áudio para a gravação física nativa
-        if (micStreamRef.current) {
-          console.log("[Sensors] Parando microfone de pré-aquecimento para gravação física sem conflitos...");
-          try {
-            micStreamRef.current.getTracks().forEach(track => track.stop());
-          } catch (e) {
-            console.error("Erro ao parar micStreamRef para gravação nativa:", e);
-          }
-          micStreamRef.current = null;
-        }
-
         const callTime = Date.now();
         
         const startPromise = CameraPreview.startRecordVideo({
@@ -537,8 +491,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       setError(err instanceof Error ? err.message : "Não foi possível conectar com os sensores de vídeo e microfone.");
       setIsSensorStarting(false);
       recordingStartTimeRef.current = null;
-      // Reiniciar pré-aquecimento se falhar para que recurso continue ativo
-      preWarmMicrophone();
     }
   };
 
