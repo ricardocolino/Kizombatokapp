@@ -511,12 +511,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             await recordingPromiseRef.current;
             console.log("[Recording] Hardware de gravação de vídeo ativado e ativo!");
           }
-          
-          // Marca o início real do vídeo de post (momento em que o contador atinge 0 e o áudio começa)
-          actualRecordingStartTimeRef.current = Date.now();
         } else {
           console.log("[Recording] Gravação não iniciada aos 15s, iniciando agora no 0 como fallback...");
-          actualRecordingStartTimeRef.current = Date.now();
           const startPromise = CameraPreview.startRecordVideo({
             width: window.innerWidth,
             height: window.innerHeight,
@@ -539,17 +535,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         if (dubbingMp3Url) {
           try {
             if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.currentTime = 0.01;
+              dubbingAudioRef.current.currentTime = 0;
             } else {
               dubbingAudioRef.current = new Audio(dubbingMp3Url);
-              dubbingAudioRef.current.currentTime = 0.01;
             }
-            // Tocar imediatamente compensando em -0.01 segundos (10ms de avanço no áudio) para sincronizar com câmera nativa
-            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+            console.log("[Dubbing] Acionando áudio de dublagem de forma ultra síncrona com o sensor...");
+            // O play() retorna uma Promise que resolve exatamente após o áudio começar a tocar de facto na saída do sistema
+            await dubbingAudioRef.current.play();
+            console.log("[Dubbing] Áudio de dublagem está de facto a tocar sincronizado!");
           } catch (audioPlaybackError) {
-            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+            console.error("Não foi possível tocar o áudio com Promise síncrona, usando fallback assíncrono imediato:", audioPlaybackError);
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.play().catch(e => console.error("Falha no play() alternativo:", e));
+            }
           }
         }
+
+        // Definimos o início real da música/dublagem pós confirmação tátil do sensor e da saída de áudio
+        actualRecordingStartTimeRef.current = Date.now();
 
         // Limpar a ref
         recordingPromiseRef.current = null;
