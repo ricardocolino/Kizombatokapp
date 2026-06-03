@@ -54,6 +54,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSensorStarting, setIsSensorStarting] = useState(false);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
@@ -416,60 +417,69 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   const initiateRecording = async () => {
-    if (isRecording || countdown !== null) return;
-    startCountdown();
-  };
+    if (isRecording || countdown !== null || isSensorStarting) return;
+    
+    setIsSensorStarting(true);
+    try {
+      // 1. Ativar de forma robusta e síncrona a gravação física (câmara, microfone e codec de hardware)
+      if (Capacitor.isNativePlatform()) {
+        console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato...");
+        setRecordedFacingMode(facingMode);
+        recordingStartedAtCountdownRef.current = true;
+        const callTime = Date.now();
+        recordingStartTimeRef.current = callTime; // Fallback temporário do tempo de chamada
 
-  const startCountdown = () => {
-    let count = 15;
-    setCountdown(count);
+        const startPromise = CameraPreview.startRecordVideo({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          position: facingMode,
+          disableAudio: false
+        });
 
-    // Ativar a gravação (incluindo câmera e microfone) imediatamente aos 15 segundos para evitar qualquer reiniciar ou atraso de hardware posterior
-    if (Capacitor.isNativePlatform()) {
-      console.log("[Recording] Iniciando gravação de vídeo nativa (e microfone) de imediato aos 15 segundos...");
-      setRecordedFacingMode(facingMode);
-      recordingStartedAtCountdownRef.current = true;
-      const callTime = Date.now();
-      recordingStartTimeRef.current = callTime; // Fallback imediato do início da chamada
-      
-      recordingPromiseRef.current = CameraPreview.startRecordVideo({
-        width: window.innerWidth,
-        height: window.innerHeight,
-        position: facingMode,
-        disableAudio: false
-      }).then(() => {
+        recordingPromiseRef.current = startPromise;
+        await startPromise; // Garante que aguardamos a inicialização 100% livre de atrasos físicos
+
         const resolveTime = Date.now();
-        console.log(`[Recording] Gravação nativa iniciada com sucesso. Resolução após ${((resolveTime - callTime) / 1000).toFixed(2)}s`);
-        // Muito importante: recordingStartTimeRef.current deve ser atualizada para o início FÍSICO e REAL da escrita do arquivo de vídeo.
-        // Isso sincroniza perfeitamente a latência de ativação do hardware e remove o descompasso na dublagem.
+        console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
+        // Guarda o tempo preciso de gravação real para manter o sincronismo total
         recordingStartTimeRef.current = resolveTime;
-      }).catch(err => {
-        console.error("[Recording] Erro ao pré-iniciar gravação nativa aos 15s:", err);
-        recordingStartedAtCountdownRef.current = false;
-        recordingStartTimeRef.current = null;
-        return null;
-      });
-    }
+      }
 
-    // Baixar ativamente o MP3 de dublagem em segundo plano durante a contagem regressiva para evitar qualquer atraso ao tocar
-    if (dubbingMp3Url) {
-      console.log("[Dubbing] Iniciando download ativo do áudio em segundo plano...", dubbingMp3Url);
-      fetch(dubbingMp3Url)
-        .then(res => res.blob())
-        .then(blob => {
+      // Baixar e pré-carregar ativamente o MP3 de dublagem para sincronismo imediato se houver
+      if (dubbingMp3Url) {
+        console.log("[Dubbing] Descarregando dublagem para evitar atraso pós-sensor...");
+        try {
+          const res = await fetch(dubbingMp3Url);
+          const blob = await res.blob();
           const blobUrl = URL.createObjectURL(blob);
-          console.log("[Dubbing] Download do áudio concluído, preparado com URL local:", blobUrl);
           if (dubbingAudioRef.current) {
             dubbingAudioRef.current.pause();
           }
           dubbingAudioRef.current = new Audio(blobUrl);
           dubbingAudioRef.current.preload = "auto";
           dubbingAudioRef.current.load();
-        })
-        .catch(err => {
-          console.error("[Dubbing] Erro ao pré-baixar áudio durante a contagem:", err);
-        });
+          console.log("[Dubbing] Áudio carregado e pré-atribuído com sucesso!");
+        } catch (err) {
+          console.error("[Dubbing] Erro no pré-carregamento do áudio durante ativação do sensor:", err);
+        }
+      }
+
+      // Desativa o indicador de estado de ativação de sensores e inicia a contagem da dublagem
+      setIsSensorStarting(false);
+      startCountdown();
+
+    } catch (err) {
+      console.error("[Sensors] Erro ao conectar os sensores:", err);
+      setError("Não foi possível conectar com os sensores de vídeo e microfone de forma sincronizada.");
+      setIsSensorStarting(false);
+      recordingStartedAtCountdownRef.current = false;
+      recordingStartTimeRef.current = null;
     }
+  };
+
+  const startCountdown = () => {
+    let count = 15;
+    setCountdown(count);
 
     const countInterval = setInterval(async () => {
       count -= 1;
@@ -1505,7 +1515,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <div className="w-12 h-12 flex items-center justify-center">
                   <button 
                     onClick={openGallery}
-                    className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform"
+                    disabled={isRecording || countdown !== null || isSensorStarting}
+                    className="flex flex-col items-center gap-1 cursor-pointer group active:scale-90 transition-transform disabled:opacity-30 disabled:pointer-events-none"
                   >
                     <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-xl">
                       <ImageIcon size={24} />
@@ -1516,11 +1527,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 
                 <button 
                   onClick={isRecording ? stopRecording : initiateRecording} 
-                  disabled={isStarting} 
+                  disabled={isStarting || isSensorStarting} 
                   className="relative flex items-center justify-center disabled:opacity-50"
                 >
                   <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-purple-600 shadow-[0_0_30px_rgba(147,51,234,0.6)]`} />
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} ${isSensorStarting ? 'bg-purple-400 animate-pulse' : 'bg-purple-600'} shadow-[0_0_30px_rgba(147,51,234,0.6)]`} />
                   </div>
                 </button>
 
@@ -1531,19 +1542,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               <div className="flex gap-8 pb-2">
                 <button 
                   onClick={() => setUploadType('post')}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
+                  disabled={isRecording || countdown !== null || isSensorStarting}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all disabled:opacity-30 ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Video')}
                 </button>
                 <button 
                   onClick={() => setUploadType('story')}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
+                  disabled={isRecording || countdown !== null || isSensorStarting}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all disabled:opacity-30 ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Story')}
                 </button>
                 <button 
                   onClick={onStartLive}
-                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-purple-500"
+                  disabled={isRecording || countdown !== null || isSensorStarting}
+                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-purple-500 disabled:opacity-30"
                 >
                   {t('Live')}
                 </button>
@@ -1553,13 +1567,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         )}
       </div>
 
-      {(error || processingVideo || uploading) && (
+      {(error || processingVideo || uploading || isSensorStarting) && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[300] bg-white border border-zinc-100 text-black px-6 py-5 rounded-[28px] text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-4 animate-in slide-in-from-top duration-300 min-w-[280px] justify-center">
            <div className={`p-2 rounded-full text-white ${error ? 'bg-zinc-900' : 'bg-black'}`}>
             {error ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
            </div>
            <span className="max-w-[200px] text-center leading-relaxed">
-             {error || (processingVideo ? t('Processing Video') : t('Publishing'))}
+             {error || (isSensorStarting ? 'Ligar câmara e microfone...' : processingVideo ? t('Processing Video') : t('Publishing'))}
            </span>
            {error && (
               <button onClick={() => setError(null)} className="ml-2 text-zinc-300 hover:text-black transition-colors">
