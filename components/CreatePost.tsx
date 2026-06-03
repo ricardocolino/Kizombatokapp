@@ -494,18 +494,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         // Se já começamos a gravação contínua no início do contador (15s), NÃO reiniciamos nada para evitar engasgos de áudio/vídeo!
         if (recordingStartedAtCountdownRef.current) {
           console.log("[Recording] Mantendo a gravação nativa já iniciada aos 15s com sucesso para evitar qualquer reiniciar!");
-          // Marca o início real do vídeo de post (momento em que o contador atinge 0)
+          
+          // Se o promise de inicialização do hardware ainda não resolveu, aguardamos por ele
+          if (recordingPromiseRef.current) {
+            console.log("[Recording] Aguardando a inicialização física da gravação de vídeo pelo CameraPreview...");
+            await recordingPromiseRef.current;
+            console.log("[Recording] Hardware de gravação de vídeo ativado e ativo!");
+          }
+          
+          // Marca o início real do vídeo de post (momento em que o contador atinge 0 e o áudio começa)
           actualRecordingStartTimeRef.current = Date.now();
         } else {
           console.log("[Recording] Gravação não iniciada aos 15s, iniciando agora no 0 como fallback...");
-          actualRecordingStartTimeRef.current = null;
-          recordingStartTimeRef.current = null;
-          await CameraPreview.startRecordVideo({
+          actualRecordingStartTimeRef.current = Date.now();
+          const startPromise = CameraPreview.startRecordVideo({
             width: window.innerWidth,
             height: window.innerHeight,
             position: facingMode,
             disableAudio: false
           });
+          recordingPromiseRef.current = startPromise;
+          await startPromise;
+          recordingStartTimeRef.current = Date.now();
         }
 
         // Definir estados e iniciar o cronômetro IMEDIATAMENTE (sem travar de forma síncrona com await)
