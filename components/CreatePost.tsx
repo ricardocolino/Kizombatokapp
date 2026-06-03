@@ -39,13 +39,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   
-  // Recording State - SEMPRE INICIA COM 'user' (Câmera de Frente)
+  // Recording State - SEMPRE INICIA COM 'rear' (Câmara Traseira)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const countdown: number | null = null;
   const [showCamera, setShowCamera] = useState(false);
   const [maxDuration, setMaxDuration] = useState(15); 
-  const [facingMode, setFacingMode] = useState<'user' | 'rear'>('user');
+  const [facingMode, setFacingMode] = useState<'user' | 'rear'>('rear');
   const facingModeRef = useRef(facingMode);
   
   useEffect(() => {
@@ -55,7 +55,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isSensorStarting, setIsSensorStarting] = useState(false);
-  const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
+  const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('rear');
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
