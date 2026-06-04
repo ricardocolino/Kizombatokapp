@@ -66,6 +66,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const dubbingTimeoutRef = useRef<number | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
@@ -132,6 +133,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
     return () => {
       active = false;
+      if (dubbingTimeoutRef.current) {
+        clearTimeout(dubbingTimeoutRef.current);
+        dubbingTimeoutRef.current = null;
+      }
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
       }
@@ -143,6 +148,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   useEffect(() => {
     return () => {
+      if (dubbingTimeoutRef.current) {
+        clearTimeout(dubbingTimeoutRef.current);
+        dubbingTimeoutRef.current = null;
+      }
       if (dubbingAudioRef.current) {
         dubbingAudioRef.current.pause();
         dubbingAudioRef.current = null;
@@ -494,27 +503,32 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
           recordingStartTimeRef.current = resolveTime;
 
-          // 2. Tocar o áudio de dublagem apenas AGORA que o bip nativo do sistema tocou e a gravação se iniciou no frame 0!
+          // 2. Tocar o áudio de dublagem apenas APÓS o bip nativo do sistema tocar e terminar (atraso estratégico de 800ms)
           if (dubbingMp3Url) {
-            try {
-              if (dubbingAudioRef.current) {
-                dubbingAudioRef.current.volume = 1.0;
-                dubbingAudioRef.current.currentTime = 0;
-                console.log("[Dubbing] Acionando áudio de dublagem de forma ultra instantânea com o início físico do vídeo (bip do sensor)...");
-                dubbingAudioRef.current.play().catch(e => {
-                  console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
-                });
-              } else {
-                dubbingAudioRef.current = new Audio(dubbingMp3Url);
-                dubbingAudioRef.current.preload = "auto";
-                dubbingAudioRef.current.load();
-                dubbingAudioRef.current.currentTime = 0;
-                dubbingAudioRef.current.volume = 1.0;
-                dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
-              }
-            } catch (audioPlaybackError) {
-              console.error("Erro na preparação do áudio de dublagem:", audioPlaybackError);
+            if (dubbingTimeoutRef.current) {
+              clearTimeout(dubbingTimeoutRef.current);
             }
+            dubbingTimeoutRef.current = window.setTimeout(() => {
+              try {
+                if (dubbingAudioRef.current) {
+                  dubbingAudioRef.current.volume = 1.0;
+                  dubbingAudioRef.current.currentTime = 0;
+                  console.log("[Dubbing] Acionando áudio de dublagem pós-bip nativo da câmara...");
+                  dubbingAudioRef.current.play().catch(e => {
+                    console.warn("Falha no play() da dublagem pós-bip, tentando fallback:", e);
+                  });
+                } else {
+                  dubbingAudioRef.current = new Audio(dubbingMp3Url);
+                  dubbingAudioRef.current.preload = "auto";
+                  dubbingAudioRef.current.load();
+                  dubbingAudioRef.current.currentTime = 0;
+                  dubbingAudioRef.current.volume = 1.0;
+                  dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
+                }
+              } catch (audioPlaybackError) {
+                console.error("Erro na preparação do áudio de dublagem pós-bip:", audioPlaybackError);
+              }
+            }, 800); // Aguarda 800ms do bip original de início de gravação física
           }
 
           // 3. Registar o início instantâneo da gravação dita pelo toque ou hardware
@@ -556,6 +570,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+
+      if (dubbingTimeoutRef.current) {
+        clearTimeout(dubbingTimeoutRef.current);
+        dubbingTimeoutRef.current = null;
       }
 
       if (dubbingAudioRef.current) {
@@ -610,7 +629,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 await ffmpeg.writeFile('/dub.mp3', audioData);
 
                 // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, dublagem em tempo zero 1:1 perfeito sincronizado
-                const filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+                const filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0,adelay=800|800[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
                 
                 const mixArgs = [
                   '-i', '/input.mp4',
