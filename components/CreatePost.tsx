@@ -224,6 +224,22 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setIsFlashOn(false);
   }, []);
 
+  const preWarmMicrophone = React.useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      if (micStreamRef.current) {
+        console.log("[Warming Mic] Microfone já pré-aquecido e ativo.");
+        return;
+      }
+      console.log("[Warming Mic] Iniciando aquecimento silencioso do microfone nativo...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      console.log("[Warming Mic] Microfone nativo pré-aquecido com sucesso!");
+    } catch (e) {
+      console.warn("[Warming Mic] Erro ao pré-aquecer microfone:", e);
+    }
+  }, []);
+
   const requestPermissions = React.useCallback(async () => {
     if (Capacitor.isNativePlatform()) {
       try {
@@ -239,6 +255,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
         const camStatus = await CameraPreview.requestPermissions();
         console.log('Camera permissions:', camStatus);
+
+        // Pré-aquecer o microfone do sistema de imediato de forma sustentável
+        await preWarmMicrophone();
       } catch (err) {
         console.error('Error requesting permissions:', err);
       }
@@ -251,7 +270,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         console.warn("Erro ao pedir permissões no browser:", e);
       }
     }
-  }, []);
+  }, [preWarmMicrophone]);
 
   useEffect(() => {
     // Small delay to ensure bridge is ready
@@ -300,13 +319,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       });
       setShowCamera(true);
       setError(null);
+
+      // Garantir que o microfone se mantenha pré-aquecido e ativo
+      try { await preWarmMicrophone(); } catch { /* ignore */ }
     } catch (err: unknown) {
       console.error("Erro ao iniciar câmera nativa:", err);
     } finally {
       setIsStarting(false);
       isStartingRef.current = false;
     }
-  }, []);
+  }, [preWarmMicrophone]);
 
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
@@ -451,46 +473,48 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           const resolveTime = Date.now();
           console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
           recordingStartTimeRef.current = resolveTime;
+
+          // 2. Tocar o áudio de dublagem apenas AGORA que a gravação já se iniciou de fato no frame 0!
+          if (dubbingMp3Url) {
+            try {
+              if (!dubbingAudioRef.current) {
+                dubbingAudioRef.current = new Audio(dubbingMp3Url);
+                dubbingAudioRef.current.preload = "auto";
+                dubbingAudioRef.current.load();
+              }
+              dubbingAudioRef.current.currentTime = 0;
+              console.log("[Dubbing] Acionando áudio de dublagem instantaneamente com o início físico do vídeo...");
+              dubbingAudioRef.current.play().catch(e => {
+                console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
+                if (dubbingAudioRef.current) {
+                  dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
+                }
+              });
+            } catch (audioPlaybackError) {
+              console.error("Erro na preparação do áudio de dublagem:", audioPlaybackError);
+            }
+          }
+
+          // 3. Registar o início instantâneo da gravação dita pelo toque ou hardware
+          actualRecordingStartTimeRef.current = Date.now();
+
+          // 4. Iniciar estados e cronômetro de UI imediatamente pós-ativação real
+          setIsRecording(true);
+          setRecordingSeconds(0);
+          timerRef.current = window.setInterval(() => {
+            setRecordingSeconds(prev => prev + 1);
+          }, 1000);
+
           setIsSensorStarting(false);
           recordingPromiseRef.current = null;
         }).catch(err => {
           console.error("[Sensors] Erro ao iniciar gravação física nativa:", err);
+          setIsSensorStarting(false);
           stopRecording();
         });
       } else {
         throw new Error("Gravação não suportada nesta plataforma.");
       }
-
-      // 2. Tocar o áudio de dublagem IMEDIATAMENTE (sem esperar o startPromise se resolver)
-      if (dubbingMp3Url) {
-        try {
-          if (!dubbingAudioRef.current) {
-            dubbingAudioRef.current = new Audio(dubbingMp3Url);
-            dubbingAudioRef.current.preload = "auto";
-            dubbingAudioRef.current.load();
-          }
-          dubbingAudioRef.current.currentTime = 0;
-          console.log("[Dubbing] Acionando áudio de dublagem instantaneamente...");
-          dubbingAudioRef.current.play().catch(e => {
-            console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
-            if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.play().catch(pErr => console.error("Falha total:", pErr));
-            }
-          });
-        } catch (audioPlaybackError) {
-          console.error("Erro na preparação síncrona do áudio de dublagem:", audioPlaybackError);
-        }
-      }
-
-      // 3. Registar o início instantâneo da gravação pelo toque
-      actualRecordingStartTimeRef.current = Date.now();
-
-      // 4. Iniciar estados e cronômetro de UI imediatamente
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(prev => prev + 1);
-      }, 1000);
 
     } catch (err) {
       console.error("[Sensors] Erro ao conectar os sensores ou iniciar gravação:", err);
@@ -539,23 +563,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             let finalTrimStart = 0;
             let finalTrimEnd = recordingSeconds;
 
-            let delayTimeMs = 0;
-            let offsetTimeSec = 0;
-
-            if (recordingStartTimeRef.current && actualRecordingStartTimeRef.current) {
-              const diffMs = actualRecordingStartTimeRef.current - recordingStartTimeRef.current;
-              console.log(`[Recording Sync Info] actualAudioStartTime: ${actualRecordingStartTimeRef.current}, nativeVideoStartTime: ${recordingStartTimeRef.current}, diffMs: ${diffMs}`);
-              if (diffMs > 0) {
-                // Vídeo iniciou fisicamente ANTES do áudio da dublagem. Logo atrasamos o áudio para alinhar com a boca
-                delayTimeMs = diffMs;
-                console.log(`[Recording Sync] Vídeo começou primeiro. Aplicando atraso de áudio de ${delayTimeMs}ms.`);
-              } else if (diffMs < 0) {
-                // Áudio iniciou fisicamente ANTES do vídeo. Logo encurtamos a música no início com -ss
-                offsetTimeSec = -diffMs / 1000;
-                console.log(`[Recording Sync] Áudio começou primeiro. Truncando início da faixa de dublagem em ${offsetTimeSec.toFixed(3)}s.`);
-              }
-            }
-
             // Real-time mixing similar to TikTok
             if (dubbingMp3Url) {
               console.log("[Realtime Mix] Iniciando mixagem do áudio de dublagem em tempo real...");
@@ -580,24 +587,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 const audioData = await fetchFile(audioBlob);
                 await ffmpeg.writeFile('/dub.mp3', audioData);
 
-                // Configurar argumentos de input para o áudio de dublagem para sincronismo perfeito
-                const audioInputArgs: string[] = [];
-                if (offsetTimeSec > 0) {
-                  audioInputArgs.push('-ss', String(offsetTimeSec));
-                  console.log(`[Realtime Mix] Adicionando offset de -ss ${offsetTimeSec.toFixed(3)}s ao áudio de dublagem.`);
-                }
-
-                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, atraso na música se aplicável
-                let filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
-                if (delayTimeMs > 0) {
-                  const roundedDelay = Math.round(delayTimeMs);
-                  console.log(`[Realtime Mix] Aplicando atraso de adelay=${roundedDelay}ms no áudio de dublagem.`);
-                  filterString = `[0:a]volume=1.5[a1];[1:a]adelay=${roundedDelay}|${roundedDelay}[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
-                }
+                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, dublagem em tempo zero 1:1 perfeito sincronizado
+                const filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
                 
                 const mixArgs = [
                   '-i', '/input.mp4',
-                  ...audioInputArgs,
                   '-i', '/dub.mp3',
                   '-filter_complex', filterString,
                   '-map', '0:v:0',
