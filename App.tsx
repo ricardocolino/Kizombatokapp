@@ -181,7 +181,7 @@ const App: React.FC = () => {
           }
           
           const videoArgs = [];
-          
+          // Trim se necessário
           const hasTrim = trimStart > 0 || trimEnd > 0;
           if (hasTrim) {
             videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
@@ -189,8 +189,7 @@ const App: React.FC = () => {
           
           videoArgs.push('-i', '/input.mp4');
           if (dubbedMp3Url) {
-            // Elimina os primeiros 0 ms (0.00 s) do áudio de dublagem para sincronização perfeita
-            videoArgs.push('-ss', '0.00', '-i', '/dub_audio.mp3');
+            videoArgs.push('-i', '/dub_audio.mp3');
           }
 
           if (filterParts.length > 0) {
