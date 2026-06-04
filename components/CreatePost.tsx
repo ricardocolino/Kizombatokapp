@@ -79,6 +79,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const recordingStartedAtCountdownRef = useRef<boolean>(false);
   const recordingStartTimeRef = useRef<number | null>(null);
   const actualRecordingStartTimeRef = useRef<number | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     // Apenas inicializar o áudio de preview se for vídeo vindo da galeria
@@ -222,62 +225,41 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const isStartingRef = useRef(false);
 
   const stopCamera = React.useCallback(async () => {
-    if (Capacitor.isNativePlatform()) {
+    if (activeStreamRef.current) {
       try {
-        await CameraPreview.stop();
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
       } catch (e) {
-        console.error("Erro ao parar câmera nativa:", e);
+        console.error("Erro ao parar tracks da câmera:", e);
       }
+      activeStreamRef.current = null;
     }
     setShowCamera(false);
     setIsFlashOn(false);
   }, []);
 
   const preWarmMicrophone = React.useCallback(async () => {
-    if (!Capacitor.isNativePlatform()) return;
     try {
       if (micStreamRef.current) {
         console.log("[Warming Mic] Microfone já pré-aquecido e ativo.");
         return;
       }
-      console.log("[Warming Mic] Iniciando aquecimento silencioso do microfone nativo...");
+      console.log("[Warming Mic] Iniciando aquecimento silencioso do microfone...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = stream;
-      console.log("[Warming Mic] Microfone nativo pré-aquecido com sucesso!");
+      console.log("[Warming Mic] Microfone pré-aquecido com sucesso!");
     } catch (e) {
       console.warn("[Warming Mic] Erro ao pré-aquecer microfone:", e);
     }
   }, []);
 
   const requestPermissions = React.useCallback(async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        console.log('Requesting camera/mic permissions...');
-        
-        // Use a single getUserMedia call once on mount to trigger the OS prompt for both camera and mic
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          stream.getTracks().forEach(track => track.stop());
-        } catch (e) {
-          console.warn("Erro ao pedir permissões iniciais via getUserMedia:", e);
-        }
-
-        const camStatus = await CameraPreview.requestPermissions();
-        console.log('Camera permissions:', camStatus);
-
-        // Pré-aquecer o microfone do sistema de imediato de forma sustentável
-        await preWarmMicrophone();
-      } catch (err) {
-        console.error('Error requesting permissions:', err);
-      }
-    } else {
-      try {
-        // Browser permission prompt
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        stream.getTracks().forEach(track => track.stop());
-      } catch (e) {
-        console.warn("Erro ao pedir permissões no browser:", e);
-      }
+    try {
+      console.log('Requesting camera/mic permissions via getUserMedia...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      stream.getTracks().forEach(track => track.stop());
+      await preWarmMicrophone();
+    } catch (err) {
+      console.error('Error requesting permissions via getUserMedia:', err);
     }
   }, [preWarmMicrophone]);
 
@@ -294,50 +276,43 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     isStartingRef.current = true;
     setIsStarting(true);
     
-    if (!Capacitor.isNativePlatform()) {
-      try {
-        // Trigger browser permission prompt for both
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        stream.getTracks().forEach(track => track.stop());
-      } catch (e) {
-        console.warn("Erro ao pedir permissões no browser:", e);
-      }
-      setShowCamera(true);
-      setIsStarting(false);
-      isStartingRef.current = false;
-      return;
-    }
-    
     try {
-      // Ensure any previous instance is stopped
-      try { await CameraPreview.stop(); } catch { /* ignore */ }
-      
-      const status = await CameraPreview.requestPermissions();
-      if (status.camera !== 'granted') {
-        setError("Precisamos de acesso à câmara para funcionar.");
-        return;
+      if (activeStreamRef.current) {
+        try {
+          activeStreamRef.current.getTracks().forEach(track => track.stop());
+        } catch { /* ignore */ }
+        activeStreamRef.current = null;
       }
 
-      await CameraPreview.start({
-        parent: 'cameraPreview',
-        position: facingModeRef.current,
-        toBack: true,
-        className: 'cameraPreview',
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
+      console.log("[Camera] Solicitando stream de vídeo e áudio nativo/web. FacingMode:", facingModeRef.current);
+      
+      const isUser = facingModeRef.current === 'user';
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: isUser ? 'user' : 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      activeStreamRef.current = stream;
+      
+      if (videoElRef.current) {
+        videoElRef.current.srcObject = stream;
+      }
+      
       setShowCamera(true);
       setError(null);
-
-      // Garantir que o microfone se mantenha pré-aquecido e ativo
-      try { await preWarmMicrophone(); } catch { /* ignore */ }
     } catch (err: unknown) {
-      console.error("Erro ao iniciar câmera nativa:", err);
+      console.error("Erro ao iniciar câmera HTML5:", err);
+      setError("Não conseguimos aceder à câmara ou microfone.");
     } finally {
       setIsStarting(false);
       isStartingRef.current = false;
     }
-  }, [preWarmMicrophone]);
+  }, []);
 
   // Gerir a transparência do fundo de forma robusta
   useEffect(() => {
@@ -377,27 +352,42 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const toggleCamera = async () => {
     if (isRecording) return;
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await CameraPreview.flip();
-        setFacingMode(prev => {
-          const nextMode = prev === 'user' ? 'rear' : 'user';
-          if (nextMode === 'user' && isFlashOn) {
-            setIsFlashOn(false);
-          }
-          return nextMode;
-        });
-      } catch (e) {
-        console.error("Erro ao girar câmera:", e);
-      }
-    } else {
-      setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+    const nextMode = facingMode === 'user' ? 'rear' : 'user';
+    setFacingMode(nextMode);
+    facingModeRef.current = nextMode;
+    if (nextMode === 'user' && isFlashOn) {
+      setIsFlashOn(false);
     }
+    // Recomeçar a câmara com o novo modo imediatamente
+    await startCamera();
   };
 
   const toggleFlash = async () => {
     if (facingMode === 'user') return; 
     
+    if (activeStreamRef.current) {
+      try {
+        const videoTrack = activeStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+          const trackWithTorch = videoTrack as unknown as { 
+            getCapabilities?: () => { torch?: boolean }; 
+            applyConstraints?: (constraints: unknown) => Promise<void>; 
+          };
+          const capabilities = trackWithTorch.getCapabilities?.() || {};
+          if (capabilities.torch && trackWithTorch.applyConstraints) {
+            const nextFlash = !isFlashOn;
+            await trackWithTorch.applyConstraints({
+              advanced: [{ torch: nextFlash }]
+            });
+            setIsFlashOn(nextFlash);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Flash no browser via constraints não suportado, tentando fallback Capacitor:", err);
+      }
+    }
+
     if (Capacitor.isNativePlatform()) {
       try {
         const newFlashState = isFlashOn ? 'off' : 'torch';
@@ -483,75 +473,95 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       }
 
-      // 1. Ativar gravação física de modo assíncrono (não bloqueante)
-      if (Capacitor.isNativePlatform()) {
-        console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato em background...");
-        setRecordedFacingMode(facingMode);
-
-        const startPromise = CameraPreview.startRecordVideo({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          position: facingMode,
-          disableAudio: false
-        });
-
-        recordingPromiseRef.current = startPromise;
-
-        // Trata o sucesso da inicialização física em segundo plano
-        startPromise.then(() => {
-          const resolveTime = Date.now();
-          console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
-          recordingStartTimeRef.current = resolveTime;
-
-          // 2. Tocar o áudio de dublagem apenas APÓS o bip nativo do sistema tocar e terminar (atraso estratégico de 800ms)
-          if (dubbingMp3Url) {
-            if (dubbingTimeoutRef.current) {
-              clearTimeout(dubbingTimeoutRef.current);
-            }
-            dubbingTimeoutRef.current = window.setTimeout(() => {
-              try {
-                if (dubbingAudioRef.current) {
-                  dubbingAudioRef.current.volume = 1.0;
-                  dubbingAudioRef.current.currentTime = 0;
-                  console.log("[Dubbing] Acionando áudio de dublagem pós-bip nativo da câmara...");
-                  dubbingAudioRef.current.play().catch(e => {
-                    console.warn("Falha no play() da dublagem pós-bip, tentando fallback:", e);
-                  });
-                } else {
-                  dubbingAudioRef.current = new Audio(dubbingMp3Url);
-                  dubbingAudioRef.current.preload = "auto";
-                  dubbingAudioRef.current.load();
-                  dubbingAudioRef.current.currentTime = 0;
-                  dubbingAudioRef.current.volume = 1.0;
-                  dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
-                }
-              } catch (audioPlaybackError) {
-                console.error("Erro na preparação do áudio de dublagem pós-bip:", audioPlaybackError);
-              }
-            }, 800); // Aguarda 800ms do bip original de início de gravação física
-          }
-
-          // 3. Registar o início instantâneo da gravação dita pelo toque ou hardware
-          actualRecordingStartTimeRef.current = Date.now();
-
-          // 4. Iniciar estados e cronômetro de UI imediatamente pós-ativação real
-          setIsRecording(true);
-          setRecordingSeconds(0);
-          timerRef.current = window.setInterval(() => {
-            setRecordingSeconds(prev => prev + 1);
-          }, 1000);
-
-          setIsSensorStarting(false);
-          recordingPromiseRef.current = null;
-        }).catch(err => {
-          console.error("[Sensors] Erro ao iniciar gravação física nativa:", err);
-          setIsSensorStarting(false);
-          stopRecording();
-        });
-      } else {
-        throw new Error("Gravação não suportada nesta plataforma.");
+      // Garantir que a câmara e o stream estejam ativos e devidamente capturados
+      if (!activeStreamRef.current) {
+        await startCamera();
       }
 
+      const stream = activeStreamRef.current;
+      if (!stream) {
+        throw new Error("Não foi possível aceder à câmara.");
+      }
+
+      setRecordedFacingMode(facingMode);
+
+      // Determinar o formato de vídeo suportado pelo browser/dispositivo
+      let options = { mimeType: 'video/mp4;codecs=avc1' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm;codecs=vp9' };
+      }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+      }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: '' }; // Fallback geral seguro
+      }
+
+      console.log("[MediaRecorder] Iniciando gravação usando MimeType:", options.mimeType);
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      const startRecorderPromise = new Promise<void>((resolve, reject) => {
+        mediaRecorder.onstart = () => resolve();
+        mediaRecorder.onerror = (e) => reject(e);
+      });
+
+      recordingPromiseRef.current = startRecorderPromise;
+      mediaRecorder.start(100); // chunk size em ms
+
+      await startRecorderPromise;
+
+      const resolveTime = Date.now();
+      console.log(`[Sensors] HTML5 MediaRecorder ativo com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
+      recordingStartTimeRef.current = resolveTime;
+
+      // 2. Tocar o áudio de dublagem apenas APÓS o bip nativo / delay estratégico de 800ms
+      if (dubbingMp3Url) {
+        if (dubbingTimeoutRef.current) {
+          clearTimeout(dubbingTimeoutRef.current);
+        }
+        dubbingTimeoutRef.current = window.setTimeout(() => {
+          try {
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.volume = 1.0;
+              dubbingAudioRef.current.currentTime = 0;
+              console.log("[Dubbing] Acionando áudio de dublagem pós-bip nativo da câmara...");
+              dubbingAudioRef.current.play().catch(e => {
+                console.warn("Falha no play() da dublagem pós-bip, tentando fallback:", e);
+              });
+            } else {
+              dubbingAudioRef.current = new Audio(dubbingMp3Url);
+              dubbingAudioRef.current.preload = "auto";
+              dubbingAudioRef.current.load();
+              dubbingAudioRef.current.currentTime = 0;
+              dubbingAudioRef.current.volume = 1.0;
+              dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
+            }
+          } catch (audioPlaybackError) {
+            console.error("Erro na preparação do áudio de dublagem pós-bip:", audioPlaybackError);
+          }
+        }, 800); // Aguarda 800ms do bip de início de gravação
+      }
+
+      // 3. Registar o início instantâneo da gravação dita pelo toque ou hardware
+      actualRecordingStartTimeRef.current = Date.now();
+
+      // 4. Iniciar estados e cronômetro de UI imediatamente
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = window.setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+
+      setIsSensorStarting(false);
+      recordingPromiseRef.current = null;
     } catch (err) {
       console.error("[Sensors] Erro ao conectar os sensores ou iniciar gravação:", err);
       setError(err instanceof Error ? err.message : "Não foi possível conectar com os sensores de vídeo e microfone.");
@@ -586,88 +596,97 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       }
 
-      if (Capacitor.isNativePlatform()) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         try {
-          const result = await CameraPreview.stopRecordVideo();
-          if (result.videoFilePath) {
-            const response = await fetch(Capacitor.convertFileSrc(result.videoFilePath));
-            const videoBlob = await response.blob();
-            
-            // Gravações feitas no app respeitam o maxDuration, mas verificamos por segurança
-            const isOk = await checkVideoDuration(videoBlob);
-            setIsVideoTooLong(!isOk);
-            if (!isOk) {
-              setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
+          const videoBlobPromise = new Promise<Blob>((resolve) => {
+            if (mediaRecorderRef.current) {
+              mediaRecorderRef.current.onstop = () => {
+                const recorderType = mediaRecorderRef.current?.mimeType || 'video/mp4';
+                const blob = new Blob(chunksRef.current, { type: recorderType });
+                resolve(blob);
+              };
+              mediaRecorderRef.current.stop();
             }
-            
-            let finalVideoBlob = videoBlob;
-            let finalTrimStart = 0;
-            let finalTrimEnd = recordingSeconds;
+          });
 
-            // Real-time mixing similar to TikTok
-            if (dubbingMp3Url) {
-              console.log("[Realtime Mix] Iniciando mixagem do áudio de dublagem em tempo real...");
-              setProcessingVideo(true);
-              try {
-                const ffmpeg = await loadFFmpeg();
-                
-                // Limpar qualquer ficheiro temporário remanescente
-                const cleanupFiles = ['/input.mp4', '/dub.mp3', '/output_mixed.mp4'];
-                for (const f of cleanupFiles) {
-                  try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
-                }
-
-                // Carrega o vídeo bruto gravado
-                const videoData = await fetchFile(videoBlob);
-                await ffmpeg.writeFile('/input.mp4', videoData);
-
-                // Baixar/Carregar áudio de dublagem
-                console.log("[Realtime Mix] Buscando áudio de dublagem...");
-                const audioRes = await fetch(dubbingMp3Url);
-                const audioBlob = await audioRes.blob();
-                const audioData = await fetchFile(audioBlob);
-                await ffmpeg.writeFile('/dub.mp3', audioData);
-
-                // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, dublagem em tempo zero 1:1 perfeito sincronizado
-                const filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0,adelay=800|800[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
-                
-                const mixArgs = [
-                  '-i', '/input.mp4',
-                  '-i', '/dub.mp3',
-                  '-filter_complex', filterString,
-                  '-map', '0:v:0',
-                  '-map', '[outa]',
-                  '-c:v', 'copy', // Copiar o conteúdo de vídeo sem alteração para rapidez absoluta
-                  '-c:a', 'aac',
-                  '-b:a', '128k',
-                  '-y', '/output_mixed.mp4'
-                ];
-
-                console.log("[Realtime Mix] Executando mixagem FFmpeg de ultra velocidade...");
-                await ffmpeg.exec(mixArgs);
-
-                const mixedOutput = await ffmpeg.readFile('/output_mixed.mp4');
-                finalVideoBlob = new Blob([mixedOutput], { type: 'video/mp4' });
-                console.log("[Realtime Mix] Mixagem em tempo real concluída com sucesso!");
-
-                // Limpeza final de arquivos locais
-                for (const f of cleanupFiles) {
-                  try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
-                }
-              } catch (mixErr) {
-                console.error("[Realtime Mix] Erro ao misturar áudios em tempo real:", mixErr);
-              } finally {
-                setProcessingVideo(false);
-              }
-            }
-
-            setMediaFiles([finalVideoBlob]);
-            setPreviewUrls([URL.createObjectURL(finalVideoBlob)]);
-            setIsFromGallery(false);
-            setTrimStart(finalTrimStart);
-            setTrimEnd(finalTrimEnd);
-            stopCamera();
+          const videoBlob = await videoBlobPromise;
+          
+          // Verificar a duração do vídeo gravado
+          const isOk = await checkVideoDuration(videoBlob);
+          setIsVideoTooLong(!isOk);
+          if (!isOk) {
+            setError('O vídeo gravado excedeu o limite. Tenta gravar um momento mais curto!');
           }
+          
+          let finalVideoBlob = videoBlob;
+          let finalTrimStart = 0;
+          let finalTrimEnd = recordingSeconds;
+
+          // Real-time mixing similar to TikTok
+          if (dubbingMp3Url) {
+            console.log("[Realtime Mix] Iniciando mixagem do áudio de dublagem em tempo real...");
+            setProcessingVideo(true);
+            try {
+              const ffmpeg = await loadFFmpeg();
+              
+              // Limpar qualquer ficheiro temporário remanescente
+              const cleanupFiles = ['/input.mp4', '/dub.mp3', '/output_mixed.mp4'];
+              for (const f of cleanupFiles) {
+                try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+              }
+
+              // Carrega o vídeo bruto gravado
+              const videoData = await fetchFile(videoBlob);
+              await ffmpeg.writeFile('/input.mp4', videoData);
+
+              // Baixar/Carregar áudio de dublagem
+              console.log("[Realtime Mix] Buscando áudio de dublagem...");
+              const audioRes = await fetch(dubbingMp3Url);
+              const audioBlob = await audioRes.blob();
+              const audioData = await fetchFile(audioBlob);
+              await ffmpeg.writeFile('/dub.mp3', audioData);
+
+              // Filtro complexo de mixagem amix: volume maior no microfone para voz em destaque, dublagem em tempo zero 1:1 perfeito sincronizado
+              const filterString = `[0:a]volume=1.5[a1];[1:a]volume=1.0,adelay=800|800[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[outa]`;
+              
+              const mixArgs = [
+                '-i', '/input.mp4',
+                '-i', '/dub.mp3',
+                '-filter_complex', filterString,
+                '-map', '0:v:0',
+                '-map', '[outa]',
+                '-c:v', 'copy', // Copiar o conteúdo de vídeo sem alteração para rapidez absoluta
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-y', '/output_mixed.mp4'
+              ];
+
+              console.log("[Realtime Mix] Executando mixagem FFmpeg de ultra velocidade...");
+              await ffmpeg.exec(mixArgs);
+
+              const mixedOutput = await ffmpeg.readFile('/output_mixed.mp4');
+              finalVideoBlob = new Blob([mixedOutput], { type: 'video/mp4' });
+              console.log("[Realtime Mix] Mixagem em tempo real concluída com sucesso!");
+
+              // Limpeza final de arquivos locais
+              for (const f of cleanupFiles) {
+                try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+              }
+            } catch (mixErr) {
+              console.error("[Realtime Mix] Erro ao misturar áudios em tempo real:", mixErr);
+            } finally {
+              setProcessingVideo(false);
+            }
+          }
+
+          setMediaFiles([finalVideoBlob]);
+          setPreviewUrls([URL.createObjectURL(finalVideoBlob)]);
+          setIsFromGallery(false);
+          setTrimStart(finalTrimStart);
+          setTrimEnd(finalTrimEnd);
+          
+          // Parar a câmera preview após terminar a gravação para poupar bateria
+          stopCamera();
         } catch (e) {
           console.error("Erro ao parar gravação nativa:", e);
         } finally {
@@ -1410,8 +1429,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           <div className="h-full w-full relative bg-transparent">
             <div 
               id="cameraPreview" 
-              className="h-full w-full relative bg-transparent" 
-            />
+              className="h-full w-full relative bg-black overflow-hidden" 
+            >
+              {showCamera && (
+                <video
+                  ref={videoElRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover absolute inset-0 z-0"
+                />
+              )}
+            </div>
             
             {countdown !== null && (
               <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-md">
