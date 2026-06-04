@@ -5,7 +5,6 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { X, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 
@@ -380,28 +379,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               advanced: [{ torch: nextFlash }]
             });
             setIsFlashOn(nextFlash);
-            return;
           }
         }
       } catch (err) {
-        console.warn("Flash no browser via constraints não suportado, tentando fallback Capacitor:", err);
-      }
-    }
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const newFlashState = isFlashOn ? 'off' : 'torch';
-        await CameraPreview.setFlashMode({ flashMode: newFlashState });
-        setIsFlashOn(!isFlashOn);
-      } catch (err) {
-        console.error("Erro ao mudar flash para torch, tentando on:", err);
-        try {
-          const newFlashState = isFlashOn ? 'off' : 'on';
-          await CameraPreview.setFlashMode({ flashMode: newFlashState });
-          setIsFlashOn(!isFlashOn);
-        } catch (err2) {
-          console.error("Flash não suportado:", err2);
-        }
+        console.warn("Flash no browser via constraints não suportado:", err);
       }
     }
   };
