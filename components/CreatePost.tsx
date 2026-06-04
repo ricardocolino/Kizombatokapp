@@ -429,7 +429,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const initiateRecording = async () => {
     if (isRecording || countdown !== null || isSensorStarting) return;
     
-    setIsSensorStarting(true);
     chunksRef.current = [];
     try {
       const callTime = Date.now();
@@ -456,7 +455,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       // Garantir que a câmara e o stream estejam ativos e devidamente capturados
       if (!activeStreamRef.current) {
+        setIsSensorStarting(true);
         await startCamera();
+        setIsSensorStarting(false);
       }
 
       const stream = activeStreamRef.current;
@@ -478,7 +479,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         options = { mimeType: '' }; // Fallback geral seguro
       }
 
-      console.log("[MediaRecorder] Iniciando gravação usando MimeType:", options.mimeType);
+      console.log("[MediaRecorder] Iniciando gravação de ultra velocidade com MimeType:", options.mimeType);
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -489,21 +490,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       };
 
-      const startRecorderPromise = new Promise<void>((resolve, reject) => {
-        mediaRecorder.onstart = () => resolve();
-        mediaRecorder.onerror = (e) => reject(e);
-      });
-
-      recordingPromiseRef.current = startRecorderPromise;
-      mediaRecorder.start(100); // chunk size em ms
-
-      await startRecorderPromise;
+      // Iniciar a gravação síncrona no MediaRecorder de imediato
+      mediaRecorder.start(100);
 
       const resolveTime = Date.now();
-      console.log(`[Sensors] HTML5 MediaRecorder ativo com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
+      console.log(`[MediaRecorder] Gravação HTML5 ativada de forma instantânea em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
       recordingStartTimeRef.current = resolveTime;
 
-      // 2. Tocar o áudio de dublagem apenas APÓS o bip nativo / delay estratégico de 800ms
+      // 2. Tocar o áudio de dublagem apenas APÓS o delay estratégico de 800ms para corresponder ao ffmpeg delay
       if (dubbingMp3Url) {
         if (dubbingTimeoutRef.current) {
           clearTimeout(dubbingTimeoutRef.current);
@@ -513,9 +507,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             if (dubbingAudioRef.current) {
               dubbingAudioRef.current.volume = 1.0;
               dubbingAudioRef.current.currentTime = 0;
-              console.log("[Dubbing] Acionando áudio de dublagem pós-bip nativo da câmara...");
+              console.log("[Dubbing] Acionando áudio de dublagem pós-delay...");
               dubbingAudioRef.current.play().catch(e => {
-                console.warn("Falha no play() da dublagem pós-bip, tentando fallback:", e);
+                console.warn("Falha no play() da dublagem pós-delay, tentando fallback:", e);
               });
             } else {
               dubbingAudioRef.current = new Audio(dubbingMp3Url);
@@ -526,22 +520,21 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
             }
           } catch (audioPlaybackError) {
-            console.error("Erro na preparação do áudio de dublagem pós-bip:", audioPlaybackError);
+            console.error("Erro na preparação do áudio de dublagem pós-delay:", audioPlaybackError);
           }
-        }, 800); // Aguarda 800ms do bip de início de gravação
+        }, 800);
       }
 
       // 3. Registar o início instantâneo da gravação dita pelo toque ou hardware
       actualRecordingStartTimeRef.current = Date.now();
 
-      // 4. Iniciar estados e cronômetro de UI imediatamente
+      // 4. Iniciar estados e cronômetro de UI imediatamente para feedback instantâneo
       setIsRecording(true);
       setRecordingSeconds(0);
       timerRef.current = window.setInterval(() => {
         setRecordingSeconds(prev => prev + 1);
       }, 1000);
 
-      setIsSensorStarting(false);
       recordingPromiseRef.current = null;
     } catch (err) {
       console.error("[Sensors] Erro ao conectar os sensores ou iniciar gravação:", err);
