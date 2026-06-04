@@ -454,6 +454,26 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     try {
       const callTime = Date.now();
 
+      // Desbloquear o canal de áudio da WebView imediatamente no primeiro toque (User Gesture)
+      if (dubbingMp3Url && dubbingAudioRef.current) {
+        try {
+          dubbingAudioRef.current.volume = 0;
+          const playPromise = dubbingAudioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              if (dubbingAudioRef.current) {
+                dubbingAudioRef.current.pause();
+                dubbingAudioRef.current.currentTime = 0;
+              }
+            }).catch(e => {
+              console.warn("[Dubbing Pre-unlock] Erro ao desbloquear áudio de clique no canal nativo:", e);
+            });
+          }
+        } catch (e) {
+          console.warn("[Dubbing Pre-unlock] Incompatibilidade síncrona no warm-up:", e);
+        }
+      }
+
       // 1. Ativar gravação física de modo assíncrono (não bloqueante)
       if (Capacitor.isNativePlatform()) {
         console.log("[Sensors] Ativando hardware de gravação de vídeo de imediato em background...");
@@ -474,22 +494,24 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           console.log(`[Sensors] Hardware e sensores ativos com sucesso em ${((resolveTime - callTime) / 1000).toFixed(2)}s.`);
           recordingStartTimeRef.current = resolveTime;
 
-          // 2. Tocar o áudio de dublagem apenas AGORA que a gravação já se iniciou de fato no frame 0!
+          // 2. Tocar o áudio de dublagem apenas AGORA que o bip nativo do sistema tocou e a gravação se iniciou no frame 0!
           if (dubbingMp3Url) {
             try {
-              if (!dubbingAudioRef.current) {
+              if (dubbingAudioRef.current) {
+                dubbingAudioRef.current.volume = 1.0;
+                dubbingAudioRef.current.currentTime = 0;
+                console.log("[Dubbing] Acionando áudio de dublagem de forma ultra instantânea com o início físico do vídeo (bip do sensor)...");
+                dubbingAudioRef.current.play().catch(e => {
+                  console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
+                });
+              } else {
                 dubbingAudioRef.current = new Audio(dubbingMp3Url);
                 dubbingAudioRef.current.preload = "auto";
                 dubbingAudioRef.current.load();
+                dubbingAudioRef.current.currentTime = 0;
+                dubbingAudioRef.current.volume = 1.0;
+                dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
               }
-              dubbingAudioRef.current.currentTime = 0;
-              console.log("[Dubbing] Acionando áudio de dublagem instantaneamente com o início físico do vídeo...");
-              dubbingAudioRef.current.play().catch(e => {
-                console.warn("Falha no play() direto de dublagem, tentando fallback:", e);
-                if (dubbingAudioRef.current) {
-                  dubbingAudioRef.current.play().catch(pErr => console.error("Falha total do player:", pErr));
-                }
-              });
             } catch (audioPlaybackError) {
               console.error("Erro na preparação do áudio de dublagem:", audioPlaybackError);
             }
