@@ -23,6 +23,7 @@ interface CreatePostProps {
     recordingSeconds: number;
     dubbedMp3Url?: string | null;
     dubbedFromId?: string | null;
+    dubbingDelayMs?: number;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
@@ -55,6 +56,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [recordedFacingMode, setRecordedFacingMode] = useState<'user' | 'rear'>('user');
+  const [dubbingDelayMs, setDubbingDelayMs] = useState<number>(0);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
@@ -387,6 +389,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
 
+        const startTime = performance.now();
+
         // Iniciar gravação de vídeo
         const videoPromise = CameraPreview.startRecordVideo({
           width: window.innerWidth,
@@ -396,6 +400,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         });
 
         await videoPromise;
+
+        const endTime = performance.now();
+        const measuredDelay = Math.round(endTime - startTime);
+        console.log(`[Dubbing] Atraso medido na inicialização da câmara: ${measuredDelay}ms`);
+        setDubbingDelayMs(measuredDelay);
         
         setIsRecording(true);
         if (dubbingMp3Url) {
@@ -681,7 +690,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         trimEnd,
         recordingSeconds,
         dubbedMp3Url: dubbingMp3Url,
-        dubbedFromId: dubbedFromId
+        dubbedFromId: dubbedFromId,
+        dubbingDelayMs: dubbingDelayMs
       });
       onCreated();
       return;
@@ -1017,6 +1027,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setPreviewUrls([]);
     setError(null);
     setIsFromGallery(false);
+    setDubbingDelayMs(0);
 
     // Resetar para câmera frontal e desligar flash
     setFacingMode('user');

@@ -44,6 +44,7 @@ interface UploadData {
   recordingSeconds: number;
   dubbedMp3Url?: string | null;
   dubbedFromId?: string | null;
+  dubbingDelayMs?: number;
 }
 
 const App: React.FC = () => {
@@ -128,6 +129,7 @@ const App: React.FC = () => {
         trimEnd,
         dubbedMp3Url,
         dubbedFromId,
+        dubbingDelayMs,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -181,15 +183,25 @@ const App: React.FC = () => {
           }
           
           const videoArgs = [];
-          // Trim se necessário
-          const hasTrim = trimStart > 0 || trimEnd > 0;
-          if (hasTrim) {
-            videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
-          }
           
-          videoArgs.push('-i', '/input.mp4');
           if (dubbedMp3Url) {
-            videoArgs.push('-i', '/dub_audio.mp3');
+            const delaySec = (dubbingDelayMs || 0) / 1000;
+            const videoStart = trimStart + delaySec;
+            const audioStart = trimStart;
+            const duration = (trimEnd > trimStart) ? (trimEnd - trimStart) : 90;
+
+            console.log(`[FFMPEG Dubbing Sync] Aplicando compensação: delay=${dubbingDelayMs}ms (${delaySec}s), trimStart=${trimStart}s, trimEnd=${trimEnd}s`);
+            console.log(`[FFMPEG Dubbing Sync] Vídeo input0 começará em -ss ${videoStart}s, duração -t ${duration}s`);
+            console.log(`[FFMPEG Dubbing Sync] Áudio input1 começará em -ss ${audioStart}s, duração -t ${duration}s`);
+
+            videoArgs.push('-ss', String(videoStart), '-t', String(duration), '-i', '/input.mp4');
+            videoArgs.push('-ss', String(audioStart), '-t', String(duration), '-i', '/dub_audio.mp3');
+          } else {
+            const hasTrim = trimStart > 0 || trimEnd > 0;
+            if (hasTrim) {
+              videoArgs.push('-ss', String(trimStart), '-t', String(trimEnd - trimStart));
+            }
+            videoArgs.push('-i', '/input.mp4');
           }
 
           if (filterParts.length > 0) {
