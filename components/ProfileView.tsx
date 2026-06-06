@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Profile, Post } from '../types';
+import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3 } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -13,7 +13,7 @@ interface ProfileViewProps {
   isOwnProfile?: boolean;
   initialAction?: string | null;
   onClearAction?: () => void;
-  onNavigateToPost?: (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' }) => void;
+  onNavigateToPost?: (postId: string, filter?: FeedFilter) => void;
   onNavigateToProfile?: (userId: string) => void;
   onBack?: () => void;
 }

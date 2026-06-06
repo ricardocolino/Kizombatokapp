@@ -22,6 +22,7 @@ import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
 import { Home, Compass, Radio, Bell, User as UserIcon } from 'lucide-react';
 import { appCache } from './services/cache';
+import { FeedFilter } from './types';
 
 export enum Tab {
   HOME = 'home',
@@ -58,7 +59,7 @@ const App: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState(true);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [targetPostId, setTargetPostId] = useState<string | null>(null);
-  const [feedFilter, setFeedFilter] = useState<{ userId: string; userName: string; type: 'user' | 'reposted' | 'private' } | null>(null);
+  const [feedFilter, setFeedFilter] = useState<FeedFilter | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [isHosting, setIsHosting] = useState(false);
@@ -506,7 +507,7 @@ const App: React.FC = () => {
     setActiveTab(Tab.PROFILE);
   };
 
-  const handleNavigateToPost = (postId: string, filter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' }) => {
+  const handleNavigateToPost = (postId: string, filter?: FeedFilter) => {
     if (postId.startsWith('story:')) {
       const userId = postId.replace('story:', '');
       if (user && userId === user.id) {
@@ -593,10 +594,19 @@ const App: React.FC = () => {
           onViewAudio={(audioPostId) => setViewAudioPostId(audioPostId)}
           onClearFilter={() => {
             if (feedFilter) {
-              const targetUserId = feedFilter.userId;
-              setFeedFilter(null);
-              setTargetPostId(null);
-              handleNavigateToProfile(targetUserId);
+              if (feedFilter.type === 'audio' && feedFilter.dubbedFromId) {
+                const targetAudioId = feedFilter.dubbedFromId;
+                setFeedFilter(null);
+                setTargetPostId(null);
+                setViewAudioPostId(targetAudioId);
+              } else if (feedFilter.userId) {
+                const targetUserId = feedFilter.userId;
+                setFeedFilter(null);
+                setTargetPostId(null);
+                handleNavigateToProfile(targetUserId);
+              } else {
+                setFeedFilter(null);
+              }
             } else {
               setFeedFilter(null);
             }

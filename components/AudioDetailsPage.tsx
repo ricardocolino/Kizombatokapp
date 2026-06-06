@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Post } from '../types';
+import { Post, FeedFilter } from '../types';
 import { ArrowLeft, Loader2, Music } from 'lucide-react';
 
 interface AudioDetailsPageProps {
@@ -9,7 +9,7 @@ interface AudioDetailsPageProps {
   onBack: () => void;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onNavigateToProfile?: (userId: string) => void;
-  onNavigateToPost?: (postId: string) => void;
+  onNavigateToPost?: (postId: string, filter?: FeedFilter) => void;
 }
 
 const AudioDetailsPage: React.FC<AudioDetailsPageProps> = ({
@@ -230,7 +230,15 @@ const AudioDetailsPage: React.FC<AudioDetailsPageProps> = ({
               {gridItems.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => onNavigateToPost && onNavigateToPost(item.id)}
+                  onClick={() => {
+                    if (onNavigateToPost) {
+                      onNavigateToPost(item.id, {
+                        type: 'audio',
+                        dubbedFromId: originalPost.id,
+                        audioName: audioCreatorUsername ? `@${audioCreatorUsername}` : 'Áudio Original'
+                      });
+                    }
+                  }}
                   className="aspect-[3/4] relative bg-zinc-50 border border-zinc-150 rounded-2xl overflow-hidden group shadow-sm hover:border-purple-400 hover:shadow-md transition-all cursor-pointer"
                 >
                   <img

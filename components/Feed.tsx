@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
-import { Post } from '../types';
+import { Post, FeedFilter } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
 
@@ -15,7 +15,7 @@ interface FeedProps {
   onJoinLive?: (liveId: string) => void;
   initialPostId?: string | null;
   isPaused?: boolean;
-  feedFilter?: { userId: string; userName: string; type: 'user' | 'reposted' | 'private' } | null;
+  feedFilter?: FeedFilter | null;
   onClearFilter?: () => void;
   refreshTrigger?: number;
   onDub?: (mp3Url: string, originalPostId: string) => void;
@@ -249,7 +249,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       pageRef.current = currentPage;
       
       // GERAR CHAVE ÚNICA PARA ESTE FEED (Apenas para a primeira página)
-      const filterKey = feedFilter ? `${feedFilter.type}_${feedFilter.userId}` : 'none';
+      const filterKey = feedFilter ? `${feedFilter.type}_${feedFilter.userId || feedFilter.dubbedFromId || 'none'}` : 'none';
       const cacheKey = `feed_${feedType}_${user?.id || 'guest'}_${initialPostId || 'none'}_${filterKey}`;
       
       if (!isNextPage) {
@@ -278,6 +278,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       if (feedFilter) {
         if (feedFilter.type === 'user' || feedFilter.type === 'private') {
           query = query.eq('user_id', feedFilter.userId);
+        } else if (feedFilter.type === 'audio') {
+          query = query.or(`id.eq.${feedFilter.dubbedFromId},dubbed_from_id.eq.${feedFilter.dubbedFromId}`);
         } else if (feedFilter.type === 'reposted') {
           const { data: reposts } = await supabase
             .from('reposts')
@@ -548,6 +550,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               {feedFilter.type === 'user' && `${t('Videos from')} ${feedFilter.userName}`}
               {feedFilter.type === 'private' && `${t('Private Videos of', 'Vídeos privados de')} ${feedFilter.userName}`}
               {feedFilter.type === 'reposted' && `${t('Videos reposted by')} ${feedFilter.userName}`}
+              {feedFilter.type === 'audio' && `${t('Dubs of', 'Dublagens de')} ${feedFilter.audioName}`}
             </span>
           </div>
         </div>

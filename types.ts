@@ -104,3 +104,11 @@ export interface StoryReaction {
   created_at: string;
   profiles?: Profile;
 }
+
+export interface FeedFilter {
+  userId?: string;
+  userName?: string;
+  type: 'user' | 'reposted' | 'private' | 'audio';
+  dubbedFromId?: string;
+  audioName?: string;
+}
