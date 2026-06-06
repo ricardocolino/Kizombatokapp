@@ -65,6 +65,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
 
+  // Dublagem e Seleção de Musicas Locais
+  const [localDubbingUrl, setLocalDubbingUrl] = useState<string | null>(null);
+  const [localDubbedFromId, setLocalDubbedFromId] = useState<string | null>(null);
+  const activeDubbingMp3Url = localDubbingUrl || dubbingMp3Url || null;
+  const activeDubbedFromId = localDubbedFromId || dubbedFromId || null;
+
+  interface DubMusic {
+    id: string;
+    content: string | null;
+    mp3_url: string;
+    user_id: string;
+    profiles?: {
+      username: string;
+      avatar_url?: string | null;
+    } | null;
+  }
+
+  const [showMusicSelector, setShowMusicSelector] = useState(false);
+  const [musicList, setMusicList] = useState<DubMusic[]>([]);
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicSearch, setMusicSearch] = useState('');
+  const [playingMusicId, setPlayingMusicId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const nativeVideoInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +106,82 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
     };
   }, []);
+
+  const loadMusics = async (search: string = '') => {
+    setMusicLoading(true);
+    try {
+      let query = supabase
+        .from('posts')
+        .select('id, content, mp3_url, user_id, profiles!user_id(username, avatar_url)')
+        .not('mp3_url', 'is', null);
+
+      if (search.trim()) {
+        query = query.ilike('content', `%${search.trim()}%`);
+      }
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error('Erro ao buscar músicas:', error);
+      } else {
+        setMusicList(data || []);
+      }
+    } catch (e) {
+      console.error('Erro em loadMusics:', e);
+    } finally {
+      setMusicLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showMusicSelector) {
+      loadMusics(musicSearch);
+    } else {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+        setPlayingMusicId(null);
+      }
+    }
+  }, [showMusicSelector, musicSearch]);
+
+  const handleTogglePreview = (e: React.MouseEvent, musicId: string, mp3Url: string) => {
+    e.stopPropagation();
+    try {
+      if (playingMusicId === musicId) {
+        if (previewAudioRef.current) {
+          previewAudioRef.current.pause();
+        }
+        setPlayingMusicId(null);
+      } else {
+        if (previewAudioRef.current) {
+          previewAudioRef.current.pause();
+        }
+        previewAudioRef.current = new Audio(mp3Url);
+        previewAudioRef.current.play().catch(err => console.error("Erro ao tocar prévia:", err));
+        setPlayingMusicId(musicId);
+        
+        previewAudioRef.current.onended = () => {
+          setPlayingMusicId(null);
+        };
+      }
+    } catch (err) {
+      console.error("Erro ao gerenciar áudio de prévia:", err);
+    }
+  };
+
+  const handleSelectMusic = (mp3Url: string, postId: string) => {
+    setLocalDubbingUrl(mp3Url);
+    setLocalDubbedFromId(postId);
+    setShowMusicSelector(false);
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPlayingMusicId(null);
+    }
+  };
 
   const checkDailyLimit = async () => {
     try {
@@ -407,12 +507,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setDubbingDelayMs(measuredDelay);
         
         setIsRecording(true);
-        if (dubbingMp3Url) {
+        if (activeDubbingMp3Url) {
           try {
             if (dubbingAudioRef.current) {
               dubbingAudioRef.current.currentTime = 0;
             } else {
-              dubbingAudioRef.current = new Audio(dubbingMp3Url);
+              dubbingAudioRef.current = new Audio(activeDubbingMp3Url);
             }
             dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
           } catch (audioPlaybackError) {
@@ -689,8 +789,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         trimStart,
         trimEnd,
         recordingSeconds,
-        dubbedMp3Url: dubbingMp3Url,
-        dubbedFromId: dubbedFromId,
+        dubbedMp3Url: activeDubbingMp3Url,
+        dubbedFromId: activeDubbedFromId,
         dubbingDelayMs: dubbingDelayMs
       });
       onCreated();
@@ -989,7 +1089,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           is_ready: true,
           views: 0,
           mp3_url: finalMp3Url,
-          dubbed_from_id: dubbedFromId || null,
+          dubbed_from_id: activeDubbedFromId || null,
           created_at: new Date().toISOString()
         });
         if (insertError) throw insertError;
@@ -1093,7 +1193,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               <X size={24} />
             </button>
 
-            {dubbingMp3Url && (
+            {activeDubbingMp3Url && (
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-purple-600/90 backdrop-blur-lg rounded-full shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400 text-white">
                 <Music size={14} className="animate-spin" />
                 <span className="text-[10px] font-black uppercase tracking-wider">Dublagem Ativa</span>
@@ -1202,6 +1302,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </div>
                 <span className={`text-[8px] font-black uppercase shadow-sm ${isFlashOn ? 'text-purple-500' : 'text-white'}`}>{t('Flash')}</span>
               </button>
+
+              <button 
+                onClick={() => setShowMusicSelector(true)}
+                disabled={isRecording}
+                className={`flex flex-col items-center gap-1 group active:scale-90 transition-transform ${isRecording ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
+              >
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${activeDubbingMp3Url ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' : 'bg-black/30 border-white/10 text-white'}`}>
+                  <Music size={22} fill={activeDubbingMp3Url ? "currentColor" : "none"} />
+                </div>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${activeDubbingMp3Url ? 'text-purple-500' : 'text-white'}`}>{activeDubbingMp3Url ? t('Dubbing Original') : t('Select Music')}</span>
+              </button>
             </div>
 
 
@@ -1209,14 +1320,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               <X size={24} />
             </button>
 
-            {dubbingMp3Url && (
+            {activeDubbingMp3Url && (
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-purple-600/90 backdrop-blur-lg rounded-full shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400 text-white animate-pulse">
                 <Music size={14} className="animate-[spin_4s_linear_infinite]" />
                 <span className="text-[10px] font-black uppercase tracking-wider">Modo Dublagem Ativo</span>
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onClearDubbing) onClearDubbing();
+                    if (localDubbingUrl) {
+                      setLocalDubbingUrl(null);
+                      setLocalDubbedFromId(null);
+                    } else if (onClearDubbing) {
+                      onClearDubbing();
+                    }
                   }}
                   className="ml-1 p-0.5 bg-black/30 hover:bg-black/50 rounded-full transition-transform active:scale-90"
                   title="Cancelar dublagem"
@@ -1408,6 +1524,117 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           >
             {t('Done')}
           </button>
+        </div>
+      )}
+
+      {showMusicSelector && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex flex-col justify-end sm:justify-center items-center p-4">
+          <div className="bg-zinc-950 w-full max-w-md rounded-t-[32px] sm:rounded-[32px] border border-white/10 flex flex-col h-[80vh] sm:h-[600px] shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-black text-lg tracking-wide uppercase">{t('Select Music')}</h3>
+                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Escolha uma música para dublar</p>
+              </div>
+              <button 
+                onClick={() => setShowMusicSelector(false)}
+                className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-all active:scale-90"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-white/5">
+              <input 
+                type="text"
+                placeholder="Pesquisar legendas / músicas..."
+                value={musicSearch}
+                onChange={(e) => setMusicSearch(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-purple-500 focus:bg-white/10 transition-all font-medium animate-none"
+              />
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {musicLoading ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="animate-spin text-purple-500" size={32} />
+                  <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest">A carregar áudios...</span>
+                </div>
+              ) : musicList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
+                  <Music className="opacity-20 mb-3" size={48} />
+                  <p className="text-sm font-bold uppercase tracking-wider">Nenhum áudio encontrado</p>
+                  <p className="text-xs text-zinc-600 mt-1 uppercase tracking-widest">Partilha posts originais com áudio para expandir a biblioteca de dublagens!</p>
+                </div>
+              ) : (
+                musicList.map((music) => {
+                  const isPlaying = playingMusicId === music.id;
+                  const profile = music.profiles;
+                  const username = profile?.username || 'Utilizador';
+                  
+                  return (
+                    <div 
+                      key={music.id}
+                      className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between gap-4 hover:bg-white/10 transition-all group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <button 
+                          onClick={(e) => handleTogglePreview(e, music.id, music.mp3_url)}
+                          className={`p-3 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-90 ${isPlaying ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                        >
+                          {isPlaying ? (
+                            <div className="flex items-end gap-0.5 h-3.5 w-3.5">
+                              <span className="w-0.5 bg-current animate-[bounce_0.8s_infinite_100ms] h-full" />
+                              <span className="w-0.5 bg-current animate-[bounce_0.8s_infinite_300ms] h-2/3" />
+                              <span className="w-0.5 bg-current animate-[bounce_0.8s_infinite_200ms] h-5/6" />
+                            </div>
+                          ) : (
+                            <Music size={14} fill="currentColor" />
+                          )}
+                        </button>
+                        
+                        <div className="min-w-0 pr-2">
+                          <p className="text-white text-xs font-bold truncate">
+                            {music.content || `Áudio original de @${username}`}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider mt-0.5">
+                            Por @{username}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => handleSelectMusic(music.mp3_url, music.id)}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-purple-900/20 shrink-0"
+                      >
+                        {t('Use')}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Clear custom selection footer if any */}
+            {(localDubbingUrl) && (
+              <div className="p-4 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Música selecionada ativa</span>
+                <button 
+                  onClick={() => {
+                    setLocalDubbingUrl(null);
+                    setLocalDubbedFromId(null);
+                    setShowMusicSelector(false);
+                  }}
+                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-500 hover:text-red-400 rounded-full text-[9px] font-black uppercase tracking-widest transition-all"
+                >
+                  Remover Música
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
