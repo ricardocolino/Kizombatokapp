@@ -1578,11 +1578,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   return (
                     <div 
                       key={music.id}
-                      className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between gap-4 hover:bg-white/10 transition-all group"
+                      onClick={(e) => handleTogglePreview(e, music.id, music.mp3_url)}
+                      className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between gap-4 hover:bg-white/10 cursor-pointer transition-all group"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <button 
-                          onClick={(e) => handleTogglePreview(e, music.id, music.mp3_url)}
+                        <div 
                           className={`p-3 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-90 ${isPlaying ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' : 'bg-white/10 text-white hover:bg-white/20'}`}
                         >
                           {isPlaying ? (
@@ -1594,7 +1594,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                           ) : (
                             <Music size={14} fill="currentColor" />
                           )}
-                        </button>
+                        </div>
                         
                         <div className="min-w-0 pr-2">
                           <p className="text-white text-xs font-bold truncate">
@@ -1607,7 +1607,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                       </div>
 
                       <button 
-                        onClick={() => handleSelectMusic(music.mp3_url, music.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectMusic(music.mp3_url, music.id);
+                        }}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-purple-900/20 shrink-0"
                       >
                         {t('Use')}
