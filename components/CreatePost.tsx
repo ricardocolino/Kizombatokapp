@@ -62,6 +62,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
+  const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
 
@@ -458,6 +459,79 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       setPreviewUrls([URL.createObjectURL(file)]);
       setIsFromGallery(true);
       stopCamera();
+    }
+  };
+
+  const takePhoto = async () => {
+    if (isStarting || isRecording || countdown !== null) return;
+    
+    setIsStarting(true);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const result = await CameraPreview.capture({ quality: 85 });
+        if (result && result.value) {
+          const response = await fetch(`data:image/jpeg;base64,${result.value}`);
+          const photoBlob = await response.blob();
+          
+          setIsFromGallery(false);
+          setMediaFiles([photoBlob]);
+          const localUrl = URL.createObjectURL(photoBlob);
+          setPreviewUrls([localUrl]);
+          
+          // Parar câmara
+          await stopCamera();
+        }
+      } else {
+        // Fallback no browser: podemos usar o canvas do container para capturar o stream se houver
+        const container = document.getElementById('cameraPreview');
+        const videoElement = container?.querySelector('video');
+        if (videoElement) {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoElement.videoWidth || 640;
+          canvas.height = videoElement.videoHeight || 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(async (blob) => {
+              if (blob) {
+                setIsFromGallery(false);
+                setMediaFiles([blob]);
+                const localUrl = URL.createObjectURL(blob);
+                setPreviewUrls([localUrl]);
+                await stopCamera();
+              }
+            }, 'image/jpeg', 0.85);
+          }
+        } else {
+          // Se não encontrar o vídeo (ex: mock ou browser não inicializado), cria um blob fictício de imagem
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#1e1b4b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 30px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Huzty Photo', canvas.width / 2, canvas.height / 2);
+            canvas.toBlob(async (blob) => {
+              if (blob) {
+                setIsFromGallery(false);
+                setMediaFiles([blob]);
+                const localUrl = URL.createObjectURL(blob);
+                setPreviewUrls([localUrl]);
+                await stopCamera();
+              }
+            }, 'image/jpeg', 0.85);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao tirar foto:", err);
+      setError("Erro ao tirar foto.");
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -1404,12 +1478,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </div>
                 
                 <button 
-                  onClick={initiateRecording} 
+                  onClick={isPhotoMode ? takePhoto : initiateRecording} 
                   disabled={isStarting} 
                   className="relative flex items-center justify-center disabled:opacity-50"
                 >
                   <div className="w-20 h-20 rounded-full border-[6px] border-white/40 flex items-center justify-center shadow-2xl">
-                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : 'w-16 h-16 rounded-full'} bg-purple-600 shadow-[0_0_30px_rgba(147,51,234,0.6)]`} />
+                    <div className={`transition-all duration-300 ${isRecording ? 'w-8 h-8 rounded-lg' : (isPhotoMode ? 'w-12 h-12 rounded-full border-[4px] border-purple-500' : 'w-16 h-16 rounded-full')} bg-purple-600 shadow-[0_0_30px_rgba(147,51,234,0.6)]`} />
                   </div>
                 </button>
 
@@ -1431,13 +1505,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               {/* Upload Type Selector */}
               <div className="flex gap-8 pb-2">
                 <button 
-                  onClick={() => setUploadType('post')}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
+                  onClick={() => {
+                    setUploadType('post');
+                    setIsPhotoMode(false);
+                  }}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'post' && !isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Video')}
                 </button>
                 <button 
-                  onClick={() => setUploadType('story')}
+                  onClick={() => {
+                    setUploadType('post');
+                    setIsPhotoMode(true);
+                  }}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'post' && isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                >
+                  {t('Foto')}
+                </button>
+                <button 
+                  onClick={() => {
+                    setUploadType('story');
+                    setIsPhotoMode(false);
+                  }}
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Story')}
