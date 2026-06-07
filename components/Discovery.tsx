@@ -327,7 +327,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           >
             {post.media_url ? (
               <>
-                {post.media_type === 'video' ? (
+                {(post.media_type || 'video') === 'video' ? (
                   <video 
                     src={parseMediaUrl(post.media_url)} 
                     className="w-full h-full object-cover" 
@@ -337,7 +337,11 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                     poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
                   />
                 ) : (
-                  <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" alt="" />
+                  <img 
+                    src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
+                    className="w-full h-full object-cover" 
+                    alt="" 
+                  />
                 )}
                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors duration-300" />
                 <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] text-white font-black drop-shadow-md">
