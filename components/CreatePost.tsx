@@ -74,6 +74,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   interface DubMusic {
     id: string;
     content: string | null;
+    media_url?: string | null;
     mp3_url: string;
     user_id: string;
     profiles?: {
@@ -112,7 +113,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     try {
       let query = supabase
         .from('posts')
-        .select('id, content, mp3_url, user_id, profiles!user_id(username, avatar_url)')
+        .select('id, content, media_url, mp3_url, user_id, profiles!user_id(username, avatar_url)')
         .not('mp3_url', 'is', null);
 
       if (search.trim()) {
@@ -1649,7 +1650,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   return (
                     <div 
                       key={music.id}
-                      onClick={(e) => handleTogglePreview(e, music.id, music.mp3_url)}
+                      onClick={(e) => handleTogglePreview(e, music.id, music.media_url || music.mp3_url)}
                       className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between gap-4 hover:bg-white/10 cursor-pointer transition-all group"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1680,7 +1681,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSelectMusic(music.mp3_url, music.id);
+                          handleSelectMusic(music.media_url || music.mp3_url, music.id);
                         }}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-purple-900/20 shrink-0"
                       >

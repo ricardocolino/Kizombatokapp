@@ -1833,8 +1833,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <button 
               onClick={() => {
                 const originalTarget = post.dubbed_from_id ? originalPost : post;
-                if (onDub && originalTarget?.mp3_url) {
-                  onDub(originalTarget.mp3_url, originalTarget.id);
+                if (onDub && (originalTarget?.media_url || originalTarget?.mp3_url)) {
+                  onDub(originalTarget.media_url || originalTarget.mp3_url!, originalTarget.id);
                   setShowAudioDetails(false);
                 }
               }}
