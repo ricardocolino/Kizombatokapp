@@ -92,6 +92,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
   };
 
+  const [originalPost, setOriginalPost] = useState<Post | null>(null);
+  const [showAudioDetails, setShowAudioDetails] = useState(false);
+  const [audioDubs, setAudioDubs] = useState<Post[]>([]);
+  const [loadingDubs, setLoadingDubs] = useState(false);
+
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
@@ -117,11 +122,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [showRecharge, setShowRecharge] = useState(false);
   const [sendingGift, setSendingGift] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
-
-  const [originalPost, setOriginalPost] = useState<Post | null>(null);
-  const [showAudioDetails, setShowAudioDetails] = useState(false);
-  const [audioDubs, setAudioDubs] = useState<Post[]>([]);
-  const [loadingDubs, setLoadingDubs] = useState(false);
 
   const [showErrorExplanation, setShowErrorExplanation] = useState(false);
 
