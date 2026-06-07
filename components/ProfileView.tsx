@@ -1301,7 +1301,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined} 
                     />
                   ) : (
-                    <img src={parseMediaUrl(post.media_url)} className="w-full h-full object-cover" />
+                    <img 
+                      src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
+                      className="w-full h-full object-cover" 
+                      alt=""
+                    />
                   )}
                   <div className="absolute bottom-1.5 left-2 flex items-center gap-1 text-[9px] font-bold text-white drop-shadow-sm">
                     <span className="text-[7px]">▶</span> {post.views}

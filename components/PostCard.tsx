@@ -96,15 +96,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
   const optimizedUrl = useMemo(() => {
-    if (post.media_type === 'image') {
-      // Se o post for uma foto dublada (ou uma foto simples com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
+    if (post.media_type !== 'video') {
+      // Se o post for uma foto, áudio ou texto dublado (ou com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
       return post.mp3_r2_url || originalPost?.mp3_r2_url || '';
     }
     return mediaUrl || '';
   }, [mediaUrl, post.media_type, post.mp3_r2_url, originalPost?.mp3_r2_url]);
 
   useEffect(() => {
-    if (post.media_type === 'image' && !optimizedUrl) {
+    if (post.media_type !== 'video' && !optimizedUrl) {
       setIsLoading(false);
     }
   }, [post.media_type, optimizedUrl]);
@@ -1099,8 +1099,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current);
       }
-      if (post.media_type === 'image' && !optimizedUrl) {
-        // Se for foto simples sem som, não há ação de reprodução
+      if (post.media_type !== 'video' && !optimizedUrl) {
+        // Se for post simples sem som, não há ação de reprodução
         clickTimeoutRef.current = null;
       } else {
         clickTimeoutRef.current = setTimeout(() => {
@@ -1125,17 +1125,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     >
       {/* Video Content */}
       <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
-          {/* Foto estática do post se for tipo imagem */}
-          {post.media_type === 'image' && mediaUrl && (
-            <div className="absolute inset-0 pointer-events-none z-0">
-              <img 
-                src={mediaUrl} 
-                className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-                alt=""
-                style={{
-                  filter: post.filter ? post.filter.split('|')[0] : undefined,
-                }}
-              />
+          {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
+          {post.media_type !== 'video' && (
+            <div className="absolute inset-0 z-0">
+              {((post.media_type === 'image' && mediaUrl) || post.thumbnail_url) ? (
+                <img 
+                  src={(post.media_type === 'image' && mediaUrl) ? mediaUrl : parseMediaUrl(post.thumbnail_url || '')} 
+                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                  alt=""
+                  style={{
+                    filter: post.filter ? post.filter.split('|')[0] : undefined,
+                  }}
+                />
+              ) : (
+                /* Fallback for audio or text with no custom image: a beautiful styled visual bg with gradient */
+                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-zinc-950 via-purple-950/40 to-black select-none">
+                  <div className="w-20 h-20 rounded-full bg-purple-600/15 flex items-center justify-center mb-4 border border-purple-500/20 shadow-[0_0_50px_rgba(147,51,234,0.15)]">
+                    <Music size={32} className="text-purple-400" />
+                  </div>
+                  <p className="text-zinc-500 text-[10px] tracking-widest uppercase font-mono">Huzty Audio</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1143,12 +1153,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-              style={{ 
+              className={post.media_type === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}` : "absolute pointer-events-none opacity-0 w-1 h-1"}
+              style={post.media_type === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: post.media_type === 'image' ? 0 : (isPlaying ? 1 : 0),
+                opacity: isPlaying ? 1 : 0,
                 transition: 'opacity 0.3s ease-in-out'
-              }}
+              } : {}}
               loop
               muted={isMuted}
               playsInline
@@ -1165,17 +1175,22 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 setDuration(videoRef.current.duration);
               }
             }}
-            onLoadStart={() => setIsLoading(true)}
-            onWaiting={() => setIsLoading(true)}
+            onLoadStart={() => {
+              if (post.media_type === 'video') setIsLoading(true);
+            }}
+            onWaiting={() => {
+              if (post.media_type === 'video') setIsLoading(true);
+            }}
             onPlaying={() => {
               setIsPlaying(true);
               setIsLoading(false);
             }}
             onPause={() => setIsPlaying(false)}
-            onCanPlay={() => setIsLoading(false)}
+            onCanPlay={() => {
+              setIsLoading(false);
+            }}
             onError={(e) => {
-              // Só marcamos erro se o src for válido e falhou mesmo
-              if (optimizedUrl && isNearScreen) {
+              if (optimizedUrl && isNearScreen && post.media_type === 'video') {
                 console.error("Playback failed for URL:", optimizedUrl, e);
                 setVideoError(true);
                 setIsLoading(false);
@@ -1185,8 +1200,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           />
           )}
 
-          {/* Placeholder/Poster when not near or loading */}
-          {post.thumbnail_url && post.media_type !== 'image' && (
+          {/* Placeholder/Poster for videos when not near or loading */}
+          {post.thumbnail_url && post.media_type === 'video' && (
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
