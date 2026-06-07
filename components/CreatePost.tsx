@@ -856,6 +856,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       let finalThumbnailUrl: string | null = null;
       let finalMediaUrl: string | null = null;
       let finalMp3Url: string | null = null;
+      let finalMp3R2Url: string | null = null;
 
       if (isVideo) {
         // 6. Adicionar verificação antes do processamento
@@ -1035,6 +1036,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               const r2Mp3FileName = `${userId}-${timestamp}.mp3`;
               console.log('[Upload MP3 R2] Enviando MP3 também para o R2...');
               const r2Mp3Url = await uploadToR2(mp3Blob, 'mp3-audios', r2Mp3FileName);
+              finalMp3R2Url = r2Mp3Url;
               console.log('[Upload MP3 R2] MP3 enviado com sucesso para o R2:', r2Mp3Url);
             } catch (r2Error) {
               console.error('[Upload MP3 R2] Erro ao enviar MP3 para o R2:', r2Error);
@@ -1099,6 +1101,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           is_ready: true,
           views: 0,
           mp3_url: finalMp3Url,
+          mp3_r2_url: finalMp3R2Url,
           dubbed_from_id: activeDubbedFromId || null,
           created_at: new Date().toISOString()
         });
