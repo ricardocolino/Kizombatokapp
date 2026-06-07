@@ -97,11 +97,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const optimizedUrl = useMemo(() => {
     if (post.media_type === 'image') {
-      // Se for imagem, o vídeo em si deve reproduzir o som caso exista
-      return post.mp3_r2_url || post.mp3_url || originalPost?.mp3_r2_url || originalPost?.mp3_url || '';
+      // Se o post for uma foto dublada (ou uma foto simples com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
+      return post.mp3_r2_url || originalPost?.mp3_r2_url || '';
     }
     return mediaUrl || '';
-  }, [mediaUrl, post.media_type, post.mp3_r2_url, post.mp3_url, originalPost?.mp3_r2_url, originalPost?.mp3_url]);
+  }, [mediaUrl, post.media_type, post.mp3_r2_url, originalPost?.mp3_r2_url]);
 
   useEffect(() => {
     if (post.media_type === 'image' && !optimizedUrl) {
