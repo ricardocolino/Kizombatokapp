@@ -143,7 +143,7 @@ const App: React.FC = () => {
       let finalMediaBlob = mediaFile;
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
-      let finalMp3Url: string | null = null;
+      let finalMp3Url: string | null = dubbedMp3Url || null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
       if (isVideo && !isFromGallery) {
@@ -339,7 +339,7 @@ const App: React.FC = () => {
           user_id: userId,
           content: content || null,
           media_url: finalMediaUrl,
-          thumbnail_url: finalThumbnailUrl,
+          thumbnail_url: isVideo ? finalThumbnailUrl : finalMediaUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
           is_ready: true,

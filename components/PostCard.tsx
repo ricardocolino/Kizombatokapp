@@ -254,6 +254,31 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     setIsLoading(true);
     setIsPlaying(false);
     
+    if (post.media_type === 'image') {
+      setIsLoading(false);
+      if (isFullyVisible && !isPaused) {
+        if (audioRef.current) {
+          if (isMuted) {
+            audioRef.current.muted = true;
+          } else {
+            audioRef.current.muted = false;
+          }
+          audioRef.current.play().then(() => {
+            setIsPlaying(true);
+          }).catch(err => {
+            console.warn("Could not autoplay image audio:", err);
+          });
+        } else {
+          setIsPlaying(true);
+        }
+      } else {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+      }
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -352,7 +377,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         hlsRef.current = null;
       }
     };
-  }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused]);
+  }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused, isMuted, post.media_type]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
@@ -370,6 +395,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const viewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -413,6 +439,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         videoRef.current.load();
       }
     }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     setIsPlaying(false);
     if (viewTimeoutRef.current) {
       clearTimeout(viewTimeoutRef.current);
@@ -444,6 +473,43 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [post.id, post.user_id]);
 
   const handlePlay = React.useCallback(() => {
+    if (post.media_type === 'image') {
+      if (audioRef.current && audioRef.current.paused) {
+        if (isMuted) {
+          audioRef.current.muted = true;
+        } else {
+          audioRef.current.muted = false;
+        }
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+            // Deferir o incremento de views para não competir com a reprodução inicial
+            if (!viewCountedRef.current && !viewTimeoutRef.current) {
+              viewTimeoutRef.current = setTimeout(() => {
+                incrementView();
+                viewTimeoutRef.current = null;
+              }, 2000);
+            }
+          }).catch((err) => {
+            if (err.name !== 'AbortError') {
+              console.error("Audio playback failed:", err);
+            }
+            setIsPlaying(false);
+          });
+        }
+      } else {
+        setIsPlaying(true);
+        if (!viewCountedRef.current && !viewTimeoutRef.current) {
+          viewTimeoutRef.current = setTimeout(() => {
+            incrementView();
+            viewTimeoutRef.current = null;
+          }, 2000);
+        }
+      }
+      return;
+    }
+
     if (videoRef.current && videoRef.current.paused) {
       // Activa o som automaticamente ao dar autoplay, se estiver mutado
       if (isMuted) {
@@ -480,7 +546,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         });
       }
     }
-  }, [videoError, incrementView, isMuted, onToggleMute]);
+  }, [videoError, incrementView, isMuted, onToggleMute, post.media_type]);
 
   useEffect(() => {
     // Observer for "Near Screen" (Preloading)
@@ -1111,53 +1177,89 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       {/* Video Content */}
       <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
           {isNearScreen && (
-            <video
-              ref={videoRef}
-              src={optimizedUrl}
-              className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-              style={{ 
-                filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: isPlaying ? 1 : 0,
-                transition: 'opacity 0.3s ease-in-out'
-              }}
-              loop
-              muted={isMuted}
-              playsInline
-              preload={isFullyVisible ? "auto" : "metadata"}
-              disablePictureInPicture
-              disableRemotePlayback
-              onTimeUpdate={() => {
-                if (videoRef.current && !isScrubbing) {
-                  setCurrentTime(videoRef.current.currentTime);
-                }
-              }}
-            onLoadedMetadata={() => {
-              if (videoRef.current) {
-                setDuration(videoRef.current.duration);
-              }
-            }}
-            onLoadStart={() => setIsLoading(true)}
-            onWaiting={() => setIsLoading(true)}
-            onPlaying={() => {
-              setIsPlaying(true);
-              setIsLoading(false);
-            }}
-            onPause={() => setIsPlaying(false)}
-            onCanPlay={() => setIsLoading(false)}
-            onError={(e) => {
-              // Só marcamos erro se o src for válido e falhou mesmo
-              if (optimizedUrl && isNearScreen) {
-                console.error("Playback failed for URL:", optimizedUrl, e);
-                setVideoError(true);
-                setIsLoading(false);
-              }
-            }}
-            poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
-          />
+            post.media_type === 'image' ? (
+              <div className="w-full h-full relative">
+                <img
+                  src={optimizedUrl}
+                  className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                  style={{ 
+                    filter: post.filter ? post.filter.split('|')[0] : undefined,
+                  }}
+                  alt=""
+                />
+                {post.mp3_url && (
+                  <audio
+                    ref={audioRef}
+                    src={post.mp3_url}
+                    muted={isMuted}
+                    loop
+                    onTimeUpdate={() => {
+                      if (audioRef.current && !isScrubbing) {
+                        setCurrentTime(audioRef.current.currentTime);
+                      }
+                    }}
+                    onLoadedMetadata={() => {
+                      if (audioRef.current) {
+                        setDuration(audioRef.current.duration);
+                      }
+                    }}
+                    onPlaying={() => {
+                      setIsPlaying(true);
+                      setIsLoading(false);
+                    }}
+                    onPause={() => setIsPlaying(false)}
+                  />
+                )}
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                src={optimizedUrl}
+                className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                style={{ 
+                  filter: post.filter ? post.filter.split('|')[0] : undefined,
+                  opacity: isPlaying ? 1 : 0,
+                  transition: 'opacity 0.3s ease-in-out'
+                }}
+                loop
+                muted={isMuted}
+                playsInline
+                preload={isFullyVisible ? "auto" : "metadata"}
+                disablePictureInPicture
+                disableRemotePlayback
+                onTimeUpdate={() => {
+                  if (videoRef.current && !isScrubbing) {
+                    setCurrentTime(videoRef.current.currentTime);
+                  }
+                }}
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    setDuration(videoRef.current.duration);
+                  }
+                }}
+                onLoadStart={() => setIsLoading(true)}
+                onWaiting={() => setIsLoading(true)}
+                onPlaying={() => {
+                  setIsPlaying(true);
+                  setIsLoading(false);
+                }}
+                onPause={() => setIsPlaying(false)}
+                onCanPlay={() => setIsLoading(false)}
+                onError={(e) => {
+                  // Só marcamos erro se o src for válido e falhou mesmo
+                  if (optimizedUrl && isNearScreen) {
+                    console.error("Playback failed for URL:", optimizedUrl, e);
+                    setVideoError(true);
+                    setIsLoading(false);
+                  }
+                }}
+                poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
+              />
+            )
           )}
 
           {/* Placeholder/Poster when not near or loading */}
-          {post.thumbnail_url && (
+          {post.thumbnail_url && post.media_type !== 'image' && (
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
