@@ -1180,17 +1180,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             post.media_type === 'image' ? (
               <div className="w-full h-full relative">
                 <img
-                  src={optimizedUrl}
+                  src={parseMediaUrl(post.thumbnail_url || post.media_url)}
                   className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                   style={{ 
                     filter: post.filter ? post.filter.split('|')[0] : undefined,
                   }}
                   alt=""
                 />
-                {post.mp3_url && (
+                {post.media_url && (
                   <audio
                     ref={audioRef}
-                    src={post.mp3_url}
+                    src={parseMediaUrl(post.media_url)}
                     muted={isMuted}
                     loop
                     onTimeUpdate={() => {

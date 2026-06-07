@@ -338,8 +338,8 @@ const App: React.FC = () => {
         const { error: insertError } = await supabase.from('posts').insert({
           user_id: userId,
           content: content || null,
-          media_url: finalMediaUrl,
-          thumbnail_url: isVideo ? finalThumbnailUrl : finalMediaUrl,
+          media_url: uploadType === 'photo' ? (dubbedMp3Url || finalMediaUrl) : finalMediaUrl,
+          thumbnail_url: uploadType === 'photo' ? finalMediaUrl : (isVideo ? finalThumbnailUrl : finalMediaUrl),
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
           is_ready: true,
