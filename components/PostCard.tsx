@@ -96,18 +96,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
   const optimizedUrl = useMemo(() => {
-    if (post.media_type === 'image') {
-      // Se for imagem, o vídeo em si deve reproduzir o som caso exista
-      return post.mp3_r2_url || post.mp3_url || originalPost?.mp3_r2_url || originalPost?.mp3_url || '';
-    }
     return mediaUrl || '';
-  }, [mediaUrl, post.media_type, post.mp3_r2_url, post.mp3_url, originalPost?.mp3_r2_url, originalPost?.mp3_url]);
-
-  useEffect(() => {
-    if (post.media_type === 'image' && !optimizedUrl) {
-      setIsLoading(false);
-    }
-  }, [post.media_type, optimizedUrl]);
+  }, [mediaUrl]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -1099,19 +1089,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current);
       }
-      if (post.media_type === 'image' && !optimizedUrl) {
-        // Se for foto simples sem som, não há ação de reprodução
+      clickTimeoutRef.current = setTimeout(() => {
+        if (isPlaying) {
+          handlePause();
+        } else {
+          handlePlay();
+        }
         clickTimeoutRef.current = null;
-      } else {
-        clickTimeoutRef.current = setTimeout(() => {
-          if (isPlaying) {
-            handlePause();
-          } else {
-            handlePlay();
-          }
-          clickTimeoutRef.current = null;
-        }, DOUBLE_PRESS_DELAY);
-      }
+      }, DOUBLE_PRESS_DELAY);
     }
     lastClickRef.current = now;
   };
@@ -1125,20 +1110,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     >
       {/* Video Content */}
       <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
-          {/* Foto estática do post se for tipo imagem */}
-          {post.media_type === 'image' && mediaUrl && (
-            <div className="absolute inset-0 pointer-events-none z-0">
-              <img 
-                src={mediaUrl} 
-                className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-                alt=""
-                style={{
-                  filter: post.filter ? post.filter.split('|')[0] : undefined,
-                }}
-              />
-            </div>
-          )}
-
           {isNearScreen && (
             <video
               ref={videoRef}
@@ -1146,7 +1117,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
               style={{ 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: post.media_type === 'image' ? 0 : (isPlaying ? 1 : 0),
+                opacity: isPlaying ? 1 : 0,
                 transition: 'opacity 0.3s ease-in-out'
               }}
               loop
@@ -1186,7 +1157,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           )}
 
           {/* Placeholder/Poster when not near or loading */}
-          {post.thumbnail_url && post.media_type !== 'image' && (
+          {post.thumbnail_url && (
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
