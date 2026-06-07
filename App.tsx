@@ -143,7 +143,7 @@ const App: React.FC = () => {
       let finalMediaBlob = mediaFile;
       let finalMediaUrl = null;
       let finalThumbnailUrl = null;
-      let finalMp3Url: string | null = dubbedMp3Url || null;
+      let finalMp3Url: string | null = null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
       if (isVideo && !isFromGallery) {
@@ -160,29 +160,10 @@ const App: React.FC = () => {
           const videoData = await fetchFile(mediaFile);
           await ffmpeg.writeFile('/input.mp4', videoData);
 
-          let audioUrlToFetch = dubbedMp3Url;
-
-          if (dubbedFromId) {
+          if (dubbedMp3Url) {
             try {
-              const { data: originalPost } = await supabase
-                .from('posts')
-                .select('media_type, mp3_url')
-                .eq('id', dubbedFromId)
-                .single();
-
-              if (originalPost && originalPost.media_type === 'video' && originalPost.mp3_url) {
-                audioUrlToFetch = originalPost.mp3_url;
-                console.log('[FFMPEG Dubbing] Usuário dublou com vídeo. Usando mp3_url para o áudio original:', audioUrlToFetch);
-              }
-            } catch (err) {
-              console.error('Erro ao buscar post original para conferir mp3_url:', err);
-            }
-          }
-
-          if (audioUrlToFetch) {
-            try {
-              console.log('[FFMPEG Dubbing] Baixando MP3 para dublagem:', audioUrlToFetch);
-              const audioRes = await fetch(audioUrlToFetch);
+              console.log('[FFMPEG Dubbing] Baixando MP3 para dublagem:', dubbedMp3Url);
+              const audioRes = await fetch(dubbedMp3Url);
               const audioBlob = await audioRes.blob();
               const audioData = await fetchFile(audioBlob);
               await ffmpeg.writeFile('/dub_audio.mp3', audioData);
@@ -357,8 +338,8 @@ const App: React.FC = () => {
         const { error: insertError } = await supabase.from('posts').insert({
           user_id: userId,
           content: content || null,
-          media_url: uploadType === 'photo' ? (dubbedMp3Url || finalMediaUrl) : finalMediaUrl,
-          thumbnail_url: uploadType === 'photo' ? finalMediaUrl : (isVideo ? finalThumbnailUrl : finalMediaUrl),
+          media_url: finalMediaUrl,
+          thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
           is_ready: true,

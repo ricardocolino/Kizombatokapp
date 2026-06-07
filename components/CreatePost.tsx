@@ -14,7 +14,7 @@ interface CreatePostProps {
   onBackgroundUpload?: (data: {
     mediaFile: File | Blob;
     content: string;
-    uploadType: 'post' | 'story' | 'photo';
+    uploadType: 'post' | 'story';
     isEducation?: boolean;
     recordedFacingMode: string;
     isFromGallery: boolean;
@@ -26,7 +26,7 @@ interface CreatePostProps {
     dubbingDelayMs?: number;
   }) => void;
   onStartLive?: () => void;
-  initialType?: 'post' | 'story' | 'photo';
+  initialType?: 'post' | 'story';
   dubbingMp3Url?: string | null;
   dubbedFromId?: string | null;
   onClearDubbing?: () => void;
@@ -61,7 +61,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [trimEnd, setTrimEnd] = useState(15);
   const [showTrimEditor, setShowTrimEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [uploadType, setUploadType] = useState<'post' | 'story' | 'photo'>(initialType);
+  const [uploadType, setUploadType] = useState<'post' | 'story'>(initialType);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
 
@@ -74,7 +74,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   interface DubMusic {
     id: string;
     content: string | null;
-    media_url?: string | null;
     mp3_url: string;
     user_id: string;
     profiles?: {
@@ -113,7 +112,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     try {
       let query = supabase
         .from('posts')
-        .select('id, content, media_url, mp3_url, user_id, profiles!user_id(username, avatar_url)')
+        .select('id, content, mp3_url, user_id, profiles!user_id(username, avatar_url)')
         .not('mp3_url', 'is', null);
 
       if (search.trim()) {
@@ -462,66 +461,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     }
   };
 
-  const base64ToBlob = (base64: string, mimeType: string): Blob => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-       byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
-  };
-
-  const takePhoto = async () => {
-    if (isStarting) return;
-    try {
-      if (Capacitor.isNativePlatform()) {
-        const result = await CameraPreview.capture({ quality: 85 });
-        if (result.value) {
-          const base64Data = result.value;
-          const blob = base64ToBlob(base64Data, 'image/jpeg');
-          setMediaFiles([blob]);
-          setPreviewUrls([URL.createObjectURL(blob)]);
-          setIsFromGallery(false);
-          stopCamera();
-        }
-      } else {
-        const parentEl = document.getElementById('cameraPreview');
-        const videoInParent = parentEl?.querySelector('video');
-        if (videoInParent) {
-          const canvas = document.createElement('canvas');
-          canvas.width = videoInParent.videoWidth || 1080;
-          canvas.height = videoInParent.videoHeight || 1920;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(videoInParent, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                setMediaFiles([blob]);
-                setPreviewUrls([URL.createObjectURL(blob)]);
-                setIsFromGallery(false);
-                stopCamera();
-              }
-            }, 'image/jpeg', 0.85);
-          }
-        } else {
-          openGallery();
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao tirar foto:", err);
-      setError("Não foi possível tirar a foto. Tente novamente.");
-    }
-  };
-
-  const handleCaptureClick = () => {
-    if (uploadType === 'photo') {
-      takePhoto();
-    } else {
-      initiateRecording();
-    }
-  };
-
   const initiateRecording = async () => {
     if (isRecording || countdown !== null) return;
     startCountdown();
@@ -550,20 +489,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
 
-        // Iniciar o áudio IMEDIATAMENTE se houver música de dublagem
-        if (activeDubbingMp3Url) {
-          try {
-            if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.currentTime = 0;
-            } else {
-              dubbingAudioRef.current = new Audio(activeDubbingMp3Url);
-            }
-            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
-          } catch (audioPlaybackError) {
-            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
-          }
-        }
-
         const startTime = performance.now();
 
         // Iniciar gravação de vídeo
@@ -582,6 +507,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setDubbingDelayMs(measuredDelay);
         
         setIsRecording(true);
+        if (activeDubbingMp3Url) {
+          try {
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.currentTime = 0;
+            } else {
+              dubbingAudioRef.current = new Audio(activeDubbingMp3Url);
+            }
+            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+          } catch (audioPlaybackError) {
+            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+          }
+        }
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
@@ -688,13 +625,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
     try {
       let result;
-      if (uploadType === 'photo') {
-        // Para posts de estilo foto
-        result = await FilePicker.pickImages({
-          multiple: false,
-          limit: 1,
-        });
-      } else if (uploadType === 'post') {
+      if (uploadType === 'post') {
         // Para posts, apenas vídeos
         result = await FilePicker.pickVideos({
           multiple: true,
@@ -1151,8 +1082,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         const { error: insertError } = await supabase.from('posts').insert({
           user_id: userId,
           content: content || null,
-          media_url: uploadType === 'photo' ? (activeDubbingMp3Url || finalMediaUrl) : finalMediaUrl,
-          thumbnail_url: uploadType === 'photo' ? finalMediaUrl : finalThumbnailUrl,
+          media_url: finalMediaUrl,
+          thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: false,
           is_ready: true,
@@ -1442,7 +1373,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <input 
                   ref={nativeVideoInputRef}
                   type="file" 
-                  accept={uploadType === 'story' ? "video/*,image/*" : uploadType === 'photo' ? "image/*" : "video/*"} 
+                  accept={uploadType === 'story' ? "video/*,image/*" : "video/*"} 
+                  capture="camcorder" 
                   className="hidden" 
                   onChange={handleNativeVideoChange} 
                 />
@@ -1459,7 +1391,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </div>
                 
                 <button 
-                  onClick={handleCaptureClick} 
+                  onClick={initiateRecording} 
                   disabled={isStarting} 
                   className="relative flex items-center justify-center disabled:opacity-50"
                 >
@@ -1490,12 +1422,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'post' ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Video')}
-                </button>
-                <button 
-                  onClick={() => setUploadType('photo')}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'photo' ? 'text-white scale-110' : 'text-white/40'}`}
-                >
-                  {t('Photo', 'Foto')}
                 </button>
                 <button 
                   onClick={() => setUploadType('story')}
@@ -1652,7 +1578,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   return (
                     <div 
                       key={music.id}
-                      onClick={(e) => handleTogglePreview(e, music.id, music.media_url || music.mp3_url)}
+                      onClick={(e) => handleTogglePreview(e, music.id, music.mp3_url)}
                       className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between gap-4 hover:bg-white/10 cursor-pointer transition-all group"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1683,7 +1609,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSelectMusic(music.media_url || music.mp3_url, music.id);
+                          handleSelectMusic(music.mp3_url, music.id);
                         }}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-md shadow-purple-900/20 shrink-0"
                       >

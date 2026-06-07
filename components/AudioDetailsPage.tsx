@@ -196,9 +196,9 @@ const AudioDetailsPage: React.FC<AudioDetailsPageProps> = ({
         </div>
 
         {/* Action Button */}
-        {(originalPost.media_url || originalPost.mp3_url) && onDub && (
+        {originalPost.mp3_url && onDub && (
           <button
-            onClick={() => onDub(originalPost.media_url || originalPost.mp3_url!, originalPost.id)}
+            onClick={() => onDub(originalPost.mp3_url!, originalPost.id)}
             className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-[0.98] text-white rounded-full text-xs font-black uppercase tracking-widest hover:shadow-lg hover:shadow-purple-500/10 shadow-sm flex items-center justify-center gap-2 transition-all outline-none"
             id="btn-dub-page-action"
           >
