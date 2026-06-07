@@ -279,6 +279,16 @@ const App: React.FC = () => {
           const bucketName = 'mp3-audios';
           const mp3Path = `${userId}/${timestamp}.mp3`;
           
+          // --- FAZER UPLOAD DO MP3 TAMBÉM NO R2 ---
+          try {
+            const r2Mp3FileName = `${userId}-${timestamp}.mp3`;
+            console.log('[Upload MP3 R2] Enviando MP3 também para o R2...');
+            const r2Mp3Url = await uploadToR2(mp3Blob, 'mp3-audios', r2Mp3FileName);
+            console.log('[Upload MP3 R2] MP3 enviado com sucesso para o R2:', r2Mp3Url);
+          } catch (r2Error) {
+            console.error('[Upload MP3 R2] Erro ao enviar MP3 para o R2:', r2Error);
+          }
+
           const { error: uploadError } = await supabase.storage
             .from(bucketName)
             .upload(mp3Path, mp3Blob, {
