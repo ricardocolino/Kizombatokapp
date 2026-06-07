@@ -550,6 +550,20 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setRecordedFacingMode(facingMode);
         console.log(`[Recording] Iniciando gravação. Câmera: ${facingMode}`);
 
+        // Iniciar o áudio IMEDIATAMENTE se houver música de dublagem
+        if (activeDubbingMp3Url) {
+          try {
+            if (dubbingAudioRef.current) {
+              dubbingAudioRef.current.currentTime = 0;
+            } else {
+              dubbingAudioRef.current = new Audio(activeDubbingMp3Url);
+            }
+            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
+          } catch (audioPlaybackError) {
+            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
+          }
+        }
+
         const startTime = performance.now();
 
         // Iniciar gravação de vídeo
@@ -568,18 +582,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setDubbingDelayMs(measuredDelay);
         
         setIsRecording(true);
-        if (activeDubbingMp3Url) {
-          try {
-            if (dubbingAudioRef.current) {
-              dubbingAudioRef.current.currentTime = 0;
-            } else {
-              dubbingAudioRef.current = new Audio(activeDubbingMp3Url);
-            }
-            dubbingAudioRef.current.play().catch(e => console.error("Erro no play() da dublagem:", e));
-          } catch (audioPlaybackError) {
-            console.error("Não foi possível tocar o áudio para sincronizar:", audioPlaybackError);
-          }
-        }
         setRecordingSeconds(0);
         timerRef.current = window.setInterval(() => {
           setRecordingSeconds(prev => prev + 1);
