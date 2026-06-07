@@ -327,7 +327,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           >
             {post.media_url ? (
               <>
-                {post.media_type === 'video' ? (
+                {(post.media_type || 'video') === 'video' ? (
                   <video 
                     src={parseMediaUrl(post.media_url)} 
                     className="w-full h-full object-cover" 

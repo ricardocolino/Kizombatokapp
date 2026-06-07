@@ -1291,7 +1291,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       <Lock size={12} strokeWidth={2.5} className="text-white" />
                     </div>
                   )}
-                  {post.media_type === 'video' ? (
+                   {(post.media_type || 'video') === 'video' ? (
                     <video 
                       src={parseMediaUrl(post.media_url)} 
                       className="w-full h-full object-cover" 
