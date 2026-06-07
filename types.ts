@@ -19,7 +19,7 @@ export interface Post {
   user_id: string;
   content: string | null;
   media_url: string;
-  media_type: 'image' | 'video' | 'audio' | 'text';
+  media_type: 'image' | 'video';
   views: number;
   thumbnail_url: string | null;
   text_overlay: string | null;
@@ -83,7 +83,7 @@ export interface Story {
   id: string;
   user_id: string;
   media_url: string;
-  media_type: 'image' | 'video' | 'audio' | 'text';
+  media_type: 'image' | 'video';
   created_at: string;
   expires_at: string;
   profiles?: Profile;

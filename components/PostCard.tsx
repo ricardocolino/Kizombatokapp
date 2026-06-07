@@ -95,21 +95,19 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
-  const mediaType = useMemo(() => post.media_type || 'video', [post.media_type]);
-
   const optimizedUrl = useMemo(() => {
-    if (mediaType !== 'video') {
-      // Se o post for uma foto, áudio ou texto dublado (ou com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
-      return post.mp3_r2_url || originalPost?.mp3_r2_url || '';
+    if (post.media_type === 'image') {
+      // Se for imagem, o vídeo em si deve reproduzir o som caso exista
+      return post.mp3_r2_url || post.mp3_url || originalPost?.mp3_r2_url || originalPost?.mp3_url || '';
     }
     return mediaUrl || '';
-  }, [mediaUrl, mediaType, post.mp3_r2_url, originalPost?.mp3_r2_url]);
+  }, [mediaUrl, post.media_type, post.mp3_r2_url, post.mp3_url, originalPost?.mp3_r2_url, originalPost?.mp3_url]);
 
   useEffect(() => {
-    if (mediaType !== 'video' && !optimizedUrl) {
+    if (post.media_type === 'image' && !optimizedUrl) {
       setIsLoading(false);
     }
-  }, [mediaType, optimizedUrl]);
+  }, [post.media_type, optimizedUrl]);
 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -122,26 +120,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [showAudioDetails, setShowAudioDetails] = useState(false);
   const [audioDubs, setAudioDubs] = useState<Post[]>([]);
   const [loadingDubs, setLoadingDubs] = useState(false);
-
-  const [showErrorExplanation, setShowErrorExplanation] = useState(false);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (isNearScreen && isLoading && mediaType === 'video' && !videoError) {
-      timer = setTimeout(() => {
-        setShowErrorExplanation(true);
-      }, 6000); // Se após 6 segundos de exibição ativa continuar carregando (tudo preto / travado)
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isNearScreen, isLoading, mediaType, videoError]);
-
-  useEffect(() => {
-    if (videoError) {
-      setShowErrorExplanation(true);
-    }
-  }, [videoError]);
 
   useEffect(() => {
     if (post.dubbed_from_id) {
@@ -1121,8 +1099,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current);
       }
-      if (mediaType !== 'video' && !optimizedUrl) {
-        // Se for post simples sem som, não há ação de reprodução
+      if (post.media_type === 'image' && !optimizedUrl) {
+        // Se for foto simples sem som, não há ação de reprodução
         clickTimeoutRef.current = null;
       } else {
         clickTimeoutRef.current = setTimeout(() => {
@@ -1147,27 +1125,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     >
       {/* Video Content */}
       <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
-          {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
-          {mediaType !== 'video' && (
-            <div className="absolute inset-0 z-0">
-              {((mediaType === 'image' && mediaUrl) || post.thumbnail_url) ? (
-                <img 
-                  src={(mediaType === 'image' && mediaUrl) ? mediaUrl : parseMediaUrl(post.thumbnail_url || '')} 
-                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-                  alt=""
-                  style={{
-                    filter: post.filter ? post.filter.split('|')[0] : undefined,
-                  }}
-                />
-              ) : (
-                /* Fallback for audio or text with no custom image: a beautiful styled visual bg with gradient */
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-zinc-950 via-purple-950/40 to-black select-none">
-                  <div className="w-20 h-20 rounded-full bg-purple-600/15 flex items-center justify-center mb-4 border border-purple-500/20 shadow-[0_0_50px_rgba(147,51,234,0.15)]">
-                    <Music size={32} className="text-purple-400" />
-                  </div>
-                  <p className="text-zinc-500 text-[10px] tracking-widest uppercase font-mono">Huzty Audio</p>
-                </div>
-              )}
+          {/* Foto estática do post se for tipo imagem */}
+          {post.media_type === 'image' && mediaUrl && (
+            <div className="absolute inset-0 pointer-events-none z-0">
+              <img 
+                src={mediaUrl} 
+                className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                alt=""
+                style={{
+                  filter: post.filter ? post.filter.split('|')[0] : undefined,
+                }}
+              />
             </div>
           )}
 
@@ -1175,12 +1143,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}` : "absolute pointer-events-none opacity-0 w-1 h-1"}
-              style={mediaType === 'video' ? { 
+              className={`w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+              style={{ 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: isPlaying ? 1 : 0,
+                opacity: post.media_type === 'image' ? 0 : (isPlaying ? 1 : 0),
                 transition: 'opacity 0.3s ease-in-out'
-              } : {}}
+              }}
               loop
               muted={isMuted}
               playsInline
@@ -1197,22 +1165,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 setDuration(videoRef.current.duration);
               }
             }}
-            onLoadStart={() => {
-              if (mediaType === 'video') setIsLoading(true);
-            }}
-            onWaiting={() => {
-              if (mediaType === 'video') setIsLoading(true);
-            }}
+            onLoadStart={() => setIsLoading(true)}
+            onWaiting={() => setIsLoading(true)}
             onPlaying={() => {
               setIsPlaying(true);
               setIsLoading(false);
             }}
             onPause={() => setIsPlaying(false)}
-            onCanPlay={() => {
-              setIsLoading(false);
-            }}
+            onCanPlay={() => setIsLoading(false)}
             onError={(e) => {
-              if (optimizedUrl && isNearScreen && mediaType === 'video') {
+              // Só marcamos erro se o src for válido e falhou mesmo
+              if (optimizedUrl && isNearScreen) {
                 console.error("Playback failed for URL:", optimizedUrl, e);
                 setVideoError(true);
                 setIsLoading(false);
@@ -1222,8 +1185,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           />
           )}
 
-          {/* Placeholder/Poster for videos when not near or loading */}
-          {post.thumbnail_url && mediaType === 'video' && (
+          {/* Placeholder/Poster when not near or loading */}
+          {post.thumbnail_url && post.media_type !== 'image' && (
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -1254,63 +1217,23 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {showErrorExplanation && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/85 z-40 p-6">
-            <div className="w-full max-w-[320px] bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl flex flex-col relative text-left select-none animate-[fade-in_0.2s_ease-out]">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowErrorExplanation(false);
-                  setVideoError(false);
-                }}
-                className="absolute top-3 right-3 text-zinc-400 hover:text-white transition-colors"
-                id="close-error-popup-btn"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="text-purple-400" size={20} />
-                <h4 className="text-white text-sm font-bold">Diagnóstico do Ecrã Preto</h4>
-              </div>
-
-              <div className="space-y-3 text-zinc-300 text-xs mb-5">
-                <p>
-                  Detetámos que o player poderá estar com dificuldades em iniciar a reprodução:
-                </p>
-                <div className="space-y-2 bg-black/35 p-2 rounded-lg border border-zinc-800">
-                  <p><span className="text-purple-400 font-semibold">• Permissões de Som:</span> Muitos browsers bloqueiam vídeos com áudio por predefinição.</p>
-                  <p><span className="text-purple-400 font-semibold">• Conectividade:</span> Problema temporário de rede ou atraso do servidor de media.</p>
-                  <p><span className="text-purple-400 font-semibold">• Normalização Retroativa:</span> Convertemos as publicações legadas sem tipo formatado para o formato padrão.</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowErrorExplanation(false);
-                    setVideoError(false);
-                    if (videoRef.current) {
-                      videoRef.current.currentTime = 0;
-                      handlePlay();
-                    }
-                  }}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95"
-                >
-                  Tentar de novo (Forçar Play)
-                </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowErrorExplanation(false);
-                  }}
-                  className="w-full py-2 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 rounded-xl text-xs font-bold transition-all"
-                >
-                  Continuar a Navegar
-                </button>
-              </div>
-            </div>
+        {videoError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 p-6 text-center">
+            <AlertCircle size={48} className="text-zinc-400 mb-3" />
+            <p className="text-white text-sm font-medium mb-4">Falha ao carregar o vídeo</p>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setVideoError(false);
+                if (videoRef.current) {
+                  videoRef.current.currentTime = 0;
+                  handlePlay();
+                }
+              }}
+              className="px-6 py-2 bg-white text-black rounded-full text-sm font-bold active:scale-95 transition-all"
+            >
+              Tentar de novo
+            </button>
           </div>
         )}
 
