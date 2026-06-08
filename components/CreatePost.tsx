@@ -762,8 +762,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       if (isPhotoMode) {
         // Se estiver no modo foto, apenas fotos/imagens (permitir carregar até 3 fotos ao mesmo tempo)
         result = await FilePicker.pickImages({
-          multiple: uploadType === 'post',
-          limit: uploadType === 'post' ? 3 : 1,
+          multiple: true,
+          limit: 3,
         });
       } else if (uploadType === 'post') {
         // Para posts, apenas vídeos
@@ -1576,6 +1576,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             <div className="absolute bottom-12 left-0 w-full flex flex-col items-center gap-6 z-40">
               <div className="flex items-center justify-around w-full px-8">
                 <input 
+                  key={isPhotoMode ? "photo-uploader" : "video-uploader"}
                   ref={nativeVideoInputRef}
                   type="file" 
                   accept={isPhotoMode ? "image/*" : (uploadType === 'story' ? "video/*,image/*" : "video/*")} 
