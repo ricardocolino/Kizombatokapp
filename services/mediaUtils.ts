@@ -29,7 +29,7 @@ export function parseAllMediaUrls(mediaUrl: string | null | undefined): string[]
 
   // If standard parsing yielded nothing, use a robust regex to extract any HTTP(S) URLs
   if (urls.length === 0) {
-    const matches = trimmed.match(/(https?:\/\/[^"\s\\\[\]\),;]+)/g);
+    const matches = trimmed.match(/(https?:\/\/[^"\s\\[\]),;]+)/g);
     if (matches && matches.length > 0) {
       urls = matches;
     } else {
