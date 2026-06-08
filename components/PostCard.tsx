@@ -1364,9 +1364,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onCanPlay={() => {
               setIsLoading(false);
             }}
-            onError={(e) => {
+            onError={() => {
               if (optimizedUrl && isNearScreen && mediaType === 'video') {
-                console.error("Playback failed for URL:", optimizedUrl, e);
+                console.error("Playback failed for URL:", optimizedUrl);
                 setVideoError(true);
                 setIsLoading(false);
               }

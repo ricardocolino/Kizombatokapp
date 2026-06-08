@@ -397,7 +397,7 @@ const App: React.FC = () => {
       }, 3000);
 
     } catch (err: unknown) {
-      console.error('Background upload error:', err);
+      console.error('Background upload error:', err instanceof Error ? err.message : String(err));
       const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
     }

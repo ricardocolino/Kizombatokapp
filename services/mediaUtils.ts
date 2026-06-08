@@ -4,8 +4,8 @@
  * @param mediaUrl The media URL string from the database.
  * @returns The first URL if it's an array, or the original string.
  */
-export function parseMediaUrl(mediaUrl: string | string[] | null | undefined | unknown): string {
-  if (!mediaUrl) return '';
+export function parseMediaUrl(mediaUrl: string | string[] | null | undefined | unknown): string | null {
+  if (!mediaUrl) return null;
   
   let targetUrl = '';
 
@@ -32,7 +32,7 @@ export function parseMediaUrl(mediaUrl: string | string[] | null | undefined | u
     targetUrl = String(mediaUrl);
   }
 
-  if (!targetUrl) return '';
+  if (!targetUrl) return null;
 
   // Clean quotes if any got preserved
   targetUrl = targetUrl.replace(/^["']|["']$/g, '').trim();
