@@ -1351,8 +1351,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             onError={(e) => {
               if (optimizedUrl && isNearScreen && mediaType === 'video') {
-                const errorType = (e && 'type' in e) ? e.type : 'Unknown video event';
-                console.error("Playback failed for URL:", optimizedUrl, errorType);
+                console.error("Playback failed for URL:", optimizedUrl, e);
                 setVideoError(true);
                 setIsLoading(false);
               }

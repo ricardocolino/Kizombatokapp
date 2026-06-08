@@ -875,8 +875,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       };
 
       video.onerror = (e) => {
-        const errorMsg = video.error?.message || (e && 'type' in e ? (e as unknown as Event).type : 'Unknown video error');
-        console.error('[Thumbnail] Erro no elemento vídeo:', errorMsg);
+        console.error('[Thumbnail] Erro no elemento vídeo:', e, video.error);
         cleanup();
         reject(new Error(`Video error during thumbnail generation: ${video.error?.message || 'Unknown error'}`));
       };
