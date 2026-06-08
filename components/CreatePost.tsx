@@ -499,8 +499,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     canvas.width = img.height;
                     canvas.height = img.width;
                     ctx.translate(canvas.width / 2, canvas.height / 2);
-                    // Roda 90 graus no sentido dos ponteiros do relógio para ficar vertical (Portrait)
-                    ctx.rotate((90 * Math.PI) / 180);
+                    // Roda 270 graus no sentido dos ponteiros do relógio para ficar vertical e correto (Portrait)
+                    ctx.rotate((270 * Math.PI) / 180);
                     ctx.drawImage(img, -img.width / 2, -img.height / 2);
                     canvas.toBlob((blob) => {
                       if (blob) {
