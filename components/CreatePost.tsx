@@ -459,8 +459,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         setIsFromGallery(true);
         stopCamera();
       } else {
-        const file = files[0];
-        const isOk = await checkVideoDuration(file);
+        const selectedFiles = Array.from(files).slice(0, 3);
+        
+        // Validar durtion do primeiro vídeo
+        const isOk = await checkVideoDuration(selectedFiles[0]);
         setIsVideoTooLong(!isOk);
         if (!isOk) {
           setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
@@ -468,8 +470,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           setError(null);
         }
         
-        setMediaFiles([file]);
-        setPreviewUrls([URL.createObjectURL(file)]);
+        const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+        previewUrls.forEach(url => URL.revokeObjectURL(url));
+        
+        setMediaFiles(selectedFiles);
+        setPreviewUrls(newPreviewUrls);
         setActiveImageIndex(0);
         setIsFromGallery(true);
         stopCamera();
@@ -727,7 +732,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const handleMediaLibrarySelect = async (files: File[]) => {
     if (files.length > 0) {
-      const selectedFiles = files.slice(0, isPhotoMode ? 3 : 5);
+      const selectedFiles = files.slice(0, 3);
       
       // Validar duração do primeiro arquivo (se for vídeo)
       const isOk = await checkVideoDuration(selectedFiles[0]);
@@ -767,10 +772,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           limit: 3,
         });
       } else if (uploadType === 'post') {
-        // Para posts, apenas vídeos
+        // Para posts, apenas vídeos (permitir carregar até 3 vídeos ao mesmo tempo)
         result = await FilePicker.pickVideos({
           multiple: true,
-          limit: 5,
+          limit: 3,
         });
       } else {
         // Para stories, vídeos e fotos
@@ -1212,11 +1217,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
       if (finalMediaBlob) {
-        if (!isVideo && mediaFiles.length > 1) {
+        if (mediaFiles.length > 1) {
           const uploadedUrls: string[] = [];
           for (let i = 0; i < mediaFiles.length; i++) {
             const file = mediaFiles[i];
-            const fileExt = (file as File).name?.split('.').pop() || 'jpg';
+            const isVid = file.type?.startsWith('video/') || file.name?.endsWith('.mp4');
+            const fileExt = (file as File).name?.split('.').pop() || (isVid ? 'mp4' : 'jpg');
             const fileName = `${userId}-${timestamp}-${i}.${fileExt}`;
             const folder = uploadType === 'story' ? 'stories' : 'posts';
             const url = await uploadToR2(file, folder, fileName);
@@ -1323,66 +1329,68 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           <div className="fixed inset-0 z-[150] bg-white flex flex-col">
             {/* Fullscreen Media Container */}
             <div className="absolute inset-0 bg-white overflow-hidden">
-              {mediaFiles[0]?.type.startsWith('image/') ? (
-                <div className="w-full h-full relative">
+              <div className="w-full h-full relative">
+                {mediaFiles[activeImageIndex]?.type.startsWith('image/') ? (
                   <img src={previewUrls[activeImageIndex]} className="w-full h-full object-cover" />
-                  {previewUrls.length > 1 && (
-                    <>
-                      {/* Botão Anterior */}
-                      {activeImageIndex > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveImageIndex(prev => prev - 1)}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
-                        >
-                          <ChevronLeft size={24} />
-                        </button>
-                      )}
-                      
-                      {/* Botão Seguinte */}
-                      {activeImageIndex < previewUrls.length - 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveImageIndex(prev => prev + 1)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
-                        >
-                          <ChevronRight size={24} />
-                        </button>
-                      )}
+                ) : (
+                  <video 
+                    key={previewUrls[activeImageIndex]}
+                    src={previewUrls[activeImageIndex]} 
+                    className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
+                    autoPlay 
+                    loop 
+                    playsInline 
+                    muted={false}
+                    onTimeUpdate={(e) => {
+                      const video = e.currentTarget;
+                      if (video.currentTime < trimStart) {
+                        video.currentTime = trimStart;
+                      }
+                      if (video.currentTime > trimEnd) {
+                        video.currentTime = trimStart;
+                      }
+                    }}
+                  />
+                )}
+                
+                {previewUrls.length > 1 && (
+                  <>
+                    {/* Botão Anterior */}
+                    {activeImageIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageIndex(prev => prev - 1)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
+                      >
+                        <ChevronLeft size={24} />
+                      </button>
+                    )}
+                    
+                    {/* Botão Seguinte */}
+                    {activeImageIndex < previewUrls.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageIndex(prev => prev + 1)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
+                      >
+                        <ChevronRight size={24} />
+                      </button>
+                    )}
 
-                      {/* Lista de Pontos / Indicadores */}
-                      <div className="absolute bottom-24 left-0 w-full flex justify-center gap-2 z-[160]">
-                        {previewUrls.map((_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setActiveImageIndex(idx)}
-                            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === activeImageIndex ? 'bg-purple-600 w-5 shadow-[0_0_12px_rgba(147,51,234,0.8)]' : 'bg-white/40 hover:bg-white/60'}`}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <video 
-                  src={previewUrls[0]} 
-                  className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
-                  autoPlay 
-                  loop 
-                  playsInline 
-                  muted={false}
-                  onTimeUpdate={(e) => {
-                    const video = e.currentTarget;
-                    if (video.currentTime < trimStart) {
-                      video.currentTime = trimStart;
-                    }
-                    if (video.currentTime > trimEnd) {
-                      video.currentTime = trimStart;
-                    }
-                  }}
-                />
-              )}
+                    {/* Lista de Pontos / Indicadores */}
+                    <div className="absolute bottom-24 left-0 w-full flex justify-center gap-2 z-[160]">
+                      {previewUrls.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveImageIndex(idx)}
+                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === activeImageIndex ? 'bg-purple-600 w-5 shadow-[0_0_12px_rgba(147,51,234,0.8)]' : 'bg-white/40 hover:bg-white/60'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               
               {/* Top Gradient for visibility */}
               <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
@@ -1581,7 +1589,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   ref={nativeVideoInputRef}
                   type="file" 
                   accept={isPhotoMode ? "image/*" : (uploadType === 'story' ? "video/*,image/*" : "video/*")} 
-                  multiple={isPhotoMode}
+                  multiple={true}
                   className="hidden" 
                   onChange={handleNativeVideoChange} 
                 />

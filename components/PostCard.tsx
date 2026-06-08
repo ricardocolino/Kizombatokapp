@@ -169,8 +169,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       // Se o post for uma foto, áudio ou texto dublado (ou com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
       return post.mp3_r2_url || originalPost?.mp3_r2_url || '';
     }
+    if (allMediaUrls.length > 1) {
+      return allMediaUrls[currentImageIndex] || '';
+    }
     return mediaUrl || '';
-  }, [mediaUrl, mediaType, post.mp3_r2_url, originalPost?.mp3_r2_url]);
+  }, [mediaUrl, mediaType, post.mp3_r2_url, originalPost?.mp3_r2_url, allMediaUrls, currentImageIndex]);
 
   useEffect(() => {
     if (mediaType !== 'video' && !optimizedUrl) {
@@ -1208,7 +1211,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       } ${showGifts ? 'gifts-active-postcard' : ''} ${showRecharge ? 'recharge-active-postcard' : ''} overflow-hidden will-change-transform`}
     >
       {/* Video Content */}
-      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
+      <div 
+        className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} 
+        onClick={handleVideoClick}
+        onTouchStart={allMediaUrls.length > 1 ? handleTouchStart : undefined}
+        onTouchMove={allMediaUrls.length > 1 ? handleTouchMove : undefined}
+        onTouchEnd={allMediaUrls.length > 1 ? handleTouchEnd : undefined}
+      >
           {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
           {mediaType !== 'video' && (
             <div className="absolute inset-0 z-0">
@@ -1349,6 +1358,51 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
           />
+          )}
+
+          {/* Controls Overlay for multiple videos */}
+          {mediaType === 'video' && allMediaUrls.length > 1 && (
+            <>
+              {/* Left / Right arrows for web/desktop */}
+              {currentImageIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => prev - 1);
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+              {currentImageIndex < allMediaUrls.length - 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => prev + 1);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+
+              {/* Pages/Dots similar to TikTok Carousel */}
+              <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md px-2 py-1 rounded-full text-white text-[10px] font-black z-[120] tracking-widest border border-white/5 pointer-events-none">
+                {currentImageIndex + 1}/{allMediaUrls.length}
+              </div>
+
+              <div className="absolute bottom-14 left-0 w-full flex justify-center gap-1.5 z-[120] pointer-events-none">
+                {allMediaUrls.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-purple-600 w-4 shadow-[0_0_8px_rgba(147,51,234,0.6)]' : 'bg-white/45 w-1.5'}`}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           {/* Placeholder/Poster for videos when not near or loading */}

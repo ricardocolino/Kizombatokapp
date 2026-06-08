@@ -323,11 +323,12 @@ const App: React.FC = () => {
       // Upload do Ficheiro Final
       const folder = uploadType === 'story' ? 'stories' : 'posts';
       
-      if (uploadData.mediaFiles && uploadData.mediaFiles.length > 1 && !isVideo) {
+      if (uploadData.mediaFiles && uploadData.mediaFiles.length > 1) {
         const uploadedUrls: string[] = [];
         for (let i = 0; i < uploadData.mediaFiles.length; i++) {
           const file = uploadData.mediaFiles[i];
-          const fileExt = (file as File).name?.split('.').pop() || 'jpg';
+          const isVid = file.type?.startsWith('video/') || file.name?.endsWith('.mp4');
+          const fileExt = (file as File).name?.split('.').pop() || (isVid ? 'mp4' : 'jpg');
           const fileName = `${userId}-${timestamp}-${i}.${fileExt}`;
           const url = await uploadToR2(
             file,
