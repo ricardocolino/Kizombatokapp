@@ -487,8 +487,87 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         if (result && result.value) {
           const base64Data = `data:image/jpeg;base64,${result.value}`;
           
-          const response = await fetch(base64Data);
-          const photoBlob: Blob = await response.blob();
+          // Lê orientação EXIF do JPEG e roda o canvas para corrigir
+          const getExifOrientation = (buffer: ArrayBuffer): number => {
+            const view = new DataView(buffer);
+            if (view.getUint16(0, false) !== 0xFFD8) return 1; // não é JPEG
+            const length = view.byteLength;
+            let offset = 2;
+            while (offset < length) {
+              const marker = view.getUint16(offset, false);
+              offset += 2;
+              if (marker === 0xFFE1) {
+                if (view.getUint32(offset += 2, false) !== 0x45786966) return 1; // não tem EXIF
+                const little = view.getUint16(offset += 6, false) === 0x4949;
+                offset += view.getUint32(offset + 4, little);
+                const tags = view.getUint16(offset, little);
+                offset += 2;
+                for (let i = 0; i < tags; i++) {
+                  if (view.getUint16(offset + i * 12, little) === 0x0112) {
+                    return view.getUint16(offset + i * 12 + 8, little);
+                  }
+                }
+              } else if ((marker & 0xFF00) !== 0xFF00) {
+                break;
+              } else {
+                offset += view.getUint16(offset, false);
+              }
+            }
+            return 1;
+          };
+
+          const applyExifRotation = (img: HTMLImageElement, orientation: number): HTMLCanvasElement => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d')!;
+            const w = img.width;
+            const h = img.height;
+            // orientações 5-8 trocam largura/altura
+            if (orientation >= 5) {
+              canvas.width = h;
+              canvas.height = w;
+            } else {
+              canvas.width = w;
+              canvas.height = h;
+            }
+            ctx.save();
+            switch (orientation) {
+              case 2: ctx.transform(-1, 0, 0, 1, w, 0); break;
+              case 3: ctx.transform(-1, 0, 0, -1, w, h); break;
+              case 4: ctx.transform(1, 0, 0, -1, 0, h); break;
+              case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+              case 6: ctx.transform(0, 1, -1, 0, h, 0); break;
+              case 7: ctx.transform(0, -1, -1, 0, h, w); break;
+              case 8: ctx.transform(0, -1, 1, 0, 0, w); break;
+              default: break; // orientação 1 = sem rotação
+            }
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+            return canvas;
+          };
+
+          const photoBlob: Blob = await new Promise<Blob>((resolve) => {
+            const img = new Image();
+            img.onload = async () => {
+              try {
+                const response = await fetch(base64Data);
+                const buffer = await response.arrayBuffer();
+                const orientation = getExifOrientation(buffer);
+                if (orientation === 1) {
+                  // Sem rotação necessária — converter buffer direto para blob
+                  resolve(new Blob([buffer], { type: 'image/jpeg' }));
+                } else {
+                  const canvas = applyExifRotation(img, orientation);
+                  canvas.toBlob((blob) => resolve(blob || new Blob()), 'image/jpeg', 0.85);
+                }
+              } catch {
+                fetch(base64Data).then(r => r.blob()).then(resolve).catch(() => resolve(new Blob()));
+              }
+            };
+            img.onerror = () => {
+              fetch(base64Data).then(r => r.blob()).then(resolve).catch(() => resolve(new Blob()));
+            };
+            img.src = base64Data;
+          });
           
           setIsFromGallery(false);
           setMediaFiles([photoBlob]);
