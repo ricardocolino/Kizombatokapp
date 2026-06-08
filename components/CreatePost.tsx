@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -13,6 +13,7 @@ interface CreatePostProps {
   onCreated: () => void;
   onBackgroundUpload?: (data: {
     mediaFile: File | Blob;
+    mediaFiles?: (File | Blob)[];
     content: string;
     uploadType: 'post' | 'story';
     isEducation?: boolean;
@@ -71,6 +72,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [localDubbedFromId, setLocalDubbedFromId] = useState<string | null>(null);
   const activeDubbingMp3Url = localDubbingUrl || dubbingMp3Url || null;
   const activeDubbedFromId = localDubbedFromId || dubbedFromId || null;
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   interface DubMusic {
     id: string;
@@ -445,20 +447,33 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   };
 
   const handleNativeVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const isOk = await checkVideoDuration(file);
-      setIsVideoTooLong(!isOk);
-      if (!isOk) {
-        setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      if (isPhotoMode) {
+        const selectedFiles = Array.from(files).slice(0, 3);
+        const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+        previewUrls.forEach(url => URL.revokeObjectURL(url));
+        setMediaFiles(selectedFiles);
+        setPreviewUrls(newPreviewUrls);
+        setActiveImageIndex(0);
+        setIsFromGallery(true);
+        stopCamera();
       } else {
-        setError(null);
+        const file = files[0];
+        const isOk = await checkVideoDuration(file);
+        setIsVideoTooLong(!isOk);
+        if (!isOk) {
+          setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
+        } else {
+          setError(null);
+        }
+        
+        setMediaFiles([file]);
+        setPreviewUrls([URL.createObjectURL(file)]);
+        setActiveImageIndex(0);
+        setIsFromGallery(true);
+        stopCamera();
       }
-      
-      setMediaFiles([file]);
-      setPreviewUrls([URL.createObjectURL(file)]);
-      setIsFromGallery(true);
-      stopCamera();
     }
   };
 
@@ -711,7 +726,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const handleMediaLibrarySelect = async (files: File[]) => {
     if (files.length > 0) {
-      const selectedFiles = files.slice(0, 5);
+      const selectedFiles = files.slice(0, isPhotoMode ? 3 : 5);
       
       // Validar duração do primeiro arquivo (se for vídeo)
       const isOk = await checkVideoDuration(selectedFiles[0]);
@@ -728,6 +743,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       
       setMediaFiles(selectedFiles);
       setPreviewUrls(newPreviewUrls);
+      setActiveImageIndex(0);
       setIsFromGallery(true);
       setTrimStart(0);
       setTrimEnd(15);
@@ -743,7 +759,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
     try {
       let result;
-      if (uploadType === 'post') {
+      if (isPhotoMode) {
+        // Se estiver no modo foto, apenas fotos/imagens (permitir carregar até 3 fotos ao mesmo tempo)
+        result = await FilePicker.pickImages({
+          multiple: uploadType === 'post',
+          limit: uploadType === 'post' ? 3 : 1,
+        });
+      } else if (uploadType === 'post') {
         // Para posts, apenas vídeos
         result = await FilePicker.pickVideos({
           multiple: true,
@@ -900,6 +922,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     if (onBackgroundUpload) {
       onBackgroundUpload({
         mediaFile: mediaFiles[0],
+        mediaFiles,
         content,
         uploadType,
         recordedFacingMode,
@@ -1188,10 +1211,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
       // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
       if (finalMediaBlob) {
-        const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
-        const fileName = `${userId}-${timestamp}.${fileExt}`;
-        const folder = uploadType === 'story' ? 'stories' : 'posts';
-        finalMediaUrl = await uploadToR2(finalMediaBlob, folder, fileName);
+        if (!isVideo && mediaFiles.length > 1) {
+          const uploadedUrls: string[] = [];
+          for (let i = 0; i < mediaFiles.length; i++) {
+            const file = mediaFiles[i];
+            const fileExt = (file as File).name?.split('.').pop() || 'jpg';
+            const fileName = `${userId}-${timestamp}-${i}.${fileExt}`;
+            const folder = uploadType === 'story' ? 'stories' : 'posts';
+            const url = await uploadToR2(file, folder, fileName);
+            uploadedUrls.push(url);
+          }
+          finalMediaUrl = JSON.stringify(uploadedUrls);
+        } else {
+          const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
+          const fileName = `${userId}-${timestamp}.${fileExt}`;
+          const folder = uploadType === 'story' ? 'stories' : 'posts';
+          finalMediaUrl = await uploadToR2(finalMediaBlob, folder, fileName);
+        }
       }
       
       // 5. Salvar no Supabase
@@ -1259,6 +1295,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setError(null);
     setIsFromGallery(false);
     setDubbingDelayMs(0);
+    setActiveImageIndex(0);
 
     // Resetar para câmera frontal e desligar flash
     setFacingMode('user');
@@ -1287,7 +1324,44 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             <div className="absolute inset-0 bg-white overflow-hidden">
               {mediaFiles[0]?.type.startsWith('image/') ? (
                 <div className="w-full h-full relative">
-                  <img src={previewUrls[previewUrls.length - 1]} className="w-full h-full object-cover" />
+                  <img src={previewUrls[activeImageIndex]} className="w-full h-full object-cover" />
+                  {previewUrls.length > 1 && (
+                    <>
+                      {/* Botão Anterior */}
+                      {activeImageIndex > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveImageIndex(prev => prev - 1)}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
+                        >
+                          <ChevronLeft size={24} />
+                        </button>
+                      )}
+                      
+                      {/* Botão Seguinte */}
+                      {activeImageIndex < previewUrls.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveImageIndex(prev => prev + 1)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 p-3.5 bg-black/40 backdrop-blur-md rounded-full text-white z-[160] hover:bg-black/60 transition-all active:scale-90 border border-white/10"
+                        >
+                          <ChevronRight size={24} />
+                        </button>
+                      )}
+
+                      {/* Lista de Pontos / Indicadores */}
+                      <div className="absolute bottom-24 left-0 w-full flex justify-center gap-2 z-[160]">
+                        {previewUrls.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveImageIndex(idx)}
+                            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === activeImageIndex ? 'bg-purple-600 w-5 shadow-[0_0_12px_rgba(147,51,234,0.8)]' : 'bg-white/40 hover:bg-white/60'}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <video 
@@ -1504,8 +1578,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <input 
                   ref={nativeVideoInputRef}
                   type="file" 
-                  accept={uploadType === 'story' ? "video/*,image/*" : "video/*"} 
-                  capture="camcorder" 
+                  accept={isPhotoMode ? "image/*" : (uploadType === 'story' ? "video/*,image/*" : "video/*")} 
+                  multiple={isPhotoMode}
                   className="hidden" 
                   onChange={handleNativeVideoChange} 
                 />

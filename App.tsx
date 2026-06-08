@@ -35,6 +35,7 @@ export enum Tab {
 
 interface UploadData {
   mediaFile: File | Blob;
+  mediaFiles?: (File | Blob)[];
   content: string;
   uploadType: 'post' | 'story';
   isEducation?: boolean;
@@ -320,19 +321,41 @@ const App: React.FC = () => {
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
 
       // Upload do Ficheiro Final
-      const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
-      const fileName = `${userId}-${timestamp}.${fileExt}`;
       const folder = uploadType === 'story' ? 'stories' : 'posts';
       
-      // Upload com progresso real
-      finalMediaUrl = await uploadToR2(
-        finalMediaBlob, 
-        folder, 
-        fileName, 
-        (p) => {
-          setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
+      if (uploadData.mediaFiles && uploadData.mediaFiles.length > 1 && !isVideo) {
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < uploadData.mediaFiles.length; i++) {
+          const file = uploadData.mediaFiles[i];
+          const fileExt = (file as File).name?.split('.').pop() || 'jpg';
+          const fileName = `${userId}-${timestamp}-${i}.${fileExt}`;
+          const url = await uploadToR2(
+            file,
+            folder,
+            fileName,
+            (p) => {
+              const fileCount = uploadData.mediaFiles!.length;
+              const overallProgress = 20 + (((i + p) / fileCount) * 0.75 * 100);
+              setUploadTask(prev => prev ? { ...prev, progress: overallProgress } : null);
+            }
+          );
+          uploadedUrls.push(url);
         }
-      );
+        finalMediaUrl = JSON.stringify(uploadedUrls);
+      } else {
+        const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
+        const fileName = `${userId}-${timestamp}.${fileExt}`;
+        
+        // Upload com progresso real
+        finalMediaUrl = await uploadToR2(
+          finalMediaBlob, 
+          folder, 
+          fileName, 
+          (p) => {
+            setUploadTask(prev => prev ? { ...prev, progress: 20 + (p * 0.75) } : null);
+          }
+        );
+      }
       
       // Salvar no Supabase
       if (uploadType === 'story') {
