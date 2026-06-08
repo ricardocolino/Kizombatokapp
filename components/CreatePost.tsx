@@ -488,49 +488,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           const base64Data = `data:image/jpeg;base64,${result.value}`;
           
           let photoBlob: Blob;
-          if (facingMode === 'user') {
-            photoBlob = await new Promise<Blob>((resolve) => {
-              const img = new Image();
-              img.onload = () => {
-                if (img.width > img.height) {
-                  const canvas = document.createElement('canvas');
-                  const ctx = canvas.getContext('2d');
-                  if (ctx) {
-                    canvas.width = img.height;
-                    canvas.height = img.width;
-                    ctx.translate(canvas.width / 2, canvas.height / 2);
-                    ctx.rotate((270 * Math.PI) / 180);
-                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                    canvas.toBlob((blob) => {
-                      if (blob) {
-                        resolve(blob);
-                      } else {
-                        fetch(base64Data)
-                          .then(res => res.blob())
-                          .then(resolve)
-                          .catch(() => resolve(new Blob()));
-                      }
-                    }, 'image/jpeg', 0.85);
-                    return;
-                  }
-                }
-                fetch(base64Data)
-                  .then(res => res.blob())
-                  .then(resolve)
-                  .catch(() => resolve(new Blob()));
-              };
-              img.onerror = () => {
-                fetch(base64Data)
-                  .then(res => res.blob())
-                  .then(resolve)
-                  .catch(() => resolve(new Blob()));
-              };
-              img.src = base64Data;
-            });
-          } else {
-            const response = await fetch(base64Data);
-            photoBlob = await response.blob();
-          }
+          const response = await fetch(base64Data);
+          photoBlob = await response.blob();
           
           setIsFromGallery(false);
           setMediaFiles([photoBlob]);
