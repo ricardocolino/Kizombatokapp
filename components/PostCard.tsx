@@ -132,6 +132,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [loadedIndices, setLoadedIndices] = useState<number[]>([0]);
+
+  useEffect(() => {
+    setLoadedIndices([0]);
+    setCurrentImageIndex(0);
+  }, [post.id]);
+
+  useEffect(() => {
+    if (!loadedIndices.includes(currentImageIndex)) {
+      setLoadedIndices(prev => [...prev, currentImageIndex]);
+    }
+  }, [currentImageIndex, loadedIndices]);
 
   const allMediaUrls = useMemo(() => {
     const urls: string[] = [];
@@ -1256,18 +1268,27 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                   >
-                    {allMediaUrls.map((url, index) => (
-                      <div key={index} className="w-full h-full shrink-0 relative">
-                        <img 
-                          src={url} 
-                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-                          alt=""
-                          style={{
-                            filter: post.filter ? post.filter.split('|')[0] : undefined,
-                          }}
-                        />
-                      </div>
-                    ))}
+                     {allMediaUrls.map((url, index) => {
+                       const isLoaded = loadedIndices.includes(index);
+                       return (
+                         <div key={index} className="w-full h-full shrink-0 relative bg-black flex items-center justify-center">
+                           {isLoaded ? (
+                             <img 
+                               src={url} 
+                               className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                               alt=""
+                               style={{
+                                 filter: post.filter ? post.filter.split('|')[0] : undefined,
+                               }}
+                             />
+                           ) : (
+                             <div className="absolute inset-0 flex items-center justify-center bg-black">
+                               <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
                   </div>
                   
                   {/* Left / Right arrows for web/desktop */}
