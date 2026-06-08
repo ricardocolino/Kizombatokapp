@@ -1277,6 +1277,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   >
                      {allMediaUrls.map((url, index) => {
                        const isLoaded = index === 0 || loadedIndices.includes(index);
+                        console.log('allMediaUrls', allMediaUrls);
+                        console.log('current image', allMediaUrls[currentImageIndex]);
                        return (
                          <div 
                            key={index} 
