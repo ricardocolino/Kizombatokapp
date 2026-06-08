@@ -336,7 +336,7 @@ const App: React.FC = () => {
             fileName,
             (p) => {
               const fileCount = uploadData.mediaFiles!.length;
-              const overallProgress = 20 + (((i + p) / fileCount) * 0.75 * 100);
+              const overallProgress = 20 + (((i + (p / 100)) / fileCount) * 0.75 * 100);
               setUploadTask(prev => prev ? { ...prev, progress: overallProgress } : null);
             }
           );

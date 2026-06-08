@@ -4,33 +4,45 @@
  * @param mediaUrl The media URL string from the database.
  * @returns The first URL if it's an array, or the original string.
  */
-export function parseMediaUrl(mediaUrl: string | null | undefined): string {
+export function parseMediaUrl(mediaUrl: string | string[] | null | undefined | unknown): string {
   if (!mediaUrl) return '';
   
-  // If it's already a valid URL (starts with http), return it
-  if (mediaUrl.startsWith('http')) {
-    // But check if it's a JSON string that happens to start with http (unlikely but possible)
-    if (!mediaUrl.startsWith('["') && !mediaUrl.startsWith('{"')) {
-      return mediaUrl;
+  let targetUrl = '';
+
+  // If it's already an array, use the first element
+  if (Array.isArray(mediaUrl)) {
+    targetUrl = mediaUrl[0] || '';
+  } else if (typeof mediaUrl === 'string') {
+    const trimmed = mediaUrl.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          targetUrl = parsed[0] || '';
+        } else {
+          targetUrl = trimmed;
+        }
+      } catch {
+        targetUrl = trimmed;
+      }
+    } else {
+      targetUrl = trimmed;
     }
+  } else {
+    targetUrl = String(mediaUrl);
   }
 
-  try {
-    if (mediaUrl.startsWith('[') && mediaUrl.endsWith(']')) {
-      const urls = JSON.parse(mediaUrl);
-      mediaUrl = Array.isArray(urls) ? urls[0] : mediaUrl;
-    }
-  } catch {
-    // Not a JSON array
-  }
-  
-  // Rewrite R2 URL to Worker URL if configured (to fix CORS/Playback)
+  if (!targetUrl) return '';
+
+  // Clean quotes if any got preserved
+  targetUrl = targetUrl.replace(/^["']|["']$/g, '').trim();
+
+  // Rewrite R2 URL or Workers URL to Worker URL proxy if configured (to fix CORS/Playback)
   const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-  if (workerUrl && mediaUrl.includes('r2.dev')) {
+  if (workerUrl && (targetUrl.includes('r2.dev') || targetUrl.includes('workers.dev'))) {
     try {
-      const url = new URL(mediaUrl);
-      // If it's the old R2 domain, swap it for the worker domain
-      if (url.hostname.includes('r2.dev')) {
+      const url = new URL(targetUrl);
+      if (url.hostname.includes('r2.dev') || url.hostname.includes('workers.dev')) {
         return `${workerUrl.replace(/\/$/, '')}${url.pathname}${url.search}`;
       }
     } catch {
@@ -38,5 +50,5 @@ export function parseMediaUrl(mediaUrl: string | null | undefined): string {
     }
   }
   
-  return mediaUrl;
+  return targetUrl;
 }

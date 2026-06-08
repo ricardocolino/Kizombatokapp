@@ -135,29 +135,44 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const allMediaUrls = useMemo(() => {
     if (!post.media_url) return [];
-    try {
-      if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
-        const parsed = JSON.parse(post.media_url);
-        if (Array.isArray(parsed)) {
-          const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-          return parsed.map((url: string) => {
-            if (workerUrl && url.includes('r2.dev')) {
-              try {
-                const u = new URL(url);
-                if (u.hostname.includes('r2.dev')) {
-                  return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
-                }
-              } catch {
-                // Ignore
-              }
-            }
-            return url;
-          });
+    
+    let parsed: string[] = [];
+    
+    if (Array.isArray(post.media_url)) {
+      parsed = post.media_url;
+    } else if (typeof post.media_url === 'string') {
+      const trimmed = post.media_url.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const res = JSON.parse(trimmed);
+          if (Array.isArray(res)) {
+            parsed = res;
+          }
+        } catch {
+          // not JSON array
         }
       }
-    } catch {
-      // Not a JSON array
     }
+    
+    if (parsed.length > 0) {
+      const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
+      return parsed.map((url: string) => {
+        if (!url) return '';
+        const cleanUrl = url.replace(/^["']|["']$/g, '').trim();
+        if (workerUrl && (cleanUrl.includes('r2.dev') || cleanUrl.includes('workers.dev'))) {
+          try {
+            const u = new URL(cleanUrl);
+            if (u.hostname.includes('r2.dev') || u.hostname.includes('workers.dev')) {
+              return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
+            }
+          } catch {
+            // Ignore
+          }
+        }
+        return cleanUrl;
+      });
+    }
+
     const singleUrl = parseMediaUrl(post.media_url);
     return singleUrl ? [singleUrl] : [];
   }, [post.media_url]);
@@ -2056,7 +2071,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       className="aspect-[9/16] relative bg-zinc-150 rounded-2xl overflow-hidden group shadow-sm border border-zinc-100"
                     >
                       <img 
-                        src={dub.thumbnail_url || dub.media_url || ''} 
+                        src={parseMediaUrl(dub.thumbnail_url || dub.media_url || '')} 
                         alt={dub.content || "Dub"} 
                         className="w-full h-full object-cover"
                       />
