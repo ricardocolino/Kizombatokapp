@@ -336,7 +336,7 @@ const App: React.FC = () => {
             fileName,
             (p) => {
               const fileCount = uploadData.mediaFiles!.length;
-              const overallProgress = 20 + (((i + (p / 100)) / fileCount) * 0.75 * 100);
+              const overallProgress = 20 + (((i + p) / fileCount) * 0.75 * 100);
               setUploadTask(prev => prev ? { ...prev, progress: overallProgress } : null);
             }
           );
@@ -397,7 +397,7 @@ const App: React.FC = () => {
       }, 3000);
 
     } catch (err: unknown) {
-      console.error('Background upload error:', err instanceof Error ? err.message : String(err));
+      console.error('Background upload error:', err);
       const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
     }

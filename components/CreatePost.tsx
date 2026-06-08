@@ -874,8 +874,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }, 500);
       };
 
-      video.onerror = () => {
-        console.error('[Thumbnail] Erro no elemento vídeo:', video.error ? video.error.message : 'Unknown video error');
+      video.onerror = (e) => {
+        const errorMsg = video.error?.message || (e && 'type' in e ? (e as unknown as Event).type : 'Unknown video error');
+        console.error('[Thumbnail] Erro no elemento vídeo:', errorMsg);
         cleanup();
         reject(new Error(`Video error during thumbnail generation: ${video.error?.message || 'Unknown error'}`));
       };
@@ -893,7 +894,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             resolve(thumb);
             return;
           } catch (err) {
-            console.error(`[Thumbnail] Tentativa ${attempt} falhou:`, err instanceof Error ? err.message : String(err));
+            console.error(`[Thumbnail] Tentativa ${attempt} falhou:`, err);
             if (attempt === maxRetries) {
               console.warn('[Thumbnail] Todas as tentativas falharam, gerando fallback...');
               // Última tentativa: criar thumbnail cinza genérica para distinguir de frame preto
