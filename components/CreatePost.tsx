@@ -769,13 +769,13 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         // Se estiver no modo foto, apenas fotos/imagens (permitir carregar até 3 fotos ao mesmo tempo)
         result = await FilePicker.pickImages({
           multiple: true,
-          limit: 3,
+          limit: Capacitor.getPlatform() === 'android' ? 0 : 3,
         });
       } else if (uploadType === 'post') {
         // Para posts, apenas vídeos (permitir carregar até 3 vídeos ao mesmo tempo)
         result = await FilePicker.pickVideos({
           multiple: true,
-          limit: 3,
+          limit: Capacitor.getPlatform() === 'android' ? 0 : 3,
         });
       } else {
         // Para stories, vídeos e fotos
@@ -786,8 +786,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
 
       if (result.files && result.files.length > 0) {
+        // Se no Android (onde limit: 0 permite seleção ilimitada) forem selecionados mais do que 3 ficheiros, limitamos a 3
+        const resultFiles = result.files.slice(0, 3);
         const selectedFiles: File[] = [];
-        for (const file of result.files) {
+        for (const file of resultFiles) {
           if (file.path) {
             const response = await fetch(Capacitor.convertFileSrc(file.path));
             const blob = await response.blob();
