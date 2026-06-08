@@ -1217,6 +1217,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         }
       }
 
+      let finalMediaUrl1: string | null = null;
+      let finalMediaUrl2: string | null = null;
+
       // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
       if (finalMediaBlob) {
         if (mediaFiles.length > 1) {
@@ -1230,7 +1233,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             const url = await uploadToR2(file, folder, fileName);
             uploadedUrls.push(url);
           }
-          finalMediaUrl = JSON.stringify(uploadedUrls);
+          finalMediaUrl = uploadedUrls[0];
+          finalMediaUrl1 = uploadedUrls[1] || null;
+          finalMediaUrl2 = uploadedUrls[2] || null;
         } else {
           const fileExt = isVideo ? 'mp4' : (mediaFiles[0] as File).name?.split('.').pop() || 'jpg';
           const fileName = `${userId}-${timestamp}.${fileExt}`;
@@ -1258,6 +1263,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           user_id: userId,
           content: content || null,
           media_url: finalMediaUrl,
+          media_url1: finalMediaUrl1,
+          media_url2: finalMediaUrl2,
           thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: false,

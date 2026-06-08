@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -134,33 +134,59 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const allMediaUrls = useMemo(() => {
-    if (!post.media_url) return [];
-    try {
-      if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
-        const parsed = JSON.parse(post.media_url);
-        if (Array.isArray(parsed)) {
-          const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-          return parsed.map((url: string) => {
-            if (workerUrl && url.includes('r2.dev')) {
-              try {
-                const u = new URL(url);
-                if (u.hostname.includes('r2.dev')) {
-                  return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
-                }
-              } catch {
-                // Ignore
-              }
-            }
-            return url;
-          });
+    const urls: string[] = [];
+    const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
+
+    const processUrl = (urlStr: string | null | undefined): string | null => {
+      if (!urlStr) return null;
+      const parsed = parseMediaUrl(urlStr);
+      if (!parsed) return null;
+      if (workerUrl && parsed.includes('r2.dev')) {
+        try {
+          const u = new URL(parsed);
+          if (u.hostname.includes('r2.dev')) {
+            return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
+          }
+        } catch {
+          // Ignore
         }
       }
-    } catch {
-      // Not a JSON array
+      return parsed;
+    };
+
+    // Try individual columns first
+    const urlMain = processUrl(post.media_url);
+    if (urlMain) urls.push(urlMain);
+
+    const url1 = processUrl(post.media_url1);
+    if (url1) urls.push(url1);
+
+    const url2 = processUrl(post.media_url2);
+    if (url2) urls.push(url2);
+
+    // Fallback support for old JSON arrays if dedicated columns weren't explicitly used
+    if (urls.length <= 1 && post.media_url) {
+      try {
+        if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
+          const parsed = JSON.parse(post.media_url);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const arr: string[] = [];
+            parsed.forEach((item: string) => {
+              const processed = processUrl(item);
+              if (processed) arr.push(processed);
+            });
+            if (arr.length > 0) {
+              return arr;
+            }
+          }
+        }
+      } catch {
+        // Not JSON
+      }
     }
-    const singleUrl = parseMediaUrl(post.media_url);
-    return singleUrl ? [singleUrl] : [];
-  }, [post.media_url]);
+
+    return urls;
+  }, [post.media_url, post.media_url1, post.media_url2]);
 
   const mediaType = useMemo(() => post.media_type || 'video', [post.media_type]);
 
@@ -1644,6 +1670,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 {post.profiles?.name || `@${post.profiles?.username}`}
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
               </span>
+              {(post.media_url1 || post.media_url2 || allMediaUrls.length > 1) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-600/80 backdrop-blur-md rounded-full text-[9px] font-black uppercase text-white shadow-sm border border-purple-400">
+                  <ImageIcon size={10} className="fill-white/10" />
+                  Múltiplas Imagens
+                </span>
+              )}
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
                 • {formatPublishedTime(post.created_at)}
               </span>

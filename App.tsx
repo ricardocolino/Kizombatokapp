@@ -320,6 +320,9 @@ const App: React.FC = () => {
 
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
 
+      let finalMediaUrl1: string | null = null;
+      let finalMediaUrl2: string | null = null;
+
       // Upload do Ficheiro Final
       const folder = uploadType === 'story' ? 'stories' : 'posts';
       
@@ -342,7 +345,9 @@ const App: React.FC = () => {
           );
           uploadedUrls.push(url);
         }
-        finalMediaUrl = JSON.stringify(uploadedUrls);
+        finalMediaUrl = uploadedUrls[0];
+        finalMediaUrl1 = uploadedUrls[1] || null;
+        finalMediaUrl2 = uploadedUrls[2] || null;
       } else {
         const fileExt = isVideo ? 'mp4' : (mediaFile.name?.split('.').pop() || 'jpg');
         const fileName = `${userId}-${timestamp}.${fileExt}`;
@@ -375,6 +380,8 @@ const App: React.FC = () => {
           user_id: userId,
           content: content || null,
           media_url: finalMediaUrl,
+          media_url1: finalMediaUrl1,
+          media_url2: finalMediaUrl2,
           thumbnail_url: finalThumbnailUrl,
           media_type: isVideo ? 'video' : 'image',
           is_education: isEducation ? 1 : 0,
