@@ -10,7 +10,7 @@ import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
 import RechargeModal from './RechargeModal';
 import { PostMetadata } from './Feed';
-import { parseMediaUrl } from '../services/mediaUtils';
+import { parseMediaUrl, parseAllMediaUrls } from '../services/mediaUtils';
 
 interface PostCardProps {
   post: Post;
@@ -134,32 +134,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const allMediaUrls = useMemo(() => {
-    if (!post.media_url) return [];
-    try {
-      if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
-        const parsed = JSON.parse(post.media_url);
-        if (Array.isArray(parsed)) {
-          const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-          return parsed.map((url: string) => {
-            if (workerUrl && url.includes('r2.dev')) {
-              try {
-                const u = new URL(url);
-                if (u.hostname.includes('r2.dev')) {
-                  return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
-                }
-              } catch {
-                // Ignore
-              }
-            }
-            return url;
-          });
-        }
-      }
-    } catch {
-      // Not a JSON array
-    }
-    const singleUrl = parseMediaUrl(post.media_url);
-    return singleUrl ? [singleUrl] : [];
+    return parseAllMediaUrls(post.media_url);
   }, [post.media_url]);
 
   const mediaType = useMemo(() => post.media_type || 'video', [post.media_type]);
