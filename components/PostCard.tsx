@@ -1044,7 +1044,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           className={`${isReply ? 'w-7 h-7' : 'w-10 h-10'} rounded-xl bg-zinc-100 shrink-0 overflow-hidden border border-zinc-100 shadow-sm cursor-pointer hover:brightness-95 active:scale-95 transition-all`}
         >
           {c.profiles?.avatar_url ? (
-            <img src={parseMediaUrl(c.profiles.avatar_url)} className="w-full h-full object-cover" />
+            <img src={parseMediaUrl(c.profiles.avatar_url) || undefined} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center font-black text-zinc-400 uppercase text-[10px]">{c.profiles?.name?.[0] || c.profiles?.username?.[0]}</div>
           )}
@@ -1081,7 +1081,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <Heart size={10} className="fill-rose-500 stroke-rose-500" />
                 <div className="w-4 h-4 rounded-full overflow-hidden bg-zinc-100 shrink-0 border border-rose-200">
                   {post.profiles?.avatar_url ? (
-                    <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" />
+                    <img src={parseMediaUrl(post.profiles.avatar_url) || undefined} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center font-black text-rose-400 uppercase text-[8px]">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
                   )}
@@ -1208,7 +1208,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     {allMediaUrls.map((url, index) => (
                       <div key={index} className="w-full h-full shrink-0 relative">
                         <img 
-                          src={url} 
+                          src={url || undefined} 
                           className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                           alt=""
                           style={{
@@ -1265,7 +1265,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 </div>
               ) : post.thumbnail_url ? (
                 <img 
-                  src={parseMediaUrl(post.thumbnail_url)} 
+                  src={parseMediaUrl(post.thumbnail_url) || undefined} 
                   className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                   alt=""
                   style={{
@@ -1287,7 +1287,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {isNearScreen && (
             <video
               ref={videoRef}
-              src={optimizedUrl}
+              src={optimizedUrl || undefined}
               className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1326,7 +1326,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             onError={(e) => {
               if (optimizedUrl && isNearScreen && mediaType === 'video') {
-                console.error("Playback failed for URL:", optimizedUrl, e);
+                console.error("Playback failed for URL:", optimizedUrl, e?.type || "unknown");
                 setVideoError(true);
                 setIsLoading(false);
               }
@@ -1390,7 +1390,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               }}
             >
                <img 
-                 src={parseMediaUrl(post.thumbnail_url)} 
+                 src={parseMediaUrl(post.thumbnail_url) || undefined} 
                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                  alt=""
                />
@@ -1532,7 +1532,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shadow-2xl bg-zinc-800 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-2 border-purple-600 animate-pulse' : (metadata.hasStories ? 'border-2 border-purple-600' : '')}`}
             >
                {post.profiles?.avatar_url ? (
-                 <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
+                 <img src={parseMediaUrl(post.profiles.avatar_url) || undefined} className="w-full h-full object-cover" loading="lazy" />
                ) : (
                  <div className="w-full h-full flex items-center justify-center font-black text-white uppercase text-xs sm:text-sm">{post.profiles?.name?.[0] || post.profiles?.username?.[0]}</div>
                )}
@@ -1953,7 +1953,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               <div className="w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] rounded-2xl bg-zinc-200 border border-zinc-100 relative shadow-md overflow-hidden shrink-0">
                 {((post.dubbed_from_id ? originalPost : post)?.profiles?.avatar_url) ? (
                   <img 
-                    src={(post.dubbed_from_id ? originalPost : post)?.profiles?.avatar_url || ''} 
+                    src={(post.dubbed_from_id ? originalPost : post)?.profiles?.avatar_url || undefined} 
                     alt="Audio Creator" 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
@@ -2031,7 +2031,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       className="aspect-[9/16] relative bg-zinc-150 rounded-2xl overflow-hidden group shadow-sm border border-zinc-100"
                     >
                       <img 
-                        src={dub.thumbnail_url || dub.media_url || ''} 
+                        src={dub.thumbnail_url || dub.media_url || undefined} 
                         alt={dub.content || "Dub"} 
                         className="w-full h-full object-cover"
                       />
@@ -2045,7 +2045,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                           }}
                         >
                           <img 
-                            src={dub.profiles?.avatar_url || ''} 
+                            src={dub.profiles?.avatar_url || undefined} 
                             alt="Creator" 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"

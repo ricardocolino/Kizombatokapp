@@ -329,7 +329,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
               <>
                 {(post.media_type || 'video') === 'video' ? (
                   <video 
-                    src={parseMediaUrl(post.media_url)} 
+                    src={parseMediaUrl(post.media_url) || undefined} 
                     className="w-full h-full object-cover" 
                     muted 
                     playsInline 
@@ -338,7 +338,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                   />
                 ) : (
                   <img 
-                    src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
+                    src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : post.thumbnail_url) || undefined} 
                     className="w-full h-full object-cover" 
                     alt="" 
                   />
