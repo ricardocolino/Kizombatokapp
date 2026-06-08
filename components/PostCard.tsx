@@ -140,10 +140,13 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [post.id]);
 
   useEffect(() => {
-    if (!loadedIndices.includes(currentImageIndex)) {
-      setLoadedIndices(prev => [...prev, currentImageIndex]);
-    }
-  }, [currentImageIndex, loadedIndices]);
+    setLoadedIndices(prev => {
+      if (!prev.includes(currentImageIndex)) {
+        return [...prev, currentImageIndex];
+      }
+      return prev;
+    });
+  }, [currentImageIndex]);
 
   const allMediaUrls = useMemo(() => {
     const urls: string[] = [];
@@ -166,7 +169,25 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       return parsed;
     };
 
-    // Try individual columns first
+    // If it's a JSON array string, parse it first (legacy support)
+    if (post.media_url && post.media_url.trim().startsWith('[') && post.media_url.trim().endsWith(']')) {
+      try {
+        const parsed = JSON.parse(post.media_url);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach((item: string) => {
+            const processed = processUrl(item);
+            if (processed) urls.push(processed);
+          });
+          if (urls.length > 0) {
+            return urls;
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // Otherwise, collect from individual columns
     const urlMain = processUrl(post.media_url);
     if (urlMain) urls.push(urlMain);
 
@@ -175,27 +196,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
     const url2 = processUrl(post.media_url2);
     if (url2) urls.push(url2);
-
-    // Fallback support for old JSON arrays if dedicated columns weren't explicitly used
-    if (urls.length <= 1 && post.media_url) {
-      try {
-        if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
-          const parsed = JSON.parse(post.media_url);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const arr: string[] = [];
-            parsed.forEach((item: string) => {
-              const processed = processUrl(item);
-              if (processed) arr.push(processed);
-            });
-            if (arr.length > 0) {
-              return arr;
-            }
-          }
-        }
-      } catch {
-        // Not JSON
-      }
-    }
 
     return urls;
   }, [post.media_url, post.media_url1, post.media_url2]);
@@ -1263,20 +1263,37 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <div className="w-full h-full overflow-hidden relative">
                   <div 
                     className="flex w-full h-full transition-transform duration-300 ease-out"
-                    style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+                    style={{ 
+                      transform: `translateX(-${currentImageIndex * 100}%)`,
+                      display: 'flex',
+                      flexDirection: 'row',
+                      width: '100%',
+                      height: '100%',
+                      flexWrap: 'nowrap'
+                    }}
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                   >
                      {allMediaUrls.map((url, index) => {
-                       const isLoaded = loadedIndices.includes(index);
+                       const isLoaded = index === 0 || loadedIndices.includes(index);
                        return (
-                         <div key={index} className="w-full h-full shrink-0 relative bg-black flex items-center justify-center">
+                         <div 
+                           key={index} 
+                           className="w-full h-full shrink-0 relative bg-black flex items-center justify-center animate-[fade-in_0.3s_ease]"
+                           style={{
+                             width: '100%',
+                             height: '100%',
+                             flexShrink: 0,
+                             flexGrow: 0
+                           }}
+                         >
                            {isLoaded ? (
                              <img 
                                src={url} 
                                className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                                alt=""
+                               referrerPolicy="no-referrer"
                                style={{
                                  filter: post.filter ? post.filter.split('|')[0] : undefined,
                                }}
