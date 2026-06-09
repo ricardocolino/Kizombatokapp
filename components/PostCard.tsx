@@ -1225,7 +1225,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       <div key={index} className="w-full h-full shrink-0 relative">
                         <img 
                           src={url} 
-                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
                           alt=""
                           style={{
                             filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1282,7 +1282,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               ) : post.thumbnail_url ? (
                 <img 
                   src={parseMediaUrl(post.thumbnail_url)} 
-                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
                   alt=""
                   style={{
                     filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1591,7 +1591,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
               </span>
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
-                • {formatPublishedTime(post.created_at)}
+                • {mediaType === 'image' && 'foto • '}{formatPublishedTime(post.created_at)}
               </span>
             </h3>
             <p 
