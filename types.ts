@@ -30,6 +30,7 @@ export interface Post {
   mp3_r2_url?: string | null;
   dubbed_from_id?: string | null;
   dubbed_from?: Post;
+  is_pinned?: boolean;
   created_at: string;
   profiles?: Profile;
   _count?: {

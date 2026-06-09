@@ -1591,7 +1591,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
               </span>
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
-                • {mediaType === 'image' && 'foto • '}{formatPublishedTime(post.created_at)}
+                <span className="text-black">•</span> {mediaType === 'image' && <>{'foto'} <span className="text-black">•</span> </>}{formatPublishedTime(post.created_at)}
               </span>
             </h3>
             <p 
