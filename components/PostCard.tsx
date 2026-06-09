@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -132,141 +132,45 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [loadedIndices, setLoadedIndices] = useState<number[]>([0]);
-
-  useEffect(() => {
-    setLoadedIndices([0]);
-    setCurrentImageIndex(0);
-    setVideoError(false);
-  }, [post.id]);
-
-  useEffect(() => {
-    if (!loadedIndices.includes(currentImageIndex)) {
-      setLoadedIndices(prev => [...prev, currentImageIndex]);
-    }
-  }, [currentImageIndex, loadedIndices]);
 
   const allMediaUrls = useMemo(() => {
-    const urls: string[] = [];
-    const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-
-    const processUrl = (urlStr: string | null | undefined): string | null => {
-      if (!urlStr) return null;
-      const parsed = parseMediaUrl(urlStr);
-      if (!parsed) return null;
-      if (workerUrl && parsed.includes('r2.dev')) {
-        try {
-          const u = new URL(parsed);
-          if (u.hostname.includes('r2.dev')) {
-            return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
-          }
-        } catch {
-          // Ignore
-        }
-      }
-      return parsed;
-    };
-
-    // If we have an array of all media URLs from grouping, use it first
-    if ((post as any).all_media_urls && Array.isArray((post as any).all_media_urls)) {
-      (post as any).all_media_urls.forEach((url: string) => {
-        const processed = processUrl(url);
-        if (processed && !urls.includes(processed)) {
-          urls.push(processed);
-        }
-      });
-      if (urls.length > 0) return urls;
-    }
-
-    // Try individual columns first
-    const urlMain = processUrl(post.media_url);
-    if (urlMain) urls.push(urlMain);
-
-    const url1 = processUrl(post.media_url1);
-    if (url1) urls.push(url1);
-
-    const url2 = processUrl(post.media_url2);
-    if (url2) urls.push(url2);
-
-    // Fallback support for old JSON arrays if dedicated columns weren't explicitly used
-    if (urls.length <= 1 && post.media_url) {
-      try {
-        if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
-          const parsed = JSON.parse(post.media_url);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const arr: string[] = [];
-            parsed.forEach((item: string) => {
-              const processed = processUrl(item);
-              if (processed) arr.push(processed);
-            });
-            if (arr.length > 0) {
-              return arr;
+    if (!post.media_url) return [];
+    try {
+      if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
+        const parsed = JSON.parse(post.media_url);
+        if (Array.isArray(parsed)) {
+          const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
+          return parsed.map((url: string) => {
+            if (workerUrl && url.includes('r2.dev')) {
+              try {
+                const u = new URL(url);
+                if (u.hostname.includes('r2.dev')) {
+                  return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
+                }
+              } catch {
+                // Ignore
+              }
             }
-          }
+            return url;
+          });
         }
-      } catch {
-        // Not JSON
       }
+    } catch {
+      // Not a JSON array
     }
+    const singleUrl = parseMediaUrl(post.media_url);
+    return singleUrl ? [singleUrl] : [];
+  }, [post.media_url]);
 
-    return urls;
-  }, [post.media_url, post.media_url1, post.media_url2, (post as any).all_media_urls]);
-
-  const mediaType = useMemo(() => {
-    // If explicitly specified as something other than video, respect it
-    if (post.media_type && post.media_type !== 'video') {
-      return post.media_type;
-    }
-
-    // Detecção inteligente baseada na extensão real dos arquivos (ignorando query params como tokens/assinaturas)
-    const getCleanUrlPath = (urlStr: string | null | undefined): string => {
-      if (!urlStr) return '';
-      // Separa no '?' para ignorar query keys/tokens de segurança do R2 / CDN
-      return urlStr.split('?')[0].toLowerCase();
-    };
-
-    const mainUrlClean = getCleanUrlPath(post.media_url);
-    
-    // Lista de extensões de imagem conhecidas
-    const isImageExt = (p: string) => {
-      return p.endsWith('.jpg') || p.endsWith('.jpeg') || 
-             p.endsWith('.png') || p.endsWith('.webp') || 
-             p.endsWith('.gif') || p.endsWith('.heic') || 
-             p.endsWith('.bmp') || 
-             (p.includes('/posts/') && !p.endsWith('.mp4') && !p.endsWith('.m3u8') && !p.endsWith('.mov') && !p.endsWith('.webm'));
-    };
-
-    // Caso a URL principal limpa termine com uma extensão de imagem
-    if (isImageExt(mainUrlClean)) {
-      return 'image';
-    }
-
-    // Caso tenhamos múltiplas mídias no carrossel, verificamos se a primeira é uma imagem
-    if (allMediaUrls.length > 0) {
-      const firstMediaClean = getCleanUrlPath(allMediaUrls[0]);
-      if (isImageExt(firstMediaClean)) {
-        return 'image';
-      }
-    }
-
-    // Se no carrossel tivermos múltiplas mídias, mas sem indicação clara de vídeo na URL principal, assume imagem
-    if (allMediaUrls.length > 1 && !mainUrlClean.endsWith('.mp4') && !mainUrlClean.endsWith('.m3u8') && !mainUrlClean.endsWith('.mov') && !mainUrlClean.endsWith('.webm')) {
-      return 'image';
-    }
-
-    return post.media_type || 'video';
-  }, [post.media_type, post.media_url, allMediaUrls]);
+  const mediaType = useMemo(() => post.media_type || 'video', [post.media_type]);
 
   const optimizedUrl = useMemo(() => {
     if (mediaType !== 'video') {
       // Se o post for uma foto, áudio ou texto dublado (ou com áudio), o tocador em background usará automaticamente o áudio contido nas colunas mp3_r2_url (do R2) nunca usar o mp3_url (do Supabase), tanto do post atual quanto do post original (se for dublado a partir de outra música/som).
       return post.mp3_r2_url || originalPost?.mp3_r2_url || '';
     }
-    if (allMediaUrls.length > 1) {
-      return allMediaUrls[currentImageIndex] || '';
-    }
     return mediaUrl || '';
-  }, [mediaUrl, mediaType, post.mp3_r2_url, originalPost?.mp3_r2_url, allMediaUrls, currentImageIndex]);
+  }, [mediaUrl, mediaType, post.mp3_r2_url, originalPost?.mp3_r2_url]);
 
   useEffect(() => {
     if (mediaType !== 'video' && !optimizedUrl) {
@@ -1304,13 +1208,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       } ${showGifts ? 'gifts-active-postcard' : ''} ${showRecharge ? 'recharge-active-postcard' : ''} overflow-hidden will-change-transform`}
     >
       {/* Video Content */}
-      <div 
-        className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} 
-        onClick={handleVideoClick}
-        onTouchStart={allMediaUrls.length > 1 ? handleTouchStart : undefined}
-        onTouchMove={allMediaUrls.length > 1 ? handleTouchMove : undefined}
-        onTouchEnd={allMediaUrls.length > 1 ? handleTouchEnd : undefined}
-      >
+      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
           {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
           {mediaType !== 'video' && (
             <div className="absolute inset-0 z-0">
@@ -1323,27 +1221,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                   >
-                     {allMediaUrls.map((url, index) => {
-                       const isLoaded = loadedIndices.includes(index);
-                       return (
-                         <div key={index} className="w-full h-full shrink-0 relative bg-black flex items-center justify-center">
-                           {isLoaded ? (
-                             <img 
-                               src={url} 
-                               className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
-                               alt=""
-                               style={{
-                                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                               }}
-                             />
-                           ) : (
-                             <div className="absolute inset-0 flex items-center justify-center bg-black">
-                               <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
-                             </div>
-                           )}
-                         </div>
-                       );
-                     })}
+                    {allMediaUrls.map((url, index) => (
+                      <div key={index} className="w-full h-full shrink-0 relative">
+                        <img 
+                          src={url} 
+                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                          alt=""
+                          style={{
+                            filter: post.filter ? post.filter.split('|')[0] : undefined,
+                          }}
+                        />
+                      </div>
+                    ))}
                   </div>
                   
                   {/* Left / Right arrows for web/desktop */}
@@ -1460,51 +1349,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             }}
             poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
           />
-          )}
-
-          {/* Controls Overlay for multiple videos */}
-          {mediaType === 'video' && allMediaUrls.length > 1 && (
-            <>
-              {/* Left / Right arrows for web/desktop */}
-              {currentImageIndex > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentImageIndex(prev => prev - 1);
-                  }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
-                >
-                  <ChevronLeft size={22} />
-                </button>
-              )}
-              {currentImageIndex < allMediaUrls.length - 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentImageIndex(prev => prev + 1);
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
-                >
-                  <ChevronRight size={22} />
-                </button>
-              )}
-
-              {/* Pages/Dots similar to TikTok Carousel */}
-              <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md px-2 py-1 rounded-full text-white text-[10px] font-black z-[120] tracking-widest border border-white/5 pointer-events-none">
-                {currentImageIndex + 1}/{allMediaUrls.length}
-              </div>
-
-              <div className="absolute bottom-14 left-0 w-full flex justify-center gap-1.5 z-[120] pointer-events-none">
-                {allMediaUrls.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-purple-600 w-4 shadow-[0_0_8px_rgba(147,51,234,0.6)]' : 'bg-white/45 w-1.5'}`}
-                  />
-                ))}
-              </div>
-            </>
           )}
 
           {/* Placeholder/Poster for videos when not near or loading */}
@@ -1746,12 +1590,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 {post.profiles?.name || `@${post.profiles?.username}`}
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
               </span>
-              {(post.media_url1 || post.media_url2 || allMediaUrls.length > 1) && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-600/80 backdrop-blur-md rounded-full text-[9px] font-black uppercase text-white shadow-sm border border-purple-400">
-                  <ImageIcon size={10} className="fill-white/10" />
-                  Múltiplas Imagens
-                </span>
-              )}
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
                 • {formatPublishedTime(post.created_at)}
               </span>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
-import { supabase, groupPostsByGroupId } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
 import { Post, FeedFilter } from '../types';
 import PostCard from './PostCard';
@@ -314,7 +314,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const { data, error } = await query;
       if (error) throw error;
       
-      let rawPosts = data ? groupPostsByGroupId(data) : [];
+      let rawPosts = data || [];
       
       // Se tivermos um initialPostId e for a primeira página, garantir que ele está nos posts
       if (currentPage === 0 && initialPostId) {
@@ -328,20 +328,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               .maybeSingle(); // Usar maybeSingle para não disparar erro se não encontrar
             
             if (targetData) {
-              if (targetData.post_group_id) {
-                const { data: groupSiblings } = await supabase
-                  .from('posts')
-                  .select(`*, profiles!user_id (*)`)
-                  .eq('post_group_id', targetData.post_group_id);
-                
-                if (groupSiblings && groupSiblings.length > 0) {
-                  rawPosts = groupPostsByGroupId([...groupSiblings, ...(data || [])]);
-                } else {
-                  rawPosts = groupPostsByGroupId([targetData, ...(data || [])]);
-                }
-              } else {
-                rawPosts = [targetData, ...rawPosts];
-              }
+              rawPosts = [targetData, ...rawPosts];
             }
           } catch (err) {
             console.error("Erro ao buscar post alvo:", err);

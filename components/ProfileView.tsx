@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase, groupPostsByGroupId } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3 } from 'lucide-react';
@@ -431,10 +431,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       .range(from, to);
 
     if (!error && data) {
-      const groupedData = groupPostsByGroupId(data);
       const filtered = isOwnProfile 
-        ? groupedData 
-        : groupedData.filter(post => !post.is_private && !privatePostIds.includes(post.id));
+        ? data 
+        : data.filter(post => !post.is_private && !privatePostIds.includes(post.id));
 
       if (page === 0) {
         setUserPosts(filtered || []);
@@ -458,7 +457,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       if (!error && data) {
         const posts = data.map(item => item.posts).filter(Boolean) as Post[];
-        setRepostedPosts(groupPostsByGroupId(posts));
+        setRepostedPosts(posts);
       }
     } catch (e) {
       console.error("Erro ao buscar republicados:", e);

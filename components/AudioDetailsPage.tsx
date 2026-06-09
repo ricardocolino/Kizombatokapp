@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase, groupPostsByGroupId } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 import { Post, FeedFilter } from '../types';
 import { ArrowLeft, Loader2, Music } from 'lucide-react';
 
@@ -70,7 +70,7 @@ const AudioDetailsPage: React.FC<AudioDetailsPageProps> = ({
           .order('created_at', { ascending: false });
 
         if (!dubsError && dubsData) {
-          setAudioDubs(groupPostsByGroupId(dubsData) as Post[]);
+          setAudioDubs(dubsData as Post[]);
         }
       } catch (err) {
         console.error('Error fetching audio page details:', err);
