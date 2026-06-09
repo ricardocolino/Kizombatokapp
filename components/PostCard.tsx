@@ -166,6 +166,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       return parsed;
     };
 
+    // If we have an array of all media URLs from grouping, use it first
+    if ((post as any).all_media_urls && Array.isArray((post as any).all_media_urls)) {
+      (post as any).all_media_urls.forEach((url: string) => {
+        const processed = processUrl(url);
+        if (processed && !urls.includes(processed)) {
+          urls.push(processed);
+        }
+      });
+      if (urls.length > 0) return urls;
+    }
+
     // Try individual columns first
     const urlMain = processUrl(post.media_url);
     if (urlMain) urls.push(urlMain);
@@ -198,9 +209,35 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
 
     return urls;
-  }, [post.media_url, post.media_url1, post.media_url2]);
+  }, [post.media_url, post.media_url1, post.media_url2, (post as any).all_media_urls]);
 
-  const mediaType = useMemo(() => post.media_type || 'video', [post.media_type]);
+  const mediaType = useMemo(() => {
+    // If explicitly specified as something other than video, respect it
+    if (post.media_type && post.media_type !== 'video') {
+      return post.media_type;
+    }
+
+    // Smart fallback detection based on URL file extensions for the media files
+    const mainUrl = (post.media_url || '').toLowerCase();
+    
+    // Check if it ends with known image formats, or is a post image URL
+    const isImageExtension = mainUrl.endsWith('.jpg') || mainUrl.endsWith('.jpeg') || 
+                             mainUrl.endsWith('.png') || mainUrl.endsWith('.webp') || 
+                             mainUrl.endsWith('.gif') || mainUrl.endsWith('.heic') || 
+                             mainUrl.endsWith('.bmp') || 
+                             (mainUrl.includes('/posts/') && !mainUrl.endsWith('.mp4') && !mainUrl.endsWith('.m3u8') && !mainUrl.endsWith('.mov') && !mainUrl.endsWith('.webm'));
+                             
+    if (isImageExtension) {
+      return 'image';
+    }
+
+    // If it has multiple images but no video signifier
+    if (allMediaUrls.length > 1 && !mainUrl.endsWith('.mp4') && !mainUrl.endsWith('.m3u8') && !mainUrl.endsWith('.mov') && !mainUrl.endsWith('.webm')) {
+      return 'image';
+    }
+
+    return post.media_type || 'video';
+  }, [post.media_type, post.media_url, allMediaUrls]);
 
   const optimizedUrl = useMemo(() => {
     if (mediaType !== 'video') {

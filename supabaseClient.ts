@@ -40,10 +40,8 @@ export function groupPostsByGroupId<T extends { id: string; post_group_id?: stri
     if (mediaUrls.length > 2) {
       master.media_url2 = mediaUrls[2];
     }
-    // Suporte para mais imagens colocando-as em listas temporárias se o front necessitar
-    if (mediaUrls.length > 3) {
-      (master as any).all_media_urls = mediaUrls;
-    }
+    // Sempre define all_media_urls para maior robustez no front-end
+    (master as any).all_media_urls = mediaUrls;
     
     grouped.push(master);
   }
