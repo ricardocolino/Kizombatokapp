@@ -1368,7 +1368,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
           )}
 
-
+        {/* Text Overlay */}
+        {post.text_overlay && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-sm sm:text-base px-4' : 'text-3xl sm:text-4xl'}`}>
+              {post.text_overlay}
+            </span>
+          </div>
+        )}
         
         {!isPlaying && !videoError && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
