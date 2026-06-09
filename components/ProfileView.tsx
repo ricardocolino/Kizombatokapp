@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -119,6 +119,57 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       console.error("Error deleting video:", err);
     }
 
+    setSelectedPostForEdit(null);
+  };
+
+  const handleTogglePin = async (post: Post) => {
+    if (!post) return;
+    const isPinned = !!(post as any).is_pinned;
+    
+    if (!isPinned) {
+      // Check count
+      const pinnedCount = userPosts.filter(p => (p as any).is_pinned).length;
+      if (pinnedCount >= 3) {
+        alert(t('You can only pin up to 3 posts', 'Apenas 3 publicações podem ser afixadas!'));
+        setSelectedPostForEdit(null);
+        return;
+      }
+    }
+
+    try {
+      // 1. Optimistically update local state
+      setUserPosts(prev => prev.map(p => {
+        if (p.id === post.id) {
+          return { ...p, is_pinned: !isPinned };
+        }
+        return p;
+      }));
+
+      // 2. Try to update in Supabase
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_pinned: !isPinned })
+        .eq('id', post.id);
+
+      if (error) {
+        console.error("Supabase pin update failed:", error);
+        // Revert local state
+        setUserPosts(prev => prev.map(p => {
+          if (p.id === post.id) {
+            return { ...p, is_pinned: isPinned };
+          }
+          return p;
+        }));
+      } else {
+        alert(isPinned 
+          ? t('Post unpinned successfully', 'Publicação desafixada com sucesso!')
+          : t('Post pinned successfully', 'Publicação afixada com sucesso!')
+        );
+      }
+    } catch (err) {
+      console.error("Error setting video pin status:", err);
+    }
+    
     setSelectedPostForEdit(null);
   };
 
@@ -1004,9 +1055,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
     // 'posts' tab
     if (isOwnProfile) {
-      return userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
+      const postsTab = userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
+      return [...postsTab].sort((a, b) => {
+        const pinA = (a as any).is_pinned ? 1 : 0;
+        const pinB = (b as any).is_pinned ? 1 : 0;
+        return pinB - pinA;
+      });
     }
-    return userPosts;
+    return [...userPosts].sort((a, b) => {
+      const pinA = (a as any).is_pinned ? 1 : 0;
+      const pinB = (b as any).is_pinned ? 1 : 0;
+      return pinB - pinA;
+    });
   })();
 
   return (
@@ -1286,6 +1346,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   }}
                   className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
                 >
+                  {(post as any).is_pinned && (
+                    <div className="absolute top-2 left-2 bg-purple-600 text-white p-1 rounded-md flex items-center justify-center w-6 h-6 z-10 shadow-sm border border-purple-500/50">
+                      <Pin size={12} className="text-white fill-white" />
+                    </div>
+                  )}
                   <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
                     {isPostPrivate && isOwnProfile && (
                       <div className="bg-black/60 backdrop-blur-md text-white p-1 rounded-md border border-white/10 flex items-center justify-center w-6 h-6">
@@ -2141,8 +2206,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
             </div>
 
-            {/* Options layout inspired by standard bottom sheet */}
-            <div className="flex items-center gap-6 overflow-x-auto no-scrollbar py-2 justify-start sm:justify-center px-4 w-full">
+            {/* Options layout showing all items in a wrapping grid */}
+            <div className="grid grid-cols-3 gap-y-6 gap-x-4 justify-items-center w-full py-4">
               {/* Option 1: Watch Video */}
               {selectedPostForEdit && (
                 <button 
@@ -2162,7 +2227,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     <Play size={20} strokeWidth={1.5} className="fill-black text-black" />
                   </div>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
-                    {t('Watch Video', 'Ver Vídeo')}
+                    {selectedPostForEdit.media_type === 'image' ? t('Watch Image', 'Ver Foto') : t('Watch Video', 'Ver Vídeo')}
                   </span>
                 </button>
               )}
@@ -2208,7 +2273,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </button>
               )}
 
-              {/* Option 4: Video Statistics */}
+              {/* Option 4: Pin Option */}
+              {selectedPostForEdit && (
+                <button 
+                  onClick={() => handleTogglePin(selectedPostForEdit)}
+                  className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
+                >
+                  <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
+                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as any).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
+                    {(selectedPostForEdit as any).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
+                  </span>
+                </button>
+              )}
+
+              {/* Option 5: Video Statistics */}
               {selectedPostForEdit && (
                 <button 
                   onClick={() => handleOpenStats(selectedPostForEdit)}
@@ -2223,7 +2303,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </button>
               )}
 
-              {/* Option 5: Delete */}
+              {/* Option 6: Delete */}
               {selectedPostForEdit && (
                 <button 
                   onClick={() => handleDeletePost(selectedPostForEdit)}
