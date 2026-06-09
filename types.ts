@@ -21,6 +21,7 @@ export interface Post {
   media_url: string;
   media_url1?: string | null;
   media_url2?: string | null;
+  post_group_id?: string | null;
   media_type: 'image' | 'video' | 'audio' | 'text';
   views: number;
   thumbnail_url: string | null;

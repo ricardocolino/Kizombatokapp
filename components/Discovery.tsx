@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../supabaseClient';
+import { supabase, groupPostsByGroupId } from '../supabaseClient';
 import { Post, Profile } from '../types';
 import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
@@ -191,7 +191,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
             }
             return true;
           });
-          setPosts(filteredPosts);
+          setPosts(groupPostsByGroupId(filteredPosts));
         }
 
       } catch (error) {

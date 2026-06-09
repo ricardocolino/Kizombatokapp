@@ -322,12 +322,12 @@ const App: React.FC = () => {
 
       let finalMediaUrl1: string | null = null;
       let finalMediaUrl2: string | null = null;
+      let uploadedUrls: string[] = [];
 
       // Upload do Ficheiro Final
       const folder = uploadType === 'story' ? 'stories' : 'posts';
       
       if (uploadData.mediaFiles && uploadData.mediaFiles.length > 1) {
-        const uploadedUrls: string[] = [];
         for (let i = 0; i < uploadData.mediaFiles.length; i++) {
           const file = uploadData.mediaFiles[i];
           const isVid = file.type?.startsWith('video/') || file.name?.endsWith('.mp4');
@@ -376,23 +376,52 @@ const App: React.FC = () => {
         });
         if (insertError) throw insertError;
       } else {
-        const { error: insertError } = await supabase.from('posts').insert({
-          user_id: userId,
-          content: content || null,
-          media_url: finalMediaUrl,
-          media_url1: finalMediaUrl1,
-          media_url2: finalMediaUrl2,
-          thumbnail_url: finalThumbnailUrl,
-          media_type: isVideo ? 'video' : 'image',
-          is_education: isEducation ? 1 : 0,
-          is_ready: true,
-          views: 0,
-          mp3_url: finalMp3Url,
-          mp3_r2_url: finalMp3R2Url,
-          dubbed_from_id: dubbedFromId || null,
-          created_at: new Date().toISOString()
-        });
-        if (insertError) throw insertError;
+        if (uploadedUrls.length > 1) {
+          const postGroupId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Math.random().toString(36).substring(2, 11)}-${Math.random().toString(36).substring(2, 11)}`;
+
+          const insertPayload = uploadedUrls.map((url, index) => {
+            const file = uploadData.mediaFiles![index];
+            const isRowVid = file?.type?.startsWith('video/') || file?.name?.endsWith('.mp4');
+            return {
+              user_id: userId,
+              content: content || null,
+              media_url: url,
+              thumbnail_url: index === 0 ? finalThumbnailUrl : null,
+              media_type: isRowVid ? 'video' : 'image',
+              is_education: isEducation ? 1 : 0,
+              is_ready: true,
+              views: 0,
+              mp3_url: index === 0 ? finalMp3Url : null,
+              mp3_r2_url: index === 0 ? finalMp3R2Url : null,
+              dubbed_from_id: index === 0 ? (dubbedFromId || null) : null,
+              post_group_id: postGroupId,
+              created_at: new Date(Date.now() + index).toISOString()
+            };
+          });
+
+          const { error: insertError } = await supabase.from('posts').insert(insertPayload);
+          if (insertError) throw insertError;
+        } else {
+          const { error: insertError } = await supabase.from('posts').insert({
+            user_id: userId,
+            content: content || null,
+            media_url: finalMediaUrl,
+            media_url1: finalMediaUrl1,
+            media_url2: finalMediaUrl2,
+            thumbnail_url: finalThumbnailUrl,
+            media_type: isVideo ? 'video' : 'image',
+            is_education: isEducation ? 1 : 0,
+            is_ready: true,
+            views: 0,
+            mp3_url: finalMp3Url,
+            mp3_r2_url: finalMp3R2Url,
+            dubbed_from_id: dubbedFromId || null,
+            created_at: new Date().toISOString()
+          });
+          if (insertError) throw insertError;
+        }
       }
 
       setUploadTask({ progress: 100, active: false, error: null });

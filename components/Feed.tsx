@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../supabaseClient';
+import { supabase, groupPostsByGroupId } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
 import { Post, FeedFilter } from '../types';
 import PostCard from './PostCard';
@@ -314,7 +314,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const { data, error } = await query;
       if (error) throw error;
       
-      let rawPosts = data || [];
+      let rawPosts = data ? groupPostsByGroupId(data) : [];
       
       // Se tivermos um initialPostId e for a primeira página, garantir que ele está nos posts
       if (currentPage === 0 && initialPostId) {
