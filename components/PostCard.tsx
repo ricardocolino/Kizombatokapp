@@ -137,6 +137,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   useEffect(() => {
     setLoadedIndices([0]);
     setCurrentImageIndex(0);
+    setVideoError(false);
   }, [post.id]);
 
   useEffect(() => {
@@ -217,22 +218,39 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       return post.media_type;
     }
 
-    // Smart fallback detection based on URL file extensions for the media files
-    const mainUrl = (post.media_url || '').toLowerCase();
+    // Detecção inteligente baseada na extensão real dos arquivos (ignorando query params como tokens/assinaturas)
+    const getCleanUrlPath = (urlStr: string | null | undefined): string => {
+      if (!urlStr) return '';
+      // Separa no '?' para ignorar query keys/tokens de segurança do R2 / CDN
+      return urlStr.split('?')[0].toLowerCase();
+    };
+
+    const mainUrlClean = getCleanUrlPath(post.media_url);
     
-    // Check if it ends with known image formats, or is a post image URL
-    const isImageExtension = mainUrl.endsWith('.jpg') || mainUrl.endsWith('.jpeg') || 
-                             mainUrl.endsWith('.png') || mainUrl.endsWith('.webp') || 
-                             mainUrl.endsWith('.gif') || mainUrl.endsWith('.heic') || 
-                             mainUrl.endsWith('.bmp') || 
-                             (mainUrl.includes('/posts/') && !mainUrl.endsWith('.mp4') && !mainUrl.endsWith('.m3u8') && !mainUrl.endsWith('.mov') && !mainUrl.endsWith('.webm'));
-                             
-    if (isImageExtension) {
+    // Lista de extensões de imagem conhecidas
+    const isImageExt = (p: string) => {
+      return p.endsWith('.jpg') || p.endsWith('.jpeg') || 
+             p.endsWith('.png') || p.endsWith('.webp') || 
+             p.endsWith('.gif') || p.endsWith('.heic') || 
+             p.endsWith('.bmp') || 
+             (p.includes('/posts/') && !p.endsWith('.mp4') && !p.endsWith('.m3u8') && !p.endsWith('.mov') && !p.endsWith('.webm'));
+    };
+
+    // Caso a URL principal limpa termine com uma extensão de imagem
+    if (isImageExt(mainUrlClean)) {
       return 'image';
     }
 
-    // If it has multiple images but no video signifier
-    if (allMediaUrls.length > 1 && !mainUrl.endsWith('.mp4') && !mainUrl.endsWith('.m3u8') && !mainUrl.endsWith('.mov') && !mainUrl.endsWith('.webm')) {
+    // Caso tenhamos múltiplas mídias no carrossel, verificamos se a primeira é uma imagem
+    if (allMediaUrls.length > 0) {
+      const firstMediaClean = getCleanUrlPath(allMediaUrls[0]);
+      if (isImageExt(firstMediaClean)) {
+        return 'image';
+      }
+    }
+
+    // Se no carrossel tivermos múltiplas mídias, mas sem indicação clara de vídeo na URL principal, assume imagem
+    if (allMediaUrls.length > 1 && !mainUrlClean.endsWith('.mp4') && !mainUrlClean.endsWith('.m3u8') && !mainUrlClean.endsWith('.mov') && !mainUrlClean.endsWith('.webm')) {
       return 'image';
     }
 

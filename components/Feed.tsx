@@ -328,7 +328,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               .maybeSingle(); // Usar maybeSingle para não disparar erro se não encontrar
             
             if (targetData) {
-              rawPosts = [targetData, ...rawPosts];
+              if (targetData.post_group_id) {
+                const { data: groupSiblings } = await supabase
+                  .from('posts')
+                  .select(`*, profiles!user_id (*)`)
+                  .eq('post_group_id', targetData.post_group_id);
+                
+                if (groupSiblings && groupSiblings.length > 0) {
+                  rawPosts = groupPostsByGroupId([...groupSiblings, ...(data || [])]);
+                } else {
+                  rawPosts = groupPostsByGroupId([targetData, ...(data || [])]);
+                }
+              } else {
+                rawPosts = [targetData, ...rawPosts];
+              }
             }
           } catch (err) {
             console.error("Erro ao buscar post alvo:", err);
