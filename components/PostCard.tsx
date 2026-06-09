@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -57,6 +57,37 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
 
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - touchEndX.current;
+    const minDistance = 40; // threshold for a swipe
+    if (Math.abs(diff) > minDistance) {
+      e.stopPropagation();
+      if (diff > 0) {
+        // Swipe left -> next image
+        if (currentImageIndex < allMediaUrls.length - 1) {
+          setCurrentImageIndex(prev => prev + 1);
+        }
+      } else {
+        // Swipe right -> previous image
+        if (currentImageIndex > 0) {
+          setCurrentImageIndex(prev => prev - 1);
+        }
+      }
+    }
+  };
+
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
 
@@ -99,6 +130,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const allMediaUrls = useMemo(() => {
     if (!post.media_url) return [];
@@ -1180,15 +1213,71 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {mediaType !== 'video' && (
             <div className="absolute inset-0 z-0">
               {mediaType === 'image' && allMediaUrls.length > 0 ? (
-                <div className="w-full h-full flex items-center justify-center relative">
-                  <img 
-                    src={allMediaUrls[0]} 
-                    className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
-                    alt=""
-                    style={{
-                      filter: post.filter ? post.filter.split('|')[0] : undefined,
-                    }}
-                  />
+                <div className="w-full h-full overflow-hidden relative">
+                  <div 
+                    className="flex w-full h-full transition-transform duration-300 ease-out"
+                    style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                  >
+                    {allMediaUrls.map((url, index) => (
+                      <div key={index} className="w-full h-full shrink-0 relative">
+                        <img 
+                          src={url} 
+                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
+                          alt=""
+                          style={{
+                            filter: post.filter ? post.filter.split('|')[0] : undefined,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Left / Right arrows for web/desktop */}
+                  {allMediaUrls.length > 1 && (
+                    <>
+                      {currentImageIndex > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentImageIndex(prev => prev - 1);
+                          }}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
+                        >
+                          <ChevronLeft size={22} />
+                        </button>
+                      )}
+                      {currentImageIndex < allMediaUrls.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentImageIndex(prev => prev + 1);
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/45 backdrop-blur-md rounded-full text-white z-[120] hover:bg-black/65 transition-all active:scale-95 border border-white/10"
+                        >
+                          <ChevronRight size={22} />
+                        </button>
+                      )}
+
+                      {/* Pages/Dots similar to TikTok Carousel */}
+                      <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md px-2 py-1 rounded-full text-white text-[10px] font-black z-[120] tracking-widest border border-white/5 pointer-events-none">
+                        {currentImageIndex + 1}/{allMediaUrls.length}
+                      </div>
+
+                      <div className="absolute bottom-4 left-0 w-full flex justify-center gap-1.5 z-[120] pointer-events-none">
+                        {allMediaUrls.map((_, idx) => (
+                          <div
+                            key={idx}
+                            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-purple-600 w-4 shadow-[0_0_8px_rgba(147,51,234,0.6)]' : 'bg-white/45 w-1.5'}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : post.thumbnail_url ? (
                 <img 
@@ -1279,14 +1368,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
           )}
 
-        {/* Text Overlay */}
-        {post.text_overlay && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-sm sm:text-base px-4' : 'text-3xl sm:text-4xl'}`}>
-              {post.text_overlay}
-            </span>
-          </div>
-        )}
+
         
         {!isPlaying && !videoError && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
@@ -1502,7 +1584,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
               </span>
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
-                <span className="text-black">•</span> {mediaType === 'image' && <>{'foto'} <span className="text-black">•</span> </>}{formatPublishedTime(post.created_at)}
+                • {mediaType === 'image' && 'foto • '}{formatPublishedTime(post.created_at)}
               </span>
             </h3>
             <p 

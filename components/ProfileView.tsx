@@ -124,11 +124,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const handleTogglePin = async (post: Post) => {
     if (!post) return;
-    const isPinned = !!post.is_pinned;
+    const isPinned = !!(post as any).is_pinned;
     
     if (!isPinned) {
       // Check count
-      const pinnedCount = userPosts.filter(p => p.is_pinned).length;
+      const pinnedCount = userPosts.filter(p => (p as any).is_pinned).length;
       if (pinnedCount >= 3) {
         alert(t('You can only pin up to 3 posts', 'Apenas 3 publicações podem ser afixadas!'));
         setSelectedPostForEdit(null);
@@ -1057,14 +1057,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     if (isOwnProfile) {
       const postsTab = userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
       return [...postsTab].sort((a, b) => {
-        const pinA = a.is_pinned ? 1 : 0;
-        const pinB = b.is_pinned ? 1 : 0;
+        const pinA = (a as any).is_pinned ? 1 : 0;
+        const pinB = (b as any).is_pinned ? 1 : 0;
         return pinB - pinA;
       });
     }
     return [...userPosts].sort((a, b) => {
-      const pinA = a.is_pinned ? 1 : 0;
-      const pinB = b.is_pinned ? 1 : 0;
+      const pinA = (a as any).is_pinned ? 1 : 0;
+      const pinB = (b as any).is_pinned ? 1 : 0;
       return pinB - pinA;
     });
   })();
@@ -1346,7 +1346,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   }}
                   className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
                 >
-                  {post.is_pinned && (
+                  {(post as any).is_pinned && (
                     <div className="absolute top-2 left-2 bg-purple-600 text-white p-1 rounded-md flex items-center justify-center w-6 h-6 z-10 shadow-sm border border-purple-500/50">
                       <Pin size={12} className="text-white fill-white" />
                     </div>
@@ -2280,10 +2280,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
                 >
                   <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
-                    <Pin size={20} strokeWidth={1.5} className={selectedPostForEdit.is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
+                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as any).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
                   </div>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
-                    {selectedPostForEdit.is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
+                    {(selectedPostForEdit as any).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
                   </span>
                 </button>
               )}

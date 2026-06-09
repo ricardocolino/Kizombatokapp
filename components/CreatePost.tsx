@@ -450,7 +450,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     const files = e.target.files;
     if (files && files.length > 0) {
       if (isPhotoMode) {
-        const selectedFiles = Array.from(files).slice(0, 1);
+        const selectedFiles = Array.from(files).slice(0, 3);
         const newPreviewUrls = selectedFiles.map(file => URL.createObjectURL(file));
         previewUrls.forEach(url => URL.revokeObjectURL(url));
         setMediaFiles(selectedFiles);
@@ -727,7 +727,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
 
   const handleMediaLibrarySelect = async (files: File[]) => {
     if (files.length > 0) {
-      const selectedFiles = files.slice(0, isPhotoMode ? 1 : 5);
+      const selectedFiles = files.slice(0, isPhotoMode ? 3 : 5);
       
       // Validar duração do primeiro arquivo (se for vídeo)
       const isOk = await checkVideoDuration(selectedFiles[0]);
@@ -761,10 +761,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     try {
       let result;
       if (isPhotoMode) {
-        // Se estiver no modo foto, apenas fotos/imagens (permitir apenas 1 foto de cada vez)
+        // Se estiver no modo foto, apenas fotos/imagens (permitir carregar até 3 fotos ao mesmo tempo)
         result = await FilePicker.pickImages({
-          multiple: false,
-          limit: 1,
+          multiple: true,
+          limit: 3,
         });
       } else if (uploadType === 'post') {
         // Para posts, apenas vídeos
@@ -1581,6 +1581,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   ref={nativeVideoInputRef}
                   type="file" 
                   accept={isPhotoMode ? "image/*" : (uploadType === 'story' ? "video/*,image/*" : "video/*")} 
+                  multiple={isPhotoMode}
                   className="hidden" 
                   onChange={handleNativeVideoChange} 
                 />
@@ -1639,7 +1640,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   }}
                   className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'post' && isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
                 >
-                  {t('Photo', 'Foto')}
+                  {t('Foto')}
                 </button>
                 <button 
                   onClick={() => {
