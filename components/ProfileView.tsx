@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3 } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -1286,11 +1286,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   }}
                   className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
                 >
-                  {isPostPrivate && isOwnProfile && (
-                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-1 rounded-full border border-white/10 flex items-center justify-center z-10 w-6 h-6">
-                      <Lock size={12} strokeWidth={2.5} className="text-white" />
+                  <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                    {isPostPrivate && isOwnProfile && (
+                      <div className="bg-black/60 backdrop-blur-md text-white p-1 rounded-md border border-white/10 flex items-center justify-center w-6 h-6">
+                        <Lock size={12} strokeWidth={2.5} className="text-white" />
+                      </div>
+                    )}
+                    <div className="bg-black/40 backdrop-blur-md text-white p-1 rounded-md border border-white/10 flex items-center justify-center w-6 h-6">
+                      {(post.media_type || 'video') === 'video' ? (
+                        <Film size={12} className="text-white" />
+                      ) : (
+                        <Layers size={12} className="text-white" />
+                      )}
                     </div>
-                  )}
+                  </div>
                    {(post.media_type || 'video') === 'video' ? (
                     <video 
                       src={parseMediaUrl(post.media_url)} 

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
-import { Search, TrendingUp, AlertCircle, UserCheck } from 'lucide-react';
+import { Search, TrendingUp, AlertCircle, UserCheck, Film, Layers } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface DiscoveryProps {
@@ -327,6 +327,15 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
           >
             {post.media_url ? (
               <>
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                  <div className="bg-black/40 backdrop-blur-md text-white p-1 rounded-md border border-white/10 flex items-center justify-center w-6 h-6">
+                    {(post.media_type || 'video') === 'video' ? (
+                      <Film size={12} className="text-white" />
+                    ) : (
+                      <Layers size={12} className="text-white" />
+                    )}
+                  </div>
+                </div>
                 {(post.media_type || 'video') === 'video' ? (
                   <video 
                     src={parseMediaUrl(post.media_url)} 
