@@ -1485,7 +1485,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             )}
 
             {/* Right Sidebar Buttons */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-8 z-50">
+            <div className="absolute right-4 top-[25%] flex flex-col gap-5 z-50">
               {/* Publish Button (Top) */}
               <button 
                 onClick={() => {
@@ -1500,66 +1500,66 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   }
                 }} 
                 disabled={uploading || processingVideo || isVideoTooLong}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform disabled:opacity-50"
+                className="flex flex-col items-center gap-1 group active:scale-95 transition-all disabled:opacity-50"
               >
-                <div className={`p-4 rounded-full border transition-all ${uploading || processingVideo || isVideoTooLong ? 'bg-zinc-800/80 border-zinc-700 text-zinc-500' : 'bg-white border-white text-black shadow-lg shadow-white/20'}`}>
+                <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
                   {uploading || processingVideo ? (
-                    <Loader2 size={24} className="animate-spin" />
+                    <Loader2 size={20} className="animate-spin" />
                   ) : isVideoTooLong ? (
-                    <AlertCircle size={24} />
+                    <AlertCircle size={20} />
                   ) : (
-                    <ArrowUp size={24} />
+                    <ArrowUp size={20} className="stroke-[2.5]" />
                   )}
                 </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Publish')}</span>
+                <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Publish')}</span>
               </button>
 
               {/* Trim Button */}
               {!mediaFiles[0]?.type.startsWith('image/') && (
                 <button 
                   onClick={() => setShowTrimEditor(true)}
-                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                  className="flex flex-col items-center gap-1 group active:scale-95 transition-all"
                 >
-                  <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
-                    <Scissors size={24}/>
+                  <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
+                    <Scissors size={20}/>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Trim')}</span>
+                  <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Trim')}</span>
                 </button>
               )}
 
               {/* Text Overlay Button */}
               <button 
                 onClick={() => setShowTextEditor(true)}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                className="flex flex-col items-center gap-1 group active:scale-95 transition-all"
               >
-                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
-                  <Type size={24}/>
+                <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
+                  <Type size={20}/>
                 </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Texto')}</span>
+                <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Texto')}</span>
               </button>
 
               {/* Rotate Button */}
               {mediaFiles[0]?.type.startsWith('image/') && (
                 <button 
                   onClick={() => setRotation(prev => (prev + 90) % 360 as 0 | 90 | 180 | 270)}
-                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                  className="flex flex-col items-center gap-1 group active:scale-95 transition-all"
                 >
-                  <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
-                    <RotateCw size={24}/>
+                  <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
+                    <RotateCw size={20}/>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Girar')}</span>
+                  <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Girar')}</span>
                 </button>
               )}
 
               {/* Settings Button */}
               <button 
                 onClick={() => setShowSettings(true)}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                className="flex flex-col items-center gap-1 group active:scale-95 transition-all"
               >
-                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
-                  <Settings size={24}/>
+                <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
+                  <Settings size={20}/>
                 </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Settings')}</span>
+                <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Settings')}</span>
               </button>
             </div>
 

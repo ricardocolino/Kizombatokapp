@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { ThumbsUp, MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -1117,11 +1117,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           onClick={(e) => { e.stopPropagation(); toggleCommentLike(c.id, !!c.liked_by_me); }}
           className="flex flex-col items-center gap-0.5 pt-1.5 group/like"
         >
-          <ThumbsUp 
+          <Heart 
             size={16} 
-            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-purple-600 fill-purple-600' : 'text-zinc-400 hover:text-zinc-600'}`} 
+            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-400 hover:text-zinc-600'}`} 
           />
-          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-purple-600' : 'text-zinc-500'}`}>{c.likes_count || 0}</span>
+          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-red-500' : 'text-zinc-500'}`}>{c.likes_count || 0}</span>
         </button>
       </div>
     );
@@ -1371,7 +1371,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         {/* Text Overlay */}
         {post.text_overlay && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-sm sm:text-base px-4' : 'text-3xl sm:text-4xl'}`}>
+            <span className={`text-white font-black text-center px-10 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] break-words max-w-full transition-all duration-300 ${showComments ? 'text-xs sm:text-sm px-4' : 'text-lg sm:text-xl'}`}>
               {post.text_overlay}
             </span>
           </div>
@@ -1443,7 +1443,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {/* ThumbsUp animations for double tap */}
+        {/* Heart animations for double tap */}
         {doubleTapHearts.map(heart => (
           <div 
             key={heart.id} 
@@ -1453,7 +1453,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               top: `${heart.y - 40}px`
             }}
           >
-            <ThumbsUp size={80} className="text-purple-500 fill-purple-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
+            <Heart size={80} className="text-red-500 fill-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]" />
           </div>
         ))}
 
@@ -1525,7 +1525,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
           <button onClick={toggleLike} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-              <ThumbsUp size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-500 fill-purple-500' : 'text-white fill-white'}`} />
+              <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
           </button>
@@ -1568,10 +1568,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="flex flex-col items-center group relative mt-1 shrink-0"
               title="Ver detalhes do áudio"
             >
-              <div className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border-2 border-white/40 flex items-center justify-center">
-                <Music size={18} className="text-white fill-white" />
+              <div className="w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] bg-transparent rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-lg border-2 border-white/40 flex items-center justify-center">
+                <Music size={18} className="text-white fill-none" />
               </div>
-              <span className="text-[8px] sm:text-[10px] font-black text-purple-400 drop-shadow-md tracking-tighter uppercase mt-1">Áudio</span>
+              <span className="text-[8px] sm:text-[10px] font-black text-white/85 drop-shadow-md tracking-tighter uppercase mt-1">Áudio</span>
             </button>
           )}
 
