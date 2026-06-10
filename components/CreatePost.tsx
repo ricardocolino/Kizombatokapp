@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -26,6 +26,7 @@ interface CreatePostProps {
     dubbedFromId?: string | null;
     dubbingDelayMs?: number;
     textOverlay?: string | null;
+    rotation?: 0 | 90 | 180 | 270;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
@@ -69,6 +70,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [isFromGallery, setIsFromGallery] = useState(false);
   const [isVideoTooLong, setIsVideoTooLong] = useState(false);
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
 
   // Dublagem e Seleção de Musicas Locais
   const [localDubbingUrl, setLocalDubbingUrl] = useState<string | null>(null);
@@ -937,7 +939,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         dubbedMp3Url: activeDubbingMp3Url,
         dubbedFromId: activeDubbedFromId,
         dubbingDelayMs: dubbingDelayMs,
-        textOverlay: textOverlay || null
+        textOverlay: textOverlay || null,
+        rotation
       });
       onCreated();
       return;
@@ -1060,8 +1063,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
-          if (needsRotation) {
+          // CORREÇÃO DE ROTAÇÃO: Combinar flip da câmera traseira com rotação manual do usuário
+          const totalRotation = ((needsRotation ? 180 : 0) + (rotation || 0)) % 360;
+          if (totalRotation === 90) {
+            filterParts.push('transpose=1');
+          } else if (totalRotation === 180) {
             filterParts.push('vflip,hflip');
+          } else if (totalRotation === 270) {
+            filterParts.push('transpose=2');
           }
           
           const finalVf = filterParts.join(',');
@@ -1303,6 +1312,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     setIsFromGallery(false);
     setDubbingDelayMs(0);
     setActiveImageIndex(0);
+    setRotation(0);
 
     // Resetar para câmera frontal e desligar flash
     setFacingMode('user');
@@ -1331,7 +1341,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             <div className="absolute inset-0 bg-white overflow-hidden">
               {mediaFiles[0]?.type.startsWith('image/') ? (
                 <div className="w-full h-full relative">
-                  <img src={previewUrls[activeImageIndex]} className="w-full h-full object-cover" />
+                  <img src={previewUrls[activeImageIndex]} className="w-full h-full object-cover transition-transform duration-300 ease-in-out" style={{ transform: `rotate(${rotation}deg)` }} />
                   
                   {/* Dynamic Text Overlay on Image */}
                   {textOverlay && (
@@ -1382,7 +1392,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <div className="w-full h-full relative">
                   <video 
                     src={previewUrls[0]} 
-                    className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
+                    className="w-full h-full object-cover transition-transform duration-300 ease-in-out" 
+                    style={{ transform: `rotate(${(rotation + (recordedFacingMode === 'rear' ? 180 : 0)) % 360}deg)` }}
                     autoPlay 
                     loop 
                     playsInline 
@@ -1480,6 +1491,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   <Type size={24}/>
                 </div>
                 <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Texto')}</span>
+              </button>
+
+              {/* Rotate Button */}
+              <button 
+                onClick={() => setRotation(prev => (prev + 90) % 360 as 0 | 90 | 180 | 270)}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
+                  <RotateCw size={24}/>
+                </div>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Girar')}</span>
               </button>
 
               {/* Settings Button */}

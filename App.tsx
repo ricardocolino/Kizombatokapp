@@ -48,6 +48,7 @@ interface UploadData {
   dubbedFromId?: string | null;
   dubbingDelayMs?: number;
   textOverlay?: string | null;
+  rotation?: 0 | 90 | 180 | 270;
 }
 
 const App: React.FC = () => {
@@ -134,6 +135,7 @@ const App: React.FC = () => {
         dubbedFromId,
         dubbingDelayMs,
         textOverlay,
+        rotation,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -182,9 +184,15 @@ const App: React.FC = () => {
           filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
-          // CORREÇÃO DE ROTAÇÃO: Se for câmera traseira, aplicamos o flip
-          if (recordedFacingMode === 'rear') {
+          // CORREÇÃO DE ROTAÇÃO: Combinar flip da câmera traseira com rotação manual do usuário
+          const needsFlip = recordedFacingMode === 'rear';
+          const totalRotation = ((needsFlip ? 180 : 0) + (rotation || 0)) % 360;
+          if (totalRotation === 90) {
+            filterParts.push('transpose=1');
+          } else if (totalRotation === 180) {
             filterParts.push('vflip,hflip');
+          } else if (totalRotation === 270) {
+            filterParts.push('transpose=2');
           }
           
           const videoArgs = [];
