@@ -285,6 +285,13 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
           />
         )}
 
+        {/* Dynamic Text Overlay */}
+        {currentStory.text_overlay && (
+          <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[85%] text-center px-5 py-3 bg-black/55 backdrop-blur-md rounded-2xl border border-white/10 text-white font-extrabold text-2xl tracking-wide shadow-2xl z-[30] select-none pointer-events-none break-words">
+            {currentStory.text_overlay}
+          </div>
+        )}
+
         {/* Navigation Overlays */}
         <div className="absolute inset-0 flex">
           <div className="w-1/3 h-full cursor-pointer" onClick={handlePrev} />

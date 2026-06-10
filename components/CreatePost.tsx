@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -25,6 +25,7 @@ interface CreatePostProps {
     dubbedMp3Url?: string | null;
     dubbedFromId?: string | null;
     dubbingDelayMs?: number;
+    textOverlay?: string | null;
   }) => void;
   onStartLive?: () => void;
   initialType?: 'post' | 'story';
@@ -36,6 +37,8 @@ interface CreatePostProps {
 const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, dubbedFromId, onClearDubbing }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
+  const [textOverlay, setTextOverlay] = useState('');
+  const [showTextEditor, setShowTextEditor] = useState(false);
   const [mediaFiles, setMediaFiles] = useState<(File | Blob)[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -933,7 +936,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         recordingSeconds,
         dubbedMp3Url: activeDubbingMp3Url,
         dubbedFromId: activeDubbedFromId,
-        dubbingDelayMs: dubbingDelayMs
+        dubbingDelayMs: dubbingDelayMs,
+        textOverlay: textOverlay || null
       });
       onCreated();
       return;
@@ -1242,7 +1246,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           user_id: userId,
           media_url: finalMediaUrl,
           media_type: isVideo ? 'video' : 'image',
-          expires_at: expiresAt.toISOString()
+          expires_at: expiresAt.toISOString(),
+          text_overlay: textOverlay || null
         });
         if (insertError) throw insertError;
       } else {
@@ -1258,7 +1263,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           mp3_url: finalMp3Url,
           mp3_r2_url: finalMp3R2Url,
           dubbed_from_id: activeDubbedFromId || null,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          text_overlay: textOverlay || null
         });
         if (insertError) throw insertError;
       }
@@ -1326,6 +1332,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               {mediaFiles[0]?.type.startsWith('image/') ? (
                 <div className="w-full h-full relative">
                   <img src={previewUrls[activeImageIndex]} className="w-full h-full object-cover" />
+                  
+                  {/* Dynamic Text Overlay on Image */}
+                  {textOverlay && (
+                    <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[85%] text-center px-5 py-3 bg-black/55 backdrop-blur-md rounded-2xl border border-white/10 text-white font-extrabold text-2xl tracking-wide shadow-2xl z-[160] select-none pointer-events-none break-words">
+                      {textOverlay}
+                    </div>
+                  )}
+
                   {previewUrls.length > 1 && (
                     <>
                       {/* Botão Anterior */}
@@ -1365,23 +1379,31 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   )}
                 </div>
               ) : (
-                <video 
-                  src={previewUrls[0]} 
-                  className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
-                  autoPlay 
-                  loop 
-                  playsInline 
-                  muted={false}
-                  onTimeUpdate={(e) => {
-                    const video = e.currentTarget;
-                    if (video.currentTime < trimStart) {
-                      video.currentTime = trimStart;
-                    }
-                    if (video.currentTime > trimEnd) {
-                      video.currentTime = trimStart;
-                    }
-                  }}
-                />
+                <div className="w-full h-full relative">
+                  <video 
+                    src={previewUrls[0]} 
+                    className={`w-full h-full object-cover ${recordedFacingMode === 'rear' ? 'rotate-180' : ''}`} 
+                    autoPlay 
+                    loop 
+                    playsInline 
+                    muted={false}
+                    onTimeUpdate={(e) => {
+                      const video = e.currentTarget;
+                      if (video.currentTime < trimStart) {
+                        video.currentTime = trimStart;
+                      }
+                      if (video.currentTime > trimEnd) {
+                        video.currentTime = trimStart;
+                      }
+                    }}
+                  />
+                  {/* Dynamic Text Overlay on Video */}
+                  {textOverlay && (
+                    <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[85%] text-center px-5 py-3 bg-black/55 backdrop-blur-md rounded-2xl border border-white/10 text-white font-extrabold text-2xl tracking-wide shadow-2xl z-[160] select-none pointer-events-none break-words">
+                      {textOverlay}
+                    </div>
+                  )}
+                </div>
               )}
               
               {/* Top Gradient for visibility */}
@@ -1448,6 +1470,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                   <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Trim')}</span>
                 </button>
               )}
+
+              {/* Text Overlay Button */}
+              <button 
+                onClick={() => setShowTextEditor(true)}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
+                  <Type size={24}/>
+                </div>
+                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Texto')}</span>
+              </button>
 
               {/* Settings Button */}
               <button 
@@ -1859,6 +1892,44 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showTextEditor && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-[220] flex flex-col items-center justify-center p-6">
+          <div className="w-full max-w-sm flex flex-col items-center gap-6 bg-zinc-950/90 border border-white/10 rounded-[32px] p-8 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            <h3 className="text-white font-black uppercase tracking-[0.2em] text-xs font-mono">{t('Adicionar Código/Texto')}</h3>
+            
+            <input
+              type="text"
+              value={textOverlay}
+              onChange={(e) => setTextOverlay(e.target.value.slice(0, 50))}
+              placeholder={t('Escreve o teu texto aqui...')}
+              autoFocus
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-center text-white font-extrabold text-lg placeholder:text-white/20 outline-none focus:border-purple-500 focus:bg-white/10 transition-all shadow-inner"
+            />
+            
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider font-mono">
+              {textOverlay.length}/50 {t('caracteres')}
+            </p>
+
+            <div className="flex gap-4 w-full justify-center mt-2">
+              {textOverlay && (
+                <button
+                  onClick={() => setTextOverlay('')}
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all border border-white/10"
+                >
+                  {t('Limpar')}
+                </button>
+              )}
+              <button
+                onClick={() => setShowTextEditor(false)}
+                className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-black uppercase text-[10px] tracking-widest shadow-lg shadow-purple-950/20 active:scale-95 transition-all border border-purple-500"
+              >
+                {t('Confirmar')}
+              </button>
+            </div>
           </div>
         </div>
       )}

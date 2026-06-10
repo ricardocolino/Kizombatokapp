@@ -47,6 +47,7 @@ interface UploadData {
   dubbedMp3Url?: string | null;
   dubbedFromId?: string | null;
   dubbingDelayMs?: number;
+  textOverlay?: string | null;
 }
 
 const App: React.FC = () => {
@@ -132,6 +133,7 @@ const App: React.FC = () => {
         dubbedMp3Url,
         dubbedFromId,
         dubbingDelayMs,
+        textOverlay,
       } = uploadData;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -366,7 +368,8 @@ const App: React.FC = () => {
           user_id: userId,
           media_url: finalMediaUrl,
           media_type: isVideo ? 'video' : 'image',
-          expires_at: expiresAt.toISOString()
+          expires_at: expiresAt.toISOString(),
+          text_overlay: textOverlay || null
         });
         if (insertError) throw insertError;
       } else {
@@ -382,7 +385,8 @@ const App: React.FC = () => {
           mp3_url: finalMp3Url,
           mp3_r2_url: finalMp3R2Url,
           dubbed_from_id: dubbedFromId || null,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          text_overlay: textOverlay || null
         });
         if (insertError) throw insertError;
       }

@@ -84,6 +84,7 @@ export interface Story {
   user_id: string;
   media_url: string;
   media_type: 'image' | 'video' | 'audio' | 'text';
+  text_overlay?: string | null;
   created_at: string;
   expires_at: string;
   profiles?: Profile;
