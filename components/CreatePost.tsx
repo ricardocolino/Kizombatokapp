@@ -1494,15 +1494,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               </button>
 
               {/* Rotate Button */}
-              <button 
-                onClick={() => setRotation(prev => (prev + 90) % 360 as 0 | 90 | 180 | 270)}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-              >
-                <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
-                  <RotateCw size={24}/>
-                </div>
-                <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Girar')}</span>
-              </button>
+              {mediaFiles[0]?.type.startsWith('image/') && (
+                <button 
+                  onClick={() => setRotation(prev => (prev + 90) % 360 as 0 | 90 | 180 | 270)}
+                  className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+                >
+                  <div className="p-4 bg-black/20 backdrop-blur-md rounded-full text-white border border-white/10 shadow-lg">
+                    <RotateCw size={24}/>
+                  </div>
+                  <span className="text-[9px] font-black uppercase text-white shadow-sm mt-1">{t('Girar')}</span>
+                </button>
+              )}
 
               {/* Settings Button */}
               <button 
