@@ -117,6 +117,42 @@ const App: React.FC = () => {
     });
   };
 
+  const rotateImage = (imageBlob: Blob, rotation: number): Promise<Blob> => {
+    if (rotation === 0) return Promise.resolve(imageBlob);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(imageBlob);
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(imageBlob);
+          return;
+        }
+
+        if (rotation === 90 || rotation === 270) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        canvas.toBlob((blob) => {
+          resolve(blob || imageBlob);
+        }, 'image/jpeg', 0.95);
+      };
+      img.onerror = () => {
+        resolve(imageBlob);
+      };
+    });
+  };
+
   const handleBackgroundUpload = async (uploadData: UploadData) => {
     setUploadTask({ progress: 0, active: true, error: null });
     setActiveTab(Tab.HOME); // Immediate navigation
@@ -329,6 +365,16 @@ const App: React.FC = () => {
       }
 
       setUploadTask(prev => prev ? { ...prev, progress: 20 } : null);
+
+      // Rotacionar imagem se necessário antes de enviar
+      if (!isVideo && rotation && rotation > 0) {
+        try {
+          console.log('[Upload Image Rotation] Rotacionando imagem antes do upload de background...', rotation);
+          finalMediaBlob = await rotateImage(finalMediaBlob, rotation);
+        } catch (rotErr) {
+          console.error('Erro ao rotacionar imagem antes do upload de background:', rotErr);
+        }
+      }
 
       // Upload do Ficheiro Final
       const folder = uploadType === 'story' ? 'stories' : 'posts';

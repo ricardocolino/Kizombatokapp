@@ -921,6 +921,42 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     });
   };
 
+  const rotateImage = (imageBlob: Blob, rotation: number): Promise<Blob> => {
+    if (rotation === 0) return Promise.resolve(imageBlob);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(imageBlob);
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(imageBlob);
+          return;
+        }
+
+        if (rotation === 90 || rotation === 270) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        canvas.toBlob((blob) => {
+          resolve(blob || imageBlob);
+        }, 'image/jpeg', 0.95);
+      };
+      img.onerror = () => {
+        resolve(imageBlob);
+      };
+    });
+  };
+
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
     
@@ -1224,6 +1260,15 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       }
 
       // 4. Upload do Ficheiro Final (Apenas se não foi processado como HLS)
+      if (finalMediaBlob && !isVideo && rotation && rotation > 0) {
+        try {
+          console.log('[Upload Image Rotation] Rotacionando imagem antes do upload...', rotation);
+          finalMediaBlob = await rotateImage(finalMediaBlob as Blob, rotation);
+        } catch (rotErr) {
+          console.error('Erro ao rotacionar imagem antes do upload:', rotErr);
+        }
+      }
+
       if (finalMediaBlob) {
         if (!isVideo && mediaFiles.length > 1) {
           const uploadedUrls: string[] = [];
