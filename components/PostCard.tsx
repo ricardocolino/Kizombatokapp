@@ -1119,9 +1119,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         >
           <Heart 
             size={16} 
-            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-red-500 fill-red-500' : 'text-zinc-400 hover:text-zinc-600'}`} 
+            className={`transition-all duration-300 group-active/like:scale-150 ${c.liked_by_me ? 'text-purple-500 fill-purple-500' : 'text-zinc-400 hover:text-zinc-600'}`} 
           />
-          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-red-500' : 'text-zinc-500'}`}>{c.likes_count || 0}</span>
+          <span className={`text-[10px] font-black ${c.liked_by_me ? 'text-purple-500' : 'text-zinc-500'}`}>{c.likes_count || 0}</span>
         </button>
       </div>
     );
@@ -1453,7 +1453,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               top: `${heart.y - 40}px`
             }}
           >
-            <Heart size={80} className="text-red-500 fill-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]" />
+            <Heart size={80} className="text-purple-500 fill-purple-500 drop-shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
           </div>
         ))}
 
@@ -1525,7 +1525,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
           <button onClick={toggleLike} className="flex flex-col items-center group">
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-125">
-              <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
+              <Heart size={28} className={`sm:w-[34px] sm:h-[34px] drop-shadow-xl transition-all ${metadata.liked ? 'text-purple-500 fill-purple-500' : 'text-white fill-white'}`} />
             </div>
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
           </button>
