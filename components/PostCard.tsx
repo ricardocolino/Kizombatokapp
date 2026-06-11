@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -1204,11 +1204,11 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     <div 
       ref={containerRef} 
       className={`relative h-full w-full bg-black flex flex-col items-center ${
-        showComments ? 'justify-start comments-active-postcard' : 'justify-start'
+        showComments ? 'justify-start comments-active-postcard' : 'justify-center'
       } ${showGifts ? 'gifts-active-postcard' : ''} ${showRecharge ? 'recharge-active-postcard' : ''} overflow-hidden will-change-transform`}
     >
       {/* Video Content */}
-      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-[calc(100%-40px)]'}`} onClick={handleVideoClick}>
+      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
           {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
           {mediaType !== 'video' && (
             <div className="absolute inset-0 z-0">
@@ -1500,7 +1500,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   onNavigateToProfile(post.user_id);
                 }
               }}
-              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden shadow-2xl bg-zinc-800 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-2 border-purple-600 animate-pulse' : (metadata.hasStories ? 'border-2 border-purple-600' : '')}`}
+              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shadow-2xl bg-zinc-800 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-2 border-purple-600 animate-pulse' : (metadata.hasStories ? 'border-2 border-purple-600' : '')}`}
             >
                {post.profiles?.avatar_url ? (
                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
@@ -1581,7 +1581,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
         {/* Caption Area */}
         {uiVisible && !showComments && (
-          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-16 sm:pb-20 bg-gradient-to-t from-black/95 via-black/20 to-transparent pointer-events-none z-20">
+          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-12 sm:pb-14 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-20">
             <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2 flex-wrap">
               <span 
                 onClick={() => onNavigateToProfile(post.user_id)}
@@ -1605,48 +1605,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {/* Navigation Banner / Audio Details (Right above progress bar) */}
-        {uiVisible && !showComments && (
-          <div 
-            onClick={(e) => {
-              e.stopPropagation();
-              if (post.dubbed_from_id) {
-                if (onViewAudio) {
-                  onViewAudio(post.dubbed_from_id);
-                } else {
-                  setShowAudioDetails(true);
-                }
-              } else {
-                onNavigateToProfile(post.user_id);
-              }
-            }}
-            className="absolute bottom-0 left-0 w-full h-10 bg-black/60 backdrop-blur-md border-t border-b border-white/5 flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-black/80 transition-all active:scale-[0.99] select-none z-30"
-          >
-            <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
-              {post.dubbed_from_id ? (
-                <>
-                  <Music size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Search size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
-                  </span>
-                </>
-              )}
-            </div>
-            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-          </div>
-        )}
-
         {/* Progress Bar Container */}
         {uiVisible && !showComments && duration > 0 && (
           <div 
-            className="absolute bottom-10 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
+            className="absolute bottom-0 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
             onTouchStart={handleScrubStart}
             onTouchMove={handleScrubMove}
             onTouchEnd={handleScrubEnd}

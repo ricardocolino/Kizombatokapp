@@ -510,7 +510,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="feed-navigation-tabs absolute top-0 left-0 right-0 h-11 sm:h-14 bg-gradient-to-b from-black/70 via-black/20 to-transparent flex items-center justify-center gap-5 sm:gap-7 z-50 select-none px-4">
+        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center justify-center gap-5 sm:gap-7 z-50 shrink-0 select-none px-4">
           <button 
             onClick={() => setFeedType('following')}
             className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'following' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
@@ -529,7 +529,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           {sessionLoaded && user && (
             <button 
               onClick={() => setShowGameIntro(true)}
-              className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-[0.98]"
+              className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-95"
               title={t('Games', 'Jogos')}
             >
               <Gamepad2 size={13} className="text-zinc-400 group-hover:text-white" />
@@ -538,10 +538,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           )}
         </div>
       ) : (
-        <div className="feed-navigation-tabs absolute top-0 left-0 right-0 h-11 sm:h-14 bg-gradient-to-b from-black/70 via-black/20 to-transparent flex items-center px-4 z-50 select-none">
+        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center px-4 z-50 shrink-0 select-none">
           <button 
             onClick={onClearFilter}
-            className="p-1.5 bg-white/10 rounded-full text-white active:scale-90 transition-transform pointer-events-auto"
+            className="p-1.5 bg-white/10 rounded-full text-white active:scale-90 transition-transform"
           >
             <ChevronLeft size={20} />
           </button>
