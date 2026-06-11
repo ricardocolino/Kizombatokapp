@@ -513,27 +513,7 @@ const App: React.FC = () => {
       }
     });
 
-    const handleOAuthSuccessMessage = async (event: MessageEvent) => {
-      const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
-        return;
-      }
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        console.log(">>> [App.tsx] OAUTH_AUTH_SUCCESS recebido! A atualizar sessão...");
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        if (currentUser) {
-          checkOnboarding(currentUser.id);
-        }
-      }
-    };
-    window.addEventListener('message', handleOAuthSuccessMessage);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener('message', handleOAuthSuccessMessage);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   // Monitora notificações quando o utilizador está logado
