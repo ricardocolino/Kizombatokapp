@@ -445,20 +445,66 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         return true;
       });
 
-      if (currentPage === 0) {
-        if (initialPostId) {
-          const targetPost = sortedPosts.find(p => p.id === initialPostId);
-          if (targetPost) {
-            sortedPosts = [targetPost, ...sortedPosts.filter(p => p.id !== initialPostId)];
-          }
+      // Aprimoramento do algoritmo de entrega de vídeos para priorizar:
+      // - 70% contas que o utilizador segue (isFollowing)
+      // - 50% perfis mais seguidos (contador de seguidores)
+      // - 20% descoberta de novos conteúdos (fator aleatório)
+      let followingIds: string[] = [];
+      if (user) {
+        try {
+          const { data: follows } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', user.id);
+          followingIds = follows?.map(f => f.following_id) || [];
+        } catch (err) {
+          console.error("Erro ao buscar seguimentos para o algoritmo:", err);
         }
+      }
 
-        // Se não tivermos initialPostId, vamos randomizar todo o feed para que o primeiro vídeo seja sempre aleatório
-        if (!initialPostId) {
-          for (let i = sortedPosts.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [sortedPosts[i], sortedPosts[j]] = [sortedPosts[j], sortedPosts[i]];
-          }
+      const postAuthorIds = [...new Set(sortedPosts.map(p => p.user_id))];
+      const authorFollowerCount: Record<string, number> = {};
+      postAuthorIds.forEach(id => { authorFollowerCount[id] = 0; });
+
+      if (postAuthorIds.length > 0) {
+        try {
+          const { data: followerData } = await supabase
+            .from('follows')
+            .select('following_id')
+            .in('following_id', postAuthorIds);
+          
+          followerData?.forEach(f => {
+            if (f.following_id) {
+              authorFollowerCount[f.following_id] = (authorFollowerCount[f.following_id] || 0) + 1;
+            }
+          });
+        } catch (err) {
+          console.error("Erro ao carregar contagem de seguidores para o algoritmo:", err);
+        }
+      }
+
+      const followerCountsArr = Object.values(authorFollowerCount);
+      const maxFollowers = followerCountsArr.length > 0 ? Math.max(...followerCountsArr, 1) : 1;
+
+      const randomWeights = new Map<string, number>();
+      sortedPosts.forEach(p => {
+        randomWeights.set(p.id, Math.random());
+      });
+
+      const getPostScore = (p: Post) => {
+        const isFollowingValue = followingIds.includes(p.user_id) ? 1 : 0;
+        const followersRatio = (authorFollowerCount[p.user_id] || 0) / maxFollowers;
+        const randomFactor = randomWeights.get(p.id) || 0;
+
+        return (isFollowingValue * 0.70) + (followersRatio * 0.50) + (randomFactor * 0.20);
+      };
+
+      sortedPosts.sort((a, b) => getPostScore(b) - getPostScore(a));
+
+      if (initialPostId) {
+        const targetPost = sortedPosts.find(p => p.id === initialPostId);
+        if (targetPost) {
+          sortedPosts = [targetPost, ...sortedPosts.filter(p => p.id !== initialPostId)];
         }
       }
 
