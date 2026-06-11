@@ -109,7 +109,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         return true;
       });
       
-      setRecommendedProfiles(recommendations.slice(0, 6));
+      setRecommendedProfiles(recommendations.slice(0, 4));
     } catch (err) {
       console.error("Error fetching recommended profiles:", err);
     }
