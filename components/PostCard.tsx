@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -1581,7 +1581,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
         {/* Caption Area */}
         {uiVisible && !showComments && (
-          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-12 sm:pb-14 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-20">
+          <div className="absolute left-0 bottom-0 w-full p-4 sm:p-6 pb-16 sm:pb-20 bg-gradient-to-t from-black/95 via-black/20 to-transparent pointer-events-none z-20">
             <h3 className="font-black text-base sm:text-lg text-white pointer-events-auto drop-shadow-md flex items-center gap-2 flex-wrap">
               <span 
                 onClick={() => onNavigateToProfile(post.user_id)}
@@ -1602,6 +1602,44 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             >
               {post.content}
             </p>
+          </div>
+        )}
+
+        {/* Navigation Banner / Audio Details (Right above progress bar) */}
+        {uiVisible && !showComments && (
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              if (post.dubbed_from_id) {
+                if (onViewAudio) {
+                  onViewAudio(post.dubbed_from_id);
+                } else {
+                  setShowAudioDetails(true);
+                }
+              } else {
+                onNavigateToProfile(post.user_id);
+              }
+            }}
+            className="absolute bottom-4 left-0 w-full h-10 bg-black/60 backdrop-blur-md border-t border-b border-white/5 flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-black/80 transition-all active:scale-[0.99] select-none z-30"
+          >
+            <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
+              {post.dubbed_from_id ? (
+                <>
+                  <Music size={14} className="text-zinc-300 shrink-0" />
+                  <span className="truncate">
+                    Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Search size={14} className="text-zinc-300 shrink-0" />
+                  <span className="truncate">
+                    Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
+                  </span>
+                </>
+              )}
+            </div>
+            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
           </div>
         )}
 
