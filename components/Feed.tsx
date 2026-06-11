@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
-import { Post, FeedFilter } from '../types';
+import { Post, FeedFilter, Profile } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
+import { parseMediaUrl } from '../services/mediaUtils';
 
 interface FeedProps {
   onNavigateToProfile: (userId: string, action?: string) => void;
@@ -57,6 +58,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [iframeLoading, setIframeLoading] = useState(true);
   const [showGameIntro, setShowGameIntro] = useState(false);
 
+  const [recommendedProfiles, setRecommendedProfiles] = useState<Profile[]>([]);
+  const [followingRecommendations, setFollowingRecommendations] = useState<Set<string>>(new Set());
+
   const handleOpenGame = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -77,6 +81,85 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       setShowExternalUrl(true);
     }
   };
+
+  const fetchRecommendations = async (currentUserId: string | null) => {
+    try {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('onboarding_completed', { ascending: false })
+        .limit(100);
+        
+      if (profilesError) throw profilesError;
+      
+      let followingIdsSet = new Set<string>();
+      if (currentUserId) {
+        const { data: followsData } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUserId);
+          
+        followsData?.forEach(f => followingIdsSet.add(f.following_id));
+      }
+      
+      const filtered = (profilesData || []) as Profile[];
+      const recommendations = filtered.filter(p => {
+        if (currentUserId && p.id === currentUserId) return false;
+        if (followingIdsSet.has(p.id)) return false;
+        return true;
+      });
+      
+      setRecommendedProfiles(recommendations.slice(0, 6));
+    } catch (err) {
+      console.error("Error fetching recommended profiles:", err);
+    }
+  };
+
+  const handleToggleFollowRecommendation = async (targetUserId: string) => {
+    if (!user) {
+      if (onRequireAuth) onRequireAuth();
+      return;
+    }
+    
+    const isCurrentlyFollowing = followingRecommendations.has(targetUserId);
+    
+    if (isCurrentlyFollowing) {
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('follower_id', user.id)
+        .eq('following_id', targetUserId);
+        
+      if (!error) {
+        setFollowingRecommendations(prev => {
+          const next = new Set(prev);
+          next.delete(targetUserId);
+          return next;
+        });
+      }
+    } else {
+      const { error } = await supabase
+        .from('follows')
+        .insert({
+          follower_id: user.id,
+          following_id: targetUserId
+        });
+        
+      if (!error) {
+        setFollowingRecommendations(prev => {
+          const next = new Set(prev);
+          next.add(targetUserId);
+          return next;
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (sessionLoaded) {
+      fetchRecommendations(user?.id ?? null);
+    }
+  }, [sessionLoaded, user]);
 
   const handleNextPost = React.useCallback(() => {
     if (scrollContainerRef.current) {
@@ -597,15 +680,76 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
-          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-6 px-10 text-center snap-start">
+          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-4 px-6 text-center snap-start overflow-y-auto pt-16 pb-20">
+            {recommendedProfiles.length > 0 && (
+              <div className="w-full max-w-[340px] flex flex-col gap-1 mb-2">
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                  {t('Suggested Profiles', 'Perfis recomendados')}
+                </span>
+                <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">
+                  {t('Profiles you might like', 'Incríveis talentos que não segues')}
+                </span>
+              </div>
+            )}
+
+            {recommendedProfiles.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 w-full max-w-[340px] mb-6">
+                {recommendedProfiles.map((p) => {
+                  const isFollowing = followingRecommendations.has(p.id);
+                  return (
+                    <div 
+                      key={p.id}
+                      className="bg-zinc-950/80 backdrop-blur-xl border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-between gap-2.5 shadow-2xl transition-all active:scale-[0.98]"
+                    >
+                      {/* Avatar and Name/Username Clickable Area */}
+                      <div 
+                        onClick={() => onNavigateToProfile(p.id)}
+                        className="flex flex-col items-center gap-1.5 cursor-pointer w-full group"
+                      >
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 flex items-center justify-center shrink-0 group-hover:border-purple-600 transition-colors">
+                          {p.avatar_url ? (
+                            <img src={parseMediaUrl(p.avatar_url)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center font-black text-zinc-600 text-sm bg-zinc-900">
+                              {p.username?.[0]?.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-center w-full min-w-0">
+                          <p className="font-black text-white text-[11px] truncate px-1">
+                            {p.name || p.username}
+                          </p>
+                          <p className="text-[9px] text-zinc-500 font-bold truncate">
+                            @{p.username}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Follow Button */}
+                      <button
+                        onClick={() => handleToggleFollowRecommendation(p.id)}
+                        className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
+                          isFollowing
+                            ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50'
+                            : 'bg-purple-600 text-white border-transparent shadow-[0_4px_12px_rgba(147,51,234,0.2)]'
+                        }`}
+                      >
+                        {isFollowing ? t('Following') : t('Follow')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <button 
               onClick={() => fetchPosts(true)}
               disabled={loadingMore}
-              className="mt-4 bg-white text-black px-12 py-4 rounded-full font-black uppercase text-xs tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3"
+              className="bg-white text-black px-12 py-3.5 rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3 z-10"
             >
               {loadingMore ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                   {t('Searching')}
                 </>
               ) : (
