@@ -1208,7 +1208,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       } ${showGifts ? 'gifts-active-postcard' : ''} ${showRecharge ? 'recharge-active-postcard' : ''} overflow-hidden will-change-transform`}
     >
       {/* Video Content */}
-      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-full'}`} onClick={handleVideoClick}>
+      <div className={`w-full relative cursor-pointer transition-all duration-300 ${showComments ? 'h-[30vh] min-h-[220px] bg-black shrink-0' : 'h-[calc(100%-40px)]'}`} onClick={handleVideoClick}>
           {/* Visual representations for non-video posts ('image', 'audio', 'text') */}
           {mediaType !== 'video' && (
             <div className="absolute inset-0 z-0">
@@ -1646,7 +1646,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         {/* Progress Bar Container */}
         {uiVisible && !showComments && duration > 0 && (
           <div 
-            className="absolute bottom-0 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
+            className="absolute bottom-10 left-0 w-full h-8 z-40 flex items-end cursor-pointer pointer-events-auto"
             onTouchStart={handleScrubStart}
             onTouchMove={handleScrubMove}
             onTouchEnd={handleScrubEnd}
