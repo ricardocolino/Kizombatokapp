@@ -680,33 +680,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
-          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-4 px-6 text-center snap-start overflow-y-auto pt-16 pb-20">
+          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-8 px-6 text-center snap-start overflow-hidden pt-12 pb-16">
             {recommendedProfiles.length > 0 && (
-              <div className="w-full max-w-[340px] flex flex-col gap-1 mb-2">
-                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                  {t('Suggested Profiles', 'Perfis recomendados')}
-                </span>
-                <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">
-                  {t('Profiles you might like', 'Incríveis talentos que não segues')}
-                </span>
-              </div>
-            )}
-
-            {recommendedProfiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 w-full max-w-[340px] mb-6">
+              <div className="grid grid-cols-2 gap-4 w-full max-w-[365px]">
                 {recommendedProfiles.map((p) => {
                   const isFollowing = followingRecommendations.has(p.id);
                   return (
                     <div 
                       key={p.id}
-                      className="bg-zinc-950/80 backdrop-blur-xl border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-between gap-2.5 shadow-2xl transition-all active:scale-[0.98]"
+                      className="bg-zinc-950/80 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-between gap-4 shadow-2xl transition-all active:scale-[0.98] min-h-[160px]"
                     >
                       {/* Avatar and Name/Username Clickable Area */}
                       <div 
                         onClick={() => onNavigateToProfile(p.id)}
-                        className="flex flex-col items-center gap-1.5 cursor-pointer w-full group"
+                        className="flex flex-col items-center gap-2 cursor-pointer w-full group"
                       >
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 flex items-center justify-center shrink-0 group-hover:border-purple-600 transition-colors">
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 flex items-center justify-center shrink-0 group-hover:border-purple-600 transition-colors">
                           {p.avatar_url ? (
                             <img src={parseMediaUrl(p.avatar_url)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                           ) : (
@@ -716,10 +705,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                           )}
                         </div>
                         <div className="text-center w-full min-w-0">
-                          <p className="font-black text-white text-[11px] truncate px-1">
+                          <p className="font-black text-white text-xs truncate px-1">
                             {p.name || p.username}
                           </p>
-                          <p className="text-[9px] text-zinc-500 font-bold truncate">
+                          <p className="text-[10px] text-zinc-500 font-bold truncate">
                             @{p.username}
                           </p>
                         </div>
@@ -728,7 +717,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                       {/* Follow Button */}
                       <button
                         onClick={() => handleToggleFollowRecommendation(p.id)}
-                        className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
+                        className={`w-full py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
                           isFollowing
                             ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50'
                             : 'bg-purple-600 text-white border-transparent shadow-[0_4px_12px_rgba(147,51,234,0.2)]'
