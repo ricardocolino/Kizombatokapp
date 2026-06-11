@@ -127,6 +127,88 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [showAudioDetails, setShowAudioDetails] = useState(false);
   const [audioDubs, setAudioDubs] = useState<Post[]>([]);
   const [loadingDubs, setLoadingDubs] = useState(false);
+  const [recommendedProfiles, setRecommendedProfiles] = useState<Profile[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchRecommendedProfiles = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id;
+        
+        let followingIds: string[] = [];
+        if (currentUserId) {
+          const { data: followsData } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', currentUserId);
+          if (followsData) {
+            followingIds = followsData.map(f => f.following_id);
+          }
+        }
+        
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .limit(6);
+          
+        if (currentUserId) {
+          query = query.neq('id', currentUserId);
+        }
+        
+        if (followingIds.length > 0) {
+          // Exclude already followed users using Not-In filters
+          query = query.not('id', 'in', `(${followingIds.map(id => `"${id}"`).join(',')})`);
+        }
+        
+        const { data: profilesData, error } = await query;
+        if (active) {
+          if (!error && profilesData) {
+            setRecommendedProfiles(profilesData);
+          } else {
+            // Fallback to general profiles
+            const { data: fallbackData } = await supabase
+              .from('profiles')
+              .select('*')
+              .limit(10);
+            if (fallbackData) {
+              const filtered = fallbackData.filter(p => p.id !== currentUserId).slice(0, 6);
+              setRecommendedProfiles(filtered);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching recommended profiles:", err);
+      }
+    };
+    
+    fetchRecommendedProfiles();
+    return () => {
+      active = false;
+    };
+  }, [post.id]);
+
+  const handleFollowRecommended = async (recommendedId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (onRequireAuth) onRequireAuth();
+        return;
+      }
+      
+      const { error } = await supabase.from('follows').insert({
+        follower_id: session.user.id,
+        following_id: recommendedId
+      });
+      
+      if (!error) {
+        setRecommendedProfiles(prev => prev.filter(p => p.id !== recommendedId));
+      }
+    } catch (err) {
+      console.error("Error in handleFollowRecommended:", err);
+    }
+  };
 
   // Handle media_url that might be a JSON array string
   const mediaUrl = useMemo(() => parseMediaUrl(post.media_url), [post.media_url]);
@@ -1605,41 +1687,79 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {/* Navigation Banner / Audio Details (Right above progress bar) */}
+        {/* Recommended Profiles section and Navigation Banner (Right above progress bar) */}
         {uiVisible && !showComments && (
-          <div 
-            onClick={(e) => {
-              e.stopPropagation();
-              if (post.dubbed_from_id) {
-                if (onViewAudio) {
-                  onViewAudio(post.dubbed_from_id);
+          <div className="absolute bottom-4 left-0 w-full z-30 pointer-events-auto flex flex-col gap-1.5 pb-2">
+            {recommendedProfiles.length > 0 && (
+              <div className="px-4">
+                <div className="grid grid-cols-2 gap-2 max-w-full">
+                  {recommendedProfiles.slice(0, 6).map((prof) => (
+                    <div 
+                      key={prof.id}
+                      onClick={() => onNavigateToProfile(prof.id)}
+                      className="bg-black/40 backdrop-blur-md hover:bg-black/60 border border-white/10 rounded-xl p-1.5 flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-[0.98] select-none"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <div className="w-6 h-6 rounded-full overflow-hidden border border-white/20 shrink-0">
+                          {prof.avatar_url ? (
+                            <img src={parseMediaUrl(prof.avatar_url)} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-purple-600/30 text-purple-400 flex items-center justify-center text-[10px] font-black">
+                              {prof.username?.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-black text-white truncate">
+                          @{prof.username || 'user'}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={(e) => handleFollowRecommended(prof.id, e)}
+                        className="bg-purple-600 hover:bg-purple-500 text-white rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wider shrink-0 transition-all active:scale-95"
+                      >
+                        {t('Follow', 'Seguir')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (post.dubbed_from_id) {
+                  if (onViewAudio) {
+                    onViewAudio(post.dubbed_from_id);
+                  } else {
+                    setShowAudioDetails(true);
+                  }
                 } else {
-                  setShowAudioDetails(true);
+                  onNavigateToProfile(post.user_id);
                 }
-              } else {
-                onNavigateToProfile(post.user_id);
-              }
-            }}
-            className="absolute bottom-4 left-0 w-full h-10 bg-transparent flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-white/5 transition-all active:scale-[0.99] select-none z-30"
-          >
-            <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
-              {post.dubbed_from_id ? (
-                <>
-                  <Music size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Search size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
-                  </span>
-                </>
-              )}
+              }}
+              className="w-full h-10 bg-transparent flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer hover:bg-white/5 transition-all active:scale-[0.99] select-none"
+            >
+              <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
+                {post.dubbed_from_id ? (
+                  <>
+                    <Music size={14} className="text-zinc-300 shrink-0" />
+                    <span className="truncate">
+                      Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Search size={14} className="text-zinc-300 shrink-0" />
+                    <span className="truncate">
+                      Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
+                    </span>
+                  </>
+                )}
+              </div>
+              <ChevronRight size={14} className="text-zinc-400 shrink-0" />
             </div>
-            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
           </div>
         )}
 
