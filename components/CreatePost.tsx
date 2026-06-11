@@ -1443,6 +1443,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     loop 
                     playsInline 
                     muted={false}
+                    onLoadedMetadata={(e) => {
+                      const video = e.currentTarget;
+                      setTrimStart(0);
+                      setTrimEnd(video.duration);
+                    }}
                     onTimeUpdate={(e) => {
                       const video = e.currentTarget;
                       if (video.currentTime < trimStart) {
@@ -1514,18 +1519,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                 <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Publish')}</span>
               </button>
 
-              {/* Trim Button */}
-              {!mediaFiles[0]?.type.startsWith('image/') && (
-                <button 
-                  onClick={() => setShowTrimEditor(true)}
-                  className="flex flex-col items-center gap-1 group active:scale-95 transition-all"
-                >
-                  <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
-                    <Scissors size={20}/>
-                  </div>
-                  <span className="text-[9px] font-black uppercase text-white tracking-wide shadow-sm mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">{t('Trim')}</span>
-                </button>
-              )}
+
 
               {/* Text Overlay Button */}
               <button 
