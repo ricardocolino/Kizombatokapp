@@ -1204,7 +1204,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     <div 
       ref={containerRef} 
       className={`relative h-full w-full bg-black flex flex-col items-center ${
-        showComments ? 'justify-start comments-active-postcard' : 'justify-center'
+        showComments ? 'justify-start comments-active-postcard' : 'justify-start'
       } ${showGifts ? 'gifts-active-postcard' : ''} ${showRecharge ? 'recharge-active-postcard' : ''} overflow-hidden will-change-transform`}
     >
       {/* Video Content */}
