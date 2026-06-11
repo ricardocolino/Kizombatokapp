@@ -1500,7 +1500,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   onNavigateToProfile(post.user_id);
                 }
               }}
-              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shadow-2xl bg-zinc-800 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border-2 border-purple-600 animate-pulse' : (metadata.hasStories ? 'border-2 border-purple-600' : '')}`}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden shadow-2xl bg-zinc-800 cursor-pointer hover:scale-105 active:scale-95 transition-all ${metadata.isLive ? 'border border-purple-600 animate-pulse' : (metadata.hasStories ? 'border border-purple-600' : '')}`}
             >
                {post.profiles?.avatar_url ? (
                  <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" loading="lazy" />
