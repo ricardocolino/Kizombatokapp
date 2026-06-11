@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
