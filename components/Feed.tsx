@@ -680,22 +680,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         
         {/* Ver mais vídeos Button - Every 50 videos limit */}
         {displayLimit >= posts.length && hasMore && !loading && (
-          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-8 px-6 text-center snap-start overflow-hidden pt-12 pb-16">
+          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-5 sm:gap-8 px-6 text-center snap-start overflow-hidden py-6">
             {recommendedProfiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 w-full max-w-[365px]">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-[365px]">
                 {recommendedProfiles.map((p) => {
                   const isFollowing = followingRecommendations.has(p.id);
                   return (
                     <div 
                       key={p.id}
-                      className="bg-zinc-950/80 backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-between gap-4 shadow-2xl transition-all active:scale-[0.98] min-h-[160px]"
+                      className="bg-zinc-950/80 backdrop-blur-xl border border-white/5 rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-between gap-3 shadow-2xl transition-all active:scale-[0.98] min-h-[135px] sm:min-h-[150px]"
                     >
                       {/* Avatar and Name/Username Clickable Area */}
                       <div 
                         onClick={() => onNavigateToProfile(p.id)}
-                        className="flex flex-col items-center gap-2 cursor-pointer w-full group"
+                        className="flex flex-col items-center gap-1.5 sm:gap-2 cursor-pointer w-full group"
                       >
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 flex items-center justify-center shrink-0 group-hover:border-purple-600 transition-colors">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 flex items-center justify-center shrink-0 group-hover:border-purple-600 transition-colors">
                           {p.avatar_url ? (
                             <img src={parseMediaUrl(p.avatar_url)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                           ) : (
@@ -705,10 +705,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                           )}
                         </div>
                         <div className="text-center w-full min-w-0">
-                          <p className="font-black text-white text-xs truncate px-1">
+                          <p className="font-black text-white text-[11px] sm:text-xs truncate px-1">
                             {p.name || p.username}
                           </p>
-                          <p className="text-[10px] text-zinc-500 font-bold truncate">
+                          <p className="text-[9px] sm:text-[10px] text-zinc-500 font-bold truncate">
                             @{p.username}
                           </p>
                         </div>
@@ -717,7 +717,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                       {/* Follow Button */}
                       <button
                         onClick={() => handleToggleFollowRecommendation(p.id)}
-                        className={`w-full py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
+                        className={`w-full py-1.5 sm:py-2 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center border ${
                           isFollowing
                             ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50'
                             : 'bg-purple-600 text-white border-transparent shadow-[0_4px_12px_rgba(147,51,234,0.2)]'
@@ -734,7 +734,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             <button 
               onClick={() => fetchPosts(true)}
               disabled={loadingMore}
-              className="bg-white text-black px-12 py-3.5 rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3 z-10"
+              className="bg-white text-black px-10 sm:px-12 py-3 sm:py-3.5 rounded-full font-black uppercase text-[9px] sm:text-[10px] tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3 z-10"
             >
               {loadingMore ? (
                 <>
