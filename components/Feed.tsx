@@ -591,7 +591,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               isPaused={isPaused || showExternalUrl || showGameIntro}
               onDub={onDub}
               onViewAudio={onViewAudio}
-              index={index}
             />
           </div>
         ))}

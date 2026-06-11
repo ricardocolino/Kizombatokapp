@@ -25,7 +25,6 @@ interface PostCardProps {
   isPaused?: boolean;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onViewAudio?: (audioPostId: string) => void;
-  index?: number;
 }
 
 type EnhancedComment = Comment & { 
@@ -47,11 +46,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onJoinLive,
   isPaused,
   onDub,
-  onViewAudio,
-  index
+  onViewAudio
 }) {
   const { t } = useTranslation();
-  const showVideoThumbnail = index !== undefined ? (index % 15 === 0) : true;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
@@ -1350,12 +1347,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 setIsLoading(false);
               }
             }}
-            poster={showVideoThumbnail && post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
+            poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
           />
           )}
 
           {/* Placeholder/Poster for videos when not near or loading */}
-          {showVideoThumbnail && post.thumbnail_url && mediaType === 'video' && (
+          {post.thumbnail_url && mediaType === 'video' && (
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
