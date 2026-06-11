@@ -1620,7 +1620,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 onNavigateToProfile(post.user_id);
               }
             }}
-            className="absolute bottom-4 left-0 w-full h-10 bg-black/60 backdrop-blur-md border-t border-b border-white/5 flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-black/80 transition-all active:scale-[0.99] select-none z-30"
+            className="absolute bottom-4 left-0 w-full h-10 bg-transparent flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-white/5 transition-all active:scale-[0.99] select-none z-30"
           >
             <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
               {post.dubbed_from_id ? (
