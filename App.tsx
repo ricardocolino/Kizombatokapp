@@ -674,8 +674,7 @@ const App: React.FC = () => {
       </div>
     );
 
-    const isPublicTab = activeTab === Tab.HOME || activeTab === Tab.DISCOVER;
-    if (!user && !isPublicTab) {
+    if (!user) {
       return <Auth />;
     }
 
@@ -922,7 +921,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
+      {user && activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
         <nav className="h-[60px] lg:h-[64px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2 lg:px-8">
           <button 
             onClick={handleGoHome}
