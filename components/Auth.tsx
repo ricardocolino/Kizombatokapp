@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Smartphone } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const { t } = useTranslation();
@@ -12,6 +12,13 @@ const Auth: React.FC = () => {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Phone Auth State
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [useOtp, setUseOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   useEffect(() => {
     const handleOAuthMessage = async (event: MessageEvent) => {
@@ -79,8 +86,18 @@ const Auth: React.FC = () => {
     }
   };
 
-  const ensureProfileExists = async (userId: string, userEmail: string, chosenUsername?: string) => {
-    const finalUsername = chosenUsername || userEmail.split('@')[0];
+  const ensureProfileExists = async (userId: string, userEmailOrPhone: string, chosenUsername?: string) => {
+    let finalUsername = chosenUsername;
+    if (!finalUsername) {
+      if (userEmailOrPhone && userEmailOrPhone.includes('@')) {
+        finalUsername = userEmailOrPhone.split('@')[0];
+      } else if (userEmailOrPhone) {
+        // dynamic username for phone
+        finalUsername = 'angu_' + userEmailOrPhone.replace(/[^0-9]/g, '').slice(-6);
+      } else {
+        finalUsername = `user_${userId.slice(0, 5)}`;
+      }
+    }
     
     // Tentamos inserir ou atualizar o perfil para garantir que a FK no 'posts' seja satisfeita
     const { error: profileError } = await supabase
@@ -103,40 +120,114 @@ const Auth: React.FC = () => {
     setError(null);
 
     try {
-      if (isSignUp) {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username || email.split('@')[0],
-              full_name: username,
+      if (authMethod === 'email') {
+        if (isSignUp) {
+          const { data, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                username: username || email.split('@')[0],
+                full_name: username,
+              }
             }
-          }
-        });
-        
-        if (signUpError) throw signUpError;
+          });
+          
+          if (signUpError) throw signUpError;
 
-        if (data.user) {
-          // Criar perfil imediatamente após o registo
-          await ensureProfileExists(data.user.id, email, username);
-          alert('Verifica o teu e-mail para confirmar a conta! Se o e-mail estiver desativado no Supabase, já podes entrar.');
+          if (data.user) {
+            // Criar perfil imediatamente após o registo
+            await ensureProfileExists(data.user.id, email, username);
+            alert('Verifica o teu e-mail para confirmar a conta! Se o e-mail estiver desativado no Supabase, já podes entrar.');
+          }
+        } else {
+          const { data, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          
+          if (signInError) throw signInError;
+
+          if (data.user) {
+            // Garantir que o perfil existe mesmo em contas antigas para evitar erros de FK
+            await ensureProfileExists(data.user.id, email);
+          }
         }
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        // Phone Authentication logic
+        let normalizedPhone = phone.trim();
         
-        if (signInError) throw signInError;
+        // Se for um número de Angola simples (9 dígitos e começa com 9), anexa o prefixo +244 automaticamente
+        if (/^[9][0-9]{8}$/.test(normalizedPhone)) {
+          normalizedPhone = '+244' + normalizedPhone;
+        } else if (normalizedPhone && !normalizedPhone.startsWith('+')) {
+          normalizedPhone = '+' + normalizedPhone;
+        }
 
-        if (data.user) {
-          // Garantir que o perfil existe mesmo em contas antigas para evitar erros de FK
-          await ensureProfileExists(data.user.id, email);
+        if (!normalizedPhone) {
+          throw new Error('Por favor, introduz o teu número de telemóvel.');
+        }
+
+        if (useOtp) {
+          if (otpSent) {
+            // Confirm OTP code
+            if (!otpCode) {
+              throw new Error('Por favor, introduz o código que recebeste por SMS.');
+            }
+            const { data, error: otpVerifyError } = await supabase.auth.verifyOtp({
+              phone: normalizedPhone,
+              token: otpCode,
+              type: 'sms'
+            });
+            if (otpVerifyError) throw otpVerifyError;
+
+            if (data.user) {
+              await ensureProfileExists(data.user.id, normalizedPhone, username);
+            }
+          } else {
+            // Send OTP Code via SMS
+            const { error: otpSendError } = await supabase.auth.signInWithOtp({
+              phone: normalizedPhone,
+            });
+            if (otpSendError) throw otpSendError;
+            setOtpSent(true);
+            alert('Enviamos um código de verificação para o teu telemóvel por SMS.');
+          }
+        } else {
+          // Password Authentication for Phone
+          if (isSignUp) {
+            const { data, error: phoneSignUpError } = await supabase.auth.signUp({
+              phone: normalizedPhone,
+              password: password,
+              options: {
+                data: {
+                  username: username || normalizedPhone.replace('+', ''),
+                  full_name: username,
+                }
+              }
+            });
+            if (phoneSignUpError) throw phoneSignUpError;
+
+            if (data.user) {
+              await ensureProfileExists(data.user.id, normalizedPhone, username);
+              alert('Conta criada com sucesso! Já podes entrar.');
+            }
+          } else {
+            const { data, error: phoneSignInError } = await supabase.auth.signInWithPassword({
+              phone: normalizedPhone,
+              password: password,
+            });
+            if (phoneSignInError) throw phoneSignInError;
+
+            if (data.user) {
+              await ensureProfileExists(data.user.id, normalizedPhone);
+            }
+          }
         }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Ocorreu um erro na autenticação');
+      console.error('>>> [Auth.tsx] Erro de autenticação:', err);
+      setError(err instanceof Error ? err.message : 'Ocorreu um erro na autenticação. Por favor verifica os dados ou se o serviço de SMS está configurado no teu Supabase.');
     } finally {
       setLoading(false);
     }
@@ -154,6 +245,40 @@ const Auth: React.FC = () => {
           </h2>
         </div>
 
+        {/* Authentication Methods Selector Tabs */}
+        <div className="flex bg-zinc-950 p-1 rounded-lg mb-6 border border-zinc-800/80">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMethod('email');
+              setError(null);
+            }}
+            className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${
+              authMethod === 'email'
+                ? 'bg-zinc-900 text-white border border-zinc-800 shadow-xl'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Mail size={14} />
+            E-mail
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMethod('phone');
+              setError(null);
+            }}
+            className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${
+              authMethod === 'phone'
+                ? 'bg-zinc-900 text-white border border-zinc-800 shadow-xl'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Smartphone size={14} />
+            {t('Phone', 'Telemóvel')}
+          </button>
+        </div>
+
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
             <div className="flex flex-col">
@@ -168,31 +293,97 @@ const Auth: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col">
-            <input
-              type="email"
-              placeholder={t('Email')}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
-              required
-            />
-          </div>
+          {authMethod === 'email' ? (
+            <>
+              <div className="flex flex-col">
+                <input
+                  type="email"
+                  placeholder={t('Email')}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
+                  required
+                />
+              </div>
 
-          <div className="flex flex-col">
-            <input
-              type="password"
-              placeholder={t('Password')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
-              required
-            />
-          </div>
+              <div className="flex flex-col">
+                <input
+                  type="password"
+                  placeholder={t('Password')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
+                  required
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col">
+                <input
+                  type="tel"
+                  placeholder={t('Phone Number', 'Nº de Telemóvel (ex: +244 9xx...)')}
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (otpSent) setOtpSent(false); // reset se mudar o numero
+                  }}
+                  disabled={otpSent}
+                  className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base disabled:opacity-50"
+                  required
+                />
+                <span className="text-[10px] text-zinc-500 mt-1.5 px-1 leading-normal">
+                  Podes usar o indicativo <strong className="text-zinc-400">+244</strong> ou digitar apenas o número (ex: 9xxxxxxxx).
+                </span>
+              </div>
+
+              {/* Password or SMS OTP Toggle for Phone Auth */}
+              <div className="flex justify-end px-1 text-xs py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseOtp(!useOtp);
+                    setOtpSent(false);
+                    setOtpCode('');
+                    setError(null);
+                  }}
+                  className="text-purple-500 hover:text-purple-400 font-bold transition-all"
+                >
+                  {useOtp ? 'Usar Palavra-passe' : 'Entrar com Código SMS (OTP)'}
+                </button>
+              </div>
+
+              {useOtp ? (
+                otpSent && (
+                  <div className="flex flex-col">
+                    <input
+                      type="text"
+                      placeholder={t('SMS Code', 'Código SMS recebido')}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base font-mono text-center tracking-widest text-lg"
+                      required
+                    />
+                  </div>
+                )
+              ) : (
+                <div className="flex flex-col">
+                  <input
+                    type="password"
+                    placeholder={t('Password')}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
+                    required
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           {error && (
             <div className="py-2">
-              <p className="text-red-500 text-sm font-medium">
+              <p className="text-red-500 text-sm font-medium leading-relaxed">
                 {error}
               </p>
             </div>
@@ -207,7 +398,13 @@ const Auth: React.FC = () => {
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : (
-                isSignUp ? t('Sign up') : t('Next')
+                authMethod === 'phone' && useOtp && !otpSent ? (
+                  'Enviar Código SMS'
+                ) : authMethod === 'phone' && useOtp && otpSent ? (
+                  'Verificar Código'
+                ) : (
+                  isSignUp ? t('Sign up') : t('Next')
+                )
               )}
             </button>
           </div>
@@ -251,7 +448,12 @@ const Auth: React.FC = () => {
             {isSignUp ? t('Already have an account?') : t('Dont have an account?')}
           </p>
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setOtpSent(false);
+              setOtpCode('');
+              setError(null);
+            }}
             className="w-full bg-black border border-zinc-700 text-purple-600 py-3 rounded-full font-bold text-base transition-all active:scale-[0.98] hover:bg-zinc-900"
           >
             {isSignUp ? t('Sign in') : t('Create account')}
