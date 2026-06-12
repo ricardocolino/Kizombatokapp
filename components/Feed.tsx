@@ -539,16 +539,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
           {/* Right: Actions */}
           <div className="flex items-center justify-end min-w-[75px]">
-            {sessionLoaded && user && (
-              <button 
-                onClick={() => setShowGameIntro(true)}
-                className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-95"
-                title={t('Games', 'Jogos')}
-              >
-                <Gamepad2 size={13} className="text-zinc-400 group-hover:text-white" />
-                <span className="hidden sm:inline">{t('Games', 'Jogos')}</span>
-              </button>
-            )}
           </div>
         </div>
       ) : (
