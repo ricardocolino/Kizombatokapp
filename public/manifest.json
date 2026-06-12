@@ -1,6 +1,6 @@
 {
-  "name": "huzty",
-  "short_name": "huzty",
+  "name": "angochat",
+  "short_name": "angochat",
   "description": "A vibe de Angola começa aqui. Partilha os teus vídeos!",
   "start_url": "/",
   "display": "standalone",

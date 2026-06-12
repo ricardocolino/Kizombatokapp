@@ -1294,7 +1294,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                   <div className="w-20 h-20 rounded-full bg-purple-600/15 flex items-center justify-center mb-4 border border-purple-500/20 shadow-[0_0_50px_rgba(147,51,234,0.15)]">
                     <Music size={32} className="text-purple-400" />
                   </div>
-                  <p className="text-zinc-500 text-[10px] tracking-widest uppercase font-mono">Huzty Audio</p>
+                  <p className="text-zinc-500 text-[10px] tracking-widest uppercase font-mono">Angochat Audio</p>
                 </div>
               )}
             </div>

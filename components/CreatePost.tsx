@@ -579,7 +579,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 30px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('Huzty Photo', canvas.width / 2, canvas.height / 2);
+            ctx.fillText('Angochat Photo', canvas.width / 2, canvas.height / 2);
             canvas.toBlob(async (blob) => {
               if (blob) {
                 setIsFromGallery(false);

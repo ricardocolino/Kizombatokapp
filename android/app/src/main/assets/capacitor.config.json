@@ -1,6 +1,6 @@
 {
 	"appId": "com.kizombatok.angolavibe",
-	"appName": "huzty",
+	"appName": "angochat",
 	"webDir": "dist",
 	"bundledWebRuntime": false
 }

@@ -1167,7 +1167,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           <div className="p-8 border-t border-zinc-50 mt-auto flex justify-center">
-            <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">huzty v2.0</p>
+            <p className="text-[9px] text-zinc-300 uppercase tracking-[0.4em] font-medium">angochat v2.0</p>
           </div>
         </div>
       )}
@@ -2032,7 +2032,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <p className="text-6xl font-semibold tracking-tighter leading-none">${(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} Huzty Coins</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} Angochat Coins</p>
               </div>
 
               <div className="space-y-8 pt-10">

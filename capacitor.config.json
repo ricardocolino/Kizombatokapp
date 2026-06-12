@@ -1,6 +1,6 @@
 {
-  "appId": "com.huzty.app",
-  "appName": "huzty",
+  "appId": "com.angochat.app",
+  "appName": "angochat",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "orientation": "portrait",

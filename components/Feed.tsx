@@ -662,7 +662,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                     Ganhe Moedas a Jogar! 🪙
                   </h1>
                   <p className="text-xs font-semibold text-zinc-500 leading-relaxed max-w-sm mx-auto">
-                    Diverte-te com os nossos jogos favoritos e acumula <span className="font-extrabold text-amber-500 text-sm">Huzty Coins</span> reais diretamente no teu saldo de forma simples!
+                    Diverte-te com os nossos jogos favoritos e acumula <span className="font-extrabold text-amber-500 text-sm">Angochat Coins</span> reais diretamente no teu saldo de forma simples!
                   </p>
                 </div>
 
@@ -727,7 +727,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
               {/* Footer Notice */}
               <div className="text-center mt-8 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                ⚡ Huzty Play • {t('Earn by Playing', 'Joga e Ganha')}
+                ⚡ Angochat Play • {t('Earn by Playing', 'Joga e Ganha')}
               </div>
             </div>
           </div>
