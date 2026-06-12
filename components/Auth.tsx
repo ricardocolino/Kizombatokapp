@@ -20,6 +20,10 @@ const Auth: React.FC = () => {
   const [useOtp, setUseOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
+  // Email OTP Auth State
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+
   useEffect(() => {
     const handleOAuthMessage = async (event: MessageEvent) => {
       // Validate origin to be safe
@@ -122,23 +126,44 @@ const Auth: React.FC = () => {
     try {
       if (authMethod === 'email') {
         if (isSignUp) {
-          const { data, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                username: username || email.split('@')[0],
-                full_name: username,
-              }
+          if (emailOtpSent) {
+            // Confirm Email OTP code from signup
+            if (!emailOtpCode) {
+              throw new Error('Por favor, introduz o código de verificação recebido por e-mail.');
             }
-          });
-          
-          if (signUpError) throw signUpError;
+            const { data, error: otpVerifyError } = await supabase.auth.verifyOtp({
+              email,
+              token: emailOtpCode.trim(),
+              type: 'signup'
+            });
+            if (otpVerifyError) throw otpVerifyError;
 
-          if (data.user) {
-            // Criar perfil imediatamente após o registo
-            await ensureProfileExists(data.user.id, email, username);
-            alert('Verifica o teu e-mail para confirmar a conta! Se o e-mail estiver desativado no Supabase, já podes entrar.');
+            if (data.user) {
+              await ensureProfileExists(data.user.id, email, username);
+              alert('E-mail verificado com sucesso! Bem-vindo ao Angochat.');
+              setEmailOtpSent(false);
+              setEmailOtpCode('');
+            }
+          } else {
+            const { data, error: signUpError } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  username: username || email.split('@')[0],
+                  full_name: username,
+                }
+              }
+            });
+            
+            if (signUpError) throw signUpError;
+
+            if (data.user) {
+              // De acordo com as instruções, "se não verificar não registrar", por isso NÃO criamos o perfil ainda na BD.
+              // Apenas enviamos o OTP/Link por email e ativamos o ecrã para introduzir o código.
+              setEmailOtpSent(true);
+              alert('Enviamos um código / link de verificação para o teu e-mail. Introduz o código recebido abaixo ou clica no link do teu e-mail para continuares.');
+            }
           }
         } else {
           const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -280,7 +305,7 @@ const Auth: React.FC = () => {
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-          {isSignUp && (
+          {isSignUp && (!emailOtpSent || authMethod === 'phone') && (
             <div className="flex flex-col">
               <input
                 type="text"
@@ -288,35 +313,69 @@ const Auth: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
-                required={isSignUp}
+                required={isSignUp && (!emailOtpSent || authMethod === 'phone')}
               />
             </div>
           )}
 
           {authMethod === 'email' ? (
-            <>
-              <div className="flex flex-col">
-                <input
-                  type="email"
-                  placeholder={t('Email')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
-                  required
-                />
+            emailOtpSent && isSignUp ? (
+              <div className="space-y-4">
+                <div className="text-zinc-400 text-sm mb-2 text-center leading-relaxed">
+                  Introduz o código de verificação enviado para o teu e-mail (<span className="text-white font-semibold">{email}</span>) para ativares a tua conta.
+                </div>
+                <div className="flex flex-col">
+                  <input
+                    type="text"
+                    placeholder={t('Email OTP Code', 'Código de verificação')}
+                    value={emailOtpCode}
+                    onChange={(e) => setEmailOtpCode(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base font-mono text-center tracking-widest text-lg"
+                    required
+                  />
+                  <span className="text-[10px] text-zinc-500 mt-2 px-1 leading-normal text-center">
+                    Também podes simplesmente clicar no link enviado por e-mail para ativar a tua conta!
+                  </span>
+                </div>
+                <div className="flex justify-start px-1 text-xs py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailOtpSent(false);
+                      setEmailOtpCode('');
+                      setError(null);
+                    }}
+                    className="text-purple-500 hover:text-purple-400 font-bold transition-all"
+                  >
+                    ← Voltar para os dados da conta
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="flex flex-col">
+                  <input
+                    type="email"
+                    placeholder={t('Email')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
+                    required
+                  />
+                </div>
 
-              <div className="flex flex-col">
-                <input
-                  type="password"
-                  placeholder={t('Password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
-                  required
-                />
-              </div>
-            </>
+                <div className="flex flex-col">
+                  <input
+                    type="password"
+                    placeholder={t('Password')}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-md py-4 px-4 text-white placeholder:text-zinc-500 focus:border-purple-600 outline-none transition-all text-base"
+                    required
+                  />
+                </div>
+              </>
+            )
           ) : (
             <>
               <div className="flex flex-col">
@@ -398,7 +457,9 @@ const Auth: React.FC = () => {
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : (
-                authMethod === 'phone' && useOtp && !otpSent ? (
+                authMethod === 'email' && emailOtpSent ? (
+                  'Confirmar Registo / Código'
+                ) : authMethod === 'phone' && useOtp && !otpSent ? (
                   'Enviar Código SMS'
                 ) : authMethod === 'phone' && useOtp && otpSent ? (
                   'Verificar Código'
