@@ -510,32 +510,46 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       `}</style>
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
-        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center justify-center gap-5 sm:gap-7 z-50 shrink-0 select-none px-4">
-          <button 
-            onClick={() => setFeedType('following')}
-            className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'following' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
-          >
-            {t('Following')}
-            {feedType === 'following' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
-          </button>
-          <button 
-            onClick={() => setFeedType('for_you')}
-            className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'for_you' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
-          >
-            {t('For You')}
-            {feedType === 'for_you' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
-          </button>
+        <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center justify-between z-50 shrink-0 select-none px-4 sm:px-6">
+          {/* Left: Brand logo */}
+          <div className="flex items-center gap-1 min-w-[75px]">
+            <span className="text-sm sm:text-base font-extrabold text-white tracking-tighter lowercase">
+              angochat
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5"></span>
+            </span>
+          </div>
 
-          {sessionLoaded && user && (
+          {/* Center: Tabs */}
+          <div className="flex items-center gap-4 sm:gap-6">
             <button 
-              onClick={() => setShowGameIntro(true)}
-              className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-95"
-              title={t('Games', 'Jogos')}
+              onClick={() => setFeedType('following')}
+              className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'following' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
             >
-              <Gamepad2 size={13} className="text-zinc-400 group-hover:text-white" />
-              <span>{t('Games', 'Jogos')}</span>
+              {t('Following')}
+              {feedType === 'following' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
             </button>
-          )}
+            <button 
+              onClick={() => setFeedType('for_you')}
+              className={`text-xs sm:text-xs font-black uppercase tracking-widest transition-all ${feedType === 'for_you' ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
+            >
+              {t('For You')}
+              {feedType === 'for_you' && <div className="h-0.5 w-4 bg-white mx-auto mt-1 rounded-full" />}
+            </button>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center justify-end min-w-[75px]">
+            {sessionLoaded && user && (
+              <button 
+                onClick={() => setShowGameIntro(true)}
+                className="text-xs sm:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1 text-zinc-500 hover:text-white hover:scale-105 active:scale-95"
+                title={t('Games', 'Jogos')}
+              >
+                <Gamepad2 size={13} className="text-zinc-400 group-hover:text-white" />
+                <span className="hidden sm:inline">{t('Games', 'Jogos')}</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center px-4 z-50 shrink-0 select-none">
