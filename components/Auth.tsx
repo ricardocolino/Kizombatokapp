@@ -146,6 +146,9 @@ const Auth: React.FC = () => {
     <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 sm:p-8">
       <div className="w-full max-w-[360px] flex flex-col items-stretch">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl font-extrabold text-white tracking-tighter lowercase">angochat<span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-600"></span></span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             {isSignUp ? t('Create your account') : t('Sign in now')}
           </h2>
