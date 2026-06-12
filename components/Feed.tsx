@@ -511,13 +511,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       {/* Feed Tabs or Filter Header */}
       {!feedFilter ? (
         <div className="feed-navigation-tabs h-11 sm:h-14 w-full bg-black flex items-center justify-between z-50 shrink-0 select-none px-4 sm:px-6">
-          {/* Left: Brand logo */}
-          <div className="flex items-center gap-1 min-w-[75px]">
-            <span className="text-sm sm:text-base font-extrabold text-white tracking-tighter lowercase">
-              angochat
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5"></span>
-            </span>
-          </div>
+          {/* Left: Balanced spacing spacer */}
+          <div className="min-w-[75px]" />
 
           {/* Center: Tabs */}
           <div className="flex items-center gap-4 sm:gap-6">
