@@ -939,7 +939,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/post/${post.id}`;
+    const link = `https://www.angochat.ao/post/${post.id}`;
     navigator.clipboard.writeText(link);
     alert(t('Link copied'));
   };
@@ -985,7 +985,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   };
 
   const handleSocialShare = (platform: string) => {
-    const url = encodeURIComponent(`${window.location.origin}/post/${post.id}`);
+    const url = encodeURIComponent(`https://www.angochat.ao/post/${post.id}`);
     const text = encodeURIComponent(t('Check this video out'));
     let shareUrl = '';
 

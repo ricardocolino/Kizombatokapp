@@ -254,6 +254,19 @@ const Auth: React.FC = () => {
             {isSignUp ? t('Sign in') : t('Create account')}
           </button>
         </div>
+
+        <div className="mt-8 text-center">
+          <p className="text-zinc-500 text-[11px] leading-relaxed">
+            Ao continuar, concordas com os nossos{' '}
+            <a href="https://www.angochat.ao/terms.html" target="_blank" rel="noopener noreferrer" className="text-zinc-400 underline hover:text-zinc-200 transition-colors">
+              Termos de Serviço
+            </a>{' '}
+            e{' '}
+            <a href="https://www.angochat.ao/privacy.html" target="_blank" rel="noopener noreferrer" className="text-zinc-400 underline hover:text-zinc-200 transition-colors">
+              Política de Privacidade
+            </a>.
+          </p>
+        </div>
       </div>
     </div>
   );
