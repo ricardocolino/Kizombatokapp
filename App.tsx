@@ -20,7 +20,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Home, Compass, Radio, Bell, User as UserIcon } from 'lucide-react';
+import { Home, Compass, Radio, Bell, User as UserIcon, Smartphone, Download, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { appCache } from './services/cache';
 import { FeedFilter } from './types';
 
@@ -54,6 +54,11 @@ interface UploadData {
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
+
+  // App-open verification states for mobile web users
+  const [showAppOpenModal, setShowAppOpenModal] = useState(false);
+  const [checkingApp, setCheckingApp] = useState(false);
+  const [appLaunchFailed, setAppLaunchFailed] = useState(false);
   const [viewingStoryUserId, setViewingStoryUserId] = useState<string | null>(null);
   const [viewingStatsUserId, setViewingStatsUserId] = useState<string | null>(null);
   const [allUsersWithStories, setAllUsersWithStories] = useState<string[]>([]);
@@ -460,11 +465,59 @@ const App: React.FC = () => {
     }
   };
 
+  const handleOpenApp = () => {
+    setCheckingApp(true);
+    setAppLaunchFailed(false);
+
+    const start = Date.now();
+    let appOpened = false;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        appOpened = true;
+        setCheckingApp(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('pagehide', handleVisibilityChange);
+
+    // Try opening via Custom URL scheme or Android Intents
+    const appScheme = 'angochat://open';
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      window.location.href = 'intent://open#Intent;scheme=angochat;package=com.angochat.app;end';
+    } else {
+      window.location.href = appScheme;
+    }
+
+    // Fallback if focus isn't lost within 2.2 seconds
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pagehide', handleVisibilityChange);
+
+      if (!appOpened && (Date.now() - start < 3200)) {
+        setCheckingApp(false);
+        setAppLaunchFailed(true);
+      }
+    }, 2200);
+  };
+
   useEffect(() => {
     // Configure Status Bar for mobile
     if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: Style.Dark });
       StatusBar.setBackgroundColor({ color: '#000000' });
+    } else {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const hasPrompted = sessionStorage.getItem('angochat_app_prompt_shown');
+      if (isMobile && !hasPrompted) {
+        setTimeout(() => {
+          setShowAppOpenModal(true);
+          sessionStorage.setItem('angochat_app_prompt_shown', 'true');
+        }, 1500);
+      }
     }
 
     // Lock orientation to portrait if supported
@@ -971,6 +1024,96 @@ const App: React.FC = () => {
             <UserIcon size={26} strokeWidth={activeTab === Tab.PROFILE && !viewProfileId ? 2.5 : 2} />
           </button>
         </nav>
+      )}
+
+      {/* Mobile Web App Redirection & Download Prompt Overlay */}
+      {showAppOpenModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800/80 rounded-[2rem] p-6 sm:p-8 w-full max-w-[365px] absolute shadow-2xl flex flex-col items-center">
+            
+            {/* Elegant App Logo Ring */}
+            <div className="w-16 h-16 rounded-3xl bg-purple-950/30 border border-purple-800/30 flex items-center justify-center mb-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/20 to-indigo-600/10 opacity-60" />
+              <Smartphone size={30} className="text-purple-500 relative z-10" />
+            </div>
+
+            {/* App Branding */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-base font-extrabold text-white tracking-tighter lowercase">
+                angochat
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5 animate-pulse"></span>
+              </span>
+            </div>
+
+            <h3 className="text-xl font-black text-white tracking-tight text-center mb-2">
+              {t('Abre na Aplicação', 'Abrir na App Angochat?')}
+            </h3>
+
+            <p className="text-zinc-400 text-xs text-center leading-relaxed mb-6 px-1">
+              {t('App Promo Subtext', 'Para a melhor experiência com transmissões ao vivo estáveis, maior qualidade de reels e carregamentos rápidos, abre a nossa App oficial.')}
+            </p>
+
+            {/* Verification Alert / Failure Dialog */}
+            {appLaunchFailed && (
+              <div className="w-full bg-zinc-900 border border-zinc-800/80 rounded-2xl p-4 text-left text-xs mb-5 flex flex-col gap-2 shadow-inner">
+                <div className="flex items-start gap-2 text-zinc-300 font-bold">
+                  <AlertCircle size={15} className="text-purple-500 shrink-0 mt-0.5" />
+                  <span>{t('App Not Opened', 'Aplicação não detectada')}</span>
+                </div>
+                <p className="text-zinc-500 leading-normal pl-5">
+                  {t('App Manual Download Info', 'Não conseguimos abrir o Angochat automaticamente. É provável que ainda não tenhas a App instalada no teu telemóvel.')}
+                </p>
+                <a
+                  href="/angochat.apk"
+                  download="angochat.apk"
+                  className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl text-center flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all text-[11px] uppercase tracking-wider"
+                  onClick={() => {
+                    // Direct simulated APK generation logic or alert
+                    alert('A iniciar o download do ficheiro de instalação APK (com.angochat.app). Aguarda um momento...');
+                  }}
+                >
+                  <Download size={13} />
+                  {t('Download Official APK', 'Descarregar APK de Instalação')}
+                </a>
+              </div>
+            )}
+
+            {/* Main CTA Trigger Buttons */}
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={checkingApp}
+                onClick={handleOpenApp}
+                className="w-full bg-white text-black font-black py-4 px-4 rounded-full text-sm hover:bg-zinc-100 active:scale-[0.98] flex items-center justify-center gap-2 transition-all transition-transform duration-200"
+              >
+                {checkingApp ? (
+                  <>
+                    <Loader2 className="animate-spin text-purple-600" size={16} />
+                    <span>A iniciar a App...</span>
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink size={16} />
+                    <span>{t('Open Application', 'Abrir na App')}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAppOpenModal(false)}
+                className="w-full text-zinc-500 hover:text-white transition-colors duration-150 py-2.5 text-xs font-black uppercase tracking-widest"
+              >
+                {t('Continue in Browser', 'Continuar no navegador')}
+              </button>
+            </div>
+
+            {/* Display technical package name in small subtle letters */}
+            <div className="mt-4 text-[9px] font-mono text-zinc-600 uppercase tracking-widest text-center">
+              ID: com.angochat.app
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
