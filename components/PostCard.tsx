@@ -179,6 +179,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   }, [mediaType, optimizedUrl]);
 
   const [showComments, setShowComments] = useState(false);
+  const [visibleCommentsLimit, setVisibleCommentsLimit] = useState(15);
   const [showShare, setShowShare] = useState(false);
   const [showGifts, setShowGifts] = useState(false);
   const [showRecharge, setShowRecharge] = useState(false);
@@ -289,13 +290,20 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const handleCommentsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
-    if (loadingMoreComments || !hasMoreComments) return;
+    if (loadingMoreComments) return;
     
     const threshold = 100; // pixels from the bottom
     const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
     
     if (isNearBottom) {
-      fetchComments(false);
+      if (visibleCommentsLimit < parentComments.length) {
+        // Increment visual limit to show cached/preloaded comments
+        setVisibleCommentsLimit(prev => prev + 15);
+      } else if (hasMoreComments) {
+        // Fetch more comments from database and increment limit
+        fetchComments(false);
+        setVisibleCommentsLimit(prev => prev + 15);
+      }
     }
   };
 
@@ -458,6 +466,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   useEffect(() => {
     if (!showComments) return;
+    
+    setVisibleCommentsLimit(15);
     
     const feedContainer = document.querySelector('.feed-container');
     const originalOverflow = feedContainer ? (feedContainer as HTMLElement).style.overflowY : '';
@@ -1620,7 +1630,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               onScroll={handleCommentsScroll}
               className="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar overscroll-contain touch-pan-y"
             >
-              {parentComments.map(parent => {
+              {parentComments.slice(0, visibleCommentsLimit).map(parent => {
                 const replies = comments.filter(c => c.parent_id === parent.id).reverse();
                 const isExpanded = expandedThreads[parent.id];
                 const displayedReplies = isExpanded ? replies : replies.slice(0, 3);
