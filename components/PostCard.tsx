@@ -1071,7 +1071,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="text-[13px] font-bold text-zinc-900 cursor-pointer hover:text-black transition-colors flex items-center gap-1"
             >
               {c.profiles?.name || `@${c.profiles?.username}`}
-              <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
+              <CheckCircle2 size={12} className="text-purple-500 fill-purple-500/10" />
             </span>
             {isPostAuthor && <span className="text-[8px] bg-black text-white font-black px-1.5 py-0.5 rounded uppercase">{t('Author')}</span>}
           </div>
@@ -1539,7 +1539,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 className="cursor-pointer hover:underline underline-offset-4 flex items-center gap-1.5"
               >
                 {post.profiles?.name || `@${post.profiles?.username}`}
-                <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500 fill-blue-500/10" />
+                <CheckCircle2 size={16} className="sm:w-[18px] sm:h-[18px] text-purple-500 fill-purple-500/10" />
               </span>
               <span className="text-zinc-300/80 font-normal text-[11px] sm:text-xs">
                 • {mediaType === 'image' && 'foto • '}{formatPublishedTime(post.created_at)}
