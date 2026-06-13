@@ -116,14 +116,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   };
 
   const handleFinish = async () => {
-    if (!walletAddress) {
-      setError(t('Wallet address is mandatory'));
-      return;
-    }
+    const trimmedWallet = walletAddress.trim();
 
-    if (!isValidBep20Address(walletAddress)) {
-      setError(t('Invalid BEP-20 address format', 'Endereço BEP-20 inválido. Deve começar com 0x e conter 40 caracteres hexadecimais.'));
-      return;
+    if (trimmedWallet) {
+      if (!isValidBep20Address(trimmedWallet)) {
+        setError(t('Invalid BEP-20 address format', 'Endereço BEP-20 inválido. Deve começar com 0x e conter 40 caracteres hexadecimais.'));
+        return;
+      }
     }
 
     setLoading(true);
@@ -131,17 +130,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     try {
       console.log('Iniciando finalização do onboarding para:', userId);
 
-      // Verify if the wallet address is already stored under another account
-      const { data: existingWallet, error: walletCheckError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('wallet_address', walletAddress.trim())
-        .maybeSingle();
+      if (trimmedWallet) {
+        // Verify if the wallet address is already stored under another account
+        const { data: existingWallet, error: walletCheckError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('wallet_address', trimmedWallet)
+          .maybeSingle();
 
-      if (walletCheckError) throw walletCheckError;
+        if (walletCheckError) throw walletCheckError;
 
-      if (existingWallet && existingWallet.id !== userId) {
-        throw new Error(t('Wallet address already in use', 'Este endereço de carteira já está em uso por outro utilizador.'));
+        if (existingWallet && existingWallet.id !== userId) {
+          throw new Error(t('Wallet address already in use', 'Este endereço de carteira já está em uso por outro utilizador.'));
+        }
       }
       
       // Check username one last time
@@ -161,7 +162,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           name: name || username,
           username: username.toLowerCase().trim(),
           avatar_url: avatarUrl || null,
-          wallet_address: walletAddress || null,
+          wallet_address: trimmedWallet || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
         })
@@ -306,11 +307,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           >
             <div className="p-6 bg-purple-600/10 rounded-2xl border border-purple-600/20">
               <p className="text-xs text-purple-400 leading-relaxed font-medium">
-                {t('Configure your wallet')}
+                {t('Configure your wallet')} <span className="text-zinc-400 font-bold">({t('Optional', 'Opcional')})</span>
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-1">{t('Destination Address')} (BEP-20)</label>
+              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-1">
+                {t('Destination Address')} (BEP-20) <span className="text-purple-500 font-bold">({t('Optional', 'Opcional')})</span>
+              </label>
               <input 
                 type="text" 
                 value={walletAddress}
