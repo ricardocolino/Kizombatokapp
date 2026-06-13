@@ -799,6 +799,55 @@ const App: React.FC = () => {
           onNavigateToProfile={handleNavigateToProfile} 
         />;
       case Tab.CREATE:
+        if (!Capacitor.isNativePlatform()) {
+          return (
+            <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 text-center select-none">
+              <div className="max-w-[360px] bg-zinc-950 border border-zinc-900 rounded-[2.5rem] p-8 flex flex-col items-center shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-transparent to-transparent opacity-60" />
+                
+                {/* Visual Icon */}
+                <div className="w-16 h-16 rounded-3xl bg-purple-950/40 border border-purple-800/30 flex items-center justify-center mb-6 shadow-xl relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/10 to-indigo-600/10 opacity-60" />
+                  <Smartphone size={32} className="text-purple-500 relative z-10" />
+                </div>
+                
+                <h3 className="text-xl font-extrabold text-white tracking-tight mb-3">
+                  {t('Dubbing Features Native Only', 'Recursos Nativos Requeridos')}
+                </h3>
+                
+                <p className="text-zinc-400 text-xs leading-relaxed mb-6">
+                  {t('Web Dubbing Limitation Info', 'O Angochat é uma aplicação de dublagem de música em vídeo que necessita de processamento em tempo real de áudio e gravação de câmara avançada.')}
+                </p>
+                
+                <div className="bg-zinc-900/50 border border-zinc-800/60 rounded-2xl p-4 mb-6 text-left">
+                  <p className="text-xs text-zinc-500 leading-normal">
+                    {t('Web Limitation Details', 'Por questões de segurança e de suporte de hardware no teu telemóvel, a gravação de dublagem só está disponível através da aplicação instalada.')}
+                  </p>
+                </div>
+
+                <a 
+                  href="/angochat.apk"
+                  download="angochat.apk"
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black py-4 px-6 rounded-full text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all shadow-lg active:translate-y-[1px]"
+                  onClick={() => {
+                    alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
+                  }}
+                >
+                  <Download size={14} />
+                  <span>{t('Download Official APK', 'Descarregar APK de Instalação')}</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(Tab.HOME)}
+                  className="mt-4 text-zinc-500 hover:text-white transition-colors duration-150 py-2 text-xs font-black uppercase tracking-widest outline-none animate-pulse"
+                >
+                  {t('Voltar aos Reels', 'Voltar aos Reels')}
+                </button>
+              </div>
+            </div>
+          );
+        }
         return <CreatePost 
           onCreated={() => { 
             setIsCreatingStory(false);
