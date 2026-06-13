@@ -487,7 +487,7 @@ const App: React.FC = () => {
     const isAndroid = /Android/i.test(navigator.userAgent);
 
     if (isAndroid) {
-      window.location.href = 'intent://open#Intent;scheme=angochat;package=com.angochat.app;end';
+      window.location.href = 'intent://open#Intent;scheme=angochat;package=com.kizombatok.angolavibe;end';
     } else {
       window.location.href = appScheme;
     }
@@ -1069,7 +1069,7 @@ const App: React.FC = () => {
                   className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl text-center flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all text-[11px] uppercase tracking-wider"
                   onClick={() => {
                     // Direct simulated APK generation logic or alert
-                    alert('A iniciar o download do ficheiro de instalação APK (com.angochat.app). Aguarda um momento...');
+                    alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
                   }}
                 >
                   <Download size={13} />
@@ -1110,7 +1110,7 @@ const App: React.FC = () => {
 
             {/* Display technical package name in small subtle letters */}
             <div className="mt-4 text-[9px] font-mono text-zinc-600 uppercase tracking-widest text-center">
-              ID: com.angochat.app
+              ID: com.kizombatok.angolavibe
             </div>
           </div>
         </div>
