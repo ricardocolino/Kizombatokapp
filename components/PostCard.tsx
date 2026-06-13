@@ -1225,7 +1225,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       <div key={index} className="w-full h-full shrink-0 relative">
                         <img 
                           src={url} 
-                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
+                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                           alt=""
                           style={{
                             filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1282,7 +1282,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               ) : post.thumbnail_url ? (
                 <img 
                   src={parseMediaUrl(post.thumbnail_url)} 
-                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-contain p-4'}`}
+                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
                   alt=""
                   style={{
                     filter: post.filter ? post.filter.split('|')[0] : undefined,
