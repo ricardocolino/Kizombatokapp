@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Post, Comment, Profile } from '../types';
-import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, AlertCircle, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { appCache } from '../services/cache';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -185,25 +185,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   const [sendingGift, setSendingGift] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
 
-  const [showErrorExplanation, setShowErrorExplanation] = useState(false);
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (isNearScreen && isLoading && mediaType === 'video' && !videoError) {
-      timer = setTimeout(() => {
-        setShowErrorExplanation(true);
-      }, 6000); // Se após 6 segundos de exibição ativa continuar carregando (tudo preto / travado)
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isNearScreen, isLoading, mediaType, videoError]);
-
-  useEffect(() => {
-    if (videoError) {
-      setShowErrorExplanation(true);
-    }
-  }, [videoError]);
 
   useEffect(() => {
     if (post.dubbed_from_id) {
@@ -1383,65 +1365,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
 
-        {showErrorExplanation && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/85 z-40 p-6">
-            <div className="w-full max-w-[320px] bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl flex flex-col relative text-left select-none animate-[fade-in_0.2s_ease-out]">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowErrorExplanation(false);
-                  setVideoError(false);
-                }}
-                className="absolute top-3 right-3 text-zinc-400 hover:text-white transition-colors"
-                id="close-error-popup-btn"
-              >
-                <X size={18} />
-              </button>
 
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="text-purple-400" size={20} />
-                <h4 className="text-white text-sm font-bold">Diagnóstico do Ecrã Preto</h4>
-              </div>
-
-              <div className="space-y-3 text-zinc-300 text-xs mb-5">
-                <p>
-                  Detetámos que o player poderá estar com dificuldades em iniciar a reprodução:
-                </p>
-                <div className="space-y-2 bg-black/35 p-2 rounded-lg border border-zinc-800">
-                  <p><span className="text-purple-400 font-semibold">• Permissões de Som:</span> Muitos browsers bloqueiam vídeos com áudio por predefinição.</p>
-                  <p><span className="text-purple-400 font-semibold">• Conectividade:</span> Problema temporário de rede ou atraso do servidor de media.</p>
-                  <p><span className="text-purple-400 font-semibold">• Normalização Retroativa:</span> Convertemos as publicações legadas sem tipo formatado para o formato padrão.</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowErrorExplanation(false);
-                    setVideoError(false);
-                    if (videoRef.current) {
-                      videoRef.current.currentTime = 0;
-                      handlePlay();
-                    }
-                  }}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95"
-                >
-                  Tentar de novo (Forçar Play)
-                </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowErrorExplanation(false);
-                  }}
-                  className="w-full py-2 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 rounded-xl text-xs font-bold transition-all"
-                >
-                  Continuar a Navegar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Heart animations for double tap */}
         {doubleTapHearts.map(heart => (
