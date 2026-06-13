@@ -1217,10 +1217,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                       <div key={index} className="w-full h-full shrink-0 relative">
                         <img 
                           src={url} 
-                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                          className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]`}
                           alt=""
                           style={{
                             filter: post.filter ? post.filter.split('|')[0] : undefined,
+                            imageRendering: 'high-quality',
+                            transform: 'translate3d(0,0,0)',
+                            WebkitBackfaceVisibility: 'hidden',
+                            backfaceVisibility: 'hidden',
                           }}
                         />
                       </div>
@@ -1274,10 +1278,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               ) : post.thumbnail_url ? (
                 <img 
                   src={parseMediaUrl(post.thumbnail_url)} 
-                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                  className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]`}
                   alt=""
                   style={{
                     filter: post.filter ? post.filter.split('|')[0] : undefined,
+                    imageRendering: 'high-quality',
+                    transform: 'translate3d(0,0,0)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    backfaceVisibility: 'hidden',
                   }}
                 />
               ) : (
@@ -1296,11 +1304,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}` : "absolute pointer-events-none opacity-0 w-1 h-1"}
+              className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
                 opacity: isPlaying ? 1 : 0,
-                transition: 'opacity 0.3s ease-in-out'
+                transition: 'opacity 0.3s ease-in-out',
+                transform: 'translate3d(0,0,0)',
+                WebkitBackfaceVisibility: 'hidden',
+                backfaceVisibility: 'hidden',
               } : {}}
               loop
               muted={isMuted}
@@ -1354,8 +1365,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             >
                <img 
                  src={parseMediaUrl(post.thumbnail_url)} 
-                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'}`}
+                 className={`w-full h-full transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]`}
                  alt=""
+                 style={{
+                   imageRendering: 'high-quality',
+                   transform: 'translate3d(0,0,0)',
+                   WebkitBackfaceVisibility: 'hidden',
+                   backfaceVisibility: 'hidden',
+                 }}
                />
             </div>
           )}
