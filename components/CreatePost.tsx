@@ -252,6 +252,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
       } catch (e) {
         console.error("Erro ao parar câmera nativa:", e);
       }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stream = (window as any).webCameraStream;
+      if (stream) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          stream.getTracks().forEach((track: any) => track.stop());
+        } catch (e) {
+          console.error("Erro ao parar stream web:", e);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).webCameraStream = null;
+      }
+      const container = document.getElementById('cameraPreview');
+      if (container) {
+        container.innerHTML = '';
+      }
     }
     setShowCamera(false);
     setIsFlashOn(false);
@@ -303,11 +320,28 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
     
     if (!Capacitor.isNativePlatform()) {
       try {
-        // Trigger browser permission prompt for both
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        stream.getTracks().forEach(track => track.stop());
+        const container = document.getElementById('cameraPreview');
+        if (container) {
+          container.innerHTML = '';
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: { facingMode: facingModeRef.current === 'user' ? 'user' : 'environment' } 
+          });
+          const video = document.createElement('video');
+          video.srcObject = stream;
+          video.autoplay = true;
+          video.playsInline = true;
+          video.muted = true;
+          video.className = "w-full h-full object-cover";
+          if (facingModeRef.current === 'user') {
+            video.style.transform = 'scaleX(-1)';
+          }
+          container.appendChild(video);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).webCameraStream = stream;
+        }
       } catch (e) {
-        console.warn("Erro ao pedir permissões no browser:", e);
+        console.warn("Erro ao iniciar câmera no browser:", e);
       }
       setShowCamera(true);
       setIsStarting(false);
@@ -405,7 +439,14 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
         console.error("Erro ao girar câmera:", e);
       }
     } else {
-      setFacingMode(prev => prev === 'user' ? 'rear' : 'user');
+      await stopCamera();
+      setFacingMode(prev => {
+        const nextMode = prev === 'user' ? 'rear' : 'user';
+        setTimeout(() => {
+          startCamera();
+        }, 150);
+        return nextMode;
+      });
     }
   };
 
@@ -556,6 +597,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           canvas.height = videoElement.videoHeight || 480;
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            if (facingMode === 'user') {
+              // Espelhar horizontalmente para corresponder ao preview
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+            }
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             canvas.toBlob(async (blob) => {
               if (blob) {
