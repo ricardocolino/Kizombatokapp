@@ -24,7 +24,7 @@ const Auth: React.FC = () => {
     const handleOAuthMessage = async (event: MessageEvent) => {
       // Validate origin to be safe
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('angochat.ao')) {
         return;
       }
       
@@ -53,10 +53,17 @@ const Auth: React.FC = () => {
     setError(null);
     try {
       console.log(">>> [Auth.tsx] Iniciando fluxo de autenticação com Google via Supabase OAuth...");
+      
+      const isNative = !!((window as unknown as { Capacitor?: { isNativePlatform: () => boolean } }).Capacitor?.isNativePlatform());
+      // Configurar URL de redirecionamento. Pede use do domínio de produção se for nativo
+      const redirectUri = isNative
+        ? 'https://www.angochat.ao/auth-callback.html'
+        : `${window.location.origin}/auth-callback.html`;
+
       const { data, error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth-callback.html`,
+          redirectTo: redirectUri,
           skipBrowserRedirect: true,
         },
       });
@@ -64,16 +71,156 @@ const Auth: React.FC = () => {
       if (googleError) throw googleError;
 
       if (data?.url) {
-        console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup:", data.url);
-        // Abrir popup de autenticação com o Google
-        const authWindow = window.open(
-          data.url,
-          'google_oauth_popup',
-          'width=600,height=700'
-        );
+        console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso:", data.url);
+        
+        if (isNative) {
+          interface CustomInAppBrowser {
+            open: (
+              url: string,
+              target: string,
+              options: string
+            ) => {
+              addEventListener: (event: string, callback: (event: { url: string }) => void) => void;
+              executeScript: (details: { code: string }, callback: (result: unknown[]) => void) => void;
+              close: () => void;
+            };
+          }
 
-        if (!authWindow) {
-          setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
+          const win = window as unknown as {
+            cordova?: { InAppBrowser?: CustomInAppBrowser };
+            InAppBrowser?: CustomInAppBrowser;
+          };
+          const inAppBrowser = win.cordova?.InAppBrowser || win.InAppBrowser;
+          
+          if (inAppBrowser) {
+            console.log(">>> [Auth.tsx] Abrindo InAppBrowser nativo no Capacitor...");
+            const browser = inAppBrowser.open(
+              data.url,
+              '_blank',
+              'location=yes,clearcache=yes,clearsessioncache=yes,hidenavigationbuttons=yes,closebuttoncaption=Fechar,toolbarcolor=#000000,navigationbuttoncolor=#ffffff'
+            );
+
+            let sessionResolved = false;
+
+            const handleNavigation = async (event: { url: string }) => {
+              const url = event.url || '';
+              console.log(">>> [InAppBrowser] A navegar para:", url);
+
+              if (url.includes('angochat.ao')) {
+                // 1. Tentar obter os parâmetros direto na URL de callback (Implicit Flow)
+                const getParams = (urlString: string) => {
+                  try {
+                    const parsedUrl = new URL(urlString);
+                    const params: Record<string, string> = {};
+                    
+                    if (parsedUrl.hash) {
+                      const hashStr = parsedUrl.hash.substring(1);
+                      const searchParams = new URLSearchParams(hashStr);
+                      searchParams.forEach((value, key) => { params[key] = value; });
+                    }
+                    if (parsedUrl.search) {
+                      parsedUrl.searchParams.forEach((value, key) => { params[key] = value; });
+                    }
+                    return params;
+                  } catch {
+                    const params: Record<string, string> = {};
+                    const hashMatch = urlString.match(/#(.*)/);
+                    if (hashMatch && hashMatch[1]) {
+                      const searchParams = new URLSearchParams(hashMatch[1]);
+                      searchParams.forEach((value, key) => { params[key] = value; });
+                    }
+                    const queryMatch = urlString.match(/\?(.*)/);
+                    if (queryMatch && queryMatch[1]) {
+                      const queryPart = queryMatch[1].split('#')[0];
+                      const searchParams = new URLSearchParams(queryPart);
+                      searchParams.forEach((value, key) => { params[key] = value; });
+                    }
+                    return params;
+                  }
+                };
+
+                const params = getParams(url);
+                if (params && params.access_token && params.refresh_token) {
+                  console.log(">>> [InAppBrowser] Session detectada via URL params em angochat.ao!");
+                  sessionResolved = true;
+                  const { error: setSessionErr } = await supabase.auth.setSession({
+                    access_token: params.access_token,
+                    refresh_token: params.refresh_token
+                  });
+                  if (!setSessionErr) {
+                    console.log(">>> [InAppBrowser] Sessão instanciada localmente com sucesso (Tokens na URL).");
+                    browser.close();
+                    setLoading(false);
+                    window.location.reload();
+                    return;
+                  }
+                }
+
+                // 2. Fallback de injeção JavaScript para obter do LocalStorage
+                // Esperamos que o callback termine a comunicação com a BD do Supabase e grave no LocalStorage
+                setTimeout(() => {
+                  if (sessionResolved) return;
+                  
+                  browser.executeScript(
+                    { code: "localStorage.getItem('sb-cxvqbhcrlpedvhvrqddx-auth-token')" },
+                    async (result: unknown[]) => {
+                      const sessionStr = Array.isArray(result) ? result[0] : result;
+                      if (sessionStr && typeof sessionStr === 'string' && sessionStr.includes('access_token')) {
+                        console.log(">>> [InAppBrowser] Sessão encontrada instalada no localStorage de angochat.ao!");
+                        try {
+                          const sessionObj = JSON.parse(sessionStr);
+                          if (sessionObj.access_token && sessionObj.refresh_token && !sessionResolved) {
+                            sessionResolved = true;
+                            const { error: setSessionErr } = await supabase.auth.setSession({
+                              access_token: sessionObj.access_token,
+                              refresh_token: sessionObj.refresh_token
+                            });
+                            if (!setSessionErr) {
+                              console.log(">>> [InAppBrowser] Sessão local importada com sucesso do localStorage!");
+                              browser.close();
+                              setLoading(false);
+                              window.location.reload();
+                              return;
+                            }
+                          }
+                        } catch (err) {
+                          console.error(">>> [InAppBrowser] Erro ao parsear os dados do localStorage injetado:", err);
+                        }
+                      }
+                    }
+                  );
+                }, 1800); // 1.8 segundos de margem
+              }
+            };
+
+            browser.addEventListener('loadstart', handleNavigation);
+            browser.addEventListener('loadstop', handleNavigation);
+            
+            browser.addEventListener('exit', () => {
+              setLoading(false);
+            });
+          } else {
+            console.warn(">>> [Auth.tsx] InAppBrowser não encontrado no Capacitor. Usando popup convencional...");
+            const authWindow = window.open(
+              data.url,
+              'google_oauth_popup',
+              'width=600,height=700'
+            );
+            if (!authWindow) {
+              setError('O popup foi bloqueado pelo teu navegador. Ativa os popups para fazeres login.');
+            }
+          }
+        } else {
+          console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup tradicional...");
+          const authWindow = window.open(
+            data.url,
+            'google_oauth_popup',
+            'width=600,height=700'
+          );
+
+          if (!authWindow) {
+            setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
+          }
         }
       } else {
         throw new Error('Não foi possível obter o URL de login da rede Google.');
