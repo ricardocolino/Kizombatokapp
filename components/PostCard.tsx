@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
+import { Capacitor } from '@capacitor/core';
 import { Post, Comment, Profile } from '../types';
 import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -1338,6 +1339,30 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onPlaying={() => {
               setIsPlaying(true);
               setIsLoading(false);
+
+              // Se estiver na web (não nativo) e reproduzindo vídeo, rastrear vídeos assistidos
+              if (!Capacitor.isNativePlatform() && mediaType === 'video') {
+                try {
+                  const watchedStr = localStorage.getItem('angochat_watched_videos_v1') || '[]';
+                  const watchedList: string[] = JSON.parse(watchedStr);
+                  if (!watchedList.includes(post.id)) {
+                    watchedList.push(post.id);
+                    localStorage.setItem('angochat_watched_videos_v1', JSON.stringify(watchedList));
+                    if (watchedList.length >= 2) {
+                      console.log(">>> [PostCard] Assistiu a 2 vídeos na web! Abrindo diretamente o app com URL unificado...");
+                      const appScheme = 'com.kizombatok.angolavibe://open';
+                      const isAndroid = /Android/i.test(navigator.userAgent);
+                      if (isAndroid) {
+                        window.location.href = 'intent://open#Intent;scheme=com.kizombatok.angolavibe;package=com.kizombatok.angolavibe;end';
+                      } else {
+                        window.location.href = appScheme;
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error(">>> [PostCard] Erro ao rastrear visualização de vídeos na web:", err);
+                }
+              }
             }}
             onPause={() => setIsPlaying(false)}
             onCanPlay={() => {
