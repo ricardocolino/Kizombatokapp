@@ -1052,33 +1052,70 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-10`}>
-        {uploadTask && (
-          <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
-            <div className="h-1 bg-zinc-900 w-full overflow-hidden">
-              <div 
-                className={`h-full transition-all duration-300 ${uploadTask.error ? 'bg-purple-600' : 'bg-purple-600'}`}
-                style={{ width: `${uploadTask.progress}%` }}
-              />
+      <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-10 flex flex-col`}>
+        {!Capacitor.isNativePlatform() && (
+          <div className="bg-gradient-to-r from-purple-950/90 via-zinc-950/90 to-indigo-950/90 border-b border-white/5 py-2 px-4 flex items-center justify-between shrink-0 z-50 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-black text-[13px] text-white shrink-0 shadow-lg select-none">
+                A
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-white leading-none">
+                  Angochat Oficial
+                </span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-tight mt-0.5">
+                  Melhor performance, lives e dublagens
+                </span>
+              </div>
             </div>
-            {uploadTask.error && (
-              <div className="bg-purple-600 text-[10px] font-black uppercase p-2 text-center text-white">
-                {t('Upload error')}: {uploadTask.error}
-              </div>
-            )}
-            {!uploadTask.error && uploadTask.active && (
-              <div className="bg-black/80 backdrop-blur-md text-[9px] font-black uppercase p-2 text-center text-white/50 tracking-widest">
-                {t('Uploading content')} {Math.round(uploadTask.progress)}%
-              </div>
-            )}
-            {uploadTask.progress === 100 && !uploadTask.active && (
-              <div className="bg-green-600 text-[9px] font-black uppercase p-2 text-center text-white tracking-widest">
-                {t('Content published successfully')}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenApp}
+                className="bg-zinc-800 hover:bg-zinc-700 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all active:scale-[0.98]"
+              >
+                Abrir App
+              </button>
+              <a
+                href="/angochat.apk"
+                download="angochat.apk"
+                className="bg-purple-600 hover:bg-purple-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all active:scale-[0.98] flex items-center gap-1"
+                onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
+              >
+                <Download size={10} />
+                Baixar APK
+              </a>
+            </div>
           </div>
         )}
-        {renderContent()}
+        
+        <div className="flex-1 min-h-0 overflow-hidden relative">
+          {uploadTask && (
+            <div className="fixed top-0 left-0 w-full z-[100] pointer-events-none">
+              <div className="h-1 bg-zinc-900 w-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${uploadTask.error ? 'bg-purple-600' : 'bg-purple-600'}`}
+                  style={{ width: `${uploadTask.progress}%` }}
+                />
+              </div>
+              {uploadTask.error && (
+                <div className="bg-purple-600 text-[10px] font-black uppercase p-2 text-center text-white">
+                  {t('Upload error')}: {uploadTask.error}
+                </div>
+              )}
+              {!uploadTask.error && uploadTask.active && (
+                <div className="bg-black/80 backdrop-blur-md text-[9px] font-black uppercase p-2 text-center text-white/50 tracking-widest">
+                  {t('Uploading content')} {Math.round(uploadTask.progress)}%
+                </div>
+              )}
+              {uploadTask.progress === 100 && !uploadTask.active && (
+                <div className="bg-green-600 text-[9px] font-black uppercase p-2 text-center text-white tracking-widest">
+                  {t('Content published successfully')}
+                </div>
+              )}
+            </div>
+          )}
+          {renderContent()}
+        </div>
       </main>
 
       {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
@@ -1096,14 +1133,16 @@ const App: React.FC = () => {
           >
             <Compass size={26} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
           </button>
-          <button 
-            onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-            className="flex items-center justify-center group outline-none"
-          >
-            <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
-              <span className="text-2xl font-black tracking-wide select-none">+</span>
-            </div>
-          </button>
+          {Capacitor.isNativePlatform() && (
+            <button 
+              onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
+              className="flex items-center justify-center group outline-none"
+            >
+              <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
+                <span className="text-2xl font-black tracking-wide select-none">+</span>
+              </div>
+            </button>
+          )}
           <button 
             onClick={() => { setActiveTab(Tab.LIVE); }}
             className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
