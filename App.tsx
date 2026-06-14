@@ -485,11 +485,11 @@ const App: React.FC = () => {
     document.addEventListener('pagehide', handleVisibilityChange);
 
     // Try opening via Custom URL scheme or Android Intents
-    const appScheme = 'angochat://open';
+    const appScheme = 'com.kizombatok.angolavibe://open';
     const isAndroid = /Android/i.test(navigator.userAgent);
 
     if (isAndroid) {
-      window.location.href = 'intent://open#Intent;scheme=angochat;package=com.kizombatok.angolavibe;end';
+      window.location.href = 'intent://open#Intent;scheme=com.kizombatok.angolavibe;package=com.kizombatok.angolavibe;end';
     } else {
       window.location.href = appScheme;
     }
