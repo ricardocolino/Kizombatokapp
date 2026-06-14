@@ -58,7 +58,7 @@ const Auth: React.FC = () => {
       
       const isNative = Capacitor.isNativePlatform();
       const redirectUrl = isNative 
-        ? 'com.kizombatok.angolavibe://google-auth' 
+        ? 'com.kizombatok.angolavibe://open' 
         : `${window.location.origin}/auth-callback.html`;
 
       const { data, error: googleError } = await supabase.auth.signInWithOAuth({
