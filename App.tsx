@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
@@ -566,6 +568,61 @@ const App: React.FC = () => {
       }
     });
 
+    // Escuta de deep link para login OAuth do Google no Capacitor nativo
+    let appUrlListener: Promise<{ remove: () => void }> | null = null;
+    if (Capacitor.isNativePlatform()) {
+      appUrlListener = CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
+        console.log('>>> [App.tsx] App aberta via deep link customizado:', data?.url);
+        try {
+          if (data?.url && data.url.includes('oauth-callback')) {
+            // Fechar qualquer tab do Browser do Capacitor de imediato para libertar o ecrã
+            try {
+              await Browser.close();
+            } catch (err) {
+              console.error(">>> [App.tsx] Erro ao fechar o Browser do Capacitor:", err);
+            }
+
+            // Função helper para parsear tokens do Uri (hash ou query params)
+            const getParamsFromUrl = (url: string) => {
+              const params: Record<string, string> = {};
+              const hashMatch = url.match(/#(.*)/);
+              if (hashMatch && hashMatch[1]) {
+                const searchParams = new URLSearchParams(hashMatch[1]);
+                searchParams.forEach((value, key) => { params[key] = value; });
+              }
+              const queryMatch = url.match(/\?(.*)/);
+              if (queryMatch && queryMatch[1]) {
+                const queryPart = queryMatch[1].split('#')[0];
+                const searchParams = new URLSearchParams(queryPart);
+                searchParams.forEach((value, key) => { params[key] = value; });
+              }
+              return params;
+            };
+
+            const params = getParamsFromUrl(data.url);
+            if (params.access_token && params.refresh_token) {
+              console.log('>>> [App.tsx] Tokens recebidos no Deep Link! A definir sessão do Supabase...');
+              setLoadingSession(true);
+              const { error: sessionErr } = await supabase.auth.setSession({
+                access_token: params.access_token,
+                refresh_token: params.refresh_token
+              });
+              setLoadingSession(false);
+
+              if (sessionErr) {
+                console.error('>>> [App.tsx] Erro ao instanciar sessão a partir do deep link:', sessionErr);
+              } else {
+                console.log('>>> [App.tsx] Sessão estabelecida com sucesso no Capacitor nativo via deep link!');
+                window.location.reload();
+              }
+            }
+          }
+        } catch (e) {
+          console.error('>>> [App.tsx] Erro no tratador de deep link de OAuth:', e);
+        }
+      });
+    }
+
     const handleOAuthSuccessMessage = async (event: MessageEvent) => {
       const origin = event.origin;
       if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
@@ -586,6 +643,9 @@ const App: React.FC = () => {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('message', handleOAuthSuccessMessage);
+      if (appUrlListener) {
+        appUrlListener.then((handle) => handle.remove());
+      }
     };
   }, []);
 
