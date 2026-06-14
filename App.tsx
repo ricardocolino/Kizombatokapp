@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StatusBar, Style } from '@capacitor/status-bar';
-import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
@@ -22,7 +20,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
-import { Home, Compass, Radio, Bell, User as UserIcon, Smartphone, Download, ExternalLink, AlertCircle, Loader2, X } from 'lucide-react';
+import { Home, Compass, Radio, Bell, User as UserIcon, Smartphone, Download, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { appCache } from './services/cache';
 import { FeedFilter } from './types';
 
@@ -79,12 +77,6 @@ const App: React.FC = () => {
   const [dubbingMp3Url, setDubbingMp3Url] = useState<string | null>(null);
   const [dubbedFromId, setDubbedFromId] = useState<string | null>(null);
   const [viewAudioPostId, setViewAudioPostId] = useState<string | null>(null);
-  const [showWebPromoBanner, setShowWebPromoBanner] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !Capacitor.isNativePlatform() && !sessionStorage.getItem('angochat_web_promo_dismissed');
-    }
-    return false;
-  });
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -491,11 +483,11 @@ const App: React.FC = () => {
     document.addEventListener('pagehide', handleVisibilityChange);
 
     // Try opening via Custom URL scheme or Android Intents
-    const appScheme = 'com.kizombatok.angolavibe://open';
+    const appScheme = 'angochat://open';
     const isAndroid = /Android/i.test(navigator.userAgent);
 
     if (isAndroid) {
-      window.location.href = 'intent://open#Intent;scheme=com.kizombatok.angolavibe;package=com.kizombatok.angolavibe;end';
+      window.location.href = 'intent://open#Intent;scheme=angochat;package=com.kizombatok.angolavibe;end';
     } else {
       window.location.href = appScheme;
     }
@@ -574,61 +566,6 @@ const App: React.FC = () => {
       }
     });
 
-    // Escuta de deep link para login OAuth do Google no Capacitor nativo
-    let appUrlListener: Promise<{ remove: () => void }> | null = null;
-    if (Capacitor.isNativePlatform()) {
-      appUrlListener = CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
-        console.log('>>> [App.tsx] App aberta via deep link customizado:', data?.url);
-        try {
-          if (data?.url && data.url.includes('oauth-callback')) {
-            // Fechar qualquer tab do Browser do Capacitor de imediato para libertar o ecrã
-            try {
-              await Browser.close();
-            } catch (err) {
-              console.error(">>> [App.tsx] Erro ao fechar o Browser do Capacitor:", err);
-            }
-
-            // Função helper para parsear tokens do Uri (hash ou query params)
-            const getParamsFromUrl = (url: string) => {
-              const params: Record<string, string> = {};
-              const hashMatch = url.match(/#(.*)/);
-              if (hashMatch && hashMatch[1]) {
-                const searchParams = new URLSearchParams(hashMatch[1]);
-                searchParams.forEach((value, key) => { params[key] = value; });
-              }
-              const queryMatch = url.match(/\?(.*)/);
-              if (queryMatch && queryMatch[1]) {
-                const queryPart = queryMatch[1].split('#')[0];
-                const searchParams = new URLSearchParams(queryPart);
-                searchParams.forEach((value, key) => { params[key] = value; });
-              }
-              return params;
-            };
-
-            const params = getParamsFromUrl(data.url);
-            if (params.access_token && params.refresh_token) {
-              console.log('>>> [App.tsx] Tokens recebidos no Deep Link! A definir sessão do Supabase...');
-              setLoadingSession(true);
-              const { error: sessionErr } = await supabase.auth.setSession({
-                access_token: params.access_token,
-                refresh_token: params.refresh_token
-              });
-              setLoadingSession(false);
-
-              if (sessionErr) {
-                console.error('>>> [App.tsx] Erro ao instanciar sessão a partir do deep link:', sessionErr);
-              } else {
-                console.log('>>> [App.tsx] Sessão estabelecida com sucesso no Capacitor nativo via deep link!');
-                window.location.reload();
-              }
-            }
-          }
-        } catch (e) {
-          console.error('>>> [App.tsx] Erro no tratador de deep link de OAuth:', e);
-        }
-      });
-    }
-
     const handleOAuthSuccessMessage = async (event: MessageEvent) => {
       const origin = event.origin;
       if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
@@ -649,9 +586,6 @@ const App: React.FC = () => {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('message', handleOAuthSuccessMessage);
-      if (appUrlListener) {
-        appUrlListener.then((handle) => handle.remove());
-      }
     };
   }, []);
 
@@ -1007,51 +941,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-black text-white relative">
-      {/* Top Banner if on Web */}
-      {showWebPromoBanner && (
-        <div className="flex bg-gradient-to-r from-purple-900/30 via-indigo-950/20 to-black border-b border-purple-850/10 px-4 py-2 items-center justify-between z-[110] relative text-xs gap-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Smartphone size={15} className="text-purple-400 shrink-0" />
-            <div className="text-[10px] sm:text-[11px] leading-tight text-zinc-300">
-              <span className="font-extrabold text-white mr-1.5">{t('Official Angochat App', 'App Oficial Angochat')}</span>
-              <span className="hidden sm:inline-block text-zinc-400">{t('Web App Top Banner Description', 'Melhores transmissões ao vivo estáveis, maior qualidade de reels e carregamento rápido!')}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={handleOpenApp}
-              className="bg-white text-black hover:bg-zinc-100 font-extrabold px-2.5 py-1.5 rounded-full text-[9px] uppercase tracking-wider flex items-center gap-1 transition-all active:scale-[0.97]"
-            >
-              <ExternalLink size={10} className="stroke-[2.5]" />
-              <span>{t('Open Application', 'Abrir na App')}</span>
-            </button>
-            <a
-              href="/angochat.apk"
-              download="angochat.apk"
-              onClick={() => {
-                alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
-              }}
-              className="bg-purple-600 hover:bg-purple-500 text-white font-extrabold px-2.5 py-1.5 rounded-full text-[9px] uppercase tracking-wider flex items-center gap-1 transition-all active:scale-[0.97]"
-            >
-              <Download size={10} className="stroke-[2.5]" />
-              <span>{t('Download APK', 'Download APK')}</span>
-            </a>
-            <button
-              onClick={() => {
-                setShowWebPromoBanner(false);
-                sessionStorage.setItem('angochat_web_promo_dismissed', 'true');
-              }}
-              className="text-zinc-500 hover:text-white p-1 transition-colors ml-0.5"
-            >
-              <X size={13} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main app body */}
-      <div className={`flex-1 flex flex-col lg:flex-row-reverse overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+    <div className={`flex flex-col lg:flex-row-reverse h-[100dvh] w-screen overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
       {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
       {apiStatus && (
         <div className="fixed top-2 left-2 z-[9999] bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-[10px] font-black uppercase shadow-2xl">
@@ -1149,16 +1039,14 @@ const App: React.FC = () => {
           >
             <Compass size={26} strokeWidth={activeTab === Tab.DISCOVER ? 2.5 : 2} />
           </button>
-          {Capacitor.isNativePlatform() && (
-            <button 
-              onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
-              className="flex items-center justify-center group outline-none"
-            >
-              <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
-                <span className="text-2xl font-black tracking-wide select-none">+</span>
-              </div>
-            </button>
-          )}
+          <button 
+            onClick={() => { setIsCreatingStory(false); setActiveTab(Tab.CREATE); }}
+            className="flex items-center justify-center group outline-none"
+          >
+            <div className="w-12 h-9 bg-zinc-600 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(113,113,122,0.3)] group-active:scale-90 transition-all border border-white/10">
+              <span className="text-2xl font-black tracking-wide select-none">+</span>
+            </div>
+          </button>
           <button 
             onClick={() => { setActiveTab(Tab.LIVE); }}
             className={`flex items-center justify-center transition-all outline-none ${activeTab === Tab.LIVE ? 'text-white scale-110' : 'text-zinc-600 hover:text-white'}`}
@@ -1276,7 +1164,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 };

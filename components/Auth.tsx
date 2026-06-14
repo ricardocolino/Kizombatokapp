@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Loader2, Mail, Smartphone } from 'lucide-react';
-import { Browser } from '@capacitor/browser';
 
 const Auth: React.FC = () => {
   const { t } = useTranslation();
@@ -25,7 +24,7 @@ const Auth: React.FC = () => {
     const handleOAuthMessage = async (event: MessageEvent) => {
       // Validate origin to be safe
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('angochat.ao')) {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
         return;
       }
       
@@ -54,17 +53,10 @@ const Auth: React.FC = () => {
     setError(null);
     try {
       console.log(">>> [Auth.tsx] Iniciando fluxo de autenticação com Google via Supabase OAuth...");
-      
-      const isNative = !!((window as unknown as { Capacitor?: { isNativePlatform: () => boolean } }).Capacitor?.isNativePlatform());
-      // Configurar URL de redirecionamento. Pede use do domínio de produção se for nativo
-      const redirectUri = isNative
-        ? 'https://www.angochat.ao/auth-callback.html'
-        : `${window.location.origin}/auth-callback.html`;
-
       const { data, error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUri,
+          redirectTo: `${window.location.origin}/auth-callback.html`,
           skipBrowserRedirect: true,
         },
       });
@@ -72,43 +64,16 @@ const Auth: React.FC = () => {
       if (googleError) throw googleError;
 
       if (data?.url) {
-        console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso:", data.url);
-        
-        if (isNative) {
-          console.log(">>> [Auth.tsx] Abrindo Google OAuth no Capacitor nativo usando @capacitor/browser...");
-          try {
-            await Browser.open({
-              url: data.url,
-              presentationStyle: 'fullscreen',
-            });
-            // Definimos loading como false já que delegamos o controle ao navegador nativo seguro
-            setLoading(false);
-          } catch (browserError) {
-            console.error(">>> [Auth.tsx] Erro ao abrir com @capacitor/browser. Usando fallback de sistema...", browserError);
-            // Abrir no navegador de sistema padrão (Chrome/Safari) que não sofre com disallowed_useragent
-            const win = window as unknown as {
-              cordova?: { InAppBrowser?: { open: (url: string, target: string) => void } };
-              InAppBrowser?: { open: (url: string, target: string) => void };
-            };
-            const inAppBrowser = win.cordova?.InAppBrowser || win.InAppBrowser;
-            if (inAppBrowser) {
-              inAppBrowser.open(data.url, '_system');
-            } else {
-              window.open(data.url, '_system');
-            }
-            setLoading(false);
-          }
-        } else {
-          console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup tradicional...");
-          const authWindow = window.open(
-            data.url,
-            'google_oauth_popup',
-            'width=600,height=700'
-          );
+        console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup:", data.url);
+        // Abrir popup de autenticação com o Google
+        const authWindow = window.open(
+          data.url,
+          'google_oauth_popup',
+          'width=600,height=700'
+        );
 
-          if (!authWindow) {
-            setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
-          }
+        if (!authWindow) {
+          setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
         }
       } else {
         throw new Error('Não foi possível obter o URL de login da rede Google.');
