@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Loader2, Mail, Smartphone } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 const Auth: React.FC = () => {
   const { t } = useTranslation();
@@ -53,10 +55,16 @@ const Auth: React.FC = () => {
     setError(null);
     try {
       console.log(">>> [Auth.tsx] Iniciando fluxo de autenticação com Google via Supabase OAuth...");
+      
+      const isNative = Capacitor.isNativePlatform();
+      const redirectUrl = isNative 
+        ? 'com.kizombatok.angolavibe://google-auth' 
+        : `${window.location.origin}/auth-callback.html`;
+
       const { data, error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth-callback.html`,
+          redirectTo: redirectUrl,
           skipBrowserRedirect: true,
         },
       });
@@ -64,16 +72,21 @@ const Auth: React.FC = () => {
       if (googleError) throw googleError;
 
       if (data?.url) {
-        console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup:", data.url);
-        // Abrir popup de autenticação com o Google
-        const authWindow = window.open(
-          data.url,
-          'google_oauth_popup',
-          'width=600,height=700'
-        );
+        if (isNative) {
+          console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo Browser nativo:", data.url);
+          await Browser.open({ url: data.url });
+        } else {
+          console.log(">>> [Auth.tsx] URL do OAuth obtida com sucesso. Abrindo popup na Web:", data.url);
+          // Abrir popup de autenticação com o Google
+          const authWindow = window.open(
+            data.url,
+            'google_oauth_popup',
+            'width=600,height=700'
+          );
 
-        if (!authWindow) {
-          setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
+          if (!authWindow) {
+            setError('O popup foi bloqueado pelo teu navegador. Por favor, ativa os popups para fazeres login com o Google.');
+          }
         }
       } else {
         throw new Error('Não foi possível obter o URL de login da rede Google.');

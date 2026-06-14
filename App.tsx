@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
@@ -566,6 +568,54 @@ const App: React.FC = () => {
       }
     });
 
+    // Listen for deep links (Capacitor)
+    let deepLinkPromise: Promise<{ remove: () => void }> | null = null;
+    if (Capacitor.isNativePlatform()) {
+      deepLinkPromise = CapApp.addListener('appUrlOpen', async (data: { url: string }) => {
+        console.log('>>> [App.tsx] Deep link recebido:', data.url);
+        try {
+          const urlStr = data.url;
+          // Fecha o navegador nativo (Custom Tabs) após voltar para a aplicação
+          await Browser.close().catch(() => {});
+          
+          let hash = '';
+          let search = '';
+          if (urlStr.includes('#')) {
+            hash = urlStr.split('#')[1];
+          }
+          if (urlStr.includes('?')) {
+            const withoutHash = urlStr.split('#')[0];
+            search = withoutHash.split('?')[1];
+          }
+          
+          const params = new URLSearchParams(hash || search);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            console.log('>>> [App.tsx] Sessão OAuth detetada no deep link! A configurar no Supabase...');
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (sessionError) {
+              console.error('>>> [App.tsx] Erro ao carregar sessão setSession:', sessionError);
+            } else {
+              console.log('>>> [App.tsx] Sessão persistida com sucesso via Deep Link!');
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) {
+                setUser(session.user);
+                checkOnboarding(session.user.id);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('>>> [App.tsx] Erro ao processar abertura de link:', err);
+        }
+      });
+    }
+
     const handleOAuthSuccessMessage = async (event: MessageEvent) => {
       const origin = event.origin;
       if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
@@ -586,6 +636,13 @@ const App: React.FC = () => {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('message', handleOAuthSuccessMessage);
+      if (deepLinkPromise) {
+        deepLinkPromise.then((handle: { remove: () => void }) => {
+          if (handle && typeof handle.remove === 'function') {
+            handle.remove();
+          }
+        }).catch(() => {});
+      }
     };
   }, []);
 
