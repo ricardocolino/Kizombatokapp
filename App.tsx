@@ -941,7 +941,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col h-[100dvh] w-screen overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
+    <div className={`flex flex-col lg:flex-row-reverse h-[100dvh] w-screen overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
       {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
       {apiStatus && (
         <div className="fixed top-2 left-2 z-[9999] bg-zinc-900 border border-zinc-800 p-2 rounded-lg text-[10px] font-black uppercase shadow-2xl">
@@ -1025,7 +1025,7 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
-        <nav className="h-[60px] lg:h-[64px] shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2 lg:px-8">
+        <nav className="h-[60px] lg:h-full lg:w-[80px] lg:border-t-0 lg:border-r lg:flex-col lg:justify-start lg:items-center lg:gap-10 lg:pt-14 lg:px-0 shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2">
           <button 
             onClick={handleGoHome}
             onContextMenu={(e) => { e.preventDefault(); checkApiHealth(); }}
