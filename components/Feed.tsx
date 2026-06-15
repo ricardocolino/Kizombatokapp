@@ -75,11 +75,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let browserRef: { close: () => void } | Window | null = null;
 
       if (gWindow.cordova?.InAppBrowser?.open) {
-        browserRef = gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
-        console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser)!");
+        browserRef = gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser) em background!");
       } else if (gWindow.open) {
-        browserRef = gWindow.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
-        console.log(">>> [InAppBrowser] Fallback usado com window.open!");
+        browserRef = gWindow.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com window.open em background!");
       }
 
       if (browserRef) {
@@ -101,18 +101,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (Capacitor.isNativePlatform()) {
       try {
         const adUrl = 'https://www.effectivecpmnetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1';
-        console.log(">>> [InAppBrowser] A inicializar janela em primeiro plano (foreground) com o link de publicidade:", adUrl);
+        console.log(">>> [InAppBrowser] A inicializar janela em segundo plano (background) com o link de publicidade:", adUrl);
         
         // Tentativa de usar @awesome-cordova-plugins/in-app-browser
         import('@awesome-cordova-plugins/in-app-browser').then(({ InAppBrowser }) => {
           try {
             const browser = InAppBrowser.create(adUrl, '_blank', {
-              hidden: 'no',
+              hidden: 'yes',
               location: 'no',
               clearcache: 'yes',
               clearsessioncache: 'yes'
             });
-            console.log(">>> [InAppBrowser] Janela em primeiro plano criada com sucesso!");
+            console.log(">>> [InAppBrowser] Janela em segundo plano (background) criada com sucesso!");
             
             // Fecha o anúncio automaticamente após 15 segundos
             setTimeout(() => {
