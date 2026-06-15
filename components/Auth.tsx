@@ -21,6 +21,18 @@ const Auth: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [useOtp, setUseOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [showWebPrompt, setShowWebPrompt] = useState(!Capacitor.isNativePlatform());
+
+  const handleOpenAppWeb = () => {
+    const appScheme = 'com.kizombatok.angolavibe://open';
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      window.location.href = 'intent://open#Intent;scheme=com.kizombatok.angolavibe;package=com.kizombatok.angolavibe;end';
+    } else {
+      window.location.href = appScheme;
+    }
+  };
 
   useEffect(() => {
     const handleOAuthMessage = async (event: MessageEvent) => {
@@ -245,6 +257,46 @@ const Auth: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (showWebPrompt) {
+    return (
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 sm:p-8">
+        <div className="w-full max-w-[360px] flex flex-col items-center text-center">
+          <div className="mb-8">
+            <span className="text-2xl font-extrabold text-white tracking-tighter lowercase">angochat<span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-600"></span></span>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-white tracking-tight leading-snug mb-4">
+            Abrir na App Angochat?
+          </h2>
+          
+          <p className="text-sm text-zinc-400 font-medium leading-relaxed mb-8">
+            Para a melhor experiência com transmissões ao vivo estáveis, maior qualidade de reels e carregamentos rápidos, abre a nossa App oficial.
+          </p>
+          
+          <div className="w-full space-y-3.5 mb-8">
+            <button
+              onClick={handleOpenAppWeb}
+              className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-full font-bold text-base transition-all active:scale-[0.98] shadow-lg shadow-purple-600/25"
+            >
+              Abrir na App
+            </button>
+            
+            <button
+              onClick={() => setShowWebPrompt(false)}
+              className="w-full bg-black hover:bg-zinc-950 text-zinc-400 hover:text-white py-3.5 rounded-full font-semibold text-base border border-zinc-800 transition-all active:scale-[0.98]"
+            >
+              Continuar no navegador
+            </button>
+          </div>
+          
+          <div className="text-[11px] font-mono text-zinc-600 uppercase tracking-widest bg-zinc-950/50 py-1.5 px-3 rounded-full border border-zinc-900 leading-none">
+            ID: com.kizombatok.angolavibe
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 sm:p-8">

@@ -1176,14 +1176,8 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/85 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800/80 rounded-[2rem] p-6 sm:p-8 w-full max-w-[365px] absolute shadow-2xl flex flex-col items-center">
             
-            {/* Elegant App Logo Ring */}
-            <div className="w-16 h-16 rounded-3xl bg-purple-950/30 border border-purple-800/30 flex items-center justify-center mb-6 shadow-xl relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-purple-600/20 to-indigo-600/10 opacity-60" />
-              <Smartphone size={30} className="text-purple-500 relative z-10" />
-            </div>
-
             {/* App Branding */}
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-2 mt-4">
               <span className="text-base font-extrabold text-white tracking-tighter lowercase">
                 angochat
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5 animate-pulse"></span>
