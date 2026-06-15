@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
@@ -56,6 +57,59 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [iframeUrl, setIframeUrl] = useState('');
   const [iframeLoading, setIframeLoading] = useState(true);
   const [showGameIntro, setShowGameIntro] = useState(false);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const adUrl = 'https://www.effectivecpmnetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1';
+        console.log(">>> [InAppBrowser] A inicializar janela em background com o link de publicidade:", adUrl);
+        
+        // Tentativa de usar @awesome-cordova-plugins/in-app-browser
+        import('@awesome-cordova-plugins/in-app-browser').then(({ InAppBrowser }) => {
+          try {
+            InAppBrowser.create(adUrl, '_blank', {
+              hidden: 'yes',
+              location: 'no',
+              clearcache: 'yes',
+              clearsessioncache: 'yes'
+            });
+            console.log(">>> [InAppBrowser] Janela em background criada com sucesso!");
+          } catch (innerError) {
+            console.error(">>> [InAppBrowser] Erro ao instanciar via Awesome Cordova Plugins:", innerError);
+            fallbackInAppBrowser(adUrl);
+          }
+        }).catch((err) => {
+          console.error(">>> [InAppBrowser] Erro ao carregar o módulo InAppBrowser:", err);
+          fallbackInAppBrowser(adUrl);
+        });
+      } catch (error) {
+        console.error(">>> [InAppBrowser] Erro geral ao inicializar:", error);
+      }
+    }
+  }, []);
+
+  const fallbackInAppBrowser = (url: string) => {
+    try {
+      const gWindow = window as unknown as {
+        cordova?: {
+          InAppBrowser?: {
+            open: (url: string, target: string, options: string) => void;
+          };
+        };
+        open?: (url: string, target: string, options: string) => void;
+      };
+
+      if (gWindow.cordova?.InAppBrowser?.open) {
+        gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser)!");
+      } else if (gWindow.open) {
+        gWindow.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com window.open!");
+      }
+    } catch (e) {
+      console.error(">>> [InAppBrowser] Erro em todas as tentativas de fallback:", e);
+    }
+  };
 
   const handleOpenGame = async () => {
     try {
