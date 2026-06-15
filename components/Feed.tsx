@@ -62,18 +62,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (Capacitor.isNativePlatform()) {
       try {
         const adUrl = 'https://www.effectivecpmnetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1';
-        console.log(">>> [InAppBrowser] A inicializar janela em background com o link de publicidade:", adUrl);
+        console.log(">>> [InAppBrowser] A inicializar janela em primeiro plano (foreground) com o link de publicidade:", adUrl);
         
         // Tentativa de usar @awesome-cordova-plugins/in-app-browser
         import('@awesome-cordova-plugins/in-app-browser').then(({ InAppBrowser }) => {
           try {
             InAppBrowser.create(adUrl, '_blank', {
-              hidden: 'yes',
+              hidden: 'no',
               location: 'no',
               clearcache: 'yes',
               clearsessioncache: 'yes'
             });
-            console.log(">>> [InAppBrowser] Janela em background criada com sucesso!");
+            console.log(">>> [InAppBrowser] Janela em primeiro plano criada com sucesso!");
           } catch (innerError) {
             console.error(">>> [InAppBrowser] Erro ao instanciar via Awesome Cordova Plugins:", innerError);
             fallbackInAppBrowser(adUrl);
@@ -100,10 +100,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       };
 
       if (gWindow.cordova?.InAppBrowser?.open) {
-        gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
         console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser)!");
       } else if (gWindow.open) {
-        gWindow.open(url, '_blank', 'hidden=yes,location=no,clearcache=yes,clearsessioncache=yes');
+        gWindow.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
         console.log(">>> [InAppBrowser] Fallback usado com window.open!");
       }
     } catch (e) {
