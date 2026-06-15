@@ -633,9 +633,15 @@ const App: React.FC = () => {
     };
     window.addEventListener('message', handleOAuthSuccessMessage);
 
+    const handleNavigateToHomeEvent = () => {
+      setActiveTab(Tab.HOME);
+    };
+    window.addEventListener('navigate-to-home', handleNavigateToHomeEvent);
+
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('message', handleOAuthSuccessMessage);
+      window.removeEventListener('navigate-to-home', handleNavigateToHomeEvent);
       if (deepLinkPromise) {
         deepLinkPromise.then((handle: { remove: () => void }) => {
           if (handle && typeof handle.remove === 'function') {

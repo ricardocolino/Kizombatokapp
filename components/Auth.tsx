@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Loader2, Mail, Smartphone } from 'lucide-react';
+import { Loader2, Mail, Smartphone, Download } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 
@@ -274,16 +274,29 @@ const Auth: React.FC = () => {
             Para a melhor experiência com transmissões ao vivo estáveis, maior qualidade de reels e carregamentos rápidos, abre a nossa App oficial.
           </p>
           
-          <div className="w-full space-y-3.5 mb-8">
+          <div className="w-full space-y-3 mb-8">
             <button
               onClick={handleOpenAppWeb}
               className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-full font-bold text-base transition-all active:scale-[0.98] shadow-lg shadow-purple-600/25"
             >
               Abrir na App
             </button>
+
+            <a
+              href="/angochat.apk"
+              download="angochat.apk"
+              className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white py-4 rounded-full font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
+            >
+              <Download size={18} />
+              Baixar APK
+            </a>
             
             <button
-              onClick={() => setShowWebPrompt(false)}
+              onClick={() => {
+                setShowWebPrompt(false);
+                window.dispatchEvent(new CustomEvent('navigate-to-home'));
+              }}
               className="w-full bg-black hover:bg-zinc-950 text-zinc-400 hover:text-white py-3.5 rounded-full font-semibold text-base border border-zinc-800 transition-all active:scale-[0.98]"
             >
               Continuar no navegador
