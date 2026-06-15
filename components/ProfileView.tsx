@@ -1522,28 +1522,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
               </div>
 
-              {/* Card de Resumo de Ganhos Totais */}
-              <div className="bg-black text-white rounded-3xl p-8 flex flex-col gap-6 shadow-xl shadow-black/10">
-                <div className="space-y-1">
-                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Estimated Monetization', 'Monetização Estimada')}</h3>
-                  <p className="text-xs text-zinc-400 font-light">{t('Combine views and gifts earnings', 'Combinação de ganhos de views e presentes')}</p>
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                  <span className="text-4xl font-semibold tracking-tighter">
-                    $ {(((profile?.redeemable_balance || 0) + (stats.views * VIEW_RATE)) / 100).toFixed(5)}
-                  </span>
-                  <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-widest">USD</span>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-zinc-800 pt-4 text-xs">
-                  <span className="text-zinc-400 font-medium">{t('Total Coins Earned', 'Total de Moedas Ganhas')}</span>
-                  <span className="font-bold text-white">
-                    {((profile?.redeemable_balance || 0) + (stats.views * VIEW_RATE)).toFixed(3)} Coins
-                  </span>
-                </div>
-              </div>
-
             </div>
           </div>
         </div>
