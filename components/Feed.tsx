@@ -58,7 +58,46 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [iframeLoading, setIframeLoading] = useState(true);
   const [showGameIntro, setShowGameIntro] = useState(false);
 
-  useEffect(() => {
+  const videoScrollCountRef = React.useRef<number>(0);
+  const lastViewedIndexRef = React.useRef<number | null>(null);
+
+  const fallbackInAppBrowser = (url: string) => {
+    try {
+      const gWindow = window as unknown as {
+        cordova?: {
+          InAppBrowser?: {
+            open: (url: string, target: string, options: string) => { close: () => void } | null;
+          };
+        };
+        open?: (url: string, target: string, options: string) => { close: () => void } | Window | null;
+      };
+
+      let browserRef: { close: () => void } | Window | null = null;
+
+      if (gWindow.cordova?.InAppBrowser?.open) {
+        browserRef = gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser)!");
+      } else if (gWindow.open) {
+        browserRef = gWindow.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
+        console.log(">>> [InAppBrowser] Fallback usado com window.open!");
+      }
+
+      if (browserRef) {
+        setTimeout(() => {
+          try {
+            console.log(">>> [InAppBrowser] Fechando janela fallback após 15 segundos...");
+            browserRef!.close();
+          } catch (closeErr) {
+            console.error(">>> [InAppBrowser] Erro ao fechar janela fallback:", closeErr);
+          }
+        }, 15000);
+      }
+    } catch (e) {
+      console.error(">>> [InAppBrowser] Erro em todas as tentativas de fallback:", e);
+    }
+  };
+
+  const triggerAdvertisement = React.useCallback(() => {
     if (Capacitor.isNativePlatform()) {
       try {
         const adUrl = 'https://www.effectivecpmnetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1';
@@ -67,13 +106,23 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         // Tentativa de usar @awesome-cordova-plugins/in-app-browser
         import('@awesome-cordova-plugins/in-app-browser').then(({ InAppBrowser }) => {
           try {
-            InAppBrowser.create(adUrl, '_blank', {
+            const browser = InAppBrowser.create(adUrl, '_blank', {
               hidden: 'no',
               location: 'no',
               clearcache: 'yes',
               clearsessioncache: 'yes'
             });
             console.log(">>> [InAppBrowser] Janela em primeiro plano criada com sucesso!");
+            
+            // Fecha o anúncio automaticamente após 15 segundos
+            setTimeout(() => {
+              try {
+                console.log(">>> [InAppBrowser] Fechando janela após 15 segundos...");
+                browser.close();
+              } catch (closeErr) {
+                console.error(">>> [InAppBrowser] Erro ao fechar janela:", closeErr);
+              }
+            }, 15000);
           } catch (innerError) {
             console.error(">>> [InAppBrowser] Erro ao instanciar via Awesome Cordova Plugins:", innerError);
             fallbackInAppBrowser(adUrl);
@@ -88,28 +137,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, []);
 
-  const fallbackInAppBrowser = (url: string) => {
-    try {
-      const gWindow = window as unknown as {
-        cordova?: {
-          InAppBrowser?: {
-            open: (url: string, target: string, options: string) => void;
-          };
-        };
-        open?: (url: string, target: string, options: string) => void;
-      };
-
-      if (gWindow.cordova?.InAppBrowser?.open) {
-        gWindow.cordova.InAppBrowser.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
-        console.log(">>> [InAppBrowser] Fallback usado com sucesso (cordova.InAppBrowser)!");
-      } else if (gWindow.open) {
-        gWindow.open(url, '_blank', 'hidden=no,location=no,clearcache=yes,clearsessioncache=yes');
-        console.log(">>> [InAppBrowser] Fallback usado com window.open!");
-      }
-    } catch (e) {
-      console.error(">>> [InAppBrowser] Erro em todas as tentativas de fallback:", e);
-    }
-  };
+  useEffect(() => {
+    triggerAdvertisement();
+  }, [triggerAdvertisement]);
 
   const handleOpenGame = async () => {
     try {
@@ -152,6 +182,18 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
             if (!isNaN(index)) {
+              // A cada 10 vídeos, apresentar a publicidade
+              if (lastViewedIndexRef.current !== index) {
+                lastViewedIndexRef.current = index;
+                videoScrollCountRef.current += 1;
+                console.log(`>>> [InAppBrowser] Vídeo visto: ${videoScrollCountRef.current}/10`);
+                if (videoScrollCountRef.current >= 10) {
+                  videoScrollCountRef.current = 0;
+                  console.log(">>> [InAppBrowser] Atingiu 10 vídeos! Disparando publicidade...");
+                  triggerAdvertisement();
+                }
+              }
+
               // Se o usuário não tiver logado depois de 3 vídeos ir a página de login automaticamente
               if (sessionLoaded && !user) {
                 viewedIndices.current.add(index);
@@ -181,7 +223,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, sessionLoaded, user, onRequireAuth]);
+  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
