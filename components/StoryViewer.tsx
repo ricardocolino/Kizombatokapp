@@ -4,7 +4,7 @@ import { User } from '@supabase/supabase-js';
 import Hls from 'hls.js';
 import { supabase } from '../supabaseClient';
 import { Story, Post } from '../types';
-import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp, Music } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Loader2, Heart, Flame, Laugh, Smile, ThumbsUp, Music } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
@@ -21,7 +21,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [isMuted, setIsMuted] = useState(true);
+  const isMuted = false;
   const [viewError, setViewError] = useState<string | null>(null);
   const STORY_DURATION = 5000; // 5 seconds per image story
 
@@ -335,15 +335,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
               )}
             </div>
           </div>
-          
-          {(currentStory.media_type === 'video' || currentStory.dubbed_from_id) && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-              className="p-2 text-white/80 hover:text-white transition-colors"
-            >
-              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-            </button>
-          )}
         </div>
         
         <div className="flex items-center gap-2">
