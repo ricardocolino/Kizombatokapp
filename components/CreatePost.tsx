@@ -1720,13 +1720,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               </div>
 
               {/* Upload Type Selector */}
-              <div className="flex gap-8 pb-2">
+              <div className="flex items-center gap-2 max-w-[95%] overflow-x-auto [&::-webkit-scrollbar]:hidden bg-black/60 backdrop-blur-xl rounded-full border border-white/10 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
                 <button 
                   onClick={() => {
                     setUploadType('post');
                     setIsPhotoMode(false);
                   }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'post' && !isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
+                    (uploadType === 'post' && !isPhotoMode) 
+                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
                 >
                   {t('Video')}
                 </button>
@@ -1735,7 +1739,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     setUploadType('post');
                     setIsPhotoMode(true);
                   }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'post' && isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
+                    (uploadType === 'post' && isPhotoMode) 
+                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
                 >
                   {t('Foto')}
                 </button>
@@ -1744,7 +1752,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     setUploadType('story');
                     setIsPhotoMode(false);
                   }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'story' && !isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
+                    (uploadType === 'story' && !isPhotoMode) 
+                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
                 >
                   {t('Story')}
                 </button>
@@ -1753,13 +1765,17 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     setUploadType('story');
                     setIsPhotoMode(true);
                   }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'story' && isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
+                    (uploadType === 'story' && isPhotoMode) 
+                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
                 >
                   {t('Story Foto')}
                 </button>
                 <button 
                   onClick={onStartLive}
-                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white/40 hover:text-purple-500"
+                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap text-white/40 hover:text-purple-400 hover:bg-white/5"
                 >
                   {t('Live')}
                 </button>
