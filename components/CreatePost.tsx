@@ -1301,7 +1301,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           media_url: finalMediaUrl,
           media_type: isVideo ? 'video' : 'image',
           expires_at: expiresAt.toISOString(),
-          text_overlay: textOverlay || null
+          text_overlay: textOverlay || null,
+          dubbed_from_id: activeDubbedFromId || null
         });
         if (insertError) throw insertError;
       } else {

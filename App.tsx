@@ -430,7 +430,8 @@ const App: React.FC = () => {
           media_url: finalMediaUrl,
           media_type: isVideo ? 'video' : 'image',
           expires_at: expiresAt.toISOString(),
-          text_overlay: textOverlay || null
+          text_overlay: textOverlay || null,
+          dubbed_from_id: dubbedFromId || null
         });
         if (insertError) throw insertError;
       } else {
@@ -1111,6 +1112,11 @@ const App: React.FC = () => {
             setViewingStoryUserId(null);
             setAllUsersWithStories([]);
           }} 
+          onViewAudio={(audioPostId) => {
+            setViewingStoryUserId(null);
+            setAllUsersWithStories([]);
+            setViewAudioPostId(audioPostId);
+          }}
         />
       )}
 

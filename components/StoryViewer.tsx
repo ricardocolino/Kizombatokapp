@@ -4,7 +4,7 @@ import { User } from '@supabase/supabase-js';
 import Hls from 'hls.js';
 import { supabase } from '../supabaseClient';
 import { Story } from '../types';
-import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp, Music } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
@@ -13,9 +13,10 @@ interface StoryViewerProps {
   allUserIds?: string[];
   onNavigateToUser?: (userId: string) => void;
   onClose: () => void;
+  onViewAudio?: (audioPostId: string) => void;
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserIds = [], onNavigateToUser, onClose }) => {
+const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserIds = [], onNavigateToUser, onClose, onViewAudio }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -133,12 +134,27 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   useEffect(() => {
     const fetchStories = async () => {
       setLoading(true);
-      const { data } = await supabase
+      
+      // Tentar a query ideal com os joins de áudio / dublagem
+      let { data, error } = await supabase
         .from('stories')
-        .select('*, profiles:user_id(*)')
+        .select('*, profiles:user_id(*), dubbed_from:dubbed_from_id(*, profiles!user_id(*))')
         .eq('user_id', userId)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: true });
+        
+      // Se falhar (por exemplo, porque a coluna deve ser criada na base de dados),
+      // fazemos fallback para a query original
+      if (error) {
+        console.warn('Falha na query com joins de áudio. Fazendo fallback:', error);
+        const fallbackRes = await supabase
+          .from('stories')
+          .select('*, profiles:user_id(*)')
+          .eq('user_id', userId)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: true });
+        data = fallbackRes.data;
+      }
       
       if (data && data.length > 0) {
         setStories(data);
@@ -236,9 +252,28 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
                 </div>
               )}
             </div>
-            <span className="text-white text-sm font-black drop-shadow-md">
-              {currentStory.profiles?.name || `@${currentStory.profiles?.username}`}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-white text-sm font-black drop-shadow-md">
+                {currentStory.profiles?.name || `@${currentStory.profiles?.username}`}
+              </span>
+              {currentStory.dubbed_from_id && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onViewAudio) {
+                      onViewAudio(currentStory.dubbed_from_id!);
+                    }
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-purple-300 hover:text-purple-200 transition-colors bg-purple-950/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full border border-purple-500/20 w-fit cursor-pointer pointer-events-auto mt-0.5"
+                >
+                  <Music size={10} className="text-purple-400 shrink-0" />
+                  <span className="max-w-[120px] truncate block font-bold">
+                    {currentStory.dubbed_from?.content || 'Áudio Dublado'}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
           
           {currentStory.media_type === 'video' && (
@@ -298,6 +333,31 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
           <div className="w-1/3 h-full cursor-pointer" onClick={handleNext} />
           <div className="w-1/3 h-full cursor-pointer" onClick={handleNext} />
         </div>
+
+        {/* Floating Audio Disk */}
+        {currentStory.dubbed_from_id && (
+          <div className="absolute right-4 top-[40%] -translate-y-1/2 z-40 flex flex-col items-center gap-1 bg-black/40 backdrop-blur-md p-2 rounded-2xl border border-white/10 pointer-events-auto shadow-2xl">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onViewAudio) {
+                  onViewAudio(currentStory.dubbed_from_id!);
+                }
+              }}
+              className="group relative cursor-pointer flex items-center justify-center"
+              title="Ver detalhes do áudio"
+            >
+              <div className="w-[44px] h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-2xl border-2 border-purple-400 flex items-center justify-center">
+                <Music size={18} className="text-white fill-none group-hover:text-purple-200 transition-colors" />
+              </div>
+              {/* Pulsing indicator */}
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-purple-400 rounded-full border-2 border-purple-600 animate-ping" />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-purple-400 rounded-full border-2 border-purple-600" />
+            </button>
+            <span className="text-[8px] font-black tracking-widest text-purple-300 uppercase mt-1 select-none text-center">Áudio</span>
+          </div>
+        )}
       </div>
 
       {/* Footer / Reactions */}
