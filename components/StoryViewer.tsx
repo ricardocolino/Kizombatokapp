@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import Hls from 'hls.js';
 import { supabase } from '../supabaseClient';
-import { Story } from '../types';
+import { Story, Post } from '../types';
 import { X, ChevronLeft, ChevronRight, Loader2, Volume2, VolumeX, Heart, Flame, Laugh, Smile, ThumbsUp, Music } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
@@ -28,6 +28,48 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   const currentStory = stories[currentIndex];
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Ensure the audio instance is created
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+
+    const audio = audioRef.current;
+
+    // Check if currentStory is image and has dubbed_from
+    if (currentStory && currentStory.media_type === 'image' && currentStory.dubbed_from_id) {
+      const dbFrom = currentStory.dubbed_from;
+      const rawAudioUrl = dbFrom?.mp3_r2_url || dbFrom?.mp3_url || '';
+      if (rawAudioUrl) {
+        const audioUrl = parseMediaUrl(rawAudioUrl);
+        audio.src = audioUrl;
+        audio.muted = isMuted;
+        audio.loop = true;
+        audio.play().catch(err => {
+          console.warn('Auto-play of background audio failed:', err);
+        });
+      } else {
+        audio.pause();
+        audio.src = '';
+      }
+    } else {
+      audio.pause();
+      audio.src = '';
+    }
+
+    return () => {
+      audio.pause();
+    };
+  }, [currentIndex, currentStory, isMuted]);
+
+  // Handle mute update for background audio
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -157,7 +199,25 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
       }
       
       if (data && data.length > 0) {
-        setStories(data);
+        // Fetch dubbed_from for any stories that have dubbed_from_id but don't have dubbed_from relations populated
+        const enrichedStories = await Promise.all((data as Story[]).map(async (story: Story) => {
+          if (story.dubbed_from_id && !story.dubbed_from) {
+            try {
+              const { data: postData } = await supabase
+                .from('posts')
+                .select('*, profiles:user_id(*)')
+                .eq('id', story.dubbed_from_id)
+                .single();
+              if (postData) {
+                return { ...story, dubbed_from: postData as Post };
+              }
+            } catch (err) {
+              console.error('Error fetching dubbed_from for story:', err);
+            }
+          }
+          return story;
+        }));
+        setStories(enrichedStories);
         setCurrentIndex(0);
         setProgress(0);
       } else {
@@ -276,7 +336,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
             </div>
           </div>
           
-          {currentStory.media_type === 'video' && (
+          {(currentStory.media_type === 'video' || currentStory.dubbed_from_id) && (
             <button 
               onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
               className="p-2 text-white/80 hover:text-white transition-colors"
