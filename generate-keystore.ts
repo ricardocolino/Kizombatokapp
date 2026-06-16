@@ -4,8 +4,8 @@ import path from "path";
 
 async function main() {
   const keystoreName = "angochat.keystore";
-  const alias = "angochat-alias";
-  const password = "angochat123";
+  const alias = "931415730Bc.";
+  const password = "931415730Bc.";
   const targetPath = path.join(process.cwd(), keystoreName);
 
   console.log("-----------------------------------------");
@@ -31,7 +31,7 @@ async function main() {
   cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 25);
 
   const attrs = [
-    { name: "commonName", value: "Ricardo Colino" },
+    { name: "commonName", value: "Ricardo chitundo kapa colino" },
     { name: "organizationName", value: "Angochat" },
     { name: "localityName", value: "Luanda" },
     { name: "stateOrProvinceName", value: "Luanda" },
