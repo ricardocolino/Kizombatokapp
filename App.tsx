@@ -15,6 +15,7 @@ import Discovery from './components/Discovery';
 import StoryViewer from './components/StoryViewer';
 import StoryStats from './components/StoryStats';
 import CreatePost from './components/CreatePost';
+import CreateStory from './components/CreateStory';
 import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import AudioDetailsPage from './components/AudioDetailsPage';
@@ -998,6 +999,23 @@ const App: React.FC = () => {
             </div>
           );
         }
+        if (isCreatingStory) {
+          return <CreateStory 
+            onCreated={() => { 
+              setIsCreatingStory(false);
+              setDubbingMp3Url(null);
+              setDubbedFromId(null);
+              setActiveTab(Tab.HOME); 
+            }} 
+            onBackgroundUpload={handleBackgroundUpload}
+            dubbingMp3Url={dubbingMp3Url}
+            dubbedFromId={dubbedFromId}
+            onClearDubbing={() => {
+              setDubbingMp3Url(null);
+              setDubbedFromId(null);
+            }}
+          />;
+        }
         return <CreatePost 
           onCreated={() => { 
             setIsCreatingStory(false);
@@ -1010,7 +1028,7 @@ const App: React.FC = () => {
             setIsHosting(true);
             setActiveLiveId(null);
           }}
-          initialType={isCreatingStory ? 'story' : 'post'}
+          initialType="post"
           dubbingMp3Url={dubbingMp3Url}
           dubbedFromId={dubbedFromId}
           onClearDubbing={() => {
