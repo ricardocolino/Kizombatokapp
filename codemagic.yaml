@@ -37,6 +37,7 @@ workflows:
           npx cap sync android
       - name: Build Android APK & AAB (Release)
         script: |
+          #!/usr/bin/env bash
           cd android
           chmod +x gradlew
           # Run gradle tasks to build release APK and release AAB (App Bundle)
