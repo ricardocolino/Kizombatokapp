@@ -4,6 +4,7 @@ import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -139,6 +140,16 @@ app.get("/api/health", (req, res) => {
     r2Configured: !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME && process.env.R2_ENDPOINT),
     realtimeConfigured: !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_REALTIME_APP_ID)
   });
+});
+
+// Endpoint to download the generated Android Keystore file for Codemagic
+app.get("/api/download-keystore", (req, res) => {
+  const filePath = path.join(process.cwd(), "angochat.keystore");
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, "angochat.keystore");
+  } else {
+    res.status(404).json({ error: "Keystore file not generated or not found." });
+  }
 });
 
 // NOWPayments Integration
