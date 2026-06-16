@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Scissors, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -1744,9 +1744,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     setUploadType('story');
                     setIsPhotoMode(false);
                   }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${uploadType === 'story' ? 'text-white scale-110' : 'text-white/40'}`}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'story' && !isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
                 >
                   {t('Story')}
+                </button>
+                <button 
+                  onClick={() => {
+                    setUploadType('story');
+                    setIsPhotoMode(true);
+                  }}
+                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${(uploadType === 'story' && isPhotoMode) ? 'text-white scale-110' : 'text-white/40'}`}
+                >
+                  {t('Story Foto')}
                 </button>
                 <button 
                   onClick={onStartLive}
