@@ -60,6 +60,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   const videoScrollCountRef = React.useRef<number>(0);
   const lastViewedIndexRef = React.useRef<number | null>(null);
+  const isAdActiveRef = React.useRef<boolean>(false);
 
   const fallbackInAppBrowser = (url: string) => {
     try {
@@ -89,16 +90,27 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
             browserRef!.close();
           } catch (closeErr) {
             console.error(">>> [InAppBrowser] Erro ao fechar janela fallback:", closeErr);
+          } finally {
+            isAdActiveRef.current = false;
           }
         }, 15000);
+      } else {
+        isAdActiveRef.current = false;
       }
     } catch (e) {
       console.error(">>> [InAppBrowser] Erro em todas as tentativas de fallback:", e);
+      isAdActiveRef.current = false;
     }
   };
 
   const triggerAdvertisement = React.useCallback(() => {
+    if (isAdActiveRef.current) {
+      console.log(">>> [InAppBrowser] Chamada de publicidade bloqueada (já existe uma publicidade ativa ou em contagem).");
+      return;
+    }
+
     if (Capacitor.isNativePlatform()) {
+      isAdActiveRef.current = true;
       try {
         const adUrl = 'https://www.effectivecpmnetwork.com/cr9zx6yb?key=403ac45601fac5c99cc670a4ef08aaf1';
         console.log(">>> [InAppBrowser] A inicializar janela em segundo plano (background) com o link de publicidade:", adUrl);
@@ -121,6 +133,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                 browser.close();
               } catch (closeErr) {
                 console.error(">>> [InAppBrowser] Erro ao fechar janela:", closeErr);
+              } finally {
+                isAdActiveRef.current = false;
               }
             }, 15000);
           } catch (innerError) {
@@ -133,6 +147,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         });
       } catch (error) {
         console.error(">>> [InAppBrowser] Erro geral ao inicializar:", error);
+        isAdActiveRef.current = false;
       }
     }
   }, []);
