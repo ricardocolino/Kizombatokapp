@@ -424,31 +424,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
           <div className="w-1/3 h-full cursor-pointer" onClick={handleNext} />
           <div className="w-1/3 h-full cursor-pointer" onClick={handleNext} />
         </div>
-
-        {/* Floating Audio Disk */}
-        {currentStory.dubbed_from_id && (
-          <div className="absolute right-4 top-[40%] -translate-y-1/2 z-40 flex flex-col items-center gap-1 bg-black/40 backdrop-blur-md p-2 rounded-2xl border border-white/10 pointer-events-auto shadow-2xl">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onViewAudio) {
-                  onViewAudio(currentStory.dubbed_from_id!);
-                }
-              }}
-              className="group relative cursor-pointer flex items-center justify-center"
-              title="Ver detalhes do áudio"
-            >
-              <div className="w-[44px] h-[44px] bg-purple-600 rounded-full animate-[spin_8s_linear_infinite] hover:scale-110 active:scale-95 transition-all shadow-2xl border-2 border-purple-400 flex items-center justify-center">
-                <Music size={18} className="text-white fill-none group-hover:text-purple-200 transition-colors" />
-              </div>
-              {/* Pulsing indicator */}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-purple-400 rounded-full border-2 border-purple-600 animate-ping" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-purple-400 rounded-full border-2 border-purple-600" />
-            </button>
-            <span className="text-[8px] font-black tracking-widest text-purple-300 uppercase mt-1 select-none text-center">Áudio</span>
-          </div>
-        )}
       </div>
 
       {/* Footer / Reactions */}
