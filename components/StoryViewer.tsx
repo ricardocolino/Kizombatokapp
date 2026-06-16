@@ -4,7 +4,7 @@ import { User } from '@supabase/supabase-js';
 import Hls from 'hls.js';
 import { supabase } from '../supabaseClient';
 import { Story, Post } from '../types';
-import { X, ChevronLeft, ChevronRight, Loader2, Heart, Flame, Laugh, Smile, ThumbsUp, Music } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Loader2, Heart, Music } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface StoryViewerProps {
@@ -23,12 +23,40 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   const [progress, setProgress] = useState(0);
   const isMuted = false;
   const [viewError, setViewError] = useState<string | null>(null);
+  const [hasLiked, setHasLiked] = useState<boolean>(false);
   const STORY_DURATION = 5000; // 5 seconds per image story
 
   const currentStory = stories[currentIndex];
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const checkLikeStatus = async () => {
+      if (!currentUser || !currentStory) {
+        setHasLiked(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('story_reactions')
+          .select('id')
+          .eq('story_id', currentStory.id)
+          .eq('user_id', currentUser.id);
+        
+        if (!error && data && data.length > 0) {
+          setHasLiked(true);
+        } else {
+          setHasLiked(false);
+        }
+      } catch (err) {
+        console.error('Error checking like status:', err);
+        setHasLiked(false);
+      }
+    };
+
+    checkLikeStatus();
+  }, [currentStory, currentUser]);
 
   useEffect(() => {
     // Ensure the audio instance is created
@@ -145,16 +173,28 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
   const handleReaction = async (type: string) => {
     if (!currentUser || !currentStory) return;
 
-    const { error } = await supabase
-      .from('story_reactions')
-      .insert({
-        story_id: currentStory.id,
-        user_id: currentUser.id,
-        type
-      });
+    if (hasLiked) {
+      const { error } = await supabase
+        .from('story_reactions')
+        .delete()
+        .eq('story_id', currentStory.id)
+        .eq('user_id', currentUser.id);
+      
+      if (!error) {
+        setHasLiked(false);
+      }
+    } else {
+      const { error } = await supabase
+        .from('story_reactions')
+        .insert({
+          story_id: currentStory.id,
+          user_id: currentUser.id,
+          type
+        });
 
-    if (!error) {
-      // Optional: show a small animation or toast
+      if (!error) {
+        setHasLiked(true);
+      }
     }
   };
 
@@ -413,22 +453,19 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserI
 
       {/* Footer / Reactions */}
       {currentUser && currentStory.user_id !== currentUser.id && (
-        <div className="absolute bottom-10 left-0 right-0 px-4 flex justify-center gap-4 z-20">
-          {[
-            { icon: <Heart size={24} className="text-purple-500 fill-purple-500" />, type: '💜' },
-            { icon: <Flame size={24} className="text-orange-500 fill-orange-500" />, type: '🔥' },
-            { icon: <Laugh size={24} className="text-yellow-500" />, type: '😂' },
-            { icon: <Smile size={24} className="text-yellow-500" />, type: '😊' },
-            { icon: <ThumbsUp size={24} className="text-blue-500 fill-blue-500" />, type: '👍' }
-          ].map((reaction, i) => (
-            <button 
-              key={i}
-              onClick={(e) => { e.stopPropagation(); handleReaction(reaction.type); }}
-              className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/10 hover:bg-white/20 hover:scale-110 active:scale-90 transition-all"
-            >
-              {reaction.icon}
-            </button>
-          ))}
+        <div className="absolute bottom-10 left-0 right-0 px-4 flex justify-center z-20">
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleReaction('💜'); }}
+            className={`p-3 bg-white/10 backdrop-blur-md rounded-full border hover:bg-white/20 hover:scale-110 active:scale-90 transition-all cursor-pointer ${
+              hasLiked ? 'border-purple-500' : 'border-white/10'
+            }`}
+          >
+            <Heart 
+              size={24} 
+              className={hasLiked ? 'text-purple-500 fill-purple-500' : 'text-white'} 
+            />
+          </button>
         </div>
       )}
 
