@@ -652,6 +652,93 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Handler para botão físico de voltar no Capacitor (Android)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let handlerPromise: Promise<{ remove: () => void }> | null = null;
+
+    handlerPromise = CapApp.addListener('backButton', () => {
+      console.log('>>> [App.tsx] Botão físico de voltar pressionado.');
+      
+      // 1. Stories Viewer
+      if (viewingStoryUserId) {
+        setViewingStoryUserId(null);
+        setAllUsersWithStories([]);
+        return;
+      }
+      
+      // 2. Story Stats
+      if (viewingStatsUserId) {
+        setViewingStatsUserId(null);
+        return;
+      }
+      
+      // 3. Live Host / Live Viewer
+      if (isHosting) {
+        setIsHosting(false);
+        return;
+      }
+      if (activeLiveId) {
+        setActiveLiveId(null);
+        return;
+      }
+      
+      // 4. Detalhes do Áudio / Música
+      if (viewAudioPostId) {
+        setViewAudioPostId(null);
+        return;
+      }
+
+      // 5. Filtros/postagem em destaque no Feed
+      if (feedFilter || targetPostId) {
+        setFeedFilter(null);
+        setTargetPostId(null);
+        return;
+      }
+
+      // 6. Tabs e Perfis
+      if (activeTab === Tab.PROFILE) {
+        if (viewProfileId) {
+          setViewProfileId(null);
+        } else {
+          setActiveTab(Tab.HOME);
+        }
+        return;
+      }
+
+      if (activeTab !== Tab.HOME) {
+        // Se estiver em outra aba, volta para a HOME
+        setActiveTab(Tab.HOME);
+        return;
+      }
+
+      // Se já estiver na HOME e sem overlays ativos, sai do App
+      console.log('>>> [App.tsx] Sem mais páginas internas para voltar. A sair do aplicativo...');
+      CapApp.exitApp();
+    });
+
+    return () => {
+      if (handlerPromise) {
+        handlerPromise.then(handle => {
+          if (handle && typeof handle.remove === 'function') {
+            handle.remove();
+          }
+        }).catch(() => {});
+      }
+    };
+  }, [
+    viewingStoryUserId,
+    viewingStatsUserId,
+    isHosting,
+    activeLiveId,
+    viewAudioPostId,
+    feedFilter,
+    targetPostId,
+    activeTab,
+    viewProfileId
+  ]);
+
   // Monitora notificações quando o utilizador está logado
   useEffect(() => {
     if (!user) return;
@@ -785,8 +872,43 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (loadingSession) return (
-      <div className="h-full flex items-center justify-center bg-black">
-        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-full w-full fixed inset-0 flex flex-col items-center justify-between bg-black pt-44 pb-12 select-none z-50">
+        {/* Central Logo and App Name */}
+        <div className="flex-1 flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
+          {/* Circular app icon container */}
+          <div className="relative w-28 h-28 mb-3 flex items-center justify-center bg-zinc-900 rounded-[28%] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-purple-900/30">
+            <img 
+              src="/resources/icon.png" 
+              alt="angochat logo" 
+              className="w-24 h-24 object-cover rounded-[25%] transform hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                // Elegante fallback caso o asset não seja servido (exibindo um visual vetorizado roxo com gradiente)
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  const fallback = document.createElement('div');
+                  fallback.className = 'w-24 h-24 flex items-center justify-center bg-gradient-to-tr from-purple-700 to-indigo-900 text-white font-black text-4xl rounded-[25%] tracking-tighter';
+                  fallback.innerText = 'a';
+                  parent.appendChild(fallback);
+                }
+              }}
+            />
+          </div>
+          
+          {/* App Name */}
+          <div className="flex items-center gap-0.5 mt-2">
+            <span className="text-3xl font-extrabold text-white tracking-tighter lowercase">
+              angochat
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-600 ml-0.5 animate-pulse"></span>
+            </span>
+          </div>
+        </div>
+
+        {/* Brand Footer - Inspired by "from Meta" */}
+        <div className="flex flex-col items-center gap-1 opacity-75">
+          <p className="text-[10px] font-medium tracking-[0.25em] text-zinc-500 uppercase leading-none">from</p>
+          <p className="text-sm font-bold tracking-[0.18em] bg-gradient-to-r from-purple-400 via-pink-400 to-purple-500 bg-clip-text text-transparent uppercase mt-1">Vibe de Angola</p>
+        </div>
       </div>
     );
 
