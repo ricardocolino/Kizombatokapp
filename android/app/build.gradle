@@ -18,7 +18,8 @@ android {
     }
     signingConfigs {
         release {
-            def keystoreFile = file('angochat.keystore')
+            def keystorePath = System.getenv("CM_KEYSTORE_PATH")
+            def keystoreFile = keystorePath ? file(keystorePath) : file('angochat.keystore')
             if (keystoreFile.exists()) {
                 storeFile keystoreFile
                 storePassword System.getenv("CM_KEYSTORE_PASSWORD")
@@ -33,7 +34,9 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             crunchPngs false
-            if (file('angochat.keystore').exists()) {
+            def keystorePath = System.getenv("CM_KEYSTORE_PATH")
+            def keystoreFile = keystorePath ? file(keystorePath) : file('angochat.keystore')
+            if (keystoreFile.exists()) {
                 signingConfig signingConfigs.release
             }
         }

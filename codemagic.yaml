@@ -8,6 +8,8 @@ workflows:
       java: 21
       groups:
         - google_play
+      android_signing:
+        - android_keystore
     triggering:
       events:
         - push
