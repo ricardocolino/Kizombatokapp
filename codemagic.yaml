@@ -40,13 +40,24 @@ workflows:
         script: |
           npx cap sync android
 
-      # ❌ REMOVIDO: Decode Keystore (NÃO USAR MAIS)
+      # ❌ SEM KEYSORE BASE64 (REMOVIDO COMPLETAMENTE)
 
-      - name: Build Android Release
+      - name: Build Android Release (safe build)
         script: |
           cd android
+
+          echo "Checking Gradle wrapper..."
+
+          if [ ! -f gradlew ]; then
+            echo "gradlew missing - using system gradle"
+            gradle clean assembleRelease
+            exit 0
+          fi
+
           chmod +x gradlew
-          ./gradlew clean assembleRelease
+
+          echo "Trying build with wrapper..."
+          ./gradlew clean assembleRelease || gradle clean assembleRelease
 
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
