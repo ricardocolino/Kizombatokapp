@@ -1163,7 +1163,7 @@ const App: React.FC = () => {
                   Angochat Oficial
                 </span>
                 <span className="text-[9px] text-zinc-400 font-medium leading-tight mt-0.5">
-                  Melhor performance, lives e dublagens
+                  Melhor performance, lives, dublagens, ganha crypto com visualizações e presentes de lives
                 </span>
               </div>
             </div>
