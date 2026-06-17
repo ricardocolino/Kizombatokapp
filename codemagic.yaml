@@ -35,6 +35,15 @@ workflows:
       - name: Sync Capacitor
         script: |
           npx cap sync android
+      - name: Decode Keystore
+        script: |
+          if [ ! -z "$CM_KEYSTORE" ]; then
+            echo "Decoding Keystore..."
+            echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.keystore
+            echo "export CM_KEYSTORE_PATH=/tmp/keystore.keystore" >> $FCI_ENV
+          else
+            echo "CM_KEYSTORE variable not found, skipping decoding."
+          fi
       - name: Build Android APK
         script: |
           cd android
