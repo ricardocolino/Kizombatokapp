@@ -61,7 +61,6 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
-      - android/app/build/outputs/aab/**/*.aab
 
     publishing:
       email:
