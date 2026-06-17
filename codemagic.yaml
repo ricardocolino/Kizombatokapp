@@ -28,42 +28,6 @@ workflows:
       - name: Build web app
         script: |
           npm run build
-      - name: Generate Assets
-        script: |
-          mkdir -p resources
-          cat << 'EOF' > fix-resource-icon.cjs
-          const fs = require('fs');
-          const path = require('path');
-          const iconPath = 'resources/icon.png';
-          if (!fs.existsSync(iconPath) || fs.statSync(iconPath).size < 10000) {
-            console.log('Detected missing or corrupt resources/icon.png. Auto-generating a premium pristine 1024x1024 template...');
-            const Jimp = require('jimp');
-            new Jimp(1024, 1024, 0x13111AFF, (err, image) => {
-              if (err) throw err;
-              const cx = 512, cy = 512, radius = 450;
-              for (let y = -radius; y <= radius; y++) {
-                for (let x = -radius; x <= radius; x++) {
-                  if (x*x + y*y <= radius*radius) {
-                    const factor = (x + y + radius*2) / (radius*4);
-                    const r = Math.round(124 * (1 - factor) + 76 * factor);
-                    const g = Math.round(58 * (1 - factor) + 29 * factor);
-                    const b = Math.round(237 * (1 - factor) + 149 * factor);
-                    image.setPixelColor((r << 24) | (g << 16) | (b << 8) | 255, cx + x, cy + y);
-                  }
-                }
-              }
-              Jimp.loadFont(Jimp.FONT_SANS_128_WHITE).then(font => {
-                image.print(font, cx - Math.round(Jimp.measureText(font, 'a')/2), cy - 70, 'a');
-                image.write(iconPath, () => console.log('✓ Pristine resource icon created successfully.'));
-              });
-            });
-          } else {
-            console.log('Valid local resources/icon.png found.');
-          }
-          EOF
-          node fix-resource-icon.cjs
-          rm fix-resource-icon.cjs
-          npm run generate-assets
       - name: Sync Capacitor
         script: |
           npx cap sync android
