@@ -39,8 +39,7 @@ workflows:
         script: |
           if [ ! -z "$CM_KEYSTORE" ]; then
             echo "Decoding Keystore..."
-            echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.keystore
-            echo "export CM_KEYSTORE_PATH=/tmp/keystore.keystore" >> $FCI_ENV
+            echo $CM_KEYSTORE | base64 --decode > android/app/angochat.keystore
           else
             echo "CM_KEYSTORE variable not found, skipping decoding."
           fi
