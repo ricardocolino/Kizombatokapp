@@ -28,22 +28,19 @@ workflows:
       - name: Build web app
         script: |
           npm run build
+      - name: Generate Assets
+        script: |
+          # Só gera se houver mudanças ou se não existirem
+          npm run generate-assets
       - name: Sync Capacitor
         script: |
           npx cap sync android
-      - name: Build Android APK & AAB (Release)
+      - name: Build Android APK
         script: |
-          #!/usr/bin/env bash
           cd android
-          # Safety check: download a pristine, official gradle-wrapper.jar from Gradle's repository before execution
-          curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradle/wrapper/gradle-wrapper.jar
-          chmod +x gradlew
-          # Run gradle tasks to build release APK and release AAB (App Bundle)
-          ./gradlew assembleRelease
-          ./gradlew bundleRelease
+          gradle assembleDebug
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
-      - android/app/build/outputs/bundle/**/*.aab
     publishing:
       email:
         recipients:
