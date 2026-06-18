@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X, AlertCircle, Download, ExternalLink } from 'lucide-react';
 import { Post, FeedFilter } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
@@ -57,6 +57,59 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [iframeUrl, setIframeUrl] = useState('');
   const [iframeLoading, setIframeLoading] = useState(true);
   const [showGameIntro, setShowGameIntro] = useState(false);
+
+  const [showAppPromoReels, setShowAppPromoReels] = useState(() => {
+    return !sessionStorage.getItem('angochat_reels_promo_shown');
+  });
+  const [checkingAppPromo, setCheckingAppPromo] = useState(false);
+  const [appLaunchPromoFailed, setAppLaunchPromoFailed] = useState(false);
+
+  const handleOpenAppPromo = () => {
+    setCheckingAppPromo(true);
+    setAppLaunchPromoFailed(false);
+
+    const start = Date.now();
+    let appOpened = false;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        appOpened = true;
+        setCheckingAppPromo(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('pagehide', handleVisibilityChange);
+
+    const appScheme = 'com.kizombatok.angolavibe://open';
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      window.location.href = 'intent://open#Intent;scheme=com.kizombatok.angolavibe;package=com.kizombatok.angolavibe;end';
+    } else {
+      window.location.href = appScheme;
+    }
+
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pagehide', handleVisibilityChange);
+
+      if (!appOpened && (Date.now() - start < 3200)) {
+        setCheckingAppPromo(false);
+        setAppLaunchPromoFailed(true);
+      }
+    }, 2200);
+  };
+
+  const handleDownloadAPKPromo = () => {
+    alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
+    const link = document.createElement('a');
+    link.href = '/angochat.apk';
+    link.download = 'angochat.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const videoScrollCountRef = React.useRef<number>(0);
   const lastViewedIndexRef = React.useRef<number | null>(null);
@@ -872,6 +925,102 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               allow="payment; camera; microphone; geolocation; clipboard-read; clipboard-write"
               sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-top-navigation allow-top-navigation-by-user-activation"
             />
+          </div>
+        </div>
+      )}
+
+      {/* App Promo Reels Modal Overlay */}
+      {showAppPromoReels && (
+        <div className="fixed inset-0 z-[300] bg-black/85 backdrop-blur-[6px] flex items-center justify-center p-4">
+          <div className="relative bg-zinc-950 border border-zinc-800 w-full max-w-sm rounded-[32px] p-6 flex flex-col shadow-[0_0_50px_rgba(168,85,247,0.15)] animate-in fade-in zoom-in-95 duration-300 text-white">
+            
+            {/* Logo area */}
+            <div className="flex items-center justify-center gap-1.5 mb-5">
+              <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center font-black text-white text-sm shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+                A
+              </div>
+              <span className="text-sm font-extrabold text-white tracking-tighter lowercase">
+                angochat
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-600 ml-0.5 animate-pulse"></span>
+              </span>
+            </div>
+
+            <h3 className="text-xl font-black text-white tracking-tight text-center mb-1">
+              {t('Abre na Aplicação', 'Abrir na App Angochat?')}
+            </h3>
+
+            {/* Added: "O melhor lugar para ganhar USDT!" */}
+            <div className="bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border border-purple-500/20 rounded-2xl py-2 px-4 mb-4 text-center">
+              <span className="text-xs font-black uppercase text-purple-400 tracking-wider">
+                💰 {t('Best USDT Spot', 'O melhor lugar para ganhar USDT!')}
+              </span>
+            </div>
+
+            <p className="text-zinc-400 text-xs text-center leading-relaxed mb-6 px-1">
+              {t('App Promo Subtext', 'Para a melhor experiência com transmissões ao vivo estáveis, maior qualidade de reels e carregamentos rápidos, abre a nossa App oficial.')}
+            </p>
+
+            {/* Verification Alert / Failure Dialog */}
+            {appLaunchPromoFailed && (
+              <div className="w-full bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 text-left text-xs mb-5 flex flex-col gap-2 shadow-inner">
+                <div className="flex items-start gap-2 text-zinc-300 font-bold">
+                  <AlertCircle size={15} className="text-purple-500 shrink-0 mt-0.5" />
+                  <span>{t('App Not Opened', 'Aplicação não detectada')}</span>
+                </div>
+                <p className="text-zinc-500 leading-normal pl-5">
+                  {t('App Manual Download Info', 'Não conseguimos abrir o Angochat automaticamente. É provável que ainda não tenhas a App instalada no teu telemóvel.')}
+                </p>
+                <button
+                  onClick={handleDownloadAPKPromo}
+                  className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl text-center flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all text-[11px] uppercase tracking-wider cursor-pointer"
+                >
+                  <Download size={13} />
+                  {t('Download Official APK', 'Descarregar APK de Instalação')}
+                </button>
+              </div>
+            )}
+
+            {/* Main CTA Trigger Buttons */}
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={checkingAppPromo}
+                onClick={handleOpenAppPromo}
+                className="w-full bg-white text-black font-black py-4 px-4 rounded-full text-xs uppercase tracking-widest hover:bg-zinc-100 active:scale-[0.98] flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {checkingAppPromo ? (
+                  <>
+                    <Loader2 className="animate-spin text-purple-600" size={16} />
+                    <span>A iniciar a App...</span>
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink size={16} />
+                    <span>{t('Open Application', 'Abrir na App')}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadAPKPromo}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-black py-3.5 px-4 rounded-full text-xs uppercase tracking-widest active:scale-[0.98] flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Download size={15} />
+                <span>{t('Download APK', 'Baixar APK')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.setItem('angochat_reels_promo_shown', 'true');
+                  setShowAppPromoReels(false);
+                }}
+                className="w-full text-zinc-500 hover:text-white transition-colors duration-150 py-2.5 text-xs font-black uppercase tracking-widest cursor-pointer"
+              >
+                {t('Continue in Browser', 'Continuar no navegador')}
+              </button>
+            </div>
           </div>
         </div>
       )}
