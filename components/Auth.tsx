@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { Loader2, Mail, Smartphone, Download } from 'lucide-react';
+import { Loader2, Mail, Smartphone, Download, Play, Flame, Coins, Compass, Sparkles } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 
@@ -260,53 +260,145 @@ const Auth: React.FC = () => {
 
   if (showWebPrompt) {
     return (
-      <div className="h-full w-full bg-black flex flex-col items-center justify-center p-6 sm:p-8">
-        <div className="w-full max-w-[360px] flex flex-col items-center text-center">
-          <div className="mb-8">
-            <span className="text-2xl font-extrabold text-white tracking-tighter lowercase">angochat<span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-600"></span></span>
-          </div>
-          
-          <h2 className="text-2xl font-bold text-white tracking-tight leading-snug mb-4">
-            Abrir na App Angochat?
-          </h2>
-          
-          <p className="text-sm text-zinc-400 font-medium leading-relaxed mb-8">
-            Para a melhor experiência com transmissões ao vivo estáveis, maior qualidade de reels e carregamentos rápidos, abre a nossa App oficial.
-          </p>
-          
-          <div className="w-full space-y-3 mb-8">
-            <button
-              onClick={handleOpenAppWeb}
-              className="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-full font-bold text-base transition-all active:scale-[0.98] shadow-lg shadow-purple-600/25"
-            >
-              Abrir na App
-            </button>
+      <div className="min-h-screen w-full bg-black text-white selection:bg-purple-600 selection:text-white overflow-y-auto flex flex-col justify-between font-sans relative pb-12">
+        {/* Abstract backdrops for elegant glowing effects */}
+        <div className="absolute top-0 left-1/4 w-[350px] h-[350px] bg-purple-950/20 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-indigo-950/20 rounded-full blur-[120px] pointer-events-none" />
 
-            <a
-              href="/angochat.apk"
-              download="angochat.apk"
-              className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white py-4 rounded-full font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
-            >
-              <Download size={18} />
-              Baixar APK
-            </a>
-            
-            <button
-              onClick={() => {
-                setShowWebPrompt(false);
-                window.dispatchEvent(new CustomEvent('navigate-to-home'));
-              }}
-              className="w-full bg-black hover:bg-zinc-950 text-zinc-400 hover:text-white py-3.5 rounded-full font-semibold text-base border border-zinc-800 transition-all active:scale-[0.98]"
-            >
-              Continuar no navegador
-            </button>
+        {/* Global Nav Bar */}
+        <header className="w-full max-w-6xl mx-auto px-6 py-5 flex items-center justify-between border-b border-zinc-900/60 relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-black text-white text-base shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+              A
+            </div>
+            <span className="text-xl font-black text-white tracking-tighter lowercase">
+              angochat
+              <span className="inline-block w-2 h-2 rounded-full bg-purple-500 ml-0.5 animate-pulse"></span>
+            </span>
           </div>
           
-          <div className="text-[11px] font-mono text-zinc-600 uppercase tracking-widest bg-zinc-950/50 py-1.5 px-3 rounded-full border border-zinc-900 leading-none">
-            ID: com.kizombatok.angolavibe
+          <div className="hidden md:flex items-center gap-6">
+            <span className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer">{t('Feeds', 'Reels')}</span>
+            <span className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer">{t('Lives', 'Transmissões')}</span>
+            <span className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors duration-200 cursor-pointer">{t('SocialFi', 'Ganha Moedas')}</span>
           </div>
-        </div>
+
+          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-zinc-900/50 py-1.5 px-3 rounded-full border border-zinc-800">
+            v1.2.0
+          </div>
+        </header>
+
+        {/* Main Hero & Content Section */}
+        <main className="w-full max-w-6xl mx-auto px-6 py-12 md:py-20 grid md:grid-cols-2 gap-12 md:gap-16 items-center relative z-10 flex-grow">
+          {/* Left Hero Column */}
+          <div className="flex flex-col items-start text-left">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-purple-950/40 border border-purple-500/20 text-purple-300 rounded-full text-xs font-bold mb-6 tracking-wide shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>{t('App Promo Headline Badge', 'Angola Hub Social & Vibe')}</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.1] mb-6">
+              Sente a Vibe da <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">Nossa Banda</span>
+            </h1>
+
+            <p className="text-zinc-400 text-sm sm:text-base leading-relaxed mb-8 max-w-lg">
+              {t('App Promo Hero Desc', 'O Angochat é a tua rede social dedicada para desfrutares de Reels fantásticos, lives estáveis sem quebras e o melhor sistema de Social-Fi. Conecta-te, partilha o teu talento e recebe apoio direto com total segurança.')}
+            </p>
+
+            {/* Premium CTA Panel */}
+            <div className="w-full max-w-md bg-zinc-950/60 border border-zinc-800 p-6 rounded-[28px] shadow-2xl shadow-purple-950/10 backdrop-blur-md space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={handleOpenAppWeb}
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 px-5 rounded-full font-bold text-sm tracking-wide transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                >
+                  <Sparkles size={15} />
+                  {t('Open App Action', 'Abrir na App')}
+                </button>
+
+                <a
+                  href="/angochat.apk"
+                  download="angochat.apk"
+                  onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
+                  className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-100 py-4 px-5 rounded-full font-bold text-sm tracking-wide transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Download size={15} />
+                  {t('Download App Action', 'Baixar APK')}
+                </a>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-900">
+                <button
+                  onClick={() => {
+                    setShowWebPrompt(false);
+                    window.dispatchEvent(new CustomEvent('navigate-to-home'));
+                  }}
+                  className="w-full bg-zinc-950/80 hover:bg-zinc-900 text-zinc-400 hover:text-white py-3 px-5 rounded-full font-semibold text-xs border border-zinc-800/80 hover:border-zinc-700 transition-all tracking-widest uppercase flex items-center justify-center gap-2"
+                >
+                  <Compass size={14} />
+                  {t('Continue in Web Action', 'Continuar no Navegador')}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center gap-3">
+              <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest bg-zinc-950 border border-zinc-900 py-1.5 px-3 rounded-full">
+                ID: com.kizombatok.angolavibe
+              </div>
+            </div>
+          </div>
+
+          {/* Right Bento Grid Column */}
+          <div className="grid grid-cols-2 gap-4">
+            
+            {/* Feature Bento Card 1 */}
+            <div className="col-span-2 bg-gradient-to-br from-zinc-950 to-zinc-900 border border-zinc-800/85 rounded-3xl p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all duration-300"></div>
+              <div className="w-10 h-10 rounded-2xl bg-purple-900/50 border border-purple-800/30 flex items-center justify-center mb-4 text-purple-400">
+                <Play size={18} />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">{t('Reels Feature Title', 'Reels e Vídeos Estáveis')}</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                {t('Reels Feature Desc', 'Assiste e partilha momentos com a melhor resposta, transições fluidas e upload rápido diretamente da galeria.')}
+              </p>
+            </div>
+
+            {/* Feature Bento Card 2 */}
+            <div className="bg-gradient-to-br from-zinc-950 to-zinc-900 border border-zinc-800/85 rounded-3xl p-5 relative overflow-hidden group">
+              <div className="w-9 h-9 rounded-xl bg-orange-950/50 border border-orange-900/30 flex items-center justify-center mb-3.5 text-orange-400">
+                <Flame size={16} />
+              </div>
+              <h3 className="text-sm font-bold text-white mb-1">{t('Lives Feature Title', 'Transmissões')}</h3>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                {t('Lives Feature Desc', 'Vê lives incríveis em tempo real com áudio sem latência.')}
+              </p>
+            </div>
+
+            {/* Feature Bento Card 3 */}
+            <div className="bg-gradient-to-br from-zinc-950 to-zinc-900 border border-zinc-800/85 rounded-3xl p-5 relative overflow-hidden group">
+              <div className="w-9 h-9 rounded-xl bg-emerald-950/50 border border-emerald-900/30 flex items-center justify-center mb-3.5 text-emerald-400">
+                <Coins size={16} />
+              </div>
+              <h3 className="text-sm font-bold text-white mb-1">{t('Gifts Feature Title', 'Social-Fi & USDT')}</h3>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                {t('Gifts Feature Desc', 'Envia presentes, acumula moedas e levanta recompensas.')}
+              </p>
+            </div>
+
+          </div>
+        </main>
+
+        {/* Beautiful Simple Footer */}
+        <footer className="w-full max-w-6xl mx-auto px-6 pt-6 border-t border-zinc-900/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 relative z-10">
+          <div>
+            &copy; 2026 Angochat. Todos os direitos reservados.
+          </div>
+          <div className="flex gap-4">
+            <span className="hover:text-zinc-400 transition-colors cursor-pointer">Termos de Serviço</span>
+            <span>&bull;</span>
+            <span className="hover:text-zinc-400 transition-colors cursor-pointer">Privacidade</span>
+          </div>
+        </footer>
       </div>
     );
   }

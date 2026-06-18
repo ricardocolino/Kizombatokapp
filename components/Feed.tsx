@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Capacitor } from '@capacitor/core';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X, AlertCircle, Download, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, Gamepad2, Loader2, X } from 'lucide-react';
 import { Post, FeedFilter } from '../types';
 import PostCard from './PostCard';
 import { appCache } from '../services/cache';
