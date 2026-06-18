@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Plus } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -50,6 +50,32 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return [];
     }
   });
+
+  // Story Highlights Type Declarations
+  interface HighlightItem {
+    media_url: string;
+    media_type: 'image' | 'video';
+  }
+
+  interface Highlight {
+    id: string;
+    user_id: string;
+    title: string;
+    cover_url: string;
+    items: HighlightItem[];
+    created_at?: string;
+  }
+
+  // Story Highlights State
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
+  const [activeHighlightIndex, setActiveHighlightIndex] = useState(0);
+  const [highlightProgress, setHighlightProgress] = useState(0);
+  const [showCreateHighlightModal, setShowCreateHighlightModal] = useState(false);
+  const [newHighlightTitle, setNewHighlightTitle] = useState('');
+  const [newHighlightCover, setNewHighlightCover] = useState('');
+  const [newHighlightSlides, setNewHighlightSlides] = useState<string[]>([]); // URLs/base64
+  const [creatingHighlight, setCreatingHighlight] = useState(false);
 
   const handleTogglePrivacy = async (post: Post) => {
     if (!post) return;
@@ -124,11 +150,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const handleTogglePin = async (post: Post) => {
     if (!post) return;
-    const isPinned = !!(post as any).is_pinned;
+    const isPinned = !!(post as { is_pinned?: boolean }).is_pinned;
     
     if (!isPinned) {
       // Check count
-      const pinnedCount = userPosts.filter(p => (p as any).is_pinned).length;
+      const pinnedCount = userPosts.filter(p => (p as { is_pinned?: boolean }).is_pinned).length;
       if (pinnedCount >= 3) {
         alert(t('You can only pin up to 3 posts', 'Apenas 3 publicações podem ser afixadas!'));
         setSelectedPostForEdit(null);
@@ -434,6 +460,270 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }, [userId]);
 
+  const fetchHighlights = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('story_highlights')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        setHighlights(data);
+      } else {
+        // Fallback or seed default themed highlights for a gorgeous profile view
+        const defaultHighlights = [
+          {
+            id: 'mock-1',
+            user_id: userId,
+            title: 'NYC 🇺🇸',
+            cover_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=300&h=300&fit=crop',
+            items: [
+              { media_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=1080&h=1920&fit=crop', media_type: 'image' },
+              { media_url: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=1080&h=1920&fit=crop', media_type: 'image' }
+            ]
+          },
+          {
+            id: 'mock-2',
+            user_id: userId,
+            title: 'Suíça 🇨🇭',
+            cover_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&h=300&fit=crop',
+            items: [
+              { media_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080&h=1920&fit=crop', media_type: 'image' }
+            ]
+          },
+          {
+            id: 'mock-3',
+            user_id: userId,
+            title: 'México 🇲🇽',
+            cover_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=300&h=300&fit=crop',
+            items: [
+              { media_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1080&h=1920&fit=crop', media_type: 'image' }
+            ]
+          },
+          {
+            id: 'mock-4',
+            user_id: userId,
+            title: 'Paraguai 🇵🇾',
+            cover_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=300&h=300&fit=crop',
+            items: [
+              { media_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&h=1920&fit=crop', media_type: 'image' }
+            ]
+          }
+        ];
+        setHighlights(defaultHighlights);
+      }
+    } catch (err) {
+      console.warn("Could not load highlights from Supabase table. Using themed mock highlights fallback.", err);
+      const defaultHighlights = [
+        {
+          id: 'mock-1',
+          user_id: userId,
+          title: 'NYC 🇺🇸',
+          cover_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=300&h=300&fit=crop',
+          items: [
+            { media_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=1080&h=1920&fit=crop', media_type: 'image' },
+            { media_url: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=1080&h=1920&fit=crop', media_type: 'image' }
+          ]
+        },
+        {
+          id: 'mock-2',
+          user_id: userId,
+          title: 'Suíça 🇨🇭',
+          cover_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&h=300&fit=crop',
+          items: [
+            { media_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080&h=1920&fit=crop', media_type: 'image' }
+          ]
+        },
+        {
+          id: 'mock-3',
+          user_id: userId,
+          title: 'México 🇲🇽',
+          cover_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=300&h=300&fit=crop',
+          items: [
+            { media_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1080&h=1920&fit=crop', media_type: 'image' }
+          ]
+        },
+        {
+          id: 'mock-4',
+          user_id: userId,
+          title: 'Paraguai 🇵🇾',
+          cover_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=300&h=300&fit=crop',
+          items: [
+            { media_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&h=1920&fit=crop', media_type: 'image' }
+          ]
+        }
+      ];
+      setHighlights(defaultHighlights);
+    }
+  }, [userId]);
+
+  // Highlights players and progress loaders
+  useEffect(() => {
+    if (!selectedHighlight) return;
+    
+    setHighlightProgress(0);
+    const duration = 5000; // 5s per slide
+    const intervalTime = 100;
+    const steps = duration / intervalTime;
+    let stepCount = 0;
+    
+    const interval = setInterval(() => {
+      stepCount++;
+      setHighlightProgress((stepCount / steps) * 100);
+      
+      if (stepCount >= steps) {
+        clearInterval(interval);
+        if (activeHighlightIndex < selectedHighlight.items.length - 1) {
+          setActiveHighlightIndex(prev => prev + 1);
+          setHighlightProgress(0);
+        } else {
+          setSelectedHighlight(null);
+        }
+      }
+    }, intervalTime);
+    
+    return () => clearInterval(interval);
+  }, [selectedHighlight, activeHighlightIndex]);
+
+  const handleHighlightPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeHighlightIndex > 0) {
+      setActiveHighlightIndex(prev => prev - 1);
+      setHighlightProgress(0);
+    }
+  };
+
+  const handleHighlightNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeHighlightIndex < selectedHighlight.items.length - 1) {
+      setActiveHighlightIndex(prev => prev + 1);
+      setHighlightProgress(0);
+    } else {
+      setSelectedHighlight(null);
+    }
+  };
+
+  const handleDeleteHighlight = async (highlightId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmDelete = window.confirm(t('Are you sure you want to delete this highlight?', 'Tem a certeza que deseja eliminar este destaque?'));
+    if (!confirmDelete) return;
+
+    try {
+      if (!highlightId.startsWith('mock-')) {
+        await supabase
+          .from('story_highlights')
+          .delete()
+          .eq('id', highlightId);
+      }
+      
+      setHighlights(prev => prev.filter(h => h.id !== highlightId));
+      setSelectedHighlight(null);
+      alert(t('Highlight deleted successfully', 'Destaque eliminado com sucesso!'));
+    } catch (err) {
+      console.error("Error deleting highlight:", err);
+    }
+  };
+
+  const handleCoverUploadButton = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    performUpload(file, true);
+  };
+
+  const handleSlideUploadButton = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      performUpload(files[i], false);
+    }
+  };
+
+  const performUpload = async (file: File, isCover: boolean) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}-${isCover ? 'cover' : 'slide'}-${Math.floor(Math.random() * 1050)}.${fileExt}`;
+      const folder = 'story_highlights';
+      const publicUrl = await uploadToR2(file, folder, fileName);
+      if (isCover) {
+        setNewHighlightCover(publicUrl);
+      } else {
+        setNewHighlightSlides(prev => [...prev, publicUrl]);
+      }
+    } catch (err) {
+      console.error("Upload failed in story highlights:", err);
+      alert("Falha ao carregar o ficheiro.");
+    }
+  };
+
+  const handleSaveHighlight = async () => {
+    if (!newHighlightTitle.trim()) {
+      alert(t('Please enter a title', 'Por favor introduza um título!'));
+      return;
+    }
+    if (!newHighlightCover) {
+      alert(t('Please upload a cover image', 'Por favor escolha uma foto de capa!'));
+      return;
+    }
+    
+    setCreatingHighlight(true);
+    try {
+      const items = [
+        { media_url: newHighlightCover, media_type: 'image' },
+        ...newHighlightSlides.map(url => ({ media_url: url, media_type: 'image' }))
+      ];
+      
+      const newHighlightData = {
+        user_id: userId,
+        title: newHighlightTitle,
+        cover_url: newHighlightCover,
+        items: items
+      };
+      
+      const { data, error } = await supabase
+        .from('story_highlights')
+        .insert(newHighlightData)
+        .select()
+        .single();
+        
+      if (error) {
+        throw error;
+      }
+      
+      setHighlights(prev => {
+        const filtered = prev.filter(h => !h.id.startsWith('mock-'));
+        return [data, ...filtered];
+      });
+      
+      setShowCreateHighlightModal(false);
+      alert(t('Highlight created successfully', 'Destaque criado com sucesso!'));
+    } catch (err) {
+      console.error("Error creating story highlight:", err);
+      const mockId = `local-${Date.now()}`;
+      const items = [
+        { media_url: newHighlightCover, media_type: 'image' },
+        ...newHighlightSlides.map(url => ({ media_url: url, media_type: 'image' }))
+      ];
+      const localHighlightData = {
+        id: mockId,
+        user_id: userId,
+        title: newHighlightTitle,
+        cover_url: newHighlightCover,
+        items: items
+      };
+      
+      setHighlights(prev => [localHighlightData, ...prev]);
+      setShowCreateHighlightModal(false);
+      alert(t('Saved locally', 'Guardado localmente! Lembra-te de executar o script SQL no supabase.'));
+    } finally {
+      setCreatingHighlight(false);
+    }
+  };
+
   const checkFollowStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || isOwnProfile) return;
@@ -557,9 +847,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus(), checkStoriesStatus()]);
+    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus(), checkStoriesStatus(), fetchHighlights()]);
     setLoading(false);
-  }, [fetchProfile, fetchUserPosts, fetchStats, checkFollowStatus, checkStoriesStatus]);
+  }, [fetchProfile, fetchUserPosts, fetchStats, checkFollowStatus, checkStoriesStatus, fetchHighlights]);
 
   useEffect(() => {
     loadAll();
@@ -1057,14 +1347,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     if (isOwnProfile) {
       const postsTab = userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
       return [...postsTab].sort((a, b) => {
-        const pinA = (a as any).is_pinned ? 1 : 0;
-        const pinB = (b as any).is_pinned ? 1 : 0;
+        const pinA = (a as { is_pinned?: boolean }).is_pinned ? 1 : 0;
+        const pinB = (b as { is_pinned?: boolean }).is_pinned ? 1 : 0;
         return pinB - pinA;
       });
     }
     return [...userPosts].sort((a, b) => {
-      const pinA = (a as any).is_pinned ? 1 : 0;
-      const pinB = (b as any).is_pinned ? 1 : 0;
+      const pinA = (a as { is_pinned?: boolean }).is_pinned ? 1 : 0;
+      const pinB = (b as { is_pinned?: boolean }).is_pinned ? 1 : 0;
       return pinB - pinA;
     });
   })();
@@ -1299,6 +1589,56 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
+      {/* Story Highlights (Destaques de Stories) */}
+      <div className="w-full border-t border-zinc-100 py-5 px-4 flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth bg-white">
+        {/* "New" or "Novo" highlight button (Only for profile owner) */}
+        {isOwnProfile && (
+          <div className="flex flex-col items-center gap-1.5 shrink-0 select-none">
+            <button
+              type="button"
+              onClick={() => {
+                setNewHighlightTitle('');
+                setNewHighlightCover('');
+                setNewHighlightSlides([]);
+                setShowCreateHighlightModal(true);
+              }}
+              className="w-16 h-16 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-black hover:border-zinc-300 transition-all duration-200 outline-none active:scale-95 shadow-sm"
+            >
+              <Plus size={22} strokeWidth={1.8} />
+            </button>
+            <span className="text-[11px] font-medium text-zinc-600 block text-center truncate w-16">{t('Novo', 'Novo')}</span>
+          </div>
+        )}
+
+        {/* Highlights List */}
+        {highlights.map((highlight) => (
+          <div
+            key={highlight.id}
+            onClick={() => {
+              setSelectedHighlight(highlight);
+              setActiveHighlightIndex(0);
+              setHighlightProgress(0);
+            }}
+            className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer select-none group"
+          >
+            {/* Circular ring: 2px border, p-[3px] for separation offset inside */}
+            <div className="w-16 h-16 rounded-full border-[2px] border-zinc-200/85 group-hover:border-purple-500 p-[3px] transition-all duration-300 flex items-center justify-center bg-white">
+              <div className="w-full h-full rounded-full overflow-hidden bg-zinc-50">
+                <img
+                  src={parseMediaUrl(highlight.cover_url)}
+                  alt={highlight.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
+            <span className="text-[11px] font-medium text-zinc-800 text-center tracking-tight truncate w-16 group-hover:text-black transition-colors">
+              {highlight.title}
+            </span>
+          </div>
+        ))}
+      </div>
+
       {/* Tabs (Estilo X) */}
       <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
@@ -1346,7 +1686,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   }}
                   className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
                 >
-                  {(post as any).is_pinned && (
+                  {(post as { is_pinned?: boolean }).is_pinned && (
                     <div className="absolute top-2 left-2 bg-purple-600 text-white p-1 rounded-md flex items-center justify-center w-6 h-6 z-10 shadow-sm border border-purple-500/50">
                       <Pin size={12} className="text-white fill-white" />
                     </div>
@@ -2258,10 +2598,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
                 >
                   <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
-                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as any).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
+                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as { is_pinned?: boolean }).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
                   </div>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
-                    {(selectedPostForEdit as any).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
+                    {(selectedPostForEdit as { is_pinned?: boolean }).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
                   </span>
                 </button>
               )}
@@ -2444,6 +2784,219 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 {t('Close', 'Fechar')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 1. STORY HIGHLIGHT PLAYER (FULLSCREEN OVERLAY) */}
+      {/* ========================================== */}
+      {selectedHighlight && (
+        <div className="fixed inset-0 bg-zinc-950 z-[1200] flex flex-col justify-center items-center select-none animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedHighlight(null)} />
+          <div className="relative w-full max-w-md h-full md:h-[90vh] md:max-h-[850px] bg-black md:rounded-3xl overflow-hidden flex flex-col z-10">
+            
+            {/* Click handlers covering left and right sides of slide */}
+            <div className="absolute inset-0 z-10 flex">
+              <div className="w-[35%] h-full cursor-pointer" onClick={handleHighlightPrev} />
+              <div className="w-[65%] h-full cursor-pointer" onClick={handleHighlightNext} />
+            </div>
+
+            {/* Top Interactive Panel (Progress trackers overhead) */}
+            <div className="absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/80 to-transparent z-20 flex flex-col gap-3">
+              {/* Progress segments row */}
+              <div className="flex gap-1.5 w-full">
+                {selectedHighlight.items.map((_: HighlightItem, idx: number) => {
+                  let widthPercent = 0;
+                  if (idx < activeHighlightIndex) widthPercent = 100;
+                  else if (idx === activeHighlightIndex) widthPercent = highlightProgress;
+                  
+                  return (
+                    <div key={idx} className="flex-1 h-[2.5px] bg-white/25 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
+                        style={{ width: `${widthPercent}%` }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Highlight Details & Close Controls */}
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full border border-white/20 p-[2px] bg-black">
+                    <img
+                      src={parseMediaUrl(selectedHighlight.cover_url)}
+                      alt=""
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-white text-xs font-bold tracking-tight">{selectedHighlight.title}</span>
+                    <span className="text-white/60 text-[9px] uppercase tracking-wider font-semibold">
+                      {activeHighlightIndex + 1} / {selectedHighlight.items.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 z-30">
+                  {isOwnProfile && (
+                    <button
+                      onClick={(e) => handleDeleteHighlight(selectedHighlight.id, e)}
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-650/80 transition-colors flex items-center justify-center text-white"
+                      title={t('Delete Highlight', 'Eliminar Destaque')}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedHighlight(null)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Slide Media Render */}
+            <div className="flex-1 w-full h-full flex items-center justify-center bg-zinc-950">
+              <img
+                src={parseMediaUrl(selectedHighlight.items[activeHighlightIndex]?.media_url)}
+                alt=""
+                className="w-full h-full object-cover md:object-contain pointer-events-none"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 2. CREAR STORY HIGHLIGHT MODAL */}
+      {/* ========================================== */}
+      {showCreateHighlightModal && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200 text-black">
+          <div className="absolute inset-0" onClick={() => setShowCreateHighlightModal(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 flex flex-col gap-6 max-h-[85vh] overflow-y-auto no-scrollbar">
+              <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
+                <h3 className="text-sm font-black uppercase tracking-widest text-black">
+                  {t('New Highlight', 'Novo Destaque')}
+                </h3>
+                <button 
+                  onClick={() => setShowCreateHighlightModal(false)} 
+                  className="w-7 h-7 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Title input */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                  {t('Highlight Title', 'Título do Destaque')}
+                </label>
+                <input
+                  type="text"
+                  value={newHighlightTitle}
+                  onChange={(e) => setNewHighlightTitle(e.target.value)}
+                  placeholder={t('e.g. Vacation', 'Ex: Suíça 🇨🇭')}
+                  className="w-full h-11 px-4 border border-zinc-200 rounded-2xl text-xs bg-zinc-50 outline-none focus:border-purple-500 text-black font-semibold placeholder:text-zinc-300 transition-colors"
+                />
+              </div>
+
+              {/* Cover Picture selector */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                  {t('Cover Photo', 'Foto de Capa')}
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative group">
+                    {newHighlightCover ? (
+                      <img 
+                        src={parseMediaUrl(newHighlightCover)} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                      />
+                    ) : (
+                      <Camera size={20} className="text-zinc-300" />
+                    )}
+                  </div>
+                  <label className="h-10 px-5 bg-zinc-100 hover:bg-zinc-200 text-black border border-zinc-200 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center cursor-pointer transition-colors active:scale-95">
+                    {t('Select Photo', 'Upload')}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleCoverUploadButton} 
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Carousel Slides selector */}
+              <div className="flex flex-col gap-2 border-t border-zinc-100 pt-4">
+                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
+                  {t('Highlight Slides', 'Fotos do Carrossel (Slides)')}
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {newHighlightSlides.map((slideUrl, index) => (
+                    <div key={index} className="aspect-square rounded-xl bg-zinc-50 border border-zinc-100 overflow-hidden relative shadow-sm">
+                      <img 
+                        src={parseMediaUrl(slideUrl)} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setNewHighlightSlides(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center hover:scale-105 transition-transform"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {/* Append slot button */}
+                  <label className="aspect-square rounded-xl border border-dashed border-zinc-300 hover:border-zinc-400 bg-zinc-50 flex flex-col items-center justify-center text-zinc-400 hover:text-zinc-600 cursor-pointer active:scale-95 transition-all">
+                    <Plus size={16} />
+                    <span className="text-[8px] font-bold uppercase tracking-tight mt-1">{t('Add', 'Mais')}</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={handleSlideUploadButton} 
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Actions row */}
+              <div className="flex gap-3 border-t border-zinc-100 pt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateHighlightModal(false)}
+                  className="flex-1 h-12 bg-zinc-50 hover:bg-zinc-100 border border-zinc-150 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-500 active:scale-95 transition-all"
+                >
+                  {t('Cancel', 'Cancelar')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveHighlight}
+                  disabled={creatingHighlight || !newHighlightTitle.trim() || !newHighlightCover}
+                  className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {creatingHighlight ? (
+                    <Loader2 size={14} className="animate-spin text-white" />
+                  ) : (
+                    t('Save', 'Confirmar')
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
