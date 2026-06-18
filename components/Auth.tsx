@@ -21,7 +21,7 @@ const Auth: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [useOtp, setUseOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [showWebPrompt, setShowWebPrompt] = useState(!Capacitor.isNativePlatform());
+  const [showWebPrompt, setShowWebPrompt] = useState(false);
 
   const handleOpenAppWeb = () => {
     const appScheme = 'com.kizombatok.angolavibe://open';
