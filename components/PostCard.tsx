@@ -1481,7 +1481,18 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <span className="text-[10px] sm:text-[12px] font-black text-white drop-shadow-md tracking-tighter">{metadata.likesCount}</span>
           </button>
 
-          <button onClick={() => { setShowComments(true); fetchComments(true); }} className="flex flex-col items-center group">
+          <button 
+            onClick={async () => {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) {
+                onRequireAuth?.();
+                return;
+              }
+              setShowComments(true); 
+              fetchComments(true); 
+            }} 
+            className="flex flex-col items-center group"
+          >
             <div className="p-1.5 sm:p-2 transition-transform group-active:scale-110">
               <MessageCircle size={28} className="sm:w-[34px] sm:h-[34px] text-white fill-white drop-shadow-xl" />
             </div>
