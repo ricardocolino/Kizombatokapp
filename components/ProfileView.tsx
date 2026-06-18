@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Profile, Post, FeedFilter, Story } from '../types';
+import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Plus } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
-import StoryViewer from './StoryViewer';
 
 interface ProfileViewProps {
   userId: string;
@@ -52,34 +50,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return [];
     }
   });
-
-  // Story Highlights Type Declarations
-  interface HighlightItem {
-    story_id?: string;
-    media_url: string;
-    media_type: 'image' | 'video';
-  }
-
-  interface Highlight {
-    id: string;
-    user_id: string;
-    title: string;
-    cover_url: string;
-    items: HighlightItem[];
-    created_at?: string;
-  }
-
-  // Story Highlights State
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
-  const [showCreateHighlightModal, setShowCreateHighlightModal] = useState(false);
-  const [newHighlightTitle, setNewHighlightTitle] = useState('');
-  const [newHighlightCover, setNewHighlightCover] = useState('');
-  const [creatingHighlight, setCreatingHighlight] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userUploadedStories, setUserUploadedStories] = useState<Story[]>([]);
-  const [loadingUserUploadedStories, setLoadingUserUploadedStories] = useState(false);
-  const [selectedStoryIds, setSelectedStoryIds] = useState<string[]>([]);
 
   const handleTogglePrivacy = async (post: Post) => {
     if (!post) return;
@@ -154,11 +124,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const handleTogglePin = async (post: Post) => {
     if (!post) return;
-    const isPinned = !!(post as { is_pinned?: boolean }).is_pinned;
+    const isPinned = !!(post as any).is_pinned;
     
     if (!isPinned) {
       // Check count
-      const pinnedCount = userPosts.filter(p => (p as { is_pinned?: boolean }).is_pinned).length;
+      const pinnedCount = userPosts.filter(p => (p as any).is_pinned).length;
       if (pinnedCount >= 3) {
         alert(t('You can only pin up to 3 posts', 'Apenas 3 publicações podem ser afixadas!'));
         setSelectedPostForEdit(null);
@@ -464,216 +434,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }, [userId]);
 
-  const fetchHighlights = React.useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('story_highlights')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data && data.length > 0) {
-        setHighlights(data);
-      } else {
-        // Fallback or seed default themed highlights for a gorgeous profile view
-        const defaultHighlights = [
-          {
-            id: 'mock-1',
-            user_id: userId,
-            title: 'NYC 🇺🇸',
-            cover_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=300&h=300&fit=crop',
-            items: [
-              { media_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=1080&h=1920&fit=crop', media_type: 'image' },
-              { media_url: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=1080&h=1920&fit=crop', media_type: 'image' }
-            ]
-          },
-          {
-            id: 'mock-2',
-            user_id: userId,
-            title: 'Suíça 🇨🇭',
-            cover_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&h=300&fit=crop',
-            items: [
-              { media_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080&h=1920&fit=crop', media_type: 'image' }
-            ]
-          },
-          {
-            id: 'mock-3',
-            user_id: userId,
-            title: 'México 🇲🇽',
-            cover_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=300&h=300&fit=crop',
-            items: [
-              { media_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1080&h=1920&fit=crop', media_type: 'image' }
-            ]
-          },
-          {
-            id: 'mock-4',
-            user_id: userId,
-            title: 'Paraguai 🇵🇾',
-            cover_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=300&h=300&fit=crop',
-            items: [
-              { media_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&h=1920&fit=crop', media_type: 'image' }
-            ]
-          }
-        ];
-        setHighlights(defaultHighlights);
-      }
-    } catch (err) {
-      console.warn("Could not load highlights from Supabase table. Using themed mock highlights fallback.", err);
-      const defaultHighlights = [
-        {
-          id: 'mock-1',
-          user_id: userId,
-          title: 'NYC 🇺🇸',
-          cover_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=300&h=300&fit=crop',
-          items: [
-            { media_url: 'https://images.unsplash.com/photo-1546015720-b8b30df5aa27?w=1080&h=1920&fit=crop', media_type: 'image' },
-            { media_url: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=1080&h=1920&fit=crop', media_type: 'image' }
-          ]
-        },
-        {
-          id: 'mock-2',
-          user_id: userId,
-          title: 'Suíça 🇨🇭',
-          cover_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300&h=300&fit=crop',
-          items: [
-            { media_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080&h=1920&fit=crop', media_type: 'image' }
-          ]
-        },
-        {
-          id: 'mock-3',
-          user_id: userId,
-          title: 'México 🇲🇽',
-          cover_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=300&h=300&fit=crop',
-          items: [
-            { media_url: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1080&h=1920&fit=crop', media_type: 'image' }
-          ]
-        },
-        {
-          id: 'mock-4',
-          user_id: userId,
-          title: 'Paraguai 🇵🇾',
-          cover_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=300&h=300&fit=crop',
-          items: [
-            { media_url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&h=1920&fit=crop', media_type: 'image' }
-          ]
-        }
-      ];
-      setHighlights(defaultHighlights);
-    }
-  }, [userId]);
-
-  const handleDeleteHighlight = async (highlightId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const confirmDelete = window.confirm(t('Are you sure you want to delete this highlight?', 'Tem a certeza que deseja eliminar este destaque?'));
-    if (!confirmDelete) return;
-
-    try {
-      if (!highlightId.startsWith('mock-')) {
-        await supabase
-          .from('story_highlights')
-          .delete()
-          .eq('id', highlightId);
-      }
-      
-      setHighlights(prev => prev.filter(h => h.id !== highlightId));
-      setSelectedHighlight(null);
-      alert(t('Highlight deleted successfully', 'Destaque eliminado com sucesso!'));
-    } catch (err) {
-      console.error("Error deleting highlight:", err);
-    }
-  };
-
-  const fetchUserUploadedStories = async () => {
-    setLoadingUserUploadedStories(true);
-    try {
-      const { data, error } = await supabase
-        .from('stories')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setUserUploadedStories(data as Story[]);
-      }
-    } catch (err) {
-      console.error('Error fetching user stories:', err);
-    } finally {
-      setLoadingUserUploadedStories(false);
-    }
-  };
-
-  const handleSaveHighlight = async () => {
-    if (!newHighlightTitle.trim()) {
-      alert(t('Please enter a title', 'Por favor introduza um título!'));
-      return;
-    }
-    const selectedStories = userUploadedStories.filter(story => selectedStoryIds.includes(story.id));
-    if (selectedStories.length === 0) {
-      alert(t('Please select at least one story', 'Por favor escolha pelos menos um story!'));
-      return;
-    }
-    
-    const coverUrl = newHighlightCover || selectedStories[0].media_url;
-    
-    setCreatingHighlight(true);
-    try {
-      const items = selectedStories.map(story => ({
-        story_id: story.id,
-        media_url: story.media_url,
-        media_type: story.media_type
-      }));
-      
-      const newHighlightData = {
-        user_id: userId,
-        title: newHighlightTitle,
-        cover_url: coverUrl,
-        items: items
-      };
-      
-      const { data, error } = await supabase
-        .from('story_highlights')
-        .insert(newHighlightData)
-        .select()
-        .single();
-        
-      if (error) {
-        throw error;
-      }
-      
-      setHighlights(prev => {
-        const filtered = prev.filter(h => !h.id.startsWith('mock-'));
-        return [data, ...filtered];
-      });
-      
-      setShowCreateHighlightModal(false);
-      alert(t('Highlight created successfully', 'Destaque criado com sucesso!'));
-    } catch (err) {
-      console.error("Error creating story highlight:", err);
-      const mockId = `local-${Date.now()}`;
-      const items = selectedStories.map(story => ({
-        story_id: story.id,
-        media_url: story.media_url,
-        media_type: story.media_type
-      }));
-      const localHighlightData = {
-        id: mockId,
-        user_id: userId,
-        title: newHighlightTitle,
-        cover_url: coverUrl,
-        items: items
-      };
-      
-      setHighlights(prev => [localHighlightData, ...prev]);
-      setShowCreateHighlightModal(false);
-      alert(t('Saved locally', 'Guardado localmente! Lembra-te de executar o script SQL no supabase.'));
-    } finally {
-      setCreatingHighlight(false);
-    }
-  };
-
   const checkFollowStatus = React.useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || isOwnProfile) return;
@@ -797,9 +557,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus(), checkStoriesStatus(), fetchHighlights()]);
+    await Promise.all([fetchProfile(), fetchUserPosts(), fetchStats(), checkFollowStatus(), checkStoriesStatus()]);
     setLoading(false);
-  }, [fetchProfile, fetchUserPosts, fetchStats, checkFollowStatus, checkStoriesStatus, fetchHighlights]);
+  }, [fetchProfile, fetchUserPosts, fetchStats, checkFollowStatus, checkStoriesStatus]);
 
   useEffect(() => {
     loadAll();
@@ -826,16 +586,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       fetchRepostedPosts();
     }
   }, [activeTab, fetchRepostedPosts]);
-
-  useEffect(() => {
-    const fetchAuthUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setCurrentUser(session.user);
-      }
-    };
-    fetchAuthUser();
-  }, []);
 
   const fetchFollowList = React.useCallback(async (type: 'followers' | 'following', page: number) => {
     if (page === 0) {
@@ -1288,22 +1038,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  const highlightStoriesToView = React.useMemo(() => {
-    if (!selectedHighlight) return [];
-    const itemsRaw = typeof selectedHighlight.items === 'string'
-      ? JSON.parse(selectedHighlight.items)
-      : (selectedHighlight.items || []);
-    return (itemsRaw as HighlightItem[]).map((item: HighlightItem, idx: number) => ({
-      id: item.story_id || `highlight-${idx}-${selectedHighlight.id}`,
-      user_id: selectedHighlight.user_id,
-      media_url: item.media_url,
-      media_type: item.media_type || 'image',
-      created_at: selectedHighlight.created_at || new Date().toISOString(),
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      profiles: profile || undefined
-    })) as Story[];
-  }, [selectedHighlight, profile]);
-
   if (loading) return (
     <div className="h-full flex flex-col items-center justify-center bg-black gap-4">
       <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1323,14 +1057,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     if (isOwnProfile) {
       const postsTab = userPosts.filter(p => !p.is_private && !privatePostIds.includes(p.id));
       return [...postsTab].sort((a, b) => {
-        const pinA = (a as { is_pinned?: boolean }).is_pinned ? 1 : 0;
-        const pinB = (b as { is_pinned?: boolean }).is_pinned ? 1 : 0;
+        const pinA = (a as any).is_pinned ? 1 : 0;
+        const pinB = (b as any).is_pinned ? 1 : 0;
         return pinB - pinA;
       });
     }
     return [...userPosts].sort((a, b) => {
-      const pinA = (a as { is_pinned?: boolean }).is_pinned ? 1 : 0;
-      const pinB = (b as { is_pinned?: boolean }).is_pinned ? 1 : 0;
+      const pinA = (a as any).is_pinned ? 1 : 0;
+      const pinB = (b as any).is_pinned ? 1 : 0;
       return pinB - pinA;
     });
   })();
@@ -1565,70 +1299,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      {/* Story Highlights (Destaques de Stories) */}
-      <div className="w-full border-t border-zinc-100 py-5 px-4 flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth bg-white">
-        {/* "New" or "Novo" highlight button (Only for profile owner) */}
-        {isOwnProfile && (
-          <div className="flex flex-col items-center gap-1.5 shrink-0 select-none">
-            <button
-              type="button"
-              onClick={() => {
-                setNewHighlightTitle('');
-                setNewHighlightCover('');
-                setSelectedStoryIds([]);
-                fetchUserUploadedStories();
-                setShowCreateHighlightModal(true);
-              }}
-              className="w-16 h-16 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-black hover:border-zinc-300 transition-all duration-200 outline-none active:scale-95 shadow-sm"
-            >
-              <Plus size={22} strokeWidth={1.8} />
-            </button>
-            <span className="text-[11px] font-medium text-zinc-600 block text-center truncate w-16">{t('Novo', 'Novo')}</span>
-          </div>
-        )}
-
-        {/* Highlights List */}
-        {highlights.map((highlight) => (
-          <div
-            key={highlight.id}
-            onClick={() => {
-              setSelectedHighlight(highlight);
-            }}
-            className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer select-none group"
-          >
-            {/* Circular ring: 2px border, p-[3px] for separation offset inside */}
-            <div className="w-16 h-16 rounded-full border-[2px] border-zinc-200/85 group-hover:border-purple-500 p-[3px] transition-all duration-300 flex items-center justify-center bg-white relative">
-              <div className="w-full h-full rounded-full overflow-hidden bg-zinc-50">
-                <img
-                  src={parseMediaUrl(highlight.cover_url)}
-                  alt={highlight.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-
-              {/* Trash button overlay for owner */}
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteHighlight(highlight.id, e);
-                  }}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 transition-all shadow-sm z-30"
-                  title={t('Delete Highlight', 'Eliminar Destaque')}
-                >
-                  <Trash2 size={10} />
-                </button>
-              )}
-            </div>
-            <span className="text-[11px] font-medium text-zinc-800 text-center tracking-tight truncate w-16 group-hover:text-black transition-colors">
-              {highlight.title}
-            </span>
-          </div>
-        ))}
-      </div>
-
       {/* Tabs (Estilo X) */}
       <div className="flex border-b border-zinc-100 sticky top-14 bg-white/95 backdrop-blur-md z-40">
         {[ 
@@ -1676,7 +1346,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   }}
                   className="aspect-[3/4] bg-zinc-50 relative group overflow-hidden active:brightness-75 transition-all cursor-pointer border-[0.5px] border-zinc-100"
                 >
-                  {(post as { is_pinned?: boolean }).is_pinned && (
+                  {(post as any).is_pinned && (
                     <div className="absolute top-2 left-2 bg-purple-600 text-white p-1 rounded-md flex items-center justify-center w-6 h-6 z-10 shadow-sm border border-purple-500/50">
                       <Pin size={12} className="text-white fill-white" />
                     </div>
@@ -2588,10 +2258,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   className="flex flex-col items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0 group outline-none"
                 >
                   <div className="w-14 h-14 bg-zinc-50 border border-zinc-100 group-hover:bg-zinc-100 rounded-2xl flex items-center justify-center text-black shadow-sm">
-                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as { is_pinned?: boolean }).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
+                    <Pin size={20} strokeWidth={1.5} className={(selectedPostForEdit as any).is_pinned ? 'fill-purple-600 text-purple-600' : 'text-black'} />
                   </div>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider text-center max-w-[85px]">
-                    {(selectedPostForEdit as { is_pinned?: boolean }).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
+                    {(selectedPostForEdit as any).is_pinned ? t('Unpin', 'Desafixar') : t('Pin', 'Afixar')}
                   </span>
                 </button>
               )}
@@ -2774,181 +2444,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 {t('Close', 'Fechar')}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================== */}
-      {/* 1. STORY HIGHLIGHT PLAYER (FULLSCREEN OVERLAY) */}
-      {/* ========================================== */}
-      {selectedHighlight && (
-        <StoryViewer
-          userId={userId}
-          currentUser={currentUser}
-          onClose={() => setSelectedHighlight(null)}
-          highlightStories={highlightStoriesToView}
-        />
-      )}
-
-      {/* ========================================== */}
-      {/* 2. CREAR STORY HIGHLIGHT MODAL */}
-      {/* ========================================== */}
-      {showCreateHighlightModal && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200 text-black">
-          <div className="absolute inset-0" onClick={() => setShowCreateHighlightModal(false)} />
-          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-8 flex flex-col gap-6 max-h-[85vh] overflow-y-auto no-scrollbar">
-              <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-                <h3 className="text-sm font-black uppercase tracking-widest text-black">
-                  {t('New Highlight', 'Novo Destaque')}
-                </h3>
-                <button 
-                  onClick={() => setShowCreateHighlightModal(false)} 
-                  className="w-7 h-7 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Title input */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
-                  {t('Highlight Title', 'Título do Destaque')}
-                </label>
-                <input
-                  type="text"
-                  value={newHighlightTitle}
-                  onChange={(e) => setNewHighlightTitle(e.target.value)}
-                  placeholder={t('e.g. Vacation', 'Ex: Suíça 🇨🇭')}
-                  className="w-full h-11 px-4 border border-zinc-200 rounded-2xl text-xs bg-zinc-50 outline-none focus:border-purple-500 text-black font-semibold placeholder:text-zinc-300 transition-colors"
-                />
-              </div>
-
-              {/* Selecionar Stories da Plataforma */}
-              <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
-                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
-                  {t('Select Stories', 'Selecionar Stories da Plataforma')}
-                </label>
-                
-                {loadingUserUploadedStories ? (
-                  <div className="flex items-center justify-center py-6 gap-2 text-xs font-semibold text-zinc-500">
-                    <Loader2 size={16} className="animate-spin text-purple-600" />
-                    <span>{t('Loading stories...', 'Carregando stories...')}</span>
-                  </div>
-                ) : userUploadedStories.length === 0 ? (
-                  <div className="text-center py-6 px-4 bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl flex flex-col items-center gap-1.5">
-                    <Film size={20} className="text-zinc-350 animate-pulse" />
-                    <span className="text-[11px] font-bold text-zinc-800">
-                      {t('No stories uploaded yet', 'Nenhum story carregado')}
-                    </span>
-                    <p className="text-[9px] text-zinc-400 leading-tight">
-                      {t('Post a story from the share menu first!', 'Partilha primeiro um story no menu principal!')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
-                    {userUploadedStories.map((story) => {
-                      const isSelected = selectedStoryIds.includes(story.id);
-                      const isCover = newHighlightCover === story.media_url || (!newHighlightCover && selectedStoryIds[0] === story.id);
-                      
-                      return (
-                        <div 
-                          key={story.id} 
-                          onClick={() => {
-                            let updated: string[];
-                            if (isSelected) {
-                              updated = selectedStoryIds.filter(id => id !== story.id);
-                              if (story.media_url === newHighlightCover) {
-                                const nextStory = userUploadedStories.find(s => updated.includes(s.id));
-                                setNewHighlightCover(nextStory ? nextStory.media_url : '');
-                              }
-                            } else {
-                              updated = [...selectedStoryIds, story.id];
-                              if (!newHighlightCover) {
-                                setNewHighlightCover(story.media_url);
-                              }
-                            }
-                            setSelectedStoryIds(updated);
-                          }}
-                          className={`aspect-square rounded-2xl bg-zinc-50 border transition-all duration-200 overflow-hidden relative cursor-pointer select-none group ${
-                            isSelected 
-                              ? 'border-purple-600 ring-2 ring-purple-600/20' 
-                              : 'border-zinc-200 hover:border-zinc-300'
-                          }`}
-                        >
-                          {story.media_type === 'video' ? (
-                            <div className="w-full h-full relative bg-zinc-950">
-                              <video 
-                                src={parseMediaUrl(story.media_url)} 
-                                className="w-full h-full object-cover muted" 
-                              />
-                              <div className="absolute top-1 left-1 bg-black/60 p-0.5 rounded text-white z-10">
-                                <Play size={8} className="fill-white" />
-                              </div>
-                            </div>
-                          ) : (
-                            <img 
-                              src={parseMediaUrl(story.media_url)} 
-                              alt="" 
-                              className="w-full h-full object-cover animate-fade-in" 
-                              referrerPolicy="no-referrer"
-                            />
-                          )}
-                          
-                          {/* Selected Checkmark Badge */}
-                          {isSelected && (
-                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 border border-white flex items-center justify-center text-white text-[9px] font-black shadow-md">
-                              <Check size={8} strokeWidth={3} />
-                            </div>
-                          )}
-
-                          {/* Cover badge selection */}
-                          {isSelected && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNewHighlightCover(story.media_url);
-                              }}
-                              className={`absolute bottom-1 inset-x-1 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tight text-center z-20 shadow-sm border ${
-                                isCover 
-                                  ? 'bg-purple-600 text-white border-purple-500' 
-                                  : 'bg-white/80 text-zinc-800 border-zinc-200 hover:bg-white'
-                              }`}
-                            >
-                              {isCover ? t('Capa', 'Capa') : t('Usar Capa', 'Usar Capa')}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Actions row */}
-              <div className="flex gap-3 border-t border-zinc-100 pt-5">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateHighlightModal(false)}
-                  className="flex-1 h-12 bg-zinc-50 hover:bg-zinc-100 border border-zinc-150 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-500 active:scale-95 transition-all"
-                >
-                  {t('Cancel', 'Cancelar')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveHighlight}
-                  disabled={creatingHighlight || !newHighlightTitle.trim() || selectedStoryIds.length === 0}
-                  className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {creatingHighlight ? (
-                    <Loader2 size={14} className="animate-spin text-white" />
-                  ) : (
-                    t('Save', 'Confirmar')
-                  )}
-                </button>
-              </div>
             </div>
           </div>
         </div>

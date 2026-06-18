@@ -14,18 +14,9 @@ interface StoryViewerProps {
   onNavigateToUser?: (userId: string) => void;
   onClose: () => void;
   onViewAudio?: (audioPostId: string) => void;
-  highlightStories?: Story[];
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ 
-  userId, 
-  currentUser, 
-  allUserIds = [], 
-  onNavigateToUser, 
-  onClose, 
-  onViewAudio,
-  highlightStories
-}) => {
+const StoryViewer: React.FC<StoryViewerProps> = ({ userId, currentUser, allUserIds = [], onNavigateToUser, onClose, onViewAudio }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -226,18 +217,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     const fetchStories = async () => {
       setLoading(true);
       
-      if (highlightStories) {
-        setStories(highlightStories);
-        setCurrentIndex(0);
-        setProgress(0);
-        if (highlightStories.length === 0) {
-          onClose();
-        } else {
-          setLoading(false);
-        }
-        return;
-      }
-      
       // Tentar a query ideal com os joins de áudio / dublagem
       let { data, error } = await supabase
         .from('stories')
@@ -288,7 +267,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     };
 
     fetchStories();
-  }, [userId, onClose, highlightStories]);
+  }, [userId, onClose]);
 
   useEffect(() => {
     if (stories.length === 0 || loading || !currentStory || currentStory.media_type === 'video') return;
