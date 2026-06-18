@@ -415,39 +415,7 @@ const Auth: React.FC = () => {
           </h2>
         </div>
 
-        {/* Authentication Methods Selector Tabs */}
-        <div className="flex bg-zinc-950 p-1 rounded-lg mb-6 border border-zinc-800/80">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('email');
-              setError(null);
-            }}
-            className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${
-              authMethod === 'email'
-                ? 'bg-zinc-900 text-white border border-zinc-800 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Mail size={14} />
-            E-mail
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('phone');
-              setError(null);
-            }}
-            className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${
-              authMethod === 'phone'
-                ? 'bg-zinc-900 text-white border border-zinc-800 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Smartphone size={14} />
-            {t('Phone', 'Telemóvel')}
-          </button>
-        </div>
+        {/* Login is exclusively by E-mail */}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
@@ -613,22 +581,7 @@ const Auth: React.FC = () => {
           {isSignUp ? 'Registar com o Google' : 'Entrar com o Google'}
         </button>
 
-        <div className="mt-10 flex flex-col gap-4">
-          <p className="text-zinc-500 text-sm">
-            {isSignUp ? t('Already have an account?') : t('Dont have an account?')}
-          </p>
-          <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setOtpSent(false);
-              setOtpCode('');
-              setError(null);
-            }}
-            className="w-full bg-black border border-zinc-700 text-purple-600 py-3 rounded-full font-bold text-base transition-all active:scale-[0.98] hover:bg-zinc-900"
-          >
-            {isSignUp ? t('Sign in') : t('Create account')}
-          </button>
-        </div>
+        {/* SignUp / Create account button removed */}
 
         <div className="mt-8 text-center">
           <p className="text-zinc-500 text-[11px] leading-relaxed">
