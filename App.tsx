@@ -825,6 +825,14 @@ const App: React.FC = () => {
     setActiveTab(Tab.PROFILE);
   };
 
+  const handleViewAudio = (audioPostId: string) => {
+    if (!user) {
+      setActiveTab(Tab.PROFILE);
+      return;
+    }
+    setViewAudioPostId(audioPostId);
+  };
+
   const handleNavigateToPost = (postId: string, filter?: FeedFilter) => {
     if (postId.startsWith('story:')) {
       const userId = postId.replace('story:', '');
@@ -909,15 +917,15 @@ const App: React.FC = () => {
           initialPostId={targetPostId} 
           feedFilter={feedFilter}
           onDub={handleDub}
-          onViewAudio={(audioPostId) => setViewAudioPostId(audioPostId)}
+          onViewAudio={handleViewAudio}
           onClearFilter={() => {
             if (feedFilter) {
-              if (feedFilter.type === 'audio' && feedFilter.dubbedFromId) {
-                const targetAudioId = feedFilter.dubbedFromId;
-                setFeedFilter(null);
-                setTargetPostId(null);
-                setViewAudioPostId(targetAudioId);
-              } else if (feedFilter.userId) {
+               if (feedFilter.type === 'audio' && feedFilter.dubbedFromId) {
+                 const targetAudioId = feedFilter.dubbedFromId;
+                 setFeedFilter(null);
+                 setTargetPostId(null);
+                 handleViewAudio(targetAudioId);
+               } else if (feedFilter.userId) {
                 const targetUserId = feedFilter.userId;
                 setFeedFilter(null);
                 setTargetPostId(null);
@@ -1062,7 +1070,7 @@ const App: React.FC = () => {
         );
       }
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={(audioPostId) => setViewAudioPostId(audioPostId)} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} />;
     }
   };
 
@@ -1115,7 +1123,7 @@ const App: React.FC = () => {
           onViewAudio={(audioPostId) => {
             setViewingStoryUserId(null);
             setAllUsersWithStories([]);
-            setViewAudioPostId(audioPostId);
+            handleViewAudio(audioPostId);
           }}
         />
       )}

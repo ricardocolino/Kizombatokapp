@@ -1521,6 +1521,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <button 
               onClick={(e) => { 
                 e.stopPropagation(); 
+                if (!isLoggedIn) {
+                  onRequireAuth?.();
+                  return;
+                }
                 if (onViewAudio) {
                   onViewAudio(post.dubbed_from_id || post.id);
                 } else {
@@ -1573,6 +1577,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             onClick={(e) => {
               e.stopPropagation();
               if (post.dubbed_from_id) {
+                if (!isLoggedIn) {
+                  onRequireAuth?.();
+                  return;
+                }
                 if (onViewAudio) {
                   onViewAudio(post.dubbed_from_id);
                 } else {
