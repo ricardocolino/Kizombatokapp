@@ -886,7 +886,7 @@ const App: React.FC = () => {
       </div>
     );
 
-    const isPublicTab = activeTab === Tab.HOME || activeTab === Tab.DISCOVER;
+    const isPublicTab = activeTab === Tab.HOME;
     if (!user && !isPublicTab) {
       return <Auth />;
     }
