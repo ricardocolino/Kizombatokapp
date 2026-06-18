@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-import { Profile, Post, FeedFilter } from '../types';
+import { Profile, Post, FeedFilter, Story } from '../types';
 import { uploadToR2 } from '../services/uploadService';
 import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Plus } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
+import StoryViewer from './StoryViewer';
 
 interface ProfileViewProps {
   userId: string;
@@ -53,6 +55,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   // Story Highlights Type Declarations
   interface HighlightItem {
+    story_id?: string;
     media_url: string;
     media_type: 'image' | 'video';
   }
@@ -69,13 +72,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   // Story Highlights State
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
-  const [activeHighlightIndex, setActiveHighlightIndex] = useState(0);
-  const [highlightProgress, setHighlightProgress] = useState(0);
   const [showCreateHighlightModal, setShowCreateHighlightModal] = useState(false);
   const [newHighlightTitle, setNewHighlightTitle] = useState('');
   const [newHighlightCover, setNewHighlightCover] = useState('');
-  const [newHighlightSlides, setNewHighlightSlides] = useState<string[]>([]); // URLs/base64
   const [creatingHighlight, setCreatingHighlight] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userUploadedStories, setUserUploadedStories] = useState<Story[]>([]);
+  const [loadingUserUploadedStories, setLoadingUserUploadedStories] = useState(false);
+  const [selectedStoryIds, setSelectedStoryIds] = useState<string[]>([]);
 
   const handleTogglePrivacy = async (post: Post) => {
     if (!post) return;
@@ -562,52 +566,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   }, [userId]);
 
-  // Highlights players and progress loaders
-  useEffect(() => {
-    if (!selectedHighlight) return;
-    
-    setHighlightProgress(0);
-    const duration = 5000; // 5s per slide
-    const intervalTime = 100;
-    const steps = duration / intervalTime;
-    let stepCount = 0;
-    
-    const interval = setInterval(() => {
-      stepCount++;
-      setHighlightProgress((stepCount / steps) * 100);
-      
-      if (stepCount >= steps) {
-        clearInterval(interval);
-        if (activeHighlightIndex < selectedHighlight.items.length - 1) {
-          setActiveHighlightIndex(prev => prev + 1);
-          setHighlightProgress(0);
-        } else {
-          setSelectedHighlight(null);
-        }
-      }
-    }, intervalTime);
-    
-    return () => clearInterval(interval);
-  }, [selectedHighlight, activeHighlightIndex]);
-
-  const handleHighlightPrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (activeHighlightIndex > 0) {
-      setActiveHighlightIndex(prev => prev - 1);
-      setHighlightProgress(0);
-    }
-  };
-
-  const handleHighlightNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (activeHighlightIndex < selectedHighlight.items.length - 1) {
-      setActiveHighlightIndex(prev => prev + 1);
-      setHighlightProgress(0);
-    } else {
-      setSelectedHighlight(null);
-    }
-  };
-
   const handleDeleteHighlight = async (highlightId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const confirmDelete = window.confirm(t('Are you sure you want to delete this highlight?', 'Tem a certeza que deseja eliminar este destaque?'));
@@ -629,34 +587,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  const handleCoverUploadButton = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    performUpload(file, true);
-  };
-
-  const handleSlideUploadButton = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    for (let i = 0; i < files.length; i++) {
-      performUpload(files[i], false);
-    }
-  };
-
-  const performUpload = async (file: File, isCover: boolean) => {
+  const fetchUserUploadedStories = async () => {
+    setLoadingUserUploadedStories(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}-${isCover ? 'cover' : 'slide'}-${Math.floor(Math.random() * 1050)}.${fileExt}`;
-      const folder = 'story_highlights';
-      const publicUrl = await uploadToR2(file, folder, fileName);
-      if (isCover) {
-        setNewHighlightCover(publicUrl);
-      } else {
-        setNewHighlightSlides(prev => [...prev, publicUrl]);
+      const { data, error } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setUserUploadedStories(data as Story[]);
       }
     } catch (err) {
-      console.error("Upload failed in story highlights:", err);
-      alert("Falha ao carregar o ficheiro.");
+      console.error('Error fetching user stories:', err);
+    } finally {
+      setLoadingUserUploadedStories(false);
     }
   };
 
@@ -665,22 +610,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       alert(t('Please enter a title', 'Por favor introduza um título!'));
       return;
     }
-    if (!newHighlightCover) {
-      alert(t('Please upload a cover image', 'Por favor escolha uma foto de capa!'));
+    const selectedStories = userUploadedStories.filter(story => selectedStoryIds.includes(story.id));
+    if (selectedStories.length === 0) {
+      alert(t('Please select at least one story', 'Por favor escolha pelos menos um story!'));
       return;
     }
     
+    const coverUrl = newHighlightCover || selectedStories[0].media_url;
+    
     setCreatingHighlight(true);
     try {
-      const items = [
-        { media_url: newHighlightCover, media_type: 'image' },
-        ...newHighlightSlides.map(url => ({ media_url: url, media_type: 'image' }))
-      ];
+      const items = selectedStories.map(story => ({
+        story_id: story.id,
+        media_url: story.media_url,
+        media_type: story.media_type
+      }));
       
       const newHighlightData = {
         user_id: userId,
         title: newHighlightTitle,
-        cover_url: newHighlightCover,
+        cover_url: coverUrl,
         items: items
       };
       
@@ -704,15 +653,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     } catch (err) {
       console.error("Error creating story highlight:", err);
       const mockId = `local-${Date.now()}`;
-      const items = [
-        { media_url: newHighlightCover, media_type: 'image' },
-        ...newHighlightSlides.map(url => ({ media_url: url, media_type: 'image' }))
-      ];
+      const items = selectedStories.map(story => ({
+        story_id: story.id,
+        media_url: story.media_url,
+        media_type: story.media_type
+      }));
       const localHighlightData = {
         id: mockId,
         user_id: userId,
         title: newHighlightTitle,
-        cover_url: newHighlightCover,
+        cover_url: coverUrl,
         items: items
       };
       
@@ -876,6 +826,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       fetchRepostedPosts();
     }
   }, [activeTab, fetchRepostedPosts]);
+
+  useEffect(() => {
+    const fetchAuthUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setCurrentUser(session.user);
+      }
+    };
+    fetchAuthUser();
+  }, []);
 
   const fetchFollowList = React.useCallback(async (type: 'followers' | 'following', page: number) => {
     if (page === 0) {
@@ -1599,7 +1559,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               onClick={() => {
                 setNewHighlightTitle('');
                 setNewHighlightCover('');
-                setNewHighlightSlides([]);
+                setSelectedStoryIds([]);
+                fetchUserUploadedStories();
                 setShowCreateHighlightModal(true);
               }}
               className="w-16 h-16 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-black hover:border-zinc-300 transition-all duration-200 outline-none active:scale-95 shadow-sm"
@@ -1616,13 +1577,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             key={highlight.id}
             onClick={() => {
               setSelectedHighlight(highlight);
-              setActiveHighlightIndex(0);
-              setHighlightProgress(0);
             }}
             className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer select-none group"
           >
             {/* Circular ring: 2px border, p-[3px] for separation offset inside */}
-            <div className="w-16 h-16 rounded-full border-[2px] border-zinc-200/85 group-hover:border-purple-500 p-[3px] transition-all duration-300 flex items-center justify-center bg-white">
+            <div className="w-16 h-16 rounded-full border-[2px] border-zinc-200/85 group-hover:border-purple-500 p-[3px] transition-all duration-300 flex items-center justify-center bg-white relative">
               <div className="w-full h-full rounded-full overflow-hidden bg-zinc-50">
                 <img
                   src={parseMediaUrl(highlight.cover_url)}
@@ -1631,6 +1590,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   referrerPolicy="no-referrer"
                 />
               </div>
+
+              {/* Trash button overlay for owner */}
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteHighlight(highlight.id, e);
+                  }}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 transition-all shadow-sm z-30"
+                  title={t('Delete Highlight', 'Eliminar Destaque')}
+                >
+                  <Trash2 size={10} />
+                </button>
+              )}
             </div>
             <span className="text-[11px] font-medium text-zinc-800 text-center tracking-tight truncate w-16 group-hover:text-black transition-colors">
               {highlight.title}
@@ -2793,85 +2767,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       {/* 1. STORY HIGHLIGHT PLAYER (FULLSCREEN OVERLAY) */}
       {/* ========================================== */}
       {selectedHighlight && (
-        <div className="fixed inset-0 bg-zinc-950 z-[1200] flex flex-col justify-center items-center select-none animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedHighlight(null)} />
-          <div className="relative w-full max-w-md h-full md:h-[90vh] md:max-h-[850px] bg-black md:rounded-3xl overflow-hidden flex flex-col z-10">
-            
-            {/* Click handlers covering left and right sides of slide */}
-            <div className="absolute inset-0 z-10 flex">
-              <div className="w-[35%] h-full cursor-pointer" onClick={handleHighlightPrev} />
-              <div className="w-[65%] h-full cursor-pointer" onClick={handleHighlightNext} />
-            </div>
-
-            {/* Top Interactive Panel (Progress trackers overhead) */}
-            <div className="absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/80 to-transparent z-20 flex flex-col gap-3">
-              {/* Progress segments row */}
-              <div className="flex gap-1.5 w-full">
-                {selectedHighlight.items.map((_: HighlightItem, idx: number) => {
-                  let widthPercent = 0;
-                  if (idx < activeHighlightIndex) widthPercent = 100;
-                  else if (idx === activeHighlightIndex) widthPercent = highlightProgress;
-                  
-                  return (
-                    <div key={idx} className="flex-1 h-[2.5px] bg-white/25 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-white rounded-full transition-all duration-100 ease-linear"
-                        style={{ width: `${widthPercent}%` }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Highlight Details & Close Controls */}
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full border border-white/20 p-[2px] bg-black">
-                    <img
-                      src={parseMediaUrl(selectedHighlight.cover_url)}
-                      alt=""
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-white text-xs font-bold tracking-tight">{selectedHighlight.title}</span>
-                    <span className="text-white/60 text-[9px] uppercase tracking-wider font-semibold">
-                      {activeHighlightIndex + 1} / {selectedHighlight.items.length}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 z-30">
-                  {isOwnProfile && (
-                    <button
-                      onClick={(e) => handleDeleteHighlight(selectedHighlight.id, e)}
-                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-650/80 transition-colors flex items-center justify-center text-white"
-                      title={t('Delete Highlight', 'Eliminar Destaque')}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setSelectedHighlight(null)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Slide Media Render */}
-            <div className="flex-1 w-full h-full flex items-center justify-center bg-zinc-950">
-              <img
-                src={parseMediaUrl(selectedHighlight.items[activeHighlightIndex]?.media_url)}
-                alt=""
-                className="w-full h-full object-cover md:object-contain pointer-events-none"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-        </div>
+        <StoryViewer
+          userId={userId}
+          currentUser={currentUser}
+          onClose={() => setSelectedHighlight(null)}
+          highlightStories={selectedHighlight.items.map((item: HighlightItem, idx: number) => ({
+            id: item.story_id || `highlight-${idx}-${Date.now()}`,
+            user_id: selectedHighlight.user_id,
+            media_url: item.media_url,
+            media_type: item.media_type || 'image',
+            created_at: selectedHighlight.created_at || new Date().toISOString(),
+            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            profiles: profile || undefined
+          }))}
+        />
       )}
 
       {/* ========================================== */}
@@ -2908,71 +2817,106 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 />
               </div>
 
-              {/* Cover Picture selector */}
-              <div className="flex flex-col gap-2">
+              {/* Selecionar Stories da Plataforma */}
+              <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4">
                 <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
-                  {t('Cover Photo', 'Foto de Capa')}
+                  {t('Select Stories', 'Selecionar Stories da Plataforma')}
                 </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative group">
-                    {newHighlightCover ? (
-                      <img 
-                        src={parseMediaUrl(newHighlightCover)} 
-                        alt="" 
-                        className="w-full h-full object-cover" 
-                      />
-                    ) : (
-                      <Camera size={20} className="text-zinc-300" />
-                    )}
+                
+                {loadingUserUploadedStories ? (
+                  <div className="flex items-center justify-center py-6 gap-2 text-xs font-semibold text-zinc-500">
+                    <Loader2 size={16} className="animate-spin text-purple-600" />
+                    <span>{t('Loading stories...', 'Carregando stories...')}</span>
                   </div>
-                  <label className="h-10 px-5 bg-zinc-100 hover:bg-zinc-200 text-black border border-zinc-200 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center cursor-pointer transition-colors active:scale-95">
-                    {t('Select Photo', 'Upload')}
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleCoverUploadButton} 
-                    />
-                  </label>
-                </div>
-              </div>
+                ) : userUploadedStories.length === 0 ? (
+                  <div className="text-center py-6 px-4 bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl flex flex-col items-center gap-1.5">
+                    <Film size={20} className="text-zinc-350 animate-pulse" />
+                    <span className="text-[11px] font-bold text-zinc-800">
+                      {t('No stories uploaded yet', 'Nenhum story carregado')}
+                    </span>
+                    <p className="text-[9px] text-zinc-400 leading-tight">
+                      {t('Post a story from the share menu first!', 'Partilha primeiro um story no menu principal!')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
+                    {userUploadedStories.map((story) => {
+                      const isSelected = selectedStoryIds.includes(story.id);
+                      const isCover = newHighlightCover === story.media_url || (!newHighlightCover && selectedStoryIds[0] === story.id);
+                      
+                      return (
+                        <div 
+                          key={story.id} 
+                          onClick={() => {
+                            let updated: string[];
+                            if (isSelected) {
+                              updated = selectedStoryIds.filter(id => id !== story.id);
+                              if (story.media_url === newHighlightCover) {
+                                const nextStory = userUploadedStories.find(s => updated.includes(s.id));
+                                setNewHighlightCover(nextStory ? nextStory.media_url : '');
+                              }
+                            } else {
+                              updated = [...selectedStoryIds, story.id];
+                              if (!newHighlightCover) {
+                                setNewHighlightCover(story.media_url);
+                              }
+                            }
+                            setSelectedStoryIds(updated);
+                          }}
+                          className={`aspect-square rounded-2xl bg-zinc-50 border transition-all duration-200 overflow-hidden relative cursor-pointer select-none group ${
+                            isSelected 
+                              ? 'border-purple-600 ring-2 ring-purple-600/20' 
+                              : 'border-zinc-200 hover:border-zinc-300'
+                          }`}
+                        >
+                          {story.media_type === 'video' ? (
+                            <div className="w-full h-full relative bg-zinc-950">
+                              <video 
+                                src={parseMediaUrl(story.media_url)} 
+                                className="w-full h-full object-cover muted" 
+                              />
+                              <div className="absolute top-1 left-1 bg-black/60 p-0.5 rounded text-white z-10">
+                                <Play size={8} className="fill-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <img 
+                              src={parseMediaUrl(story.media_url)} 
+                              alt="" 
+                              className="w-full h-full object-cover animate-fade-in" 
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          
+                          {/* Selected Checkmark Badge */}
+                          {isSelected && (
+                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 border border-white flex items-center justify-center text-white text-[9px] font-black shadow-md">
+                              <Check size={8} strokeWidth={3} />
+                            </div>
+                          )}
 
-              {/* Carousel Slides selector */}
-              <div className="flex flex-col gap-2 border-t border-zinc-100 pt-4">
-                <label className="text-[10px] uppercase font-black tracking-wider text-zinc-400">
-                  {t('Highlight Slides', 'Fotos do Carrossel (Slides)')}
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {newHighlightSlides.map((slideUrl, index) => (
-                    <div key={index} className="aspect-square rounded-xl bg-zinc-50 border border-zinc-100 overflow-hidden relative shadow-sm">
-                      <img 
-                        src={parseMediaUrl(slideUrl)} 
-                        alt="" 
-                        className="w-full h-full object-cover" 
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setNewHighlightSlides(prev => prev.filter((_, i) => i !== index))}
-                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center hover:scale-105 transition-transform"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                  
-                  {/* Append slot button */}
-                  <label className="aspect-square rounded-xl border border-dashed border-zinc-300 hover:border-zinc-400 bg-zinc-50 flex flex-col items-center justify-center text-zinc-400 hover:text-zinc-600 cursor-pointer active:scale-95 transition-all">
-                    <Plus size={16} />
-                    <span className="text-[8px] font-bold uppercase tracking-tight mt-1">{t('Add', 'Mais')}</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      className="hidden" 
-                      onChange={handleSlideUploadButton} 
-                    />
-                  </label>
-                </div>
+                          {/* Cover badge selection */}
+                          {isSelected && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNewHighlightCover(story.media_url);
+                              }}
+                              className={`absolute bottom-1 inset-x-1 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-tight text-center z-20 shadow-sm border ${
+                                isCover 
+                                  ? 'bg-purple-600 text-white border-purple-500' 
+                                  : 'bg-white/80 text-zinc-800 border-zinc-200 hover:bg-white'
+                              }`}
+                            >
+                              {isCover ? t('Capa', 'Capa') : t('Usar Capa', 'Usar Capa')}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Actions row */}
@@ -2987,7 +2931,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveHighlight}
-                  disabled={creatingHighlight || !newHighlightTitle.trim() || !newHighlightCover}
+                  disabled={creatingHighlight || !newHighlightTitle.trim() || selectedStoryIds.length === 0}
                   className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {creatingHighlight ? (
