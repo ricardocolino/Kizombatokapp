@@ -226,11 +226,15 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     const fetchStories = async () => {
       setLoading(true);
       
-      if (highlightStories && highlightStories.length > 0) {
+      if (highlightStories) {
         setStories(highlightStories);
         setCurrentIndex(0);
         setProgress(0);
-        setLoading(false);
+        if (highlightStories.length === 0) {
+          onClose();
+        } else {
+          setLoading(false);
+        }
         return;
       }
       

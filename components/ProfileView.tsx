@@ -1288,6 +1288,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const highlightStoriesToView = React.useMemo(() => {
+    if (!selectedHighlight) return [];
+    const itemsRaw = typeof selectedHighlight.items === 'string'
+      ? JSON.parse(selectedHighlight.items)
+      : (selectedHighlight.items || []);
+    return (itemsRaw as HighlightItem[]).map((item: HighlightItem, idx: number) => ({
+      id: item.story_id || `highlight-${idx}-${selectedHighlight.id}`,
+      user_id: selectedHighlight.user_id,
+      media_url: item.media_url,
+      media_type: item.media_type || 'image',
+      created_at: selectedHighlight.created_at || new Date().toISOString(),
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      profiles: profile || undefined
+    })) as Story[];
+  }, [selectedHighlight, profile]);
+
   if (loading) return (
     <div className="h-full flex flex-col items-center justify-center bg-black gap-4">
       <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
@@ -2771,15 +2787,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           userId={userId}
           currentUser={currentUser}
           onClose={() => setSelectedHighlight(null)}
-          highlightStories={selectedHighlight.items.map((item: HighlightItem, idx: number) => ({
-            id: item.story_id || `highlight-${idx}-${Date.now()}`,
-            user_id: selectedHighlight.user_id,
-            media_url: item.media_url,
-            media_type: item.media_type || 'image',
-            created_at: selectedHighlight.created_at || new Date().toISOString(),
-            expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            profiles: profile || undefined
-          }))}
+          highlightStories={highlightStoriesToView}
         />
       )}
 
