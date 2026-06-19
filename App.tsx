@@ -1161,20 +1161,7 @@ const App: React.FC = () => {
 
       <main className={`flex-1 overflow-hidden min-h-0 ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} relative z-10 flex flex-col`}>
         {!Capacitor.isNativePlatform() && (
-          <div className="bg-gradient-to-r from-purple-950/90 via-zinc-950/90 to-indigo-950/90 border-b border-white/5 py-2 px-4 flex items-center justify-between shrink-0 z-50 backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-black text-[13px] text-white shrink-0 shadow-lg select-none">
-                A
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-white leading-none">
-                  Angochat Oficial
-                </span>
-                <span className="text-[9px] text-zinc-400 font-medium leading-tight mt-0.5">
-                  Melhor performance, lives, dublagens, ganha crypto com visualizações e presentes de lives
-                </span>
-              </div>
-            </div>
+          <div className="bg-gradient-to-r from-purple-950/90 via-zinc-950/90 to-indigo-950/90 border-b border-white/5 py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-50 backdrop-blur-md">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleOpenApp}
