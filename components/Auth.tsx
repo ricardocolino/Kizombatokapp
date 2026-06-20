@@ -159,8 +159,9 @@ const Auth: React.FC = () => {
                 </button>
 
                 <a
-                  href="/angochat.apk"
-                  download="angochat.apk"
+                  href="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
                   className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-100 py-4 px-5 rounded-full font-bold text-sm tracking-wide transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                 >
