@@ -79,6 +79,18 @@ const App: React.FC = () => {
   const [dubbingMp3Url, setDubbingMp3Url] = useState<string | null>(null);
   const [dubbedFromId, setDubbedFromId] = useState<string | null>(null);
   const [viewAudioPostId, setViewAudioPostId] = useState<string | null>(null);
+  const [downloadCount, setDownloadCount] = useState<number>(1240);
+
+  useEffect(() => {
+    fetch('/api/downloads/count')
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.count === 'number') {
+          setDownloadCount(data.count);
+        }
+      })
+      .catch(err => console.error("Error fetching download count:", err));
+  }, []);
 
   const generateThumbnail = (file: File | Blob): Promise<Blob> => {
     return new Promise((resolve) => {
@@ -985,15 +997,15 @@ const App: React.FC = () => {
                 </div>
 
                 <a 
-                  href="/angochat.apk"
-                  download="angochat.apk"
+                  href="/api/downloads/download"
                   className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black py-4 px-6 rounded-full text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all shadow-lg active:translate-y-[1px]"
                   onClick={() => {
                     alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
+                    setDownloadCount(prev => prev + 1);
                   }}
                 >
                   <Download size={14} />
-                  <span>{t('Download Official APK', 'Descarregar APK de Instalação')}</span>
+                  <span>{t('Download Official APK', 'Descarregar APK de Instalação')} ({downloadCount} {t('downloads', 'downloads')})</span>
                 </a>
 
                 <button
@@ -1170,13 +1182,15 @@ const App: React.FC = () => {
                 Abrir App
               </button>
               <a
-                href="/angochat.apk"
-                download="angochat.apk"
+                href="/api/downloads/download"
                 className="bg-purple-600 hover:bg-purple-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all active:scale-[0.98] flex items-center gap-1"
-                onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
+                onClick={() => {
+                  alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
+                  setDownloadCount(prev => prev + 1);
+                }}
               >
                 <Download size={10} />
-                Baixar APK
+                Baixar APK ({downloadCount})
               </a>
             </div>
           </div>
@@ -1297,16 +1311,15 @@ const App: React.FC = () => {
                   {t('App Manual Download Info', 'Não conseguimos abrir o Angochat automaticamente. É provável que ainda não tenhas a App instalada no teu telemóvel.')}
                 </p>
                 <a
-                  href="/angochat.apk"
-                  download="angochat.apk"
+                  href="/api/downloads/download"
                   className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl text-center flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all text-[11px] uppercase tracking-wider"
                   onClick={() => {
-                    // Direct simulated APK generation logic or alert
                     alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
+                    setDownloadCount(prev => prev + 1);
                   }}
                 >
                   <Download size={13} />
-                  {t('Download Official APK', 'Descarregar APK de Instalação')}
+                  {t('Download Official APK', 'Descarregar APK de Instalação')} ({downloadCount} downloads)
                 </a>
               </div>
             )}
