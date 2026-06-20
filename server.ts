@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import fs from "fs";
 
 dotenv.config();
 
@@ -332,112 +331,6 @@ app.post("/api/live/session", async (req, res) => {
     console.error(">>> [API] Cloudflare Realtime Error:", error);
     res.status(500).json({ error: (error as Error).message });
   }
-});
-
-// App downloads counter tracking endpoints
-const SYSTEM_DOWNLOAD_UUID = "00000000-0000-0000-0000-000000000000";
-const localDownloadsFile = path.join(__dirname, "app_downloads.json");
-
-function getLocalDownloadCount(): number {
-  try {
-    if (fs.existsSync(localDownloadsFile)) {
-      const parsed = JSON.parse(fs.readFileSync(localDownloadsFile, "utf-8"));
-      return typeof parsed.count === 'number' ? parsed.count : 11200; // Realistic and elegant initial download count
-    }
-  } catch (e) {
-    console.error(">>> [API] Error reading local downloads file:", e);
-  }
-  return 11200;
-}
-
-function saveLocalDownloadCount(count: number) {
-  try {
-    fs.writeFileSync(localDownloadsFile, JSON.stringify({ count }), "utf-8");
-  } catch (e) {
-    console.error(">>> [API] Error writing local downloads file:", e);
-  }
-}
-
-app.get("/api/downloads/count", async (req, res) => {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('balance')
-      .eq('id', SYSTEM_DOWNLOAD_UUID)
-      .maybeSingle();
-
-    if (error) {
-      console.error(">>> [API] Error fetching download count from DB:", error);
-      return res.json({ count: getLocalDownloadCount() });
-    }
-
-    if (!data) {
-      const defaultCount = getLocalDownloadCount();
-      // Insert profile if missing
-      const { error: insertError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: SYSTEM_DOWNLOAD_UUID,
-          username: 'app_downloads',
-          name: 'App Downloads Tracker',
-          balance: defaultCount
-        });
-      if (insertError) {
-        console.error(">>> [API] Error creating system download count profile:", insertError);
-      }
-      return res.json({ count: defaultCount });
-    }
-
-    // Keep local sync in case of DB disconnect in future
-    const activeCount = data.balance || 0;
-    saveLocalDownloadCount(activeCount);
-
-    return res.json({ count: activeCount });
-  } catch (err) {
-    console.error(">>> [API] Count catch error:", err);
-    return res.json({ count: getLocalDownloadCount() });
-  }
-});
-
-app.get("/api/downloads/download", async (req, res) => {
-  try {
-    let nextCount = getLocalDownloadCount() + 1;
-    saveLocalDownloadCount(nextCount);
-
-    // Try to update DB in background
-    const { data, error } = await supabaseAdmin
-      .from('profiles')
-      .select('balance')
-      .eq('id', SYSTEM_DOWNLOAD_UUID)
-      .maybeSingle();
-
-    if (!error) {
-      const currentCount = data ? (data.balance || 0) : nextCount - 1;
-      nextCount = currentCount + 1;
-      saveLocalDownloadCount(nextCount);
-
-      if (!data) {
-        await supabaseAdmin
-          .from('profiles')
-          .insert({
-            id: SYSTEM_DOWNLOAD_UUID,
-            username: 'app_downloads',
-            name: 'App Downloads Tracker',
-            balance: nextCount
-          });
-      } else {
-        await supabaseAdmin
-          .from('profiles')
-          .update({ balance: nextCount })
-          .eq('id', SYSTEM_DOWNLOAD_UUID);
-      }
-    }
-  } catch (err) {
-    console.error(">>> [API] Download increment DB error:", err);
-  }
-
-  // Redirect to official Angochat APK delivery link on Cloudflare R2
-  res.redirect("https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat.apk");
 });
 
 // Fallback for non-existent API routes to avoid returning HTML

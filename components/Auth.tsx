@@ -11,18 +11,6 @@ const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWebPrompt, setShowWebPrompt] = useState(false);
-  const [downloadCount, setDownloadCount] = useState<number>(1240);
-
-  useEffect(() => {
-    fetch('/api/downloads/count')
-      .then(res => res.json())
-      .then(data => {
-        if (typeof data.count === 'number') {
-          setDownloadCount(data.count);
-        }
-      })
-      .catch(err => console.error("Error fetching download count:", err));
-  }, []);
 
   const handleOpenAppWeb = () => {
     const appScheme = 'com.kizombatok.angolavibe://open';
@@ -171,15 +159,13 @@ const Auth: React.FC = () => {
                 </button>
 
                 <a
-                  href="/api/downloads/download"
-                  onClick={() => {
-                    alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...');
-                    setDownloadCount(prev => prev + 1);
-                  }}
+                  href="/angochat.apk"
+                  download="angochat.apk"
+                  onClick={() => alert('A iniciar o download do ficheiro de instalação APK (com.kizombatok.angolavibe). Aguarda um momento...')}
                   className="w-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-100 py-4 px-5 rounded-full font-bold text-sm tracking-wide transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   <Download size={15} />
-                  {t('Download App Action', 'Baixar APK')} ({downloadCount})
+                  {t('Download App Action', 'Baixar APK')}
                 </a>
               </div>
 
