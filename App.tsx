@@ -1171,7 +1171,8 @@ const App: React.FC = () => {
                 Abrir App
               </button>
               <a
-                href="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat.apk"
+                href="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat/angochat.apk
+                "
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-purple-600 hover:bg-purple-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all active:scale-[0.98] flex items-center gap-1"
