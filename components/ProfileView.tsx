@@ -36,6 +36,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   
   // Follow modal states
   const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
+  const [showKursinhaWarning, setShowKursinhaWarning] = useState(false);
+  const [kursinhaEmail, setKursinhaEmail] = useState('');
+  const [kursinhaUrl, setKursinhaUrl] = useState('');
   const [followListUsers, setFollowListUsers] = useState<{ id: string; username: string; name?: string; avatar_url?: string; }[]>([]);
   const [loadingFollowList, setLoadingFollowList] = useState(false);
   const [followListPage, setFollowListPage] = useState(0);
@@ -758,28 +761,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         const userId = session.user.id;
         finalUrl = `${baseUrl}?email=${encodeURIComponent(userEmail)}&user_id=${userId}&ref=${userId}`;
       }
-      
-      // Warning prompt with detailed instructions
-      const message = `⚠️ ATENÇÃO - MUITO IMPORTANTE!\n\nPara garantir que os teus Angochat Coins sejam creditados INSTANTANEAMENTE na tua conta, deves usar OBRIGATORIAMENTE o mesmo e-mail do teu perfil do Angochat no checkout de pagamento da Kursinha:\n\n📧 E-mail a usar: ${userEmail || 'O teu e-mail de perfil'}\n\nSe usares um e-mail diferente, o nosso sistema automatizado de webhook não conseguirá identificar o teu utilizador e poderás perder as tuas moedas ou o processo de crédito poderá falhar.\n\nQueres prosseguir para a página de pagamento seguro?`;
-      
-      const confirmProceed = window.confirm(message);
-      if (!confirmProceed) {
-        return; // Stop right here
-      }
-      
-      try {
-        await Browser.open({ 
-          url: finalUrl,
-          toolbarColor: '#09090b',
-          presentationStyle: 'fullscreen'
-        });
-      } catch (err) {
-        console.error("Erro ao abrir navegador nativo para Kursinha:", err);
-        window.open(finalUrl, '_blank');
-      }
+
+      setKursinhaEmail(userEmail);
+      setKursinhaUrl(finalUrl);
+      setShowKursinhaWarning(true);
     } catch (err) {
       console.error("Erro ao preparar pagamento Kursinha:", err);
-      window.open('https://pay.kursinha.com/c/6a3a50f7a52791fedef41442', '_blank');
+      setKursinhaEmail('');
+      setKursinhaUrl('https://pay.kursinha.com/c/6a3a50f7a52791fedef41442');
+      setShowKursinhaWarning(true);
+    }
+  };
+
+  const handleConfirmKursinhaPayment = async () => {
+    setShowKursinhaWarning(false);
+    try {
+      await Browser.open({ 
+        url: kursinhaUrl,
+        toolbarColor: '#09090b',
+        presentationStyle: 'fullscreen'
+      });
+    } catch (err) {
+      console.error("Erro ao abrir navegador nativo para Kursinha:", err);
+      window.open(kursinhaUrl, '_blank');
     }
   };
 
@@ -2116,6 +2120,62 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               className="w-full h-full object-cover rounded-xl font-light" 
               alt="" 
             />
+          </div>
+        </div>
+      )}
+
+      {showKursinhaWarning && (
+        <div className="fixed inset-0 z-[1010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          {/* Backdrop click to close */}
+          <div className="absolute inset-0" onClick={() => setShowKursinhaWarning(false)} />
+          
+          <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-900 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 flex flex-col items-center">
+            
+            {/* Animated alert icon */}
+            <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/20 flex items-center justify-center mb-4 relative shadow-inner">
+              <div className="absolute inset-0 bg-amber-500/5 rounded-full animate-pulse"></div>
+              <AlertCircle size={32} className="text-amber-500" />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-100 text-center mb-2 font-display">
+              ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+            </h3>
+
+            {/* Subtitle / explanation */}
+            <p className="text-xs text-zinc-400 text-center leading-relaxed mb-5">
+              Para garantir que os teus <strong className="text-zinc-200">Angochat Coins</strong> sejam creditados <strong className="text-emerald-400">INSTANTANEAMENTE</strong> na tua conta, deves usar obrigatoriamente este e-mail no checkout da Kursinha:
+            </p>
+
+            {/* Highlighted Email box */}
+            <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center gap-1.5 mb-5 select-all">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">O Teu E-mail de Perfil</span>
+              <span className="text-sm font-black text-white font-mono lowercase tracking-wide break-all text-center">{kursinhaEmail || 'Não configurado'}</span>
+            </div>
+
+            {/* Warning details */}
+            <div className="w-full bg-red-950/10 border border-red-900/20 rounded-xl p-3 text-left mb-6">
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                🚨 <strong className="text-red-400">Risco de perda:</strong> Se usares um e-mail diferente, o nosso webhook automatizado não conseguirá sincronizar com o teu utilizador e não receberás as moedas automaticamente.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="w-full flex flex-col gap-2.5">
+              <button 
+                onClick={handleConfirmKursinhaPayment}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-900/20 text-center active:scale-95"
+              >
+                Prosseguir para Pagamento
+              </button>
+              <button 
+                onClick={() => setShowKursinhaWarning(false)}
+                className="w-full bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest border border-zinc-800/50 transition-all text-center active:scale-95"
+              >
+                Cancelar e voltar
+              </button>
+            </div>
+
           </div>
         </div>
       )}
