@@ -1691,7 +1691,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
 
             {/* Botão de Moedas Rápido */}
-            <div className="pt-8 flex justify-start pb-8 border-b border-zinc-100">
+            <div className="pt-8 flex flex-col items-start gap-3 pb-8 border-b border-zinc-100">
               <button 
                 onClick={handleOpenExternalDeposit}
                 className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all group"
@@ -1701,6 +1701,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   {t('Coins')} {profile.balance?.toFixed(0) || '0'} — {t('Charge Coins')}
                 </span>
                 <ChevronRight size={12} strokeWidth={2.5} className="text-zinc-400 ml-1" />
+              </button>
+
+              <button 
+                onClick={handleOpenExternalDeposit}
+                className="flex items-center gap-2 bg-blue-600 border border-blue-500 hover:bg-blue-700 px-4 py-2.5 rounded-full active:scale-95 transition-all group text-white shadow-sm"
+              >
+                <AngoCoinIcon size={14} />
+                <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                  {t('Carregar coins com Multicaixa Express', 'Carregar coins com Multicaixa Express')}
+                </span>
+                <ChevronRight size={12} strokeWidth={2.5} className="text-white ml-1" />
               </button>
             </div>
 
