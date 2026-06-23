@@ -1732,28 +1732,49 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
 
             {/* Botão de Moedas Rápido */}
-            <div className="pt-8 flex flex-col items-start gap-3 pb-8 border-b border-zinc-100">
-              <button 
-                onClick={handleOpenExternalDeposit}
-                className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 px-4 py-2.5 rounded-full active:scale-95 transition-all group"
-              >
-                <AngoCoinIcon size={14} />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900">
-                  {t('Coins')} {profile.balance?.toFixed(0) || '0'} — {t('Charge Coins')}
-                </span>
-                <ChevronRight size={12} strokeWidth={2.5} className="text-zinc-400 ml-1" />
-              </button>
+            <div className="pt-8 pb-8 border-b border-zinc-100 w-full">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-extrabold">{t('My Coins')}</span>
+                <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-full">
+                  <AngoCoinIcon size={12} className="text-purple-600" />
+                  <span className="text-xs font-black text-purple-700 font-mono">
+                    {profile.balance?.toFixed(0) || '0'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Row with 2 Square Buttons */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Square 1: Crypto (handleOpenExternalDeposit) */}
+                <button 
+                  onClick={handleOpenExternalDeposit}
+                  className="flex flex-col items-center justify-center p-4 bg-zinc-50 hover:bg-zinc-100/80 active:scale-95 border border-zinc-100 rounded-2xl transition-all text-center group h-32"
+                >
+                  <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center mb-2.5 text-orange-500 group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-900 leading-tight">
+                    Carregar com Criptomedas
+                  </span>
+                </button>
 
-              <button 
-                onClick={handleOpenKursinhaPayment}
-                className="flex items-center gap-2 bg-blue-600 border border-blue-500 hover:bg-blue-700 px-4 py-2.5 rounded-full active:scale-95 transition-all group text-white shadow-sm"
-              >
-                <AngoCoinIcon size={14} />
-                <span className="text-[9px] font-black uppercase tracking-widest text-white">
-                  {t('Carregar coins com Multicaixa Express', 'Carregar coins com Multicaixa Express')}
-                </span>
-                <ChevronRight size={12} strokeWidth={2.5} className="text-white ml-1" />
-              </button>
+                {/* Square 2: Multicaixa Express (handleOpenKursinhaPayment) */}
+                <button 
+                  onClick={handleOpenKursinhaPayment}
+                  className="flex flex-col items-center justify-center p-4 bg-blue-50/50 hover:bg-blue-50 active:scale-95 border border-blue-100/50 rounded-2xl transition-all text-center group h-32"
+                >
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-2.5 text-blue-500 group-hover:scale-110 transition-transform">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-1.97-.659-1.171-.879-1.171-2.303 0-3.182 1.172-.879 3.07-.879 4.242 0 .203.152.372.325.508.51" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 leading-tight">
+                    Multicaixa Express
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Method & Monetization Buttons */}
