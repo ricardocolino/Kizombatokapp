@@ -291,6 +291,338 @@ app.post("/api/payments/webhook", async (req, res) => {
   res.status(200).send("OK");
 });
 
+// Kursinha Webhook Integration
+app.post("/api/payments/kursinha-webhook", async (req, res) => {
+  console.log(">>> [KURSINHA WEBHOOK] Received POST request");
+  console.log(">>> [KURSINHA WEBHOOK] Headers:", JSON.stringify(req.headers, null, 2));
+  console.log(">>> [KURSINHA WEBHOOK] Body:", JSON.stringify(req.body, null, 2));
+  console.log(">>> [KURSINHA WEBHOOK] Query:", JSON.stringify(req.query, null, 2));
+
+  try {
+    const rawBody = req.body || {};
+    const rawQuery = req.query || {};
+
+    // 1. Determine buyer's identifier (email or phone or custom user_id)
+    let email = rawBody.email || 
+                rawBody.customer_email || 
+                rawBody.client_email || 
+                rawBody.buyer_email || 
+                rawBody.email_cliente || 
+                rawBody.cliente_email || 
+                rawBody.customer?.email || 
+                rawBody.client?.email || 
+                rawBody.buyer?.email || 
+                rawBody.payload?.email ||
+                rawBody.payload?.customer?.email ||
+                rawQuery.email;
+
+    let phone = rawBody.phone || 
+                rawBody.phone_number || 
+                rawBody.customer_phone || 
+                rawBody.client_phone || 
+                rawBody.buyer_phone || 
+                rawBody.customer?.phone || 
+                rawBody.client?.phone || 
+                rawBody.buyer?.phone || 
+                rawBody.telefone || 
+                rawQuery.phone;
+
+    let userId = rawBody.user_id || 
+                 rawBody.external_id || 
+                 rawBody.client_id || 
+                 rawBody.order_id || 
+                 rawBody.reference || 
+                 rawBody.external_reference || 
+                 rawBody.customer?.external_id || 
+                 rawQuery.user_id || 
+                 rawQuery.external_id || 
+                 rawQuery.ref;
+
+    // 2. Identify transaction status
+    const purchaseStatus = (rawBody.status || rawBody.payment_status || rawBody.event || rawQuery.status || "").toString().toLowerCase();
+    
+    console.log(`>>> [KURSINHA WEBHOOK] Parsed Info - email: ${email}, phone: ${phone}, userId: ${userId}, status: ${purchaseStatus}`);
+
+    const isPaid = !purchaseStatus || 
+                   purchaseStatus.includes("aprov") || 
+                   purchaseStatus.includes("pag") || 
+                   purchaseStatus.includes("complet") || 
+                   purchaseStatus.includes("finish") || 
+                   purchaseStatus.includes("success") || 
+                   purchaseStatus.includes("ativ") || 
+                   purchaseStatus.includes("active") || 
+                   purchaseStatus.includes("delivered") || 
+                   purchaseStatus === "paid" || 
+                   purchaseStatus === "pago" || 
+                   purchaseStatus === "paga" || 
+                   purchaseStatus === "ok";
+
+    if (!isPaid) {
+      console.log(">>> [KURSINHA WEBHOOK] Purchase status is not considered paid. Skipping credit update.");
+      return res.status(200).json({ status: "ignored", message: `Status was '${purchaseStatus}', not marked as paid.` });
+    }
+
+    // 3. Resolve user ID if we don't have it explicitly
+    if (!userId && (email || phone)) {
+      console.log(">>> [KURSINHA WEBHOOK] No explicit user ID, looking up via Supabase Auth Admin API...");
+      
+      const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+      if (usersError) {
+        console.error(">>> [KURSINHA WEBHOOK] Error listing users to match email/phone:", usersError);
+      } else {
+        const users = usersData?.users || [];
+        let matchedUser = null;
+
+        if (email) {
+          const cleanEmail = email.trim().toLowerCase();
+          matchedUser = users.find(u => u.email?.trim().toLowerCase() === cleanEmail);
+        }
+
+        if (!matchedUser && phone) {
+          const cleanPhone = phone.replace(/[^0-9]/g, "");
+          matchedUser = users.find(u => {
+            if (!u.phone) return false;
+            const up = u.phone.replace(/[^0-9]/g, "");
+            return up === cleanPhone || up.endsWith(cleanPhone) || cleanPhone.endsWith(up);
+          });
+        }
+
+        if (matchedUser) {
+          userId = matchedUser.id;
+          console.log(`>>> [KURSINHA WEBHOOK] Successfully matched user ID: ${userId} via auth lookup`);
+        } else {
+          console.log(">>> [KURSINHA WEBHOOK] Could not match any user with this email or phone");
+        }
+      }
+    }
+
+    if (!userId && rawBody.username) {
+      console.log(">>> [KURSINHA WEBHOOK] Trying backup lookup by username in profiles...");
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('username', rawBody.username)
+        .maybeSingle();
+
+      if (profile) {
+        userId = profile.id;
+        console.log(`>>> [KURSINHA WEBHOOK] Matched user ID: ${userId} via profiles.username`);
+      }
+    }
+
+    if (!userId) {
+      console.error(">>> [KURSINHA WEBHOOK] Error: User could not be identified.");
+      return res.status(400).json({ 
+        error: "User not found", 
+        message: "Não foi possível encontrar o utilizador associado a este pagamento no Angochat. Verifica se o e-mail/telemóvel coincidem." 
+      });
+    }
+
+    // 4. Calculate amount of coins to add
+    let rawAmount = parseFloat(rawBody.price || rawBody.amount || rawBody.value || rawBody.valor || rawBody.price_cents || rawBody.payload?.price || "1000");
+    if (rawBody.price_cents || rawBody.amount_cents) {
+      rawAmount = rawAmount / 100;
+    }
+    
+    const currency = (rawBody.currency || rawBody.moeda || rawBody.payload?.currency || 'AOA').toUpperCase();
+    
+    let coinsToAdd = 0;
+    if (currency === 'USD') {
+      coinsToAdd = Math.floor(rawAmount * 100);
+    } else {
+      // 10 AOA = 1 Coin (so 1000 AOA = 100 coins)
+      coinsToAdd = Math.floor(rawAmount / 10);
+    }
+
+    if (coinsToAdd <= 0) {
+      coinsToAdd = 100;
+    }
+
+    console.log(`>>> [KURSINHA WEBHOOK] Crediting ${coinsToAdd} coins (Raw: ${rawAmount} ${currency}) for user ${userId}`);
+
+    // 5. Update user balance
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('balance')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      console.error(">>> [KURSINHA WEBHOOK] Error fetching profile balance:", profileError);
+      throw profileError;
+    }
+
+    const currentBalance = profile.balance || 0;
+    const newBalance = currentBalance + coinsToAdd;
+
+    const { error: balanceError } = await supabaseAdmin
+      .from('profiles')
+      .update({ balance: newBalance })
+      .eq('id', userId);
+
+    if (balanceError) {
+      console.error(">>> [KURSINHA WEBHOOK] Error updating profile balance:", balanceError);
+      throw balanceError;
+    }
+
+    // 6. Save deposit tracking record
+    const paymentId = (rawBody.transaction_id || rawBody.id || rawBody.tx_id || rawBody.reference || `kurs_${Date.now()}`).toString();
+    const { error: dbError } = await supabaseAdmin
+      .from('deposits')
+      .insert({
+        user_id: userId,
+        amount: rawAmount,
+        currency: currency,
+        payment_id: paymentId,
+        status: 'finished'
+      });
+
+    if (dbError) {
+      console.warn(">>> [KURSINHA WEBHOOK] Notice: Could not insert tracking:", dbError.message);
+    }
+
+    console.log(`>>> [KURSINHA WEBHOOK] SUCCESS! Added +${coinsToAdd} coins. New balance: ${newBalance}`);
+    return res.status(200).json({ 
+      status: "success", 
+      message: `Sucesso! Foram creditadas ${coinsToAdd} moedas na conta do utilizador.`,
+      user_id: userId,
+      added_coins: coinsToAdd,
+      new_balance: newBalance
+    });
+
+  } catch (error) {
+    console.error(">>> [KURSINHA WEBHOOK] Internal error processing webhook:", error);
+    return res.status(500).json({ error: "Internal server error", details: (error as Error).message });
+  }
+});
+
+app.get("/api/payments/kursinha-webhook", (req, res) => {
+  res.json({
+    status: "active",
+    message: "O endpoint do webhook Kursinha está ativo e pronto para receber POST requests da plataforma.",
+    webhook_url: "https://ais-pre-zrifqkgbujknyfw6lb6hhi-7031768075.europe-west2.run.app/api/payments/kursinha-webhook"
+  });
+});
+
+// Beautiful Success Page for Content Delivery after payments (Kursinha)
+app.get("/payment-success", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carregamento com Sucesso — Angochat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .glow-purple {
+      box-shadow: 0 0 50px -10px rgba(147, 51, 234, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-[#030303] text-zinc-100 min-h-screen flex flex-col justify-between items-center relative overflow-hidden px-6 py-12 selection:bg-purple-600/30">
+  
+  <!-- Subtle cosmic background blobs -->
+  <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none"></div>
+  <div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="w-full max-w-md flex justify-center items-center gap-2 z-10">
+    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-black text-[13px] text-white shadow-lg shadow-purple-900/20">
+      A
+    </div>
+    <span class="text-xs font-black uppercase tracking-widest text-zinc-400 font-display">Angochat</span>
+  </header>
+
+  <!-- Main Content Card -->
+  <main id="main-card" class="w-full max-w-md bg-zinc-950/40 border border-white/5 p-8 rounded-3xl flex flex-col items-center text-center z-10 backdrop-blur-xl glow-purple transform transition-all duration-700 opacity-0 scale-95">
+    
+    <!-- Animated success icon container -->
+    <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center mb-6 shadow-inner relative">
+      <div class="absolute inset-0 bg-emerald-500/10 rounded-full animate-ping opacity-75 duration-1000"></div>
+      <svg class="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+      </svg>
+    </div>
+
+    <!-- Title -->
+    <h1 class="text-2xl font-black uppercase tracking-tight text-white mb-3 font-display">
+      Carregamento Efetuado!
+    </h1>
+
+    <!-- Dynamic greeting loaded by query variables -->
+    <p id="success-greeting" class="text-sm text-zinc-300 font-medium leading-relaxed px-2 mb-6">
+      O teu carregamento de Angochat Coins foi efetuado com sucesso!
+    </p>
+
+    <!-- Details Box -->
+    <div class="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-left space-y-3 mb-8">
+      <div class="flex justify-between items-center text-xs">
+        <span class="text-zinc-500 font-medium">Produto</span>
+        <span class="text-zinc-200 font-semibold font-display">Coins Pack</span>
+      </div>
+      <div class="flex justify-between items-center text-xs border-t border-white/5 pt-3">
+        <span class="text-zinc-500 font-medium font-display">Status do Pagamento</span>
+        <span class="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide">Aprovado</span>
+      </div>
+      <div id="payment-id-container" class="hidden flex justify-between items-center text-xs border-t border-white/5 pt-3">
+        <span class="text-zinc-500 font-medium">ID Transação</span>
+        <span id="payment-id" class="text-zinc-400 font-mono text-[10px]"></span>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <a href="/" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 px-6 rounded-full text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-900/30 active:scale-95">
+      Voltar para o Angochat
+    </a>
+
+  </main>
+
+  <!-- Footer Info -->
+  <footer class="w-full max-w-sm text-center z-10 mt-6 md:mt-0">
+    <p class="text-[10px] text-zinc-600 font-medium">
+      Se tiveres alguma dúvida, contacta o suporte do Angochat.
+    </p>
+  </footer>
+
+  <script>
+    // Reveal animation
+    window.addEventListener('DOMContentLoaded', () => {
+      const card = document.getElementById('main-card');
+      setTimeout(() => {
+        card.classList.remove('opacity-0', 'scale-95');
+        card.classList.add('opacity-100', 'scale-100');
+      }, 100);
+    });
+
+    // Extract content parameters
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name') || params.get('nome') || params.get('customer_name') || params.get('client_name') || '';
+    const email = params.get('email') || params.get('customer_email') || params.get('client_email') || '';
+    const reference = params.get('reference') || params.get('id') || params.get('transaction_id') || '';
+
+    const greetingEl = document.getElementById('success-greeting');
+    if (name) {
+      greetingEl.innerHTML = "Olá <strong class='text-purple-400 font-black'>" + decodeURIComponent(name) + "</strong>, o teu carregamento do Angochat foi efetuado com sucesso!";
+    } else if (email) {
+      greetingEl.innerHTML = "Olá <strong class='text-purple-400 font-black'>" + decodeURIComponent(email) + "</strong>, o teu carregamento do Angochat foi efetuado com sucesso!";
+    }
+
+    if (reference) {
+      document.getElementById('payment-id-container').classList.remove('hidden');
+      document.getElementById('payment-id').innerText = reference;
+    }
+  </script>
+</body>
+</html>`);
+});
+
 // Cloudflare RealtimeKit Session Endpoint
 app.post("/api/live/session", async (req, res) => {
   const { userId, role } = req.body;

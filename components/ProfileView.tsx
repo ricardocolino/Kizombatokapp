@@ -746,6 +746,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const handleOpenKursinhaPayment = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const baseUrl = 'https://pay.kursinha.com/c/6a3a50f7a52791fedef41442';
+      let finalUrl = baseUrl;
+      
+      if (session && session.user) {
+        const userEmail = session.user.email || '';
+        const userId = session.user.id;
+        finalUrl = `${baseUrl}?email=${encodeURIComponent(userEmail)}&user_id=${userId}&ref=${userId}`;
+      }
+      
+      try {
+        await Browser.open({ 
+          url: finalUrl,
+          toolbarColor: '#09090b',
+          presentationStyle: 'fullscreen'
+        });
+      } catch (err) {
+        console.error("Erro ao abrir navegador nativo para Kursinha:", err);
+        window.open(finalUrl, '_blank');
+      }
+    } catch (err) {
+      console.error("Erro ao preparar pagamento Kursinha:", err);
+      window.open('https://pay.kursinha.com/c/6a3a50f7a52791fedef41442', '_blank');
+    }
+  };
+
   const handleDeposit = async () => {
     setSaving(true);
     try {
@@ -1704,7 +1732,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </button>
 
               <button 
-                onClick={handleOpenExternalDeposit}
+                onClick={handleOpenKursinhaPayment}
                 className="flex items-center gap-2 bg-blue-600 border border-blue-500 hover:bg-blue-700 px-4 py-2.5 rounded-full active:scale-95 transition-all group text-white shadow-sm"
               >
                 <AngoCoinIcon size={14} />
