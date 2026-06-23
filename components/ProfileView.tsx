@@ -751,11 +751,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       const { data: { session } } = await supabase.auth.getSession();
       const baseUrl = 'https://pay.kursinha.com/c/6a3a50f7a52791fedef41442';
       let finalUrl = baseUrl;
+      let userEmail = '';
       
       if (session && session.user) {
-        const userEmail = session.user.email || '';
+        userEmail = session.user.email || '';
         const userId = session.user.id;
         finalUrl = `${baseUrl}?email=${encodeURIComponent(userEmail)}&user_id=${userId}&ref=${userId}`;
+      }
+      
+      // Warning prompt with detailed instructions
+      const message = `⚠️ ATENÇÃO - MUITO IMPORTANTE!\n\nPara garantir que os teus Angochat Coins sejam creditados INSTANTANEAMENTE na tua conta, deves usar OBRIGATORIAMENTE o mesmo e-mail do teu perfil do Angochat no checkout de pagamento da Kursinha:\n\n📧 E-mail a usar: ${userEmail || 'O teu e-mail de perfil'}\n\nSe usares um e-mail diferente, o nosso sistema automatizado de webhook não conseguirá identificar o teu utilizador e poderás perder as tuas moedas ou o processo de crédito poderá falhar.\n\nQueres prosseguir para a página de pagamento seguro?`;
+      
+      const confirmProceed = window.confirm(message);
+      if (!confirmProceed) {
+        return; // Stop right here
       }
       
       try {

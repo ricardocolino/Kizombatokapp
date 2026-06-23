@@ -302,7 +302,7 @@ app.post("/api/payments/kursinha-webhook", async (req, res) => {
     const rawBody = req.body || {};
     const rawQuery = req.query || {};
 
-    // 1. Determine buyer's identifier (email or phone or custom user_id)
+    // 1. Determine buyer's identifier (email or custom user_id)
     let email = rawBody.email || 
                 rawBody.customer_email || 
                 rawBody.client_email || 
@@ -315,17 +315,6 @@ app.post("/api/payments/kursinha-webhook", async (req, res) => {
                 rawBody.payload?.email ||
                 rawBody.payload?.customer?.email ||
                 rawQuery.email;
-
-    let phone = rawBody.phone || 
-                rawBody.phone_number || 
-                rawBody.customer_phone || 
-                rawBody.client_phone || 
-                rawBody.buyer_phone || 
-                rawBody.customer?.phone || 
-                rawBody.client?.phone || 
-                rawBody.buyer?.phone || 
-                rawBody.telefone || 
-                rawQuery.phone;
 
     let userId = rawBody.user_id || 
                  rawBody.external_id || 
@@ -341,7 +330,7 @@ app.post("/api/payments/kursinha-webhook", async (req, res) => {
     // 2. Identify transaction status
     const purchaseStatus = (rawBody.status || rawBody.payment_status || rawBody.event || rawQuery.status || "").toString().toLowerCase();
     
-    console.log(`>>> [KURSINHA WEBHOOK] Parsed Info - email: ${email}, phone: ${phone}, userId: ${userId}, status: ${purchaseStatus}`);
+    console.log(`>>> [KURSINHA WEBHOOK] Parsed Info - email: ${email}, userId: ${userId}, status: ${purchaseStatus}`);
 
     const isPaid = !purchaseStatus || 
                    purchaseStatus.includes("aprov") || 
@@ -362,51 +351,24 @@ app.post("/api/payments/kursinha-webhook", async (req, res) => {
       return res.status(200).json({ status: "ignored", message: `Status was '${purchaseStatus}', not marked as paid.` });
     }
 
-    // 3. Resolve user ID if we don't have it explicitly
-    if (!userId && (email || phone)) {
-      console.log(">>> [KURSINHA WEBHOOK] No explicit user ID, looking up via Supabase Auth Admin API...");
+    // 3. Resolve user ID if we don't have it explicitly (Strictly via e-mail match)
+    if (!userId && email) {
+      console.log(">>> [KURSINHA WEBHOOK] No explicit user ID, looking up via Supabase Auth Admin API (Email Only)...");
       
       const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
       if (usersError) {
-        console.error(">>> [KURSINHA WEBHOOK] Error listing users to match email/phone:", usersError);
+        console.error(">>> [KURSINHA WEBHOOK] Error listing users to match email:", usersError);
       } else {
         const users = usersData?.users || [];
-        let matchedUser = null;
-
-        if (email) {
-          const cleanEmail = email.trim().toLowerCase();
-          matchedUser = users.find(u => u.email?.trim().toLowerCase() === cleanEmail);
-        }
-
-        if (!matchedUser && phone) {
-          const cleanPhone = phone.replace(/[^0-9]/g, "");
-          matchedUser = users.find(u => {
-            if (!u.phone) return false;
-            const up = u.phone.replace(/[^0-9]/g, "");
-            return up === cleanPhone || up.endsWith(cleanPhone) || cleanPhone.endsWith(up);
-          });
-        }
+        const cleanEmail = email.trim().toLowerCase();
+        const matchedUser = users.find(u => u.email?.trim().toLowerCase() === cleanEmail);
 
         if (matchedUser) {
           userId = matchedUser.id;
-          console.log(`>>> [KURSINHA WEBHOOK] Successfully matched user ID: ${userId} via auth lookup`);
+          console.log(`>>> [KURSINHA WEBHOOK] Successfully matched user ID: ${userId} via email auth lookup`);
         } else {
-          console.log(">>> [KURSINHA WEBHOOK] Could not match any user with this email or phone");
+          console.log(">>> [KURSINHA WEBHOOK] Could not match any user with this email");
         }
-      }
-    }
-
-    if (!userId && rawBody.username) {
-      console.log(">>> [KURSINHA WEBHOOK] Trying backup lookup by username in profiles...");
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('username', rawBody.username)
-        .maybeSingle();
-
-      if (profile) {
-        userId = profile.id;
-        console.log(`>>> [KURSINHA WEBHOOK] Matched user ID: ${userId} via profiles.username`);
       }
     }
 
@@ -414,7 +376,7 @@ app.post("/api/payments/kursinha-webhook", async (req, res) => {
       console.error(">>> [KURSINHA WEBHOOK] Error: User could not be identified.");
       return res.status(400).json({ 
         error: "User not found", 
-        message: "Não foi possível encontrar o utilizador associado a este pagamento no Angochat. Verifica se o e-mail/telemóvel coincidem." 
+        message: "Não foi possível encontrar o utilizador associado a este pagamento no Angochat. Certifica-te de que utilizaste o mesmo e-mail." 
       });
     }
 
