@@ -1734,7 +1734,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
             {/* Botão de Moedas Rápido */}
             <div className="pt-8 pb-8 border-b border-zinc-100 w-full">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center gap-2.5">
                 <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-extrabold">{t('My Coins')}</span>
                 <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-full">
                   <AngoCoinIcon size={12} className="text-purple-600" />
@@ -1748,9 +1748,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               {!showRechargeOptions ? (
                 <button
                   onClick={() => setShowRechargeOptions(true)}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-purple-900/15 group"
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center transition-all shadow-lg shadow-purple-900/15 group"
                 >
-                  <AngoCoinIcon size={18} className="group-hover:rotate-12 transition-transform" />
                   <span className="text-xs uppercase tracking-wider">Carregar Coins</span>
                 </button>
               ) : (
