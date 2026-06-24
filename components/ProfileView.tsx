@@ -1764,21 +1764,32 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
           <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
             {/* Hero Section: Balanço Principal */}
-            <button 
-              onClick={() => setShowWithdrawModal(true)}
-              className="w-full py-12 flex flex-col items-center justify-center border-b border-zinc-100 group active:opacity-70 transition-all"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Total Balance')} (USD)</span>
-                <ChevronRight size={14} strokeWidth={2.5} className="text-zinc-400" />
-              </div>
-              <div className="flex items-start">
-                <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
-                <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                  {(((profile.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}
-                </h1>
-              </div>
-            </button>
+            <div className="w-full pt-10 pb-10 flex flex-col items-center justify-center border-b border-zinc-100">
+              <button 
+                onClick={() => setShowWithdrawModal(true)}
+                className="flex flex-col items-center justify-center group active:opacity-70 transition-all cursor-pointer mb-6"
+              >
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Total Balance')} (USD)</span>
+                  <span className="text-[9px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Levantar</span>
+                  <ChevronRight size={14} strokeWidth={2.5} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <div className="flex items-start">
+                  <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
+                  <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
+                    {(((profile.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100).toFixed(5)}
+                  </h1>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setShowWithdrawModal(true)}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-900/15 group"
+              >
+                <Wallet size={16} />
+                <span className="text-xs uppercase tracking-wider">{t('Withdraw Earnings')}</span>
+              </button>
+            </div>
 
             {/* Botão de Moedas Rápido */}
             <div className="pt-8 pb-8 border-b border-zinc-100 w-full">
