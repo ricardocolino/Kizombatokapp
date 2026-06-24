@@ -38,6 +38,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
   const [showRechargeOptions, setShowRechargeOptions] = useState(false);
   const [showKursinhaWarning, setShowKursinhaWarning] = useState(false);
+  const [copiedKursinhaEmail, setCopiedKursinhaEmail] = useState(false);
   const [kursinhaEmail, setKursinhaEmail] = useState('');
   const [kursinhaUrl, setKursinhaUrl] = useState('');
   const [followListUsers, setFollowListUsers] = useState<{ id: string; username: string; name?: string; avatar_url?: string; }[]>([]);
@@ -2168,37 +2169,44 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {showKursinhaWarning && (
         <div className="fixed inset-0 z-[1010] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          {/* Backdrop click to close */}
           <div className="absolute inset-0" onClick={() => setShowKursinhaWarning(false)} />
           
-          <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-900 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 flex flex-col items-center">
+          <div className="relative w-full max-w-sm bg-black border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 flex flex-col items-center">
             
-            {/* Animated alert icon */}
-            <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/20 flex items-center justify-center mb-4 relative shadow-inner">
-              <div className="absolute inset-0 bg-amber-500/5 rounded-full animate-pulse"></div>
-              <AlertCircle size={32} className="text-amber-500" />
-            </div>
-
             {/* Title */}
-            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-100 text-center mb-2 font-display">
-              ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+            <h3 className="text-sm font-black uppercase tracking-widest text-white text-center mb-3 font-display">
+              Atenção - Muito Importante
             </h3>
 
             {/* Subtitle / explanation */}
             <p className="text-xs text-zinc-400 text-center leading-relaxed mb-5">
-              Para garantir que os teus <strong className="text-zinc-200">Angochat Coins</strong> sejam creditados <strong className="text-emerald-400">INSTANTANEAMENTE</strong> na tua conta, deves usar obrigatoriamente este e-mail no checkout da Kursinha:
+              Para garantir que os teus <strong className="text-white">Angochat Coins</strong> sejam creditados <strong className="text-purple-400">instantaneamente</strong> na tua conta, deves usar obrigatoriamente este e-mail no checkout da Kursinha:
             </p>
 
             {/* Highlighted Email box */}
-            <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center gap-1.5 mb-5 select-all">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">O Teu E-mail de Perfil</span>
-              <span className="text-sm font-black text-white font-mono lowercase tracking-wide break-all text-center">{kursinhaEmail || 'Não configurado'}</span>
+            <div 
+              onClick={() => {
+                if (kursinhaEmail) {
+                  navigator.clipboard.writeText(kursinhaEmail);
+                  setCopiedKursinhaEmail(true);
+                  setTimeout(() => setCopiedKursinhaEmail(false), 2500);
+                }
+              }}
+              className="w-full bg-zinc-900/90 hover:bg-zinc-900 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl p-4 flex flex-col items-center gap-1.5 mb-5 cursor-pointer active:scale-98 transition-all select-none"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">O Teu E-mail de Perfil</span>
+              <span className="text-sm font-black text-white font-mono lowercase tracking-wide break-all text-center">
+                {kursinhaEmail || 'Não configurado'}
+              </span>
+              <span className="text-[10px] font-medium text-purple-400 mt-1">
+                {copiedKursinhaEmail ? 'E-mail copiado com sucesso!' : 'Clique aqui para copiar'}
+              </span>
             </div>
 
             {/* Warning details */}
-            <div className="w-full bg-red-950/10 border border-red-900/20 rounded-xl p-3 text-left mb-6">
+            <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-3.5 text-left mb-6">
               <p className="text-[11px] text-zinc-400 leading-relaxed">
-                🚨 <strong className="text-red-400">Risco de perda:</strong> Se usares um e-mail diferente, o nosso webhook automatizado não conseguirá sincronizar com o teu utilizador e não receberás as moedas automaticamente.
+                <strong className="text-white">Risco de perda:</strong> Se usares um e-mail diferente, o nosso webhook automatizado não conseguirá sincronizar com o teu utilizador e não receberás as moedas automaticamente.
               </p>
             </div>
 
@@ -2206,13 +2214,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="w-full flex flex-col gap-2.5">
               <button 
                 onClick={handleConfirmKursinhaPayment}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-900/20 text-center active:scale-95"
+                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest transition-all shadow-lg shadow-purple-950 text-center active:scale-95"
               >
                 Prosseguir para Pagamento
               </button>
               <button 
                 onClick={() => setShowKursinhaWarning(false)}
-                className="w-full bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest border border-zinc-800/50 transition-all text-center active:scale-95"
+                className="w-full bg-black hover:bg-zinc-900 text-zinc-400 hover:text-white font-bold py-3.5 px-6 rounded-full text-xs uppercase tracking-widest border border-zinc-800 transition-all text-center active:scale-95"
               >
                 Cancelar e voltar
               </button>
