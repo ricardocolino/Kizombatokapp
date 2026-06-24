@@ -925,6 +925,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const handleSaveIban = async () => {
     if (!newIban.trim()) return;
 
+    const cleanIban = newIban.replace(/\s+/g, '').toUpperCase();
+    if (!/^AO\d{23}$/.test(cleanIban)) {
+      alert('IBAN inválido! Apenas IBANs de Angola 🇦🇴 são permitidos (deve começar com AO e ter 25 caracteres).');
+      return;
+    }
+
     setSaving(true);
     try {
       const { error } = await supabase
@@ -968,7 +974,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     if (withdrawMethod === 'iban' && !profile?.iban) {
-      alert('Por favor configura o teu IBAN primeiro.');
+      alert('Por favor configura o teu IBAN de Angola 🇦🇴 primeiro.');
       setShowIbanModal(true);
       return;
     }
@@ -2127,8 +2133,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="p-8 flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar IBAN</h3>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Transferência Bancária</p>
+                  <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-1.5">
+                    Configurar IBAN <span className="text-base" title="Apenas Angola">🇦🇴</span>
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Transferência Bancária (Angola)</p>
                 </div>
                 <button onClick={() => setShowIbanModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
                   <X size={20} />
@@ -2144,7 +2152,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300 font-mono uppercase"
                 />
                 <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed">
-                  Verifique atentamente o seu IBAN para evitar erros na transferência.
+                  Apenas contas bancárias de Angola 🇦🇴 (formato AO06...). Verifique atentamente para evitar erros.
                 </p>
               </div>
 
@@ -2200,7 +2208,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
                 >
                   <div>
-                    <div className="text-xs font-bold uppercase">Transferência Bancária (IBAN)</div>
+                    <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                      <span>Transferência Bancária (IBAN)</span>
+                      <span title="Angola">🇦🇴</span>
+                    </div>
                     <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
                       {profile?.iban || 'Não configurado'}
                     </div>
@@ -2256,13 +2267,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     </button>
                     <button
                       onClick={() => setWithdrawMethod('iban')}
-                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
                         withdrawMethod === 'iban'
                           ? 'bg-black text-white border-black shadow-lg'
                           : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
                       }`}
                     >
-                      IBAN (Bancário)
+                      <span>IBAN (Angola)</span>
+                      <span>🇦🇴</span>
                     </button>
                   </div>
                 </div>
@@ -2287,7 +2299,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">IBAN Bancário</p>
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                      <span>IBAN Bancário (Angola)</span>
+                      <span>🇦🇴</span>
+                    </p>
                     <p className="text-sm font-medium text-black break-all">
                       {profile?.iban || 'Não configurado'}
                     </p>

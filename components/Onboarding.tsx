@@ -119,10 +119,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
 
   const handleFinish = async () => {
     const trimmedWallet = walletAddress.trim();
+    const trimmedIban = iban.trim();
 
     if (trimmedWallet) {
       if (!isValidBep20Address(trimmedWallet)) {
         setError(t('Invalid BEP-20 address format', 'Endereço BEP-20 inválido. Deve começar com 0x e conter 40 caracteres hexadecimais.'));
+        return;
+      }
+    }
+
+    if (trimmedIban) {
+      const cleanIban = trimmedIban.replace(/\s+/g, '').toUpperCase();
+      if (!/^AO\d{23}$/.test(cleanIban)) {
+        setError('IBAN inválido! Apenas IBANs de Angola 🇦🇴 são permitidos (deve começar com AO e ter 25 caracteres).');
         return;
       }
     }
@@ -331,7 +340,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
-                  <span>Transferência Bancária (IBAN)</span>
+                  <span className="flex items-center gap-1.5">Transferência Bancária (IBAN) <span title="Angola">🇦🇴</span></span>
                   <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
                 </label>
                 <input 
@@ -341,6 +350,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
                   placeholder="AO06 0000 0000 0000 0000 0000 0"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono uppercase text-xs"
                 />
+                <p className="text-[9px] text-zinc-500 ml-1">Apenas contas bancárias de Angola 🇦🇴</p>
               </div>
             </div>
 
