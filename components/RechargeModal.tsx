@@ -109,27 +109,35 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
                   setLoading(true);
                   setActiveTab('iframe');
                 }}
-                className="flex flex-col items-center justify-center p-5 bg-zinc-950 hover:bg-zinc-900/80 active:scale-95 border border-zinc-900 hover:border-zinc-800 rounded-3xl transition-all text-center group h-36"
+                className="relative overflow-hidden flex flex-col items-center justify-end p-4 bg-zinc-950 active:scale-95 border border-zinc-800 rounded-3xl transition-all text-center group h-36 shadow-lg"
               >
-                <div className="w-12 h-12 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-3 text-orange-400 group-hover:scale-110 transition-transform">
-                  <Globe size={22} />
+                <img 
+                  src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/images%20(1).jpeg" 
+                  alt="Criptomoedas / Cartões"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
+                    Criptomoedas / Cartões
+                  </span>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 leading-tight">
-                  Criptomoedas / Cartões
-                </span>
               </button>
 
               {/* Card 2: Multicaixa Express (Kursinha Checkout) */}
               <button 
                 onClick={() => setShowWarning(true)}
-                className="flex flex-col items-center justify-center p-5 bg-zinc-950 hover:bg-zinc-900/80 active:scale-95 border border-zinc-900 hover:border-zinc-800 rounded-3xl transition-all text-center group h-36"
+                className="relative overflow-hidden flex flex-col items-center justify-end p-4 bg-zinc-950 active:scale-95 border border-zinc-800 rounded-3xl transition-all text-center group h-36 shadow-lg"
               >
-                <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-3 text-blue-400 group-hover:scale-110 transition-transform">
-                  <CreditCard size={22} />
+                <img 
+                  src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/IMG_8146-770x613.jpeg" 
+                  alt="Multicaixa Express"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
+                    Multicaixa Express
+                  </span>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-200 leading-tight">
-                  Multicaixa Express
-                </span>
               </button>
             </div>
 
