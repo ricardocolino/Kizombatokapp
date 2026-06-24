@@ -954,15 +954,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const handleWithdraw = async () => {
     const unclaimedViews = stats.views - (profile?.claimed_views || 0);
     const pendingEarnings = unclaimedViews * VIEW_RATE;
-    const amountCoins = (profile?.redeemable_balance || 0) + pendingEarnings;
+    const totalCoins = (profile?.redeemable_balance || 0) + pendingEarnings;
+    const amountCoins = Math.min(totalCoins, 5000); // Limite diário de 50 USD (5000 coins)
     const amountUSD = amountCoins / 100;
 
-    if (amountCoins <= 0) {
+    if (totalCoins <= 0) {
       alert(t('Insufficient balance withdraw'));
       return;
     }
 
-    if (amountUSD < 0.5) {
+    if ((totalCoins / 100) < 0.5) {
       alert(t('Min withdraw amount'));
       return;
     }
@@ -1014,10 +1015,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       if (withdrawError) throw withdrawError;
 
       // 2. Deduzir do saldo de resgate e marcar views como reclamadas
+      const remainingBalance = totalCoins - amountCoins;
       const { error: balanceError } = await supabase
         .from('profiles')
         .update({ 
-          redeemable_balance: 0,
+          redeemable_balance: remainingBalance,
           claimed_views: stats.views
         })
         .eq('id', userId);
@@ -1026,7 +1028,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       await fetchProfile();
       setShowWithdrawModal(false);
-      alert(t('Withdraw success message'));
+      alert(`Levantamento de $${amountUSD.toFixed(2)} USD solicitado com sucesso!${remainingBalance > 0 ? ` O saldo restante de $${(remainingBalance / 100).toFixed(2)} USD permanece na sua conta para levantar no próximo dia.` : ''}`);
     } catch (err) {
       console.error("Erro ao processar levantamento:", err);
       alert(t('Error processing withdraw'));
@@ -2321,13 +2323,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 )}
               </div>
 
-              <div className="pt-10">
+              <div className="pt-10 space-y-3">
+                {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) > 50 && (
+                  <p className="text-center text-[9px] text-amber-600 font-bold uppercase tracking-wider">
+                    ⚠️ Limite diário: Apenas $50.00 USD serão levantados hoje
+                  </p>
+                )}
                 <button 
                    onClick={handleWithdraw}
                    disabled={saving || (((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5}
                    className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : t('Confirm Withdrawal')}
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : `${t('Confirm Withdrawal')} ($${Math.min((((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100), 50).toFixed(2)})`}
                 </button>
                 {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5 && (
                   <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
