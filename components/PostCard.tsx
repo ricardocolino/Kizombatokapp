@@ -1724,19 +1724,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 </div>
               )}
               <form onSubmit={postComment} className="flex items-center gap-2">
-                {isLoggedIn && !metadata.isOwnPost && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowComments(false);
-                      setShowGifts(true);
-                    }} 
-                    className="w-[38px] h-[38px] sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-all bg-zinc-100 hover:bg-zinc-200 text-purple-600 active:scale-90"
-                    title={t('Send Gift', 'Enviar Presente')}
-                  >
-                    <Gift size={18} className="fill-purple-600/10" />
-                  </button>
-                )}
                 <div className="flex-1 bg-zinc-50 rounded-full pl-4 pr-1 py-1 flex items-center justify-between gap-2 border border-zinc-100 focus-within:border-zinc-200 transition-all min-w-0">
                   <input 
                     ref={inputRef}
