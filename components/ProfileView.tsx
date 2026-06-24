@@ -963,8 +963,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    if ((totalCoins / 100) < 0.5) {
-      alert(t('Min withdraw amount'));
+    const minReqUSD = withdrawMethod === 'iban' ? 2 : 0.5;
+    if ((totalCoins / 100) < minReqUSD) {
+      if (withdrawMethod === 'iban') {
+        alert('Para levantamento por IBAN o valor mínimo necessário é de 2 USD (equivalente a 1.600 Kz).');
+      } else {
+        alert(t('Min withdraw amount'));
+      }
       return;
     }
     
@@ -2300,30 +2305,45 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                      <span>IBAN Bancário (Angola)</span>
-                      <span>🇦🇴</span>
-                    </p>
-                    <p className="text-sm font-medium text-black break-all">
-                      {profile?.iban || 'Não configurado'}
-                    </p>
-                    {!profile?.iban && (
-                      <button 
-                        onClick={() => {
-                          setNewIban('');
-                          setShowIbanModal(true);
-                        }}
-                        className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
-                      >
-                        Configurar IBAN
-                      </button>
-                    )}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                        <span>IBAN Bancário (Angola)</span>
+                        <span>🇦🇴</span>
+                      </p>
+                      <p className="text-sm font-medium text-black break-all">
+                        {profile?.iban || 'Não configurado'}
+                      </p>
+                      {!profile?.iban && (
+                        <button 
+                          onClick={() => {
+                            setNewIban('');
+                            setShowIbanModal(true);
+                          }}
+                          className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                        >
+                          Configurar IBAN
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-2xl flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500">
+                        <span>Taxa de conversão:</span>
+                        <span className="text-black font-mono">1 USD = 800 Kz</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-black">
+                        <span className="text-zinc-700">Valor a levantar ≈</span>
+                        <span className="text-emerald-600 font-mono">
+                          {(Math.min((((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100), 50) * 800).toLocaleString('pt-AO')} Kz
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="pt-10 space-y-3">
+              <div className="pt-8 space-y-3">
                 {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) > 50 && (
                   <p className="text-center text-[9px] text-amber-600 font-bold uppercase tracking-wider">
                     ⚠️ Limite diário: Apenas $50.00 USD serão levantados hoje
@@ -2331,14 +2351,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 )}
                 <button 
                    onClick={handleWithdraw}
-                   disabled={saving || (((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5}
+                   disabled={saving || (((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5)}
                    className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
                   {saving ? <Loader2 size={18} className="animate-spin" /> : `${t('Confirm Withdrawal')} ($${Math.min((((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100), 50).toFixed(2)})`}
                 </button>
-                {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < 0.5 && (
-                  <p className="text-center mt-4 text-[9px] text-zinc-300 uppercase tracking-widest">
-                    {t('Min required')}
+                {(((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5) && (
+                  <p className="text-center mt-4 text-[9px] text-zinc-400 uppercase tracking-widest">
+                    {withdrawMethod === 'iban' ? 'Mínimo para IBAN: $2.00 USD (1.600 Kz)' : t('Min required')}
                   </p>
                 )}
               </div>
