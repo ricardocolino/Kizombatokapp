@@ -36,6 +36,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   
   // Follow modal states
   const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
+  const [showRechargeOptions, setShowRechargeOptions] = useState(false);
   const [showKursinhaWarning, setShowKursinhaWarning] = useState(false);
   const [kursinhaEmail, setKursinhaEmail] = useState('');
   const [kursinhaUrl, setKursinhaUrl] = useState('');
@@ -1743,38 +1744,59 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
               </div>
               
-              {/* Row with 2 Square Buttons */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Square 1: Crypto (handleOpenExternalDeposit) */}
-                <button 
-                  onClick={handleOpenExternalDeposit}
-                  className="flex flex-col items-center justify-center p-4 bg-zinc-50 hover:bg-zinc-100/80 active:scale-95 border border-zinc-100 rounded-2xl transition-all text-center group h-32"
+              {/* Row with recharge options */}
+              {!showRechargeOptions ? (
+                <button
+                  onClick={() => setShowRechargeOptions(true)}
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-purple-900/15 group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center mb-2.5 text-orange-500 group-hover:scale-110 transition-transform">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9" />
-                    </svg>
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-900 leading-tight">
-                    Carregar com Criptomedas
-                  </span>
+                  <AngoCoinIcon size={18} className="group-hover:rotate-12 transition-transform" />
+                  <span className="text-xs uppercase tracking-wider">Carregar Coins</span>
                 </button>
+              ) : (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Escolhe a Opção</span>
+                    <button 
+                      onClick={() => setShowRechargeOptions(false)}
+                      className="text-[10px] font-black text-zinc-400 hover:text-zinc-700 underline uppercase tracking-wider"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Square 1: Crypto */}
+                    <button 
+                      onClick={handleOpenExternalDeposit}
+                      className="flex flex-col items-center justify-center p-4 bg-zinc-50 hover:bg-zinc-100/80 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-2.5 text-amber-500 group-hover:scale-110 transition-transform">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M14.5 12C15.88 12 17 10.88 17 9.5C17 8.12 15.88 7 14.5 7H11V5H9V7H7V9H9V15H7V17H9V19H11V17H13.5C14.88 17 16 15.88 16 14.5C16 13.43 15.33 12.5 14.38 12.16C14.42 12.11 14.46 12.06 14.5 12ZM11 9H14.5C14.78 9 15 9.22 15 9.5C15 9.78 14.78 10 14.5 10H11V9ZM13.5 15H11V14H13.5C13.78 14 14 14.22 14 14.5C14 14.78 13.78 15 13.5 15Z"/>
+                        </svg>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-900 leading-tight">
+                        Carregar com Crypto
+                      </span>
+                    </button>
 
-                {/* Square 2: Multicaixa Express (handleOpenKursinhaPayment) */}
-                <button 
-                  onClick={handleOpenKursinhaPayment}
-                  className="flex flex-col items-center justify-center p-4 bg-blue-50/50 hover:bg-blue-50 active:scale-95 border border-blue-100/50 rounded-2xl transition-all text-center group h-32"
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-2.5 text-blue-500 group-hover:scale-110 transition-transform">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-1.97-.659-1.171-.879-1.171-2.303 0-3.182 1.172-.879 3.07-.879 4.242 0 .203.152.372.325.508.51" />
-                    </svg>
+                    {/* Square 2: Multicaixa Express */}
+                    <button 
+                      onClick={handleOpenKursinhaPayment}
+                      className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100/80 active:scale-95 border border-blue-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center mb-2.5 text-white group-hover:scale-110 transition-transform shadow-md">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                        </svg>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-950 leading-tight">
+                        Multicaixa Express
+                      </span>
+                    </button>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 leading-tight">
-                    Multicaixa Express
-                  </span>
-                </button>
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Method & Monetization Buttons */}
