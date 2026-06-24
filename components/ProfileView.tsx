@@ -1803,62 +1803,49 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
               </div>
               
-              {/* Row with recharge options */}
-              {!showRechargeOptions ? (
-                <button
-                  onClick={() => setShowRechargeOptions(true)}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center transition-all shadow-lg shadow-purple-900/15 group"
-                >
-                  <span className="text-xs uppercase tracking-wider">Carregar Coins</span>
-                </button>
-              ) : (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Escolhe a Opção</span>
-                    <button 
-                      onClick={() => setShowRechargeOptions(false)}
-                      className="text-[10px] font-black text-zinc-400 hover:text-zinc-700 underline uppercase tracking-wider"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Square 1: Crypto */}
-                    <button 
-                      onClick={handleOpenExternalDeposit}
-                      className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
-                    >
-                      <img 
-                        src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/images%20(1).jpeg" 
-                        alt="Carregar com Crypto"
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
-                          Carregar com Crypto
-                        </span>
-                      </div>
-                    </button>
-
-                    {/* Square 2: Multicaixa Express */}
-                    <button 
-                      onClick={handleOpenKursinhaPayment}
-                      className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
-                    >
-                      <img 
-                        src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/IMG_8146-770x613.jpeg" 
-                        alt="Multicaixa Express"
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
-                          Multicaixa Express
-                        </span>
-                      </div>
-                    </button>
-                  </div>
+              {/* Row with recharge options directly visible */}
+              <div className="space-y-3">
+                <div className="px-1">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-tight">
+                    Escolhe uma opção caso deseja carregar coins
+                  </p>
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Option 1: Multicaixa Express */}
+                  <button 
+                    onClick={handleOpenKursinhaPayment}
+                    className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
+                  >
+                    <img 
+                      src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/IMG_8146-770x613.jpeg" 
+                      alt="Multicaixa Express"
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
+                        Multicaixa Express
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Crypto */}
+                  <button 
+                    onClick={handleOpenExternalDeposit}
+                    className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
+                  >
+                    <img 
+                      src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/images%20(1).jpeg" 
+                      alt="Carregar com Crypto"
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
+                        Carregar com Crypto
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Method & Monetization Buttons */}
