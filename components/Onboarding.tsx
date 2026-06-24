@@ -23,6 +23,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   const [username, setUsername] = useState(userEmail.split('@')[0]);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [iban, setIban] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           if (data.username) setUsername(data.username);
           if (data.avatar_url) setAvatarUrl(data.avatar_url);
           if (data.wallet_address) setWalletAddress(data.wallet_address);
+          if (data.iban) setIban(data.iban);
         }
       } catch (err) {
         console.error('Error fetching profile during onboarding:', err);
@@ -163,6 +165,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           username: username.toLowerCase().trim(),
           avatar_url: avatarUrl || null,
           wallet_address: trimmedWallet || null,
+          iban: iban.trim() || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
         })
@@ -194,7 +197,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
     { id: 1, title: t('Profile Setup'), icon: <User size={24} /> },
     { id: 2, title: t('Avatar Setup'), icon: <Camera size={24} /> },
     { id: 3, title: t('Language Selection'), icon: <Globe size={24} /> },
-    { id: 4, title: t('Wallet Setup'), icon: <Wallet size={24} /> }
+    { id: 4, title: 'Recebimento', icon: <Wallet size={24} /> }
   ];
 
   const renderStep = () => {
@@ -303,27 +306,46 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
+            className="space-y-5"
           >
-            <div className="p-6 bg-purple-600/10 rounded-2xl border border-purple-600/20">
-              <p className="text-xs text-purple-400 leading-relaxed font-medium">
-                {t('Configure your wallet')} <span className="text-zinc-400 font-bold">({t('Optional', 'Opcional')})</span>
+            <div className="p-4 bg-purple-600/10 rounded-2xl border border-purple-600/20">
+              <p className="text-xs text-purple-400 leading-relaxed font-medium text-center">
+                Configura os teus métodos de levantamento <span className="text-zinc-400 font-bold">(Opcional)</span>
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-1">
-                {t('Destination Address')} (BEP-20) <span className="text-purple-500 font-bold">({t('Optional', 'Opcional')})</span>
-              </label>
-              <input 
-                type="text" 
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="0x..."
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all font-mono text-sm"
-              />
+            
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
+                  <span>Carteira USDT (BEP-20)</span>
+                  <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="0x..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
+                  <span>Transferência Bancária (IBAN)</span>
+                  <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={iban}
+                  onChange={(e) => setIban(e.target.value)}
+                  placeholder="AO06 0000 0000 0000 0000 0000 0"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono uppercase text-xs"
+                />
+              </div>
             </div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest text-center px-4">
-              {t('BEP20 Warning')}
+
+            <p className="text-[9px] text-zinc-500 uppercase tracking-wider text-center px-2">
+              Poderás alterar ou configurar isto mais tarde na aba de Perfil.
             </p>
           </motion.div>
         );

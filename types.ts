@@ -9,6 +9,7 @@ export interface Profile {
   redeemable_balance: number;
   claimed_views: number;
   wallet_address: string | null;
+  iban?: string | null;
   airtm_email: string | null;
   onboarding_completed: boolean;
   created_at: string;

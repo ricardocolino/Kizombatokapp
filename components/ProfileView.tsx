@@ -270,7 +270,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [showMonetization, setShowMonetization] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showIbanModal, setShowIbanModal] = useState(false);
+  const [showMethodPicker, setShowMethodPicker] = useState(false);
+  const [withdrawMethod, setWithdrawMethod] = useState<'usdt' | 'iban'>('usdt');
   const [newWalletAddress, setNewWalletAddress] = useState('');
+  const [newIban, setNewIban] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
@@ -918,6 +922,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const handleSaveIban = async () => {
+    if (!newIban.trim()) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ iban: newIban.trim() })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      await fetchProfile();
+      setShowIbanModal(false);
+      alert('IBAN guardado com sucesso!');
+    } catch (err) {
+      console.error("Erro ao guardar IBAN:", err);
+      alert('Erro ao guardar IBAN.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleWithdraw = async () => {
     const unclaimedViews = stats.views - (profile?.claimed_views || 0);
     const pendingEarnings = unclaimedViews * VIEW_RATE;
@@ -934,9 +961,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
     
-    if (!profile?.wallet_address) {
+    if (withdrawMethod === 'usdt' && !profile?.wallet_address) {
       alert(t('Register wallet first'));
       setShowWalletModal(true);
+      return;
+    }
+
+    if (withdrawMethod === 'iban' && !profile?.iban) {
+      alert('Por favor configura o teu IBAN primeiro.');
+      setShowIbanModal(true);
       return;
     }
 
@@ -966,8 +999,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         .insert({
           user_id: userId,
           amount: amountCoins,
-          wallet_address: profile.wallet_address,
-          method: 'usdt',
+          wallet_address: withdrawMethod === 'usdt' ? profile.wallet_address : profile.iban,
+          iban: withdrawMethod === 'iban' ? profile.iban : null,
+          method: withdrawMethod,
           status: 'pending'
         });
 
@@ -1807,8 +1841,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="py-10 flex items-center justify-center gap-6">
               <button 
                 onClick={() => {
-                  setNewWalletAddress(profile?.wallet_address || '');
-                  setShowWalletModal(true);
+                  setShowMethodPicker(true);
                 }}
                 className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
@@ -2086,6 +2119,100 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       )}
 
+      {/* IBAN Modal */}
+      {showIbanModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowIbanModal(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
+            <div className="p-8 flex flex-col gap-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest">Configurar IBAN</h3>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">Transferência Bancária</p>
+                </div>
+                <button onClick={() => setShowIbanModal(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <input 
+                  type="text" 
+                  value={newIban}
+                  onChange={(e) => setNewIban(e.target.value)}
+                  placeholder="Ex: AO06 0000 0000 0000 0000 0000 0"
+                  className="w-full bg-zinc-50 border-b border-zinc-100 px-0 py-4 text-sm focus:border-black outline-none transition-all text-black placeholder:text-zinc-300 font-mono uppercase"
+                />
+                <p className="text-[9px] text-zinc-400 font-bold uppercase leading-relaxed">
+                  Verifique atentamente o seu IBAN para evitar erros na transferência.
+                </p>
+              </div>
+
+              <button 
+                onClick={handleSaveIban}
+                disabled={saving || !newIban.trim()}
+                className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : t('Save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Method Picker Modal */}
+      {showMethodPicker && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowMethodPicker(false)} />
+          <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
+            <div className="p-8 flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-widest">{t('Payment Method')}</h3>
+                <button onClick={() => setShowMethodPicker(false)} className="p-2 text-zinc-400 hover:text-black transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="text-xs text-zinc-500">Escolha o método de recebimento que deseja configurar:</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowMethodPicker(false);
+                    setNewWalletAddress(profile?.wallet_address || '');
+                    setShowWalletModal(true);
+                  }}
+                  className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
+                >
+                  <div>
+                    <div className="text-xs font-bold uppercase">USDT (BEP-20)</div>
+                    <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
+                      {profile?.wallet_address || 'Não configurado'}
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-zinc-400" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMethodPicker(false);
+                    setNewIban(profile?.iban || '');
+                    setShowIbanModal(true);
+                  }}
+                  className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
+                >
+                  <div>
+                    <div className="text-xs font-bold uppercase">Transferência Bancária (IBAN)</div>
+                    <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
+                      {profile?.iban || 'Não configurado'}
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-zinc-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Withdraw Modal Fullscreen */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-[120] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
@@ -2112,24 +2239,71 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE).toFixed(3)} Angochat Coins</p>
               </div>
 
-              <div className="space-y-8 pt-10">
+              <div className="space-y-6 pt-6">
+                {/* Selector de Método */}
                 <div className="space-y-2">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')}</p>
-                  <p className="text-sm font-medium text-black break-all">
-                    {profile?.wallet_address || t('Not configured')}
-                  </p>
-                  {!profile?.wallet_address && (
-                    <button 
-                      onClick={() => {
-                        setNewWalletAddress('');
-                        setShowWalletModal(true);
-                      }}
-                      className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Método de Levantamento</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setWithdrawMethod('usdt')}
+                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                        withdrawMethod === 'usdt'
+                          ? 'bg-black text-white border-black shadow-lg'
+                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                      }`}
                     >
-                      {t('Configure Wallet')}
+                      USDT (BEP-20)
                     </button>
-                  )}
+                    <button
+                      onClick={() => setWithdrawMethod('iban')}
+                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                        withdrawMethod === 'iban'
+                          ? 'bg-black text-white border-black shadow-lg'
+                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                      }`}
+                    >
+                      IBAN (Bancário)
+                    </button>
+                  </div>
                 </div>
+
+                {withdrawMethod === 'usdt' ? (
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{t('Destination Address')} (USDT)</p>
+                    <p className="text-sm font-medium text-black break-all">
+                      {profile?.wallet_address || t('Not configured')}
+                    </p>
+                    {!profile?.wallet_address && (
+                      <button 
+                        onClick={() => {
+                          setNewWalletAddress('');
+                          setShowWalletModal(true);
+                        }}
+                        className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                      >
+                        {t('Configure Wallet')}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">IBAN Bancário</p>
+                    <p className="text-sm font-medium text-black break-all">
+                      {profile?.iban || 'Não configurado'}
+                    </p>
+                    {!profile?.iban && (
+                      <button 
+                        onClick={() => {
+                          setNewIban('');
+                          setShowIbanModal(true);
+                        }}
+                        className="text-[10px] font-black uppercase text-purple-600 tracking-widest mt-2 hover:opacity-70 transition-opacity"
+                      >
+                        Configurar IBAN
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-10">
