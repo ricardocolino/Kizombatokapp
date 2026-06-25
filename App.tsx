@@ -22,6 +22,7 @@ import { uploadToR2 } from './services/uploadService';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
+import AdminDashboard from './admin/Dashboard';
 import { Home, Compass, Radio, Bell, User as UserIcon, Smartphone, Download, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { appCache } from './services/cache';
 import { FeedFilter } from './types';
@@ -32,7 +33,8 @@ export enum Tab {
   CREATE = 'create',
   LIVE = 'live',
   INBOX = 'inbox',
-  PROFILE = 'profile'
+  PROFILE = 'profile',
+  ADMIN = 'admin'
 }
 
 interface UploadData {
@@ -545,6 +547,9 @@ const App: React.FC = () => {
       setLoadingSession(false);
       if (currentUser) {
         checkOnboarding(currentUser.id);
+        if (currentUser.email === '200ricardocolino@gmail.com') {
+          setActiveTab(Tab.ADMIN);
+        }
       }
     });
 
@@ -555,6 +560,9 @@ const App: React.FC = () => {
       if (currentUser) {
         if (_event === 'SIGNED_IN') {
            checkOnboarding(currentUser.id);
+           if (currentUser.email === '200ricardocolino@gmail.com') {
+             setActiveTab(Tab.ADMIN);
+           }
         }
       } else {
         setShowOnboarding(false);
