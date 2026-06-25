@@ -23,22 +23,33 @@ export const AdminUsersManager: React.FC = () => {
   const [newBalanceValue, setNewBalanceValue] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [sqlMissing, setSqlMissing] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
     setNotice(null);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('username', { ascending: true })
-        .limit(100);
+      // 1. Tenta buscar pela função RPC (contorna RLS no Supabase com Security Definer)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_get_all_users');
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (!rpcError && rpcData) {
+        setUsers(rpcData || []);
+        setSqlMissing(false);
+      } else {
+        setSqlMissing(true);
+        // Fallback direto (pode retornar apenas o próprio usuário se RLS estiver ativo)
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('username', { ascending: true })
+          .limit(100);
+
+        if (error) throw error;
+        setUsers(data || []);
+      }
     } catch (err: any) {
       console.error('Erro ao buscar utilizadores:', err);
-      setNotice('Erro ao carregar lista de utilizadores.');
+      setNotice('Erro ao carregar lista de utilizadores. Verifique as permissões no Supabase.');
     } finally {
       setLoading(false);
     }
