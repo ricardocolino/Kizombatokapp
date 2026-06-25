@@ -1123,6 +1123,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (user?.email === '200ricardocolino@gmail.com') {
+    return <AdminDashboard />;
+  }
+
   return (
     <div className={`flex flex-col lg:flex-row-reverse h-[100dvh] w-screen overflow-hidden ${activeTab === Tab.CREATE ? 'bg-transparent' : 'bg-black'} text-white relative`}>
       {/* Debug Health Check - Hidden but accessible via console or long press on Home */}
