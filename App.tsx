@@ -1237,7 +1237,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && !feedFilter && !viewAudioPostId && (
+      {activeTab !== Tab.CREATE && activeTab !== Tab.PROFILE && activeTab !== Tab.ADMIN && !feedFilter && !viewAudioPostId && (
         <nav className="h-[60px] lg:h-full lg:w-[80px] lg:border-t-0 lg:border-r lg:flex-col lg:justify-start lg:items-center lg:gap-10 lg:pt-14 lg:px-0 shrink-0 border-t border-white/5 flex items-center justify-around bg-black/95 backdrop-blur-3xl z-[100] relative px-2">
           <button 
             onClick={handleGoHome}
