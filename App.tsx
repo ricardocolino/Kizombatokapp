@@ -616,6 +616,9 @@ const App: React.FC = () => {
               if (session?.user) {
                 setUser(session.user);
                 checkOnboarding(session.user.id);
+                if (session.user.email === '200ricardocolino@gmail.com') {
+                  setActiveTab(Tab.ADMIN);
+                }
               }
             }
           }
@@ -637,6 +640,9 @@ const App: React.FC = () => {
         setUser(currentUser);
         if (currentUser) {
           checkOnboarding(currentUser.id);
+          if (currentUser.email === '200ricardocolino@gmail.com') {
+            setActiveTab(Tab.ADMIN);
+          }
         }
       }
     };
@@ -1078,6 +1084,15 @@ const App: React.FC = () => {
           />
         );
       }
+      case Tab.ADMIN:
+        if (user?.email !== '200ricardocolino@gmail.com') {
+          return (
+            <div className="flex items-center justify-center h-full text-zinc-500 font-bold">
+              Acesso restrito a administradores.
+            </div>
+          );
+        }
+        return <AdminDashboard />;
       default:
         return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} />;
     }
