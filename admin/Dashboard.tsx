@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import AdminAnalytics from './Analytics';
-import { Shield, Activity, LogOut, LayoutDashboard } from 'lucide-react';
+import AdminUsersManager from './UsersManager';
+import { Shield, Activity, LogOut, LayoutDashboard, Users } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -59,6 +60,17 @@ export const AdminDashboard: React.FC = () => {
               <Activity className="w-4 h-4 shrink-0" />
               Visão Geral e Métricas
             </button>
+            <button
+              onClick={() => setActiveAdminTab('users')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'users'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4 shrink-0" />
+              Gestão de Usuários
+            </button>
           </nav>
         </aside>
 
@@ -70,6 +82,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {activeAdminTab === 'analytics' && <AdminAnalytics />}
+          {activeAdminTab === 'users' && <AdminUsersManager />}
         </main>
       </div>
     </div>
