@@ -4,10 +4,11 @@ import AdminAnalytics from './Analytics';
 import AdminUsersManager from './UsersManager';
 import AdminModeration from './Moderation';
 import AdminPaymentsManager from './PaymentsManager';
-import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign } from 'lucide-react';
+import AdminLiveRooms from './LiveRooms';
+import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign, Radio } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments' | 'lives'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -95,6 +96,17 @@ export const AdminDashboard: React.FC = () => {
               <DollarSign className="w-4 h-4 shrink-0" />
               Gestão de Pagamentos
             </button>
+            <button
+              onClick={() => setActiveAdminTab('lives')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'lives'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <Radio className="w-4 h-4 shrink-0 animate-pulse text-amber-400" />
+              Gestão de Salas ao Vivo
+            </button>
           </nav>
         </aside>
 
@@ -109,6 +121,7 @@ export const AdminDashboard: React.FC = () => {
           {activeAdminTab === 'users' && <AdminUsersManager />}
           {activeAdminTab === 'moderation' && <AdminModeration />}
           {activeAdminTab === 'payments' && <AdminPaymentsManager />}
+          {activeAdminTab === 'lives' && <AdminLiveRooms />}
         </main>
       </div>
     </div>
