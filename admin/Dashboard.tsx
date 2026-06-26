@@ -3,10 +3,11 @@ import { supabase } from '../supabaseClient';
 import AdminAnalytics from './Analytics';
 import AdminUsersManager from './UsersManager';
 import AdminModeration from './Moderation';
-import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert } from 'lucide-react';
+import AdminPaymentsManager from './PaymentsManager';
+import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -83,6 +84,17 @@ export const AdminDashboard: React.FC = () => {
               <ShieldAlert className="w-4 h-4 shrink-0" />
               Moderação e Denúncias
             </button>
+            <button
+              onClick={() => setActiveAdminTab('payments')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'payments'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <DollarSign className="w-4 h-4 shrink-0" />
+              Gestão de Pagamentos
+            </button>
           </nav>
         </aside>
 
@@ -96,6 +108,7 @@ export const AdminDashboard: React.FC = () => {
           {activeAdminTab === 'analytics' && <AdminAnalytics />}
           {activeAdminTab === 'users' && <AdminUsersManager />}
           {activeAdminTab === 'moderation' && <AdminModeration />}
+          {activeAdminTab === 'payments' && <AdminPaymentsManager />}
         </main>
       </div>
     </div>
