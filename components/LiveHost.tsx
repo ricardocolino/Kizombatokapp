@@ -117,12 +117,25 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
       clientRef.current = agoraClient;
 
       try {
-        const audioTrack = audioTrackRef.current;
-        const videoTrack = videoTrackRef.current;
+        let audioTrack = audioTrackRef.current;
+        let videoTrack = videoTrackRef.current;
 
         if (!audioTrack || !videoTrack) {
-          console.error('Tracks not ready for publishing');
-          return;
+          try {
+            const [aTrack, vTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+            audioTrackRef.current = aTrack;
+            videoTrackRef.current = vTrack;
+            audioTrack = aTrack;
+            videoTrack = vTrack;
+            if (videoRef.current) {
+              vTrack.play(videoRef.current);
+            }
+          } catch (mediaErr) {
+            console.error('Falha ao aceder à câmera/microfone:', mediaErr);
+            alert('Câmera ou microfone indisponíveis. Verifique as permissões de mídia do seu navegador.');
+            setIsStarting(false);
+            return;
+          }
         }
 
         const channelName = `live_${currentUser.id}_${Date.now()}`;
@@ -232,8 +245,10 @@ const LiveHost: React.FC<LiveHostProps> = ({ currentUser, onClose }) => {
             }
           )
           .subscribe();
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error starting live session:', err);
+        alert(`Erro ao iniciar a live: ${err.message || 'Verifique as permissões ou execute o script admin_lives.sql no Supabase'}`);
+        setIsStarting(false);
       }
     };
 
