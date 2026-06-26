@@ -42,7 +42,7 @@ export const AdminModeration: React.FC = () => {
 
     try {
       const fromIndex = reset ? 0 : postsList.length;
-      const toIndex = fromIndex + 19; // 20 itens (0 a 19)
+      const toIndex = fromIndex + 9; // Alterado para 10 itens (ex: 0 a 9)
 
       // 1. Buscar denúncias em paralelo para associar o motivo caso o post esteja denunciado
       const { data: reportsData } = await supabase.from('reports').select('post_id, reason');
@@ -53,7 +53,7 @@ export const AdminModeration: React.FC = () => {
         });
       }
 
-      // 2. Buscar publicações paginadas (20 por vez)
+      // 2. Buscar publicações paginadas (10 por vez)
       let { data: rawPosts, error } = await supabase
         .from('posts')
         .select('*, profiles!user_id (*)')
@@ -91,7 +91,8 @@ export const AdminModeration: React.FC = () => {
           report_reason: reportsMap.get(p.id)
         }));
 
-        if (rawPosts.length < 20) {
+        // Se veio menos do que 10 itens, significa que a lista acabou
+        if (rawPosts.length < 10) {
           setHasMore(false);
         }
 
@@ -172,7 +173,7 @@ export const AdminModeration: React.FC = () => {
             Moderação de Conteúdo e Publicações
           </h2>
           <p className="text-zinc-400 text-sm mt-1">
-            Revisão geral de todas as publicações recentes (apresentando 20 por vez)
+            Revisão geral de todas as publicações recentes (apresentando 10 por vez)
           </p>
         </div>
         <button
@@ -204,7 +205,7 @@ export const AdminModeration: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 space-y-4">
           <Loader2 className="w-10 h-10 text-rose-500 animate-spin" />
-          <span className="text-zinc-500 text-sm font-mono animate-pulse">Carregando primeiras 20 publicações...</span>
+          <span className="text-zinc-500 text-sm font-mono animate-pulse">Carregando primeiras 10 publicações...</span>
         </div>
       ) : postsList.length === 0 ? (
         <div className="text-center py-20 bg-zinc-900/30 rounded-2xl border border-zinc-800/80 text-zinc-500 flex flex-col items-center gap-3">
@@ -319,7 +320,7 @@ export const AdminModeration: React.FC = () => {
             ))}
           </div>
 
-          {/* Botão Ver mais (Carregar mais 20 publicações) */}
+          {/* Botão Ver mais (Carregar mais 10 publicações) */}
           {hasMore && (
             <div className="flex justify-center pt-6">
               <button
@@ -330,7 +331,7 @@ export const AdminModeration: React.FC = () => {
                 {loadingMore ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-rose-500" />
-                    <span>Carregando mais 20 publicações...</span>
+                    <span>Carregando mais 10 publicações...</span>
                   </>
                 ) : (
                   <>
@@ -380,7 +381,6 @@ export const AdminModeration: React.FC = () => {
             <div className="p-6 overflow-y-auto space-y-6 flex-1 flex flex-col items-center justify-center">
               {selectedMediaPost.media_url ? (
                 <div className="w-full flex flex-col items-center gap-3">
-                  {/* Se a URL for vídeo ou terminar em mp4/webm/mov/ogg, renderiza vídeo, caso contrário img */}
                   {selectedMediaPost.media_type === 'video' || selectedMediaPost.media_url.match(/\.(mp4|webm|mov|ogg)$/i) ? (
                     <video 
                       src={selectedMediaPost.media_url} 
@@ -452,5 +452,3 @@ export const AdminModeration: React.FC = () => {
 };
 
 export default AdminModeration;
-
-
