@@ -11,13 +11,17 @@ ALTER TABLE public.withdrawals ADD COLUMN IF NOT EXISTS pago boolean DEFAULT fal
 -- 2. Atualizar permissões de leitura e escrita para administradores autenticados
 ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
 
--- Política para permitir que administradores autorizados atualizem e vejam todos os pedidos
-CREATE POLICY IF NOT EXISTS "Admin pode ver todos os levantamentos" 
+-- 3. Remover políticas antigas se existirem para evitar conflitos de nomes
+DROP POLICY IF EXISTS "Admin pode ver todos os levantamentos" ON public.withdrawals;
+DROP POLICY IF EXISTS "Admin pode atualizar levantamentos" ON public.withdrawals;
+
+-- 4. Criar novas políticas de acesso para administradores
+CREATE POLICY "Admin pode ver todos os levantamentos" 
 ON public.withdrawals FOR SELECT 
 TO authenticated 
 USING (true);
 
-CREATE POLICY IF NOT EXISTS "Admin pode atualizar levantamentos" 
+CREATE POLICY "Admin pode atualizar levantamentos" 
 ON public.withdrawals FOR UPDATE 
 TO authenticated 
 USING (true);
