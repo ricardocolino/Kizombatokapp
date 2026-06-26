@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { parseMediaUrl } from '../services/mediaUtils';
 import { 
   ShieldAlert, AlertTriangle, Trash2, CheckCircle, RefreshCw, 
   Loader2, ExternalLink, User, MessageSquare, Music, Image as ImageIcon,
@@ -9,8 +10,10 @@ import {
 interface PostItem {
   id: string;
   content?: string;
+  media_url?: string;
+  media_type?: string;
+  thumbnail_url?: string;
   audio_url?: string;
-  photo_url?: string;
   created_at?: string;
   user_id?: string;
   author_username?: string;
@@ -77,8 +80,10 @@ export const AdminModeration: React.FC = () => {
         const formatted: PostItem[] = rawPosts.map((p: any) => ({
           id: p.id,
           content: p.content,
-          audio_url: p.audio_url,
-          photo_url: p.photo_url,
+          media_url: parseMediaUrl(p.media_url),
+          media_type: p.media_type,
+          thumbnail_url: p.thumbnail_url ? parseMediaUrl(p.thumbnail_url) : undefined,
+          audio_url: p.audio_url || p.mp3_url,
           created_at: p.created_at,
           user_id: p.user_id,
           author_username: p.profiles?.username || 'utilizador',
@@ -255,9 +260,13 @@ export const AdminModeration: React.FC = () => {
                       <p className="leading-relaxed break-words line-clamp-4">{post.content}</p>
                     )}
 
-                    {post.photo_url && (
+                    {post.media_url && (
                       <div className="mt-2 rounded-lg overflow-hidden border border-zinc-700 max-h-40 flex items-center justify-center bg-black relative">
-                        <img src={post.photo_url} alt="Conteúdo da publicação" className="max-h-40 w-auto object-contain opacity-80" />
+                        {post.media_type === 'video' || post.media_url.match(/\.(mp4|webm|mov|ogg)$/i) ? (
+                          <video src={post.media_url} className="max-h-40 w-auto object-contain opacity-80" muted />
+                        ) : (
+                          <img src={post.media_url} alt="Conteúdo da publicação" className="max-h-40 w-auto object-contain opacity-80" />
+                        )}
                         <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">Pré-visualização</span>
                       </div>
                     )}
@@ -269,7 +278,7 @@ export const AdminModeration: React.FC = () => {
                       </div>
                     )}
 
-                    {!post.content && !post.photo_url && !post.audio_url && (
+                    {!post.content && !post.media_url && !post.audio_url && (
                       <span className="text-xs text-zinc-500 italic">Conteúdo textual não disponível.</span>
                     )}
                   </div>
@@ -369,25 +378,25 @@ export const AdminModeration: React.FC = () => {
 
             {/* Corpo do Modal */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 flex flex-col items-center justify-center">
-              {selectedMediaPost.photo_url ? (
+              {selectedMediaPost.media_url ? (
                 <div className="w-full flex flex-col items-center gap-3">
-                  {/* Se a URL terminar em mp4 ou webm ou mov, renderiza vídeo, caso contrário img */}
-                  {selectedMediaPost.photo_url.match(/\.(mp4|webm|mov|ogg)$/i) ? (
+                  {/* Se a URL for vídeo ou terminar em mp4/webm/mov/ogg, renderiza vídeo, caso contrário img */}
+                  {selectedMediaPost.media_type === 'video' || selectedMediaPost.media_url.match(/\.(mp4|webm|mov|ogg)$/i) ? (
                     <video 
-                      src={selectedMediaPost.photo_url} 
+                      src={selectedMediaPost.media_url} 
                       controls 
                       autoPlay 
                       className="max-h-[60vh] w-auto rounded-2xl border border-zinc-700 bg-black shadow-lg" 
                     />
                   ) : (
                     <img 
-                      src={selectedMediaPost.photo_url} 
+                      src={selectedMediaPost.media_url} 
                       alt="Mídia da publicação" 
                       className="max-h-[60vh] w-auto rounded-2xl border border-zinc-700 bg-black object-contain shadow-lg" 
                     />
                   )}
                   <a 
-                    href={selectedMediaPost.photo_url} 
+                    href={selectedMediaPost.media_url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-mono"
