@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import AdminAnalytics from './Analytics';
 import AdminUsersManager from './UsersManager';
-import { Shield, Activity, LogOut, LayoutDashboard, Users } from 'lucide-react';
+import AdminModeration from './Moderation';
+import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -71,6 +72,17 @@ export const AdminDashboard: React.FC = () => {
               <Users className="w-4 h-4 shrink-0" />
               Gestão de Usuários
             </button>
+            <button
+              onClick={() => setActiveAdminTab('moderation')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'moderation'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              Moderação e Denúncias
+            </button>
           </nav>
         </aside>
 
@@ -83,6 +95,7 @@ export const AdminDashboard: React.FC = () => {
 
           {activeAdminTab === 'analytics' && <AdminAnalytics />}
           {activeAdminTab === 'users' && <AdminUsersManager />}
+          {activeAdminTab === 'moderation' && <AdminModeration />}
         </main>
       </div>
     </div>

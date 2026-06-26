@@ -881,10 +881,17 @@ const App: React.FC = () => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('onboarding_completed')
+        .select('onboarding_completed, is_banned')
         .eq('id', userId)
         .maybeSingle();
       
+      if (data?.is_banned) {
+        await supabase.auth.signOut();
+        alert('A sua conta foi suspensa ou bloqueada pela administração do Angochat.');
+        window.location.reload();
+        return;
+      }
+
       if (!data || !data.onboarding_completed) {
         setShowOnboarding(true);
       }
