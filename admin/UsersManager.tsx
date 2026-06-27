@@ -24,10 +24,12 @@ export const AdminUsersManager: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sqlMissing, setSqlMissing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const fetchUsers = async () => {
     setLoading(true);
     setNotice(null);
+    setVisibleCount(5);
     try {
       // 1. Tenta buscar pela função RPC (contorna RLS no Supabase com Security Definer)
       const { data: rpcData, error: rpcError } = await supabase.rpc('admin_get_all_users');
@@ -186,8 +188,9 @@ export const AdminUsersManager: React.FC = () => {
           Nenhum utilizador encontrado para "{searchQuery}".
         </div>
       ) : (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl overflow-hidden backdrop-blur-md">
-          <div className="overflow-x-auto">
+        <div className="space-y-4">
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl overflow-hidden backdrop-blur-md">
+            <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/80 text-zinc-400 text-xs uppercase font-mono tracking-wider">
@@ -198,7 +201,7 @@ export const AdminUsersManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60 text-sm">
-                {filteredUsers.map(user => (
+                {filteredUsers.slice(0, visibleCount).map(user => (
                   <tr key={user.id} className="hover:bg-zinc-800/30 transition-all">
                     <td className="p-4 flex items-center gap-3">
                       <img 
@@ -275,6 +278,18 @@ export const AdminUsersManager: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {visibleCount < filteredUsers.length && (
+          <div className="flex justify-center pt-2 pb-6">
+            <button
+              onClick={() => setVisibleCount(prev => prev + 5)}
+              className="px-6 py-3 bg-zinc-800 hover:bg-blue-600 active:scale-95 text-zinc-200 hover:text-white font-bold text-xs rounded-xl border border-zinc-700/80 hover:border-blue-500 shadow-lg transition-all flex items-center gap-2"
+            >
+              Mostrar mais 5 utilizadores ({filteredUsers.length - visibleCount} restantes)
+            </button>
+          </div>
+        )}
+      </div>
       )}
 
       {/* Modal Editar Saldo */}
