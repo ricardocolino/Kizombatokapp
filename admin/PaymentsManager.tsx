@@ -28,10 +28,12 @@ export const AdminPaymentsManager: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sqlMissing, setSqlMissing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const fetchWithdrawals = async () => {
     setLoading(true);
     setNotice(null);
+    setVisibleCount(5);
     try {
       // Buscar levantamentos que ainda não estão marcados como pagos
       let { data: rawList, error } = await supabase
@@ -171,94 +173,107 @@ export const AdminPaymentsManager: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {withdrawals.map(item => {
-            const isIban = item.method === 'iban' || !!item.iban;
-            const targetAddress = isIban ? (item.iban || item.wallet_address) : item.wallet_address;
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {withdrawals.slice(0, visibleCount).map(item => {
+              const isIban = item.method === 'iban' || !!item.iban;
+              const targetAddress = isIban ? (item.iban || item.wallet_address) : item.wallet_address;
 
-            return (
-              <div key={item.id} className="bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700 rounded-2xl p-6 flex flex-col justify-between space-y-5 transition-all">
-                <div className="space-y-4">
-                  {/* Top Header do Card */}
-                  <div className="flex items-center justify-between">
-                    <span className={`px-2.5 py-1 font-mono text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1.5 ${
-                      isIban 
-                        ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' 
-                        : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
-                    }`}>
-                      {isIban ? <Building2 className="w-3.5 h-3.5" /> : <Wallet className="w-3.5 h-3.5" />}
-                      Método: {isIban ? 'Transferência IBAN' : 'Cripto USDT (BEP20 / TRC20)'}
-                    </span>
-                    <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {item.created_at ? new Date(item.created_at).toLocaleString('pt-PT') : 'Recente'}
-                    </span>
-                  </div>
+              return (
+                <div key={item.id} className="bg-zinc-900/50 border border-zinc-800/80 hover:border-zinc-700 rounded-2xl p-6 flex flex-col justify-between space-y-5 transition-all">
+                  <div className="space-y-4">
+                    {/* Top Header do Card */}
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-1 font-mono text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1.5 ${
+                        isIban 
+                          ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' 
+                          : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                      }`}>
+                        {isIban ? <Building2 className="w-3.5 h-3.5" /> : <Wallet className="w-3.5 h-3.5" />}
+                        Método: {isIban ? 'Transferência IBAN' : 'Cripto USDT (BEP20 / TRC20)'}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {item.created_at ? new Date(item.created_at).toLocaleString('pt-PT') : 'Recente'}
+                      </span>
+                    </div>
 
-                  {/* Dados do Usuário */}
-                  <div className="p-3 bg-zinc-950/60 rounded-xl border border-zinc-800/80 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img 
-                        src={item.author_avatar ? parseMediaUrl(item.author_avatar) : `https://api.dicebear.com/7.x/avatars/svg?seed=${item.author_username}`}
-                        alt="Criador"
-                        className="w-10 h-10 rounded-full object-cover bg-zinc-800 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-white truncate">
-                          @{item.author_username}
+                    {/* Dados do Usuário */}
+                    <div className="p-3 bg-zinc-950/60 rounded-xl border border-zinc-800/80 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img 
+                          src={item.author_avatar ? parseMediaUrl(item.author_avatar) : `https://api.dicebear.com/7.x/avatars/svg?seed=${item.author_username}`}
+                          alt="Criador"
+                          className="w-10 h-10 rounded-full object-cover bg-zinc-800 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-white truncate">
+                            @{item.author_username}
+                          </div>
+                          <div className="text-[11px] text-zinc-400 font-mono">
+                            ID: {item.user_id?.slice(0, 8)}...
+                          </div>
                         </div>
-                        <div className="text-[11px] text-zinc-400 font-mono">
-                          ID: {item.user_id?.slice(0, 8)}...
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-xl font-black text-emerald-400 font-mono">
+                          ${item.amount.toFixed(2)} USD
                         </div>
+                        {item.coins && (
+                          <div className="text-[10px] text-zinc-500 font-mono">
+                            {item.coins.toLocaleString()} Coins
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <div className="text-xl font-black text-emerald-400 font-mono">
-                        ${item.amount.toFixed(2)} USD
+                    {/* Destino de Pagamento */}
+                    <div className="bg-zinc-800/30 p-4 rounded-xl border border-zinc-800 space-y-1.5 font-mono">
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-sans font-bold">
+                        {isIban ? 'Coordenadas Bancárias (IBAN):' : 'Endereço da Carteira USDT:'}
                       </div>
-                      {item.coins && (
-                        <div className="text-[10px] text-zinc-500 font-mono">
-                          {item.coins.toLocaleString()} Coins
-                        </div>
+                      <div className="text-xs text-white break-all bg-black/40 p-2.5 rounded-lg border border-zinc-800 select-all">
+                        {targetAddress || 'Não informado corretamente pelo utilizador.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botão Paguei */}
+                  <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-end">
+                    <button
+                      onClick={() => handleMarkAsPaid(item)}
+                      disabled={actionLoading === item.id}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
+                    >
+                      {actionLoading === item.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Processando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                          <span>Paguei (Ocultar)</span>
+                        </>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Destino de Pagamento */}
-                  <div className="bg-zinc-800/30 p-4 rounded-xl border border-zinc-800 space-y-1.5 font-mono">
-                    <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-sans font-bold">
-                      {isIban ? 'Coordenadas Bancárias (IBAN):' : 'Endereço da Carteira USDT:'}
-                    </div>
-                    <div className="text-xs text-white break-all bg-black/40 p-2.5 rounded-lg border border-zinc-800 select-all">
-                      {targetAddress || 'Não informado corretamente pelo utilizador.'}
-                    </div>
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Botão Paguei */}
-                <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-end">
-                  <button
-                    onClick={() => handleMarkAsPaid(item)}
-                    disabled={actionLoading === item.id}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
-                  >
-                    {actionLoading === item.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Processando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                        <span>Paguei (Ocultar)</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {visibleCount < withdrawals.length && (
+            <div className="flex justify-center pt-2 pb-6">
+              <button
+                onClick={() => setVisibleCount(prev => prev + 5)}
+                className="px-6 py-3 bg-zinc-800 hover:bg-emerald-600 active:scale-95 text-zinc-200 hover:text-white font-bold text-xs rounded-xl border border-zinc-700/80 hover:border-emerald-500 shadow-lg transition-all flex items-center gap-2"
+              >
+                Mostrar mais 5 pagamentos ({withdrawals.length - visibleCount} restantes)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
