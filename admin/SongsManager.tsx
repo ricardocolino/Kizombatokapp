@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Music, Trash2, RefreshCw, Loader2, Search, User, 
-  AlertCircle, CheckCircle, Disc, Cloud, Database
+  AlertCircle, CheckCircle, Disc, Cloud, Database, AlertTriangle
 } from 'lucide-react';
 
 interface SongPost {
@@ -12,6 +12,7 @@ interface SongPost {
   media_type: string | null;
   mp3_url: string | null;
   mp3_r2_url: string | null;
+  is_seen_music_admin?: boolean | null;
   created_at: string;
   user_id: string;
   profiles?: {
@@ -29,21 +30,45 @@ export const AdminSongsManager: React.FC = () => {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'r2' | 'supabase'>('all');
+  const [sqlMissing, setSqlMissing] = useState(false);
 
   const fetchSongs = async () => {
     setLoading(true);
     setNotice(null);
+    setSqlMissing(false);
 
     try {
       let { data, error } = await supabase
         .from('posts')
-        .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+        .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, is_seen_music_admin, created_at, user_id, profiles!user_id (*)')
         .or('mp3_url.not.is.null,mp3_r2_url.not.is.null')
+        .or('is_seen_music_admin.is.null,is_seen_music_admin.eq.false')
         .order('created_at', { ascending: false })
         .limit(200);
 
-      if (error) {
-        // Fallback caso dê erro na sintaxe do OR no banco
+      if (error && error.message?.includes('is_seen_music_admin')) {
+        setSqlMissing(true);
+        // Fallback caso a coluna ainda não exista
+        const fb = await supabase
+          .from('posts')
+          .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+          .or('mp3_url.not.is.null,mp3_r2_url.not.is.null')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        
+        if (fb.error) {
+          const fb2 = await supabase
+            .from('posts')
+            .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+            .order('created_at', { ascending: false })
+            .limit(300);
+          if (fb2.error) throw fb2.error;
+          data = fb2.data;
+        } else {
+          data = fb.data;
+        }
+      } else if (error) {
+        // Fallback caso dê erro na sintaxe do OR
         const fb = await supabase
           .from('posts')
           .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
@@ -67,6 +92,31 @@ export const AdminSongsManager: React.FC = () => {
   useEffect(() => {
     fetchSongs();
   }, []);
+
+  const handleMarkAsSeen = async (postId: string) => {
+    setActionLoading(postId);
+    setNotice(null);
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_seen_music_admin: true })
+        .eq('id', postId);
+
+      if (error && error.message?.includes('is_seen_music_admin')) {
+        alert('A coluna "is_seen_music_admin" ainda não existe na sua base de dados. Execute o SQL fornecido!');
+        return;
+      }
+
+      setNotice({ type: 'success', text: 'Música marcada como vista e ocultada dos pendentes!' });
+      setSongsList(prev => prev.filter(s => s.id !== postId));
+    } catch (err: any) {
+      console.error('Erro ao marcar música como vista:', err);
+      setNotice({ type: 'error', text: 'Erro ao marcar música como vista.' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleDeleteMusic = async (postId: string) => {
     setActionLoading(postId);
@@ -154,6 +204,16 @@ export const AdminSongsManager: React.FC = () => {
           Atualizar Lista
         </button>
       </div>
+
+      {/* SQL Missing Alert */}
+      {sqlMissing && (
+        <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex items-start gap-3 text-amber-300 text-xs font-mono animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold">Aviso SQL Supabase:</span> A coluna `is_seen_music_admin` ainda não foi adicionada à tabela de publicações (`posts`). Execute o código SQL fornecido no Supabase para ativar a marcação de músicas vistas.
+          </div>
+        </div>
+      )}
 
       {/* Notice Alert */}
       {notice && (
@@ -321,17 +381,28 @@ export const AdminSongsManager: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80 mt-2">
-                      <span className="text-[10px] font-mono text-zinc-600 uppercase" title={song.id}>
-                        ID: {song.id.slice(0, 8)}...
+                    <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80 mt-2 gap-2">
+                      <span className="text-[10px] font-mono text-zinc-600 uppercase truncate" title={song.id}>
+                        ID: {song.id.slice(0, 6)}..
                       </span>
-                      <button
-                        onClick={() => setConfirmDeleteId(song.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 rounded-xl text-xs font-bold transition-all active:scale-95 group-hover:border-rose-500/50"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Eliminar Música
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleMarkAsSeen(song.id)}
+                          disabled={actionLoading === song.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                          title="Marcar música como vista e ocultar dos pendentes"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Música Vista
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(song.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 rounded-xl text-xs font-bold transition-all active:scale-95 group-hover:border-rose-500/50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
