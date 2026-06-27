@@ -5,10 +5,11 @@ import AdminUsersManager from './UsersManager';
 import AdminModeration from './Moderation';
 import AdminPaymentsManager from './PaymentsManager';
 import AdminLiveRooms from './LiveRooms';
-import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign, Radio } from 'lucide-react';
+import AdminSongsManager from './SongsManager';
+import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign, Radio, Music } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments' | 'lives'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments' | 'lives' | 'songs'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -107,6 +108,17 @@ export const AdminDashboard: React.FC = () => {
               <Radio className="w-4 h-4 shrink-0 animate-pulse text-amber-400" />
               Gestão de Salas ao Vivo
             </button>
+            <button
+              onClick={() => setActiveAdminTab('songs')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'songs'
+                  ? 'bg-pink-600 text-white shadow-md shadow-pink-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <Music className="w-4 h-4 shrink-0 text-pink-400" />
+              Gestão de Músicas
+            </button>
           </nav>
         </aside>
 
@@ -122,6 +134,7 @@ export const AdminDashboard: React.FC = () => {
           {activeAdminTab === 'moderation' && <AdminModeration />}
           {activeAdminTab === 'payments' && <AdminPaymentsManager />}
           {activeAdminTab === 'lives' && <AdminLiveRooms />}
+          {activeAdminTab === 'songs' && <AdminSongsManager />}
         </main>
       </div>
     </div>
