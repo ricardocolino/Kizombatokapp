@@ -73,13 +73,20 @@ export const AdminSongsManager: React.FC = () => {
     setNotice(null);
 
     try {
-      // Eliminar apenas mp3_url e mp3_r2_url mantendo a publicação intocada
-      const { error } = await supabase
-        .from('posts')
-        .update({ mp3_url: null, mp3_r2_url: null })
-        .eq('id', postId);
+      // Tentar usar RPC seguro (contorna RLS) com fallback para update padrão
+      const { error: rpcError } = await supabase.rpc('admin_remove_post_song', {
+        target_post_id: postId
+      });
 
-      if (error) throw error;
+      if (rpcError) {
+        // Fallback caso a função RPC ainda não tenha sido criada no SQL
+        const { error: updateError } = await supabase
+          .from('posts')
+          .update({ mp3_url: null, mp3_r2_url: null })
+          .eq('id', postId);
+
+        if (updateError) throw updateError;
+      }
 
       setNotice({ 
         type: 'success', 
