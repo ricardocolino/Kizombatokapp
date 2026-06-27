@@ -31,6 +31,7 @@ export const AdminSongsManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'r2' | 'supabase'>('all');
   const [sqlMissing, setSqlMissing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const fetchSongs = async () => {
     setLoading(true);
@@ -285,9 +286,10 @@ export const AdminSongsManager: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSongs.map((song) => {
-            const authorName = song.profiles?.name || song.profiles?.username || 'Usuário';
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredSongs.slice(0, visibleCount).map((song) => {
+              const authorName = song.profiles?.name || song.profiles?.username || 'Usuário';
             const authorUser = song.profiles?.username ? `@${song.profiles.username}` : song.user_id.slice(0, 8);
             const audioSrc = song.mp3_r2_url || song.mp3_url || '';
             const isR2 = Boolean(song.mp3_r2_url);
@@ -409,6 +411,18 @@ export const AdminSongsManager: React.FC = () => {
               </div>
             );
           })}
+          </div>
+
+          {visibleCount < filteredSongs.length && (
+            <div className="flex justify-center pt-2 pb-6">
+              <button
+                onClick={() => setVisibleCount(prev => prev + 5)}
+                className="px-6 py-3 bg-zinc-800 hover:bg-pink-600 active:scale-95 text-zinc-200 hover:text-white font-bold text-xs rounded-xl border border-zinc-700/80 hover:border-pink-500 shadow-lg transition-all flex items-center gap-2"
+              >
+                Mostrar mais 5 áudios ({filteredSongs.length - visibleCount} restantes)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
