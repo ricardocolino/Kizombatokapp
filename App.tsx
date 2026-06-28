@@ -1155,7 +1155,7 @@ const App: React.FC = () => {
                 Abrir App
               </button>
               <a
-                href="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat/app-release.apk"
+                href="https://angochat.ao/angochat/app-release.apk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-purple-600 hover:bg-purple-500 text-white text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-all active:scale-[0.98] flex items-center gap-1"
@@ -1281,7 +1281,7 @@ const App: React.FC = () => {
                   {t('App Manual Download Info', 'Não conseguimos abrir o Angochat automaticamente. É provável que ainda não tenhas a App instalada no teu telemóvel.')}
                 </p>
                 <a
-                  href="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/angochat/app-release.apk"
+                  href="https://angochat.ao/angochat/app-release.apk"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl text-center flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition-all text-[11px] uppercase tracking-wider"

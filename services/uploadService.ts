@@ -79,7 +79,13 @@ export async function uploadToR2(
           if (!data.url) {
             reject(new Error("O servidor não devolveu a URL do ficheiro."));
           } else {
-            resolve(data.url);
+            let fileUrl = data.url;
+            if (typeof fileUrl === "string") {
+              fileUrl = fileUrl
+                .replace(/https:\/\/pub-787d908cd4db458da923c4d16758ba46\.r2\.dev/g, "https://angochat.ao")
+                .replace(/https:\/\/little-thunder-1b1c\.anastacia6000\.workers\.dev/g, "https://angochat.ao");
+            }
+            resolve(fileUrl);
           }
         } catch {
           reject(new Error("Erro ao processar resposta JSON do servidor."));

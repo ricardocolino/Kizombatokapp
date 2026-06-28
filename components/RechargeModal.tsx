@@ -112,7 +112,7 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
                 className="relative overflow-hidden flex flex-col items-center justify-end p-4 bg-zinc-950 active:scale-95 border border-zinc-800 rounded-3xl transition-all text-center group h-36 shadow-lg"
               >
                 <img 
-                  src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/images%20(1).jpeg" 
+                  src="https://angochat.ao/images%20(1).jpeg" 
                   alt="Criptomoedas / Cartões"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
@@ -129,7 +129,7 @@ const RechargeModal: React.FC<RechargeModalProps> = ({ onClose }) => {
                 className="relative overflow-hidden flex flex-col items-center justify-end p-4 bg-zinc-950 active:scale-95 border border-zinc-800 rounded-3xl transition-all text-center group h-36 shadow-lg"
               >
                 <img 
-                  src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/IMG_8146-770x613.jpeg" 
+                  src="https://angochat.ao/IMG_8146-770x613.jpeg" 
                   alt="Multicaixa Express"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />

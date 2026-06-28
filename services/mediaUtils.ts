@@ -24,13 +24,13 @@ export function parseMediaUrl(mediaUrl: string | null | undefined): string {
     // Not a JSON array
   }
   
-  // Rewrite R2 URL to Worker URL if configured (to fix CORS/Playback)
-  const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
-  if (workerUrl && mediaUrl.includes('r2.dev')) {
+  // Rewrite R2 URL to custom domain angochat.ao
+  const workerUrl = import.meta.env.VITE_R2_WORKER_URL || "https://angochat.ao";
+  if (workerUrl && (mediaUrl.includes('r2.dev') || mediaUrl.includes('workers.dev') || mediaUrl.includes('pub-787d908cd4db458da923c4d16758ba46'))) {
     try {
       const url = new URL(mediaUrl);
-      // If it's the old R2 domain, swap it for the worker domain
-      if (url.hostname.includes('r2.dev')) {
+      // If it's the old R2 or worker domain, swap it for custom domain
+      if (url.hostname.includes('r2.dev') || url.hostname.includes('workers.dev') || url.hostname.includes('pub-')) {
         return `${workerUrl.replace(/\/$/, '')}${url.pathname}${url.search}`;
       }
     } catch {

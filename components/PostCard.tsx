@@ -139,12 +139,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (post.media_url.startsWith('[') && post.media_url.endsWith(']')) {
         const parsed = JSON.parse(post.media_url);
         if (Array.isArray(parsed)) {
-          const workerUrl = import.meta.env.VITE_R2_WORKER_URL;
+          const workerUrl = import.meta.env.VITE_R2_WORKER_URL || "https://angochat.ao";
           return parsed.map((url: string) => {
-            if (workerUrl && url.includes('r2.dev')) {
+            if (workerUrl && (url.includes('r2.dev') || url.includes('workers.dev') || url.includes('pub-'))) {
               try {
                 const u = new URL(url);
-                if (u.hostname.includes('r2.dev')) {
+                if (u.hostname.includes('r2.dev') || u.hostname.includes('workers.dev') || u.hostname.includes('pub-')) {
                   return `${workerUrl.replace(/\/$/, '')}${u.pathname}${u.search}`;
                 }
               } catch {

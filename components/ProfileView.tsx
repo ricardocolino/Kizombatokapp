@@ -1817,7 +1817,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
                   >
                     <img 
-                      src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/IMG_8146-770x613.jpeg" 
+                      src="https://angochat.ao/IMG_8146-770x613.jpeg" 
                       alt="Multicaixa Express"
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -1834,7 +1834,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
                   >
                     <img 
-                      src="https://pub-787d908cd4db458da923c4d16758ba46.r2.dev/images%20(1).jpeg" 
+                      src="https://angochat.ao/images%20(1).jpeg" 
                       alt="Carregar com Crypto"
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
