@@ -24,8 +24,8 @@ export function parseMediaUrl(mediaUrl: string | null | undefined): string {
     // Not a JSON array
   }
   
-  // Rewrite R2 URL to custom domain angochat.ao
-  const workerUrl = import.meta.env.VITE_R2_WORKER_URL || "https://angochat.ao";
+  // Rewrite R2 URL to custom domain cdn.angochat.ao
+  const workerUrl = import.meta.env.VITE_R2_WORKER_URL || "https://cdn.angochat.ao";
   if (workerUrl && (mediaUrl.includes('r2.dev') || mediaUrl.includes('workers.dev') || mediaUrl.includes('pub-787d908cd4db458da923c4d16758ba46'))) {
     try {
       const url = new URL(mediaUrl);

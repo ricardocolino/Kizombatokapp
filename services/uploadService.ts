@@ -82,8 +82,8 @@ export async function uploadToR2(
             let fileUrl = data.url;
             if (typeof fileUrl === "string") {
               fileUrl = fileUrl
-                .replace(/https:\/\/pub-787d908cd4db458da923c4d16758ba46\.r2\.dev/g, "https://angochat.ao")
-                .replace(/https:\/\/little-thunder-1b1c\.anastacia6000\.workers\.dev/g, "https://angochat.ao");
+                .replace(/https:\/\/pub-787d908cd4db458da923c4d16758ba46\.r2\.dev/g, "https://cdn.angochat.ao")
+                .replace(/https:\/\/little-thunder-1b1c\.anastacia6000\.workers\.dev/g, "https://cdn.angochat.ao");
             }
             resolve(fileUrl);
           }
