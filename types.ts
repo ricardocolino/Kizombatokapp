@@ -12,6 +12,7 @@ export interface Profile {
   iban?: string | null;
   airtm_email: string | null;
   onboarding_completed: boolean;
+  monetization_status?: 'not_applied' | 'pending' | 'approved' | 'rejected' | null;
   created_at: string;
 }
 

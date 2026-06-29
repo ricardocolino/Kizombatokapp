@@ -6,10 +6,11 @@ import AdminModeration from './Moderation';
 import AdminPaymentsManager from './PaymentsManager';
 import AdminLiveRooms from './LiveRooms';
 import AdminSongsManager from './SongsManager';
-import { Shield, Activity, LogOut, LayoutDashboard, Users, ShieldAlert, DollarSign, Radio, Music } from 'lucide-react';
+import { AdminMonetizationManager } from './MonetizationManager';
+import { Shield, Activity, LogOut, Users, ShieldAlert, DollarSign, Radio, Music, Award } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments' | 'lives' | 'songs'>('analytics');
+  const [activeAdminTab, setActiveAdminTab] = useState<'analytics' | 'users' | 'moderation' | 'payments' | 'lives' | 'songs' | 'monetization'>('analytics');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -108,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
               <Radio className="w-4 h-4 shrink-0 animate-pulse text-amber-400" />
               Gestão de Salas ao Vivo
             </button>
-            <button
+             <button
               onClick={() => setActiveAdminTab('songs')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeAdminTab === 'songs'
@@ -118,6 +119,17 @@ export const AdminDashboard: React.FC = () => {
             >
               <Music className="w-4 h-4 shrink-0 text-pink-400" />
               Gestão de Músicas
+            </button>
+            <button
+              onClick={() => setActiveAdminTab('monetization')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeAdminTab === 'monetization'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20 font-bold'
+                  : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white'
+              }`}
+            >
+              <Award className="w-4 h-4 shrink-0 text-purple-400" />
+              Gestão de Monetização
             </button>
           </nav>
         </aside>
@@ -135,6 +147,7 @@ export const AdminDashboard: React.FC = () => {
           {activeAdminTab === 'payments' && <AdminPaymentsManager />}
           {activeAdminTab === 'lives' && <AdminLiveRooms />}
           {activeAdminTab === 'songs' && <AdminSongsManager />}
+          {activeAdminTab === 'monetization' && <AdminMonetizationManager />}
         </main>
       </div>
     </div>
