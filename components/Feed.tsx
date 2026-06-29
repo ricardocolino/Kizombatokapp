@@ -21,6 +21,7 @@ interface FeedProps {
   refreshTrigger?: number;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onViewAudio?: (audioPostId: string) => void;
+  onNavigateToDiscover?: () => void;
 }
 
 export interface PostMetadata {
@@ -35,7 +36,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio, onNavigateToDiscover }) => {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +60,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [showGameIntro, setShowGameIntro] = useState(false);
 
   const videoScrollCountRef = React.useRef<number>(0);
+  const totalVideosWatchedRef = React.useRef<number>(0);
   const lastViewedIndexRef = React.useRef<number | null>(null);
   const isAdActiveRef = React.useRef<boolean>(false);
 
@@ -197,11 +199,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               if (lastViewedIndexRef.current !== index) {
                 lastViewedIndexRef.current = index;
                 videoScrollCountRef.current += 1;
+                totalVideosWatchedRef.current += 1;
                 console.log(`>>> [InAppBrowser] Vídeo visto: ${videoScrollCountRef.current}/10`);
+                console.log(`>>> [Redirect Limit] Total de vídeos vistos nesta sessão de Reels: ${totalVideosWatchedRef.current}/30`);
+
                 if (videoScrollCountRef.current >= 10) {
                   videoScrollCountRef.current = 0;
                   console.log(">>> [InAppBrowser] Atingiu 10 vídeos! Disparando publicidade...");
                   triggerAdvertisement();
+                }
+
+                if (totalVideosWatchedRef.current >= 30) {
+                  totalVideosWatchedRef.current = 0;
+                  console.log(">>> [Redirect Limit] Atingiu 30 vídeos! Levando o utilizador para o Discovery...");
+                  if (onNavigateToDiscover) {
+                    onNavigateToDiscover();
+                  }
                 }
               }
 
@@ -234,7 +247,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement]);
+  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement, onNavigateToDiscover]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

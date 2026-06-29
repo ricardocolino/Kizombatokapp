@@ -972,6 +972,7 @@ const App: React.FC = () => {
             setIsHosting(false);
           }}
           isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
+          onNavigateToDiscover={() => setActiveTab(Tab.DISCOVER)}
         />;
       case Tab.DISCOVER:
         return <Discovery 
@@ -1051,7 +1052,7 @@ const App: React.FC = () => {
         }
         return <AdminDashboard />;
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} onNavigateToDiscover={() => setActiveTab(Tab.DISCOVER)} />;
     }
   };
 
