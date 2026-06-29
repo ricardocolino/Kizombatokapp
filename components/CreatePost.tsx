@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Loader2, Zap, FlipVertical as Flip, Image as ImageIcon, Settings, ArrowUp, Music, ChevronLeft, ChevronRight, Type, RotateCw, Video, Camera, Film, ImagePlus, Radio } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { CameraPreview } from '@capacitor-community/camera-preview';
 import { uploadToR2 } from '../services/uploadService';
@@ -1619,9 +1619,97 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             </div>
 
 
-            <button onClick={() => onCreated()} className="absolute top-6 left-6 p-2 bg-black/30 backdrop-blur-md rounded-full text-white z-50 hover:bg-black/50 active:scale-90 transition-all">
-              <X size={24} />
-            </button>
+            <div className="absolute top-6 left-6 flex flex-col gap-6 z-50 items-center">
+              <button onClick={() => onCreated()} className="p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 active:scale-90 transition-all border border-white/10">
+                <X size={24} />
+              </button>
+
+              <button 
+                onClick={() => {
+                  setUploadType('post');
+                  setIsPhotoMode(false);
+                }}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${
+                  (uploadType === 'post' && !isPhotoMode) 
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' 
+                    : 'bg-black/30 border-white/10 text-white'
+                }`}>
+                  <Video size={22} />
+                </div>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${
+                  (uploadType === 'post' && !isPhotoMode) ? 'text-purple-500' : 'text-white'
+                }`}>{t('Video')}</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setUploadType('post');
+                  setIsPhotoMode(true);
+                }}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${
+                  (uploadType === 'post' && isPhotoMode) 
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' 
+                    : 'bg-black/30 border-white/10 text-white'
+                }`}>
+                  <Camera size={22} />
+                </div>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${
+                  (uploadType === 'post' && isPhotoMode) ? 'text-purple-500' : 'text-white'
+                }`}>{t('Foto')}</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setUploadType('story');
+                  setIsPhotoMode(false);
+                }}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${
+                  (uploadType === 'story' && !isPhotoMode) 
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' 
+                    : 'bg-black/30 border-white/10 text-white'
+                }`}>
+                  <Film size={22} />
+                </div>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${
+                  (uploadType === 'story' && !isPhotoMode) ? 'text-purple-500' : 'text-white'
+                }`}>{t('Story')}</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setUploadType('story');
+                  setIsPhotoMode(true);
+                }}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className={`p-2.5 backdrop-blur-md rounded-full border transition-all ${
+                  (uploadType === 'story' && isPhotoMode) 
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' 
+                    : 'bg-black/30 border-white/10 text-white'
+                }`}>
+                  <ImagePlus size={22} />
+                </div>
+                <span className={`text-[8px] font-black uppercase shadow-sm ${
+                  (uploadType === 'story' && isPhotoMode) ? 'text-purple-500' : 'text-white'
+                }`}>{t('Story Foto')}</span>
+              </button>
+
+              <button 
+                onClick={onStartLive}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="p-2.5 bg-black/30 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-purple-400 hover:border-purple-400/50 transition-all">
+                  <Radio size={22} />
+                </div>
+                <span className="text-[8px] font-black uppercase text-white shadow-sm">{t('Live')}</span>
+              </button>
+            </div>
 
             {activeDubbingMp3Url && (
               <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-purple-600/90 backdrop-blur-lg rounded-full shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400 text-white animate-pulse">
@@ -1717,68 +1805,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     <span className="text-[8px] font-black uppercase text-white tracking-widest mt-1">{t('Done')}</span>
                   </button>
                 </div>
-              </div>
-
-              {/* Upload Type Selector */}
-              <div className="flex items-center gap-2 max-w-[95%] overflow-x-auto [&::-webkit-scrollbar]:hidden bg-black/60 backdrop-blur-xl rounded-full border border-white/10 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-                <button 
-                  onClick={() => {
-                    setUploadType('post');
-                    setIsPhotoMode(false);
-                  }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
-                    (uploadType === 'post' && !isPhotoMode) 
-                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
-                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-                  }`}
-                >
-                  {t('Video')}
-                </button>
-                <button 
-                  onClick={() => {
-                    setUploadType('post');
-                    setIsPhotoMode(true);
-                  }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
-                    (uploadType === 'post' && isPhotoMode) 
-                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
-                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-                  }`}
-                >
-                  {t('Foto')}
-                </button>
-                <button 
-                  onClick={() => {
-                    setUploadType('story');
-                    setIsPhotoMode(false);
-                  }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
-                    (uploadType === 'story' && !isPhotoMode) 
-                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
-                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-                  }`}
-                >
-                  {t('Story')}
-                </button>
-                <button 
-                  onClick={() => {
-                    setUploadType('story');
-                    setIsPhotoMode(true);
-                  }}
-                  className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap ${
-                    (uploadType === 'story' && isPhotoMode) 
-                      ? 'bg-purple-600 text-white border border-purple-500 shadow-[0_0_15px_rgba(147,51,234,0.55)] scale-110' 
-                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-                  }`}
-                >
-                  {t('Story Foto')}
-                </button>
-                <button 
-                  onClick={onStartLive}
-                  className="text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 px-4 py-2 rounded-full whitespace-nowrap text-white/40 hover:text-purple-400 hover:bg-white/5"
-                >
-                  {t('Live')}
-                </button>
               </div>
             </div>
           </div>
