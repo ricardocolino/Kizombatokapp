@@ -152,10 +152,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, []);
 
-  useEffect(() => {
-    triggerAdvertisement();
-  }, [triggerAdvertisement]);
-
   const handleOpenGame = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
