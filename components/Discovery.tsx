@@ -208,6 +208,48 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
     };
   }, [searchQuery, displayLimit, currentUserId, followingIds]);
 
+  // 🚀 Preload/Pre-warm the first few video files in the background so they play instantly when clicked
+  useEffect(() => {
+    if (!posts || posts.length === 0) return;
+
+    // Filter first 6 video URLs
+    const videoUrlsToPreload = posts
+      .filter(p => (p.media_type || 'video') === 'video' && p.media_url)
+      .slice(0, 6)
+      .map(p => parseMediaUrl(p.media_url));
+
+    const head = document.head;
+    const elements: HTMLLinkElement[] = [];
+
+    videoUrlsToPreload.forEach(url => {
+      if (!url) return;
+
+      // 1. Prefetch link element to invoke browser cache system
+      if (!document.querySelector(`link[href="${url}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.as = 'video';
+        link.href = url;
+        head.appendChild(link);
+        elements.push(link);
+      }
+
+      // 2. Fetch with lower priority as a reliable fallback for mobile webviews/Capacitor
+      try {
+        fetch(url, { method: 'GET', credentials: 'omit', priority: 'low' as any }).catch(() => {});
+      } catch (e) { /* ignore fallback errors */ }
+    });
+
+    return () => {
+      // Cleanup prefetch links from DOM on unmount or updates
+      elements.forEach(el => {
+        if (head.contains(el)) {
+          head.removeChild(el);
+        }
+      });
+    };
+  }, [posts]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {

@@ -57,7 +57,7 @@ interface UploadData {
 
 const App: React.FC = () => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
+  const [activeTab, setActiveTab] = useState<Tab>(Tab.DISCOVER);
 
   // App-open verification states for mobile web users
   const [showAppOpenModal, setShowAppOpenModal] = useState(false);
