@@ -286,6 +286,36 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user.id;
 
+      // Tentar usar o RPC get_posts_metadata para excelente performance com apenas 1 consulta
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_posts_metadata', {
+        p_post_ids: postIds,
+        p_current_user_id: currentUserId || null
+      });
+
+      if (!rpcError && rpcData) {
+        const newMetadata: Record<string, PostMetadata> = {};
+        postsToFetch.forEach(p => {
+          const meta = rpcData[p.id] || {};
+          newMetadata[p.id] = {
+            likesCount: meta.likesCount || 0,
+            commentsCount: meta.commentsCount || 0,
+            repostsCount: meta.repostsCount || 0,
+            liked: !!meta.liked,
+            reposted: !!meta.reposted,
+            hasStories: !!meta.hasStories,
+            isLive: meta.isLive || null,
+            isFollowing: !!meta.isFollowing,
+            isOwnPost: currentUserId === p.user_id
+          };
+        });
+        setMetadataMap(prev => ({ ...prev, ...newMetadata }));
+        return;
+      }
+
+      if (rpcError) {
+        console.warn("RPC get_posts_metadata falhou ou ainda não foi criado (aplicar get_posts_metadata.sql no painel Supabase). Usando fallback multicontas:", rpcError);
+      }
+
       // 1. Buscar contagens de reações, reposts e stories ativos e lives ativas
       const [reactionsRes, repostsRes, storiesRes, livesRes, commentsRes] = await Promise.all([
         supabase.from('reactions').select('post_id').in('post_id', postIds),
