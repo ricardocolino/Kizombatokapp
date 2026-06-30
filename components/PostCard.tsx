@@ -1576,7 +1576,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         )}
 
         {/* Navigation Banner / Audio Details (Right above progress bar) */}
-        {uiVisible && !showComments && (
+        {uiVisible && !showComments && post.dubbed_from_id && (
           <div 
             onClick={(e) => {
               e.stopPropagation();
@@ -1590,28 +1590,15 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 } else {
                   setShowAudioDetails(true);
                 }
-              } else {
-                onNavigateToProfile(post.user_id);
               }
             }}
             className="absolute bottom-4 left-0 w-full h-10 bg-transparent flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-white/5 transition-all active:scale-[0.99] select-none z-30"
           >
             <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
-              {post.dubbed_from_id ? (
-                <>
-                  <Music size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Search size={14} className="text-zinc-300 shrink-0" />
-                  <span className="truncate">
-                    Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
-                  </span>
-                </>
-              )}
+              <Music size={14} className="text-zinc-300 shrink-0" />
+              <span className="truncate">
+                Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
+              </span>
             </div>
             <ChevronRight size={14} className="text-zinc-400 shrink-0" />
           </div>
