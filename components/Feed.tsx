@@ -21,7 +21,6 @@ interface FeedProps {
   refreshTrigger?: number;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onViewAudio?: (audioPostId: string) => void;
-  onNavigateToDiscover?: () => void;
 }
 
 export interface PostMetadata {
@@ -36,7 +35,7 @@ export interface PostMetadata {
   isOwnPost: boolean;
 }
 
-const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio, onNavigateToDiscover }) => {
+const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio }) => {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,9 +59,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [showGameIntro, setShowGameIntro] = useState(false);
 
   const videoScrollCountRef = React.useRef<number>(0);
-  const totalVideosWatchedRef = React.useRef<number>(0);
   const lastViewedIndexRef = React.useRef<number | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
   const isAdActiveRef = React.useRef<boolean>(false);
 
   const fallbackInAppBrowser = (url: string) => {
@@ -155,6 +152,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, []);
 
+  useEffect(() => {
+    triggerAdvertisement();
+  }, [triggerAdvertisement]);
+
   const handleOpenGame = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -199,24 +200,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               // A cada 10 vídeos, apresentar a publicidade
               if (lastViewedIndexRef.current !== index) {
                 lastViewedIndexRef.current = index;
-                setActiveIndex(index);
                 videoScrollCountRef.current += 1;
-                totalVideosWatchedRef.current += 1;
                 console.log(`>>> [InAppBrowser] Vídeo visto: ${videoScrollCountRef.current}/10`);
-                console.log(`>>> [Redirect Limit] Total de vídeos vistos nesta sessão de Reels: ${totalVideosWatchedRef.current}/30`);
-
                 if (videoScrollCountRef.current >= 10) {
                   videoScrollCountRef.current = 0;
                   console.log(">>> [InAppBrowser] Atingiu 10 vídeos! Disparando publicidade...");
                   triggerAdvertisement();
-                }
-
-                if (totalVideosWatchedRef.current >= 30) {
-                  totalVideosWatchedRef.current = 0;
-                  console.log(">>> [Redirect Limit] Atingiu 30 vídeos! Levando o utilizador para o Discovery...");
-                  if (onNavigateToDiscover) {
-                    onNavigateToDiscover();
-                  }
                 }
               }
 
@@ -249,7 +238,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement, onNavigateToDiscover]);
+  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -282,100 +271,82 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (postsToFetch.length === 0) return;
     
     const postIds = postsToFetch.map(p => p.id);
-    const authorIds = [...new Set(postsToFetch.map(p => p.user_id))];
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user.id;
 
-      // Tentar usar o RPC get_posts_metadata para excelente performance com apenas 1 consulta
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_posts_metadata', {
+      // Chama a função RPC otimizada get_posts_metadata no Supabase para agregar 8 consultas numa chamada única
+      const { data, error } = await supabase.rpc('get_posts_metadata', {
         p_post_ids: postIds,
         p_current_user_id: currentUserId || null
       });
 
-      if (!rpcError && rpcData) {
-        const newMetadata: Record<string, PostMetadata> = {};
+      if (error) {
+        console.error("Erro ao chamar RPC get_posts_metadata, utilizando fallback local:", error);
+        // Fallback se a RPC falhar por qualquer razão (garante resiliência)
+        const authorIds = [...new Set(postsToFetch.map(p => p.user_id))];
+        const [reactionsRes, repostsRes, storiesRes, livesRes, commentsRes] = await Promise.all([
+          supabase.from('reactions').select('post_id').in('post_id', postIds),
+          supabase.from('reposts').select('post_id').in('post_id', postIds),
+          supabase.from('stories').select('user_id').in('user_id', authorIds).gt('expires_at', new Date().toISOString()),
+          supabase.from('lives').select('id, host_id').in('host_id', authorIds).eq('status', 'active'),
+          supabase.from('comments').select('post_id').in('post_id', postIds)
+        ]);
+
+        const reactionCounts: Record<string, number> = {};
+        reactionsRes.data?.forEach(r => reactionCounts[r.post_id] = (reactionCounts[r.post_id] || 0) + 1);
+
+        const repostCounts: Record<string, number> = {};
+        repostsRes.data?.forEach(r => repostCounts[r.post_id] = (repostCounts[r.post_id] || 0) + 1);
+
+        const commentCounts: Record<string, number> = {};
+        commentsRes.data?.forEach(c => commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1);
+
+        const usersWithStories: Set<string> = new Set(storiesRes.data?.map(s => s.user_id));
+        const usersLiveMap: Record<string, string> = {};
+        livesRes.data?.forEach(l => usersLiveMap[l.host_id] = l.id);
+
+        let userLikes: Set<string> = new Set();
+        let userFollows: Set<string> = new Set();
+        let userReposts: Set<string> = new Set();
+
+        if (currentUserId) {
+          const [likesRes, followsRes, userRepostsRes] = await Promise.all([
+            supabase.from('reactions').select('post_id').eq('user_id', currentUserId).in('post_id', postIds),
+            supabase.from('follows').select('following_id').eq('follower_id', currentUserId).in('following_id', authorIds),
+            supabase.from('reposts').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
+          ]);
+
+          likesRes.data?.forEach(l => userLikes.add(l.post_id));
+          followsRes.data?.forEach(f => userFollows.add(f.following_id));
+          userRepostsRes.data?.forEach(r => userReposts.add(r.post_id));
+        }
+
+        const fallbackMetadata: Record<string, PostMetadata> = {};
         postsToFetch.forEach(p => {
-          const meta = rpcData[p.id] || {};
-          newMetadata[p.id] = {
-            likesCount: meta.likesCount || 0,
-            commentsCount: meta.commentsCount || 0,
-            repostsCount: meta.repostsCount || 0,
-            liked: !!meta.liked,
-            reposted: !!meta.reposted,
-            hasStories: !!meta.hasStories,
-            isLive: meta.isLive || null,
-            isFollowing: !!meta.isFollowing,
+          fallbackMetadata[p.id] = {
+            likesCount: reactionCounts[p.id] || 0,
+            commentsCount: commentCounts[p.id] || 0,
+            repostsCount: repostCounts[p.id] || 0,
+            liked: userLikes.has(p.id),
+            reposted: userReposts.has(p.id),
+            hasStories: usersWithStories.has(p.user_id),
+            isLive: usersLiveMap[p.user_id] || null,
+            isFollowing: userFollows.has(p.user_id),
             isOwnPost: currentUserId === p.user_id
           };
         });
-        setMetadataMap(prev => ({ ...prev, ...newMetadata }));
+
+        setMetadataMap(prev => ({ ...prev, ...fallbackMetadata }));
         return;
       }
 
-      if (rpcError) {
-        console.warn("RPC get_posts_metadata falhou ou ainda não foi criado (aplicar get_posts_metadata.sql no painel Supabase). Usando fallback multicontas:", rpcError);
+      if (data) {
+        setMetadataMap(prev => ({ ...prev, ...data }));
       }
-
-      // 1. Buscar contagens de reações, reposts e stories ativos e lives ativas
-      const [reactionsRes, repostsRes, storiesRes, livesRes, commentsRes] = await Promise.all([
-        supabase.from('reactions').select('post_id').in('post_id', postIds),
-        supabase.from('reposts').select('post_id').in('post_id', postIds),
-        supabase.from('stories').select('user_id').in('user_id', authorIds).gt('expires_at', new Date().toISOString()),
-        supabase.from('lives').select('id, host_id').in('host_id', authorIds).eq('status', 'active'),
-        supabase.from('comments').select('post_id').in('post_id', postIds)
-      ]);
-
-      const reactionCounts: Record<string, number> = {};
-      reactionsRes.data?.forEach(r => reactionCounts[r.post_id] = (reactionCounts[r.post_id] || 0) + 1);
-
-      const repostCounts: Record<string, number> = {};
-      repostsRes.data?.forEach(r => repostCounts[r.post_id] = (repostCounts[r.post_id] || 0) + 1);
-
-      const commentCounts: Record<string, number> = {};
-      commentsRes.data?.forEach(c => commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1);
-
-      const usersWithStories: Set<string> = new Set(storiesRes.data?.map(s => s.user_id));
-      const usersLiveMap: Record<string, string> = {};
-      livesRes.data?.forEach(l => usersLiveMap[l.host_id] = l.id);
-
-      // 2. Dados do utilizador logado (likes, follows e reposts)
-      let userLikes: Set<string> = new Set();
-      let userFollows: Set<string> = new Set();
-      let userReposts: Set<string> = new Set();
-
-      if (currentUserId) {
-        const [likesRes, followsRes, userRepostsRes] = await Promise.all([
-          supabase.from('reactions').select('post_id').eq('user_id', currentUserId).in('post_id', postIds),
-          supabase.from('follows').select('following_id').eq('follower_id', currentUserId).in('following_id', authorIds),
-          supabase.from('reposts').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
-        ]);
-
-        likesRes.data?.forEach(l => userLikes.add(l.post_id));
-        followsRes.data?.forEach(f => userFollows.add(f.following_id));
-        userRepostsRes.data?.forEach(r => userReposts.add(r.post_id));
-      }
-
-      // 4. Montar o mapa de metadados
-      const newMetadata: Record<string, PostMetadata> = {};
-      postsToFetch.forEach(p => {
-        newMetadata[p.id] = {
-          likesCount: reactionCounts[p.id] || 0,
-          commentsCount: commentCounts[p.id] || 0,
-          repostsCount: repostCounts[p.id] || 0,
-          liked: userLikes.has(p.id),
-          reposted: userReposts.has(p.id),
-          hasStories: usersWithStories.has(p.user_id),
-          isLive: usersLiveMap[p.user_id] || null,
-          isFollowing: userFollows.has(p.user_id),
-          isOwnPost: currentUserId === p.user_id
-        };
-      });
-
-      setMetadataMap(prev => ({ ...prev, ...newMetadata }));
     } catch (e) {
-      console.error("Erro ao carregar batch metadata:", e);
+      console.error("Erro geral no fetchBatchMetadata:", e);
     }
   }, []);
 
@@ -742,8 +713,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               isPaused={isPaused || showExternalUrl || showGameIntro}
               onDub={onDub}
               onViewAudio={onViewAudio}
-              isActive={index === activeIndex}
-              isAdjacent={Math.abs(index - activeIndex) === 1}
             />
           </div>
         ))}

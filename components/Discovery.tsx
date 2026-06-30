@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Post, Profile } from '../types';
-import { Search, TrendingUp, AlertCircle, UserCheck, Heart, Play } from 'lucide-react';
+import { Search, TrendingUp, AlertCircle, UserCheck, Film, Layers } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 
 interface DiscoveryProps {
@@ -21,7 +21,6 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
   const [displayLimit, setDisplayLimit] = useState(10);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-  const [likesMap, setLikesMap] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -209,74 +208,6 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
     };
   }, [searchQuery, displayLimit, currentUserId, followingIds]);
 
-  // 🚀 Preload/Pre-warm the first few video files in the background so they play instantly when clicked
-  useEffect(() => {
-    if (!posts || posts.length === 0) return;
-
-    // Filter first 6 video URLs
-    const videoUrlsToPreload = posts
-      .filter(p => (p.media_type || 'video') === 'video' && p.media_url)
-      .slice(0, 6)
-      .map(p => parseMediaUrl(p.media_url));
-
-    const head = document.head;
-    const elements: HTMLLinkElement[] = [];
-
-    videoUrlsToPreload.forEach(url => {
-      if (!url) return;
-
-      // 1. Prefetch link element to invoke browser cache system
-      if (!document.querySelector(`link[href="${url}"]`)) {
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.as = 'video';
-        link.href = url;
-        head.appendChild(link);
-        elements.push(link);
-      }
-
-      // 2. Fetch as a reliable fallback for mobile webviews/Capacitor
-      try {
-        fetch(url, { method: 'GET', credentials: 'omit' }).catch(() => {});
-      } catch { /* ignore fallback errors */ }
-    });
-
-    return () => {
-      // Cleanup prefetch links from DOM on unmount or updates
-      elements.forEach(el => {
-        if (head.contains(el)) {
-          head.removeChild(el);
-        }
-      });
-    };
-  }, [posts]);
-
-  // Fetch real likes count from the database
-  useEffect(() => {
-    if (!posts || posts.length === 0) return;
-    const fetchLikes = async () => {
-      try {
-        const postIds = posts.map(p => p.id);
-        const { data, error } = await supabase
-          .from('reactions')
-          .select('post_id')
-          .in('post_id', postIds)
-          .eq('type', 'like');
-
-        if (!error && data) {
-          const counts: Record<string, number> = {};
-          data.forEach(r => {
-            counts[r.post_id] = (counts[r.post_id] || 0) + 1;
-          });
-          setLikesMap(counts);
-        }
-      } catch (err) {
-        console.error('Error fetching post likes:', err);
-      }
-    };
-    fetchLikes();
-  }, [posts]);
-
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
@@ -387,200 +318,53 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
       )}
 
       {/* Post Grid */}
-      <div className="grid grid-cols-2 gap-3 px-3 mt-2">
-        {/* Left Column */}
-        <div className="flex flex-col gap-3">
-          {posts.filter((_, idx) => idx % 2 === 0).map((post, idx) => {
-            const actualIndex = idx * 2;
-            const aspectClass = (actualIndex % 4 === 0) ? 'aspect-[3/4.2]' : (actualIndex % 4 === 2) ? 'aspect-[3/3.8]' : 'aspect-[3/5]';
-            return (
-              <div 
-                key={post.id} 
-                onClick={() => onNavigateToPost && onNavigateToPost(post.id)}
-                className="flex flex-col cursor-pointer group active:scale-[0.98] transition-transform"
-              >
-                <div className={`relative ${aspectClass} w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-lg border border-zinc-900/40`}>
-                  {post.media_url ? (
-                    <>
-                      {(post.media_type || 'video') === 'video' ? (
-                        <>
-                          <video 
-                            src={parseMediaUrl(post.media_url)} 
-                            className="w-full h-full object-cover rounded-2xl" 
-                            muted 
-                            playsInline 
-                            preload="metadata"
-                            poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
-                          />
-                          <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md rounded-full w-7 h-7 flex items-center justify-center border border-white/10 z-10">
-                            <Play size={11} className="text-white fill-white translate-x-[0.5px]" />
-                          </div>
-                        </>
-                      ) : (
-                        <img 
-                          src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
-                          className="w-full h-full object-cover rounded-2xl" 
-                          alt="" 
-                        />
-                      )}
-                      
-                      {post.content && (
-                        <div className="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none">
-                          <p className="text-[10px] font-semibold text-white/95 line-clamp-2 leading-snug drop-shadow-sm">
-                            {post.content}
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-300 rounded-2xl" />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800/50 text-zinc-600 rounded-2xl">
-                      <AlertCircle size={20} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Metadata Row below card */}
-                <div className="flex items-center justify-between mt-2 px-1 pb-2">
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onNavigateToProfile) {
-                        onNavigateToProfile(post.user_id);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 overflow-hidden flex-1 cursor-pointer"
-                  >
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-850 shrink-0 border border-zinc-900 shadow-sm">
-                      {post.profiles?.avatar_url ? (
-                        <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-400 font-extrabold text-[9px] uppercase">
-                          {post.profiles?.username?.[0] || 'U'}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-bold text-zinc-300 truncate max-w-[85px] hover:text-white transition-colors">
-                      {post.profiles?.username || 'user'}
-                    </span>
-                    {post.profiles?.onboarding_completed && (
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-black text-black scale-90 select-none flex-shrink-0">
-                        ✓
-                      </div>
+      <div className="grid grid-cols-3 gap-0.5 px-0.5 mt-2">
+        {posts.map(post => (
+          <div 
+            key={post.id} 
+            onClick={() => onNavigateToPost && onNavigateToPost(post.id)}
+            className="aspect-[3/4] bg-zinc-900 relative group overflow-hidden cursor-pointer active:scale-95 transition-transform"
+          >
+            {post.media_url ? (
+              <>
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                  <div className="bg-black/40 backdrop-blur-md text-white p-1 rounded-md border border-white/10 flex items-center justify-center w-6 h-6">
+                    {(post.media_type || 'video') === 'video' ? (
+                      <Film size={12} className="text-white" />
+                    ) : (
+                      <Layers size={12} className="text-white" />
                     )}
                   </div>
-                  
-                  <div className="flex items-center gap-1 text-zinc-400 font-bold text-[11px] shrink-0">
-                    <Heart size={12} className="text-zinc-400 hover:text-rose-500 transition-colors" />
-                    <span>
-                      {likesMap[post.id] !== undefined 
-                        ? likesMap[post.id] 
-                        : (post.views > 0 ? Math.floor(post.views * 0.15) : 0)}
-                    </span>
-                  </div>
                 </div>
+                {(post.media_type || 'video') === 'video' ? (
+                  <video 
+                    src={parseMediaUrl(post.media_url)} 
+                    className="w-full h-full object-cover" 
+                    muted 
+                    playsInline 
+                    preload="metadata"
+                    poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
+                  />
+                ) : (
+                  <img 
+                    src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
+                    className="w-full h-full object-cover" 
+                    alt="" 
+                  />
+                )}
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/0 transition-colors duration-300" />
+                <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] text-white font-black drop-shadow-md">
+                   <TrendingUp size={10} className="text-yellow-500" />
+                   {post.views > 1000 ? `${(post.views / 1000).toFixed(1)}k` : post.views}
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800/50 text-zinc-600">
+                <AlertCircle size={20} />
               </div>
-            );
-          })}
-        </div>
-
-        {/* Right Column */}
-        <div className="flex flex-col gap-3">
-          {posts.filter((_, idx) => idx % 2 === 1).map((post, idx) => {
-            const actualIndex = idx * 2 + 1;
-            const aspectClass = (actualIndex % 4 === 1) ? 'aspect-[3/5]' : (actualIndex % 4 === 3) ? 'aspect-[3/4.6]' : 'aspect-[3/4]';
-            return (
-              <div 
-                key={post.id} 
-                onClick={() => onNavigateToPost && onNavigateToPost(post.id)}
-                className="flex flex-col cursor-pointer group active:scale-[0.98] transition-transform"
-              >
-                <div className={`relative ${aspectClass} w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-lg border border-zinc-900/40`}>
-                  {post.media_url ? (
-                    <>
-                      {(post.media_type || 'video') === 'video' ? (
-                        <>
-                          <video 
-                            src={parseMediaUrl(post.media_url)} 
-                            className="w-full h-full object-cover rounded-2xl" 
-                            muted 
-                            playsInline 
-                            preload="metadata"
-                            poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
-                          />
-                          <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md rounded-full w-7 h-7 flex items-center justify-center border border-white/10 z-10">
-                            <Play size={11} className="text-white fill-white translate-x-[0.5px]" />
-                          </div>
-                        </>
-                      ) : (
-                        <img 
-                          src={parseMediaUrl((post.media_type === 'image' && post.media_url) ? post.media_url : (post.thumbnail_url || ''))} 
-                          className="w-full h-full object-cover rounded-2xl" 
-                          alt="" 
-                        />
-                      )}
-                      
-                      {post.content && (
-                        <div className="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none">
-                          <p className="text-[10px] font-semibold text-white/95 line-clamp-2 leading-snug drop-shadow-sm">
-                            {post.content}
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-300 rounded-2xl" />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800/50 text-zinc-600 rounded-2xl">
-                      <AlertCircle size={20} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Metadata Row below card */}
-                <div className="flex items-center justify-between mt-2 px-1 pb-2">
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onNavigateToProfile) {
-                        onNavigateToProfile(post.user_id);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 overflow-hidden flex-1 cursor-pointer"
-                  >
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-850 shrink-0 border border-zinc-900 shadow-sm">
-                      {post.profiles?.avatar_url ? (
-                        <img src={parseMediaUrl(post.profiles.avatar_url)} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-400 font-extrabold text-[9px] uppercase">
-                          {post.profiles?.username?.[0] || 'U'}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-bold text-zinc-300 truncate max-w-[85px] hover:text-white transition-colors">
-                      {post.profiles?.username || 'user'}
-                    </span>
-                    {post.profiles?.onboarding_completed && (
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center text-[8px] font-black text-black scale-90 select-none flex-shrink-0">
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-1 text-zinc-400 font-bold text-[11px] shrink-0">
-                    <Heart size={12} className="text-zinc-400 hover:text-rose-500 transition-colors" />
-                    <span>
-                      {likesMap[post.id] !== undefined 
-                        ? likesMap[post.id] 
-                        : (post.views > 0 ? Math.floor(post.views * 0.15) : 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {loading && (

@@ -57,7 +57,7 @@ interface UploadData {
 
 const App: React.FC = () => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.DISCOVER);
+  const [activeTab, setActiveTab] = useState<Tab>(Tab.HOME);
 
   // App-open verification states for mobile web users
   const [showAppOpenModal, setShowAppOpenModal] = useState(false);
@@ -972,7 +972,6 @@ const App: React.FC = () => {
             setIsHosting(false);
           }}
           isPaused={!!viewingStoryUserId || !!viewingStatsUserId || !!activeLiveId || isHosting}
-          onNavigateToDiscover={() => setActiveTab(Tab.DISCOVER)}
         />;
       case Tab.DISCOVER:
         return <Discovery 
@@ -1052,7 +1051,7 @@ const App: React.FC = () => {
         }
         return <AdminDashboard />;
       default:
-        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} onNavigateToDiscover={() => setActiveTab(Tab.DISCOVER)} />;
+        return <Feed onNavigateToProfile={handleNavigateToProfile} onDub={handleDub} onViewAudio={handleViewAudio} />;
     }
   };
 

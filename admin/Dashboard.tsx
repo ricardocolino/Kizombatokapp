@@ -6,7 +6,7 @@ import AdminModeration from './Moderation';
 import AdminPaymentsManager from './PaymentsManager';
 import AdminLiveRooms from './LiveRooms';
 import AdminSongsManager from './SongsManager';
-import { AdminMonetizationManager } from './MonetizationManager';
+import AdminMonetization from './Monetization';
 import { Shield, Activity, LogOut, Users, ShieldAlert, DollarSign, Radio, Music, Award } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -109,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
               <Radio className="w-4 h-4 shrink-0 animate-pulse text-amber-400" />
               Gestão de Salas ao Vivo
             </button>
-             <button
+            <button
               onClick={() => setActiveAdminTab('songs')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeAdminTab === 'songs'
@@ -129,7 +129,7 @@ export const AdminDashboard: React.FC = () => {
               }`}
             >
               <Award className="w-4 h-4 shrink-0 text-purple-400" />
-              Gestão de Monetização
+              Solicitações de Monetização
             </button>
           </nav>
         </aside>
@@ -147,7 +147,7 @@ export const AdminDashboard: React.FC = () => {
           {activeAdminTab === 'payments' && <AdminPaymentsManager />}
           {activeAdminTab === 'lives' && <AdminLiveRooms />}
           {activeAdminTab === 'songs' && <AdminSongsManager />}
-          {activeAdminTab === 'monetization' && <AdminMonetizationManager />}
+          {activeAdminTab === 'monetization' && <AdminMonetization />}
         </main>
       </div>
     </div>

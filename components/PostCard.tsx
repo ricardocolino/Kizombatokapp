@@ -25,8 +25,6 @@ interface PostCardProps {
   isPaused?: boolean;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onViewAudio?: (audioPostId: string) => void;
-  isActive?: boolean;
-  isAdjacent?: boolean;
 }
 
 type EnhancedComment = Comment & { 
@@ -48,9 +46,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onJoinLive,
   isPaused,
   onDub,
-  onViewAudio,
-  isActive = true,
-  isAdjacent = false
+  onViewAudio
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1307,7 +1303,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {isNearScreen && (
             <video
               ref={videoRef}
-              src={(isActive || isAdjacent) ? optimizedUrl : undefined}
+              src={optimizedUrl}
               className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1320,7 +1316,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               loop
               muted={isMuted}
               playsInline
-              preload={isActive ? "auto" : "metadata"}
+              preload={isFullyVisible ? "auto" : "metadata"}
               disablePictureInPicture
               disableRemotePlayback
               onTimeUpdate={() => {
@@ -1576,7 +1572,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         )}
 
         {/* Navigation Banner / Audio Details (Right above progress bar) */}
-        {uiVisible && !showComments && post.dubbed_from_id && (
+        {uiVisible && !showComments && (
           <div 
             onClick={(e) => {
               e.stopPropagation();
@@ -1590,15 +1586,28 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
                 } else {
                   setShowAudioDetails(true);
                 }
+              } else {
+                onNavigateToProfile(post.user_id);
               }
             }}
             className="absolute bottom-4 left-0 w-full h-10 bg-transparent flex items-center justify-between px-4 text-xs font-black tracking-wide text-white cursor-pointer pointer-events-auto hover:bg-white/5 transition-all active:scale-[0.99] select-none z-30"
           >
             <div className="flex items-center gap-2 max-w-[90%] overflow-hidden truncate">
-              <Music size={14} className="text-zinc-300 shrink-0" />
-              <span className="truncate">
-                Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
-              </span>
+              {post.dubbed_from_id ? (
+                <>
+                  <Music size={14} className="text-zinc-300 shrink-0" />
+                  <span className="truncate">
+                    Som Original - {originalPost?.profiles?.name || originalPost?.profiles?.username || 'Som Original'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Search size={14} className="text-zinc-300 shrink-0" />
+                  <span className="truncate">
+                    Ver mais vídeos de @{post.profiles?.username || post.profiles?.name || 'autor'}
+                  </span>
+                </>
+              )}
             </div>
             <ChevronRight size={14} className="text-zinc-400 shrink-0" />
           </div>

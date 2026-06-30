@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Clock } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -268,8 +268,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const [showDashboard, setShowDashboard] = useState(false);
   const [showMonetization, setShowMonetization] = useState(false);
-  const [showMonetizationViews, setShowMonetizationViews] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
+  const [showViewsMonetization, setShowViewsMonetization] = useState(false);
+  const [submittingMonetization, setSubmittingMonetization] = useState(false);
+  const isApprovedForViews = profile?.monetization_status === 'approved';
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showIbanModal, setShowIbanModal] = useState(false);
@@ -292,10 +293,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE_SIZE = 6;
   const VIEW_RATE = 0.001; // Taxa: 1 visualização = 0.001 AngoCoins ($0.00001)
-  const getViewEarnings = () => {
-    if (profile?.monetization_status !== 'approved') return 0;
-    return (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE;
-  };
 
   const [topGivers, setTopGivers] = useState<{
     id: string;
@@ -957,8 +954,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
+  const handleApplyForMonetization = async () => {
+    if (!profile) return;
+    setSubmittingMonetization(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ monetization_status: 'pending' })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      
+      await fetchProfile();
+      alert('Inscrição de monetização enviada com sucesso! A administração irá reavaliar a sua conta.');
+    } catch (err) {
+      console.error('Erro ao enviar inscrição de monetização:', err);
+      alert('Erro ao enviar inscrição.');
+    } finally {
+      setSubmittingMonetization(false);
+    }
+  };
+
   const handleWithdraw = async () => {
-    const unclaimedViews = (profile?.monetization_status === 'approved') ? (stats.views - (profile?.claimed_views || 0)) : 0;
+    const unclaimedViews = isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) : 0;
     const pendingEarnings = unclaimedViews * VIEW_RATE;
     const totalCoins = (profile?.redeemable_balance || 0) + pendingEarnings;
     const amountCoins = Math.min(totalCoins, 5000); // Limite diário de 50 USD (5000 coins)
@@ -1050,8 +1068,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   const handleClaimEarnings = React.useCallback(async (silent = false) => {
     if (!profile) return;
+    if (profile.monetization_status !== 'approved') return;
     
-    const unclaimedViews = (profile?.monetization_status === 'approved') ? (stats.views - (profile.claimed_views || 0)) : 0;
+    const unclaimedViews = stats.views - (profile.claimed_views || 0);
     
     if (unclaimedViews <= 0) {
       if (!silent) alert(t('No earnings to claim'));
@@ -1096,7 +1115,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
   // Resgate Automático de Ganhos
   useEffect(() => {
-    if (isOwnProfile && profile && stats.views > (profile.claimed_views || 0)) {
+    if (isOwnProfile && profile && profile.monetization_status === 'approved' && stats.views > (profile.claimed_views || 0)) {
       const unclaimed = stats.views - (profile.claimed_views || 0);
       if (unclaimed > 0 && !saving && !isClaimingContent) {
         handleClaimEarnings(true);
@@ -1246,19 +1265,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <DollarSign size={22} strokeWidth={1.5} />
               </div>
               <span className="text-xl font-light tracking-tight">{t('Monetização', 'Monetização')}</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                setShowMonetizationViews(true);
-                setShowMenu(false);
-              }} 
-              className="w-full flex items-center gap-4 text-zinc-800 group"
-            >
-              <div className="text-zinc-900 opacity-80 group-hover:opacity-100 transition-opacity">
-                <BarChart3 size={22} strokeWidth={1.5} />
-              </div>
-              <span className="text-xl font-light tracking-tight">{t('Monetização por views', 'Monetização por views')}</span>
             </button>
 
             <button
@@ -1604,245 +1610,227 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
               </div>
 
-              {/* Card de Ganhos de Views */}
-              <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold">
-                    <span className="text-sm">▶</span>
+              {/* Botão para abrir o painel de Monetização por Views */}
+              <button 
+                onClick={() => {
+                  setShowViewsMonetization(true);
+                  setShowMonetization(false);
+                }}
+                className="w-full text-left bg-zinc-50 hover:bg-zinc-100 rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4 transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold">
+                      <span className="text-sm">▶</span>
+                    </div>
+                    <div>
+                      <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Monetização por Views', 'Monetização por Views')}</h3>
+                      <p className="text-zinc-500 text-[10px] font-light mt-1">
+                        {isApprovedForViews 
+                          ? t('Active Program - Check Earnings', 'Programa Ativo - Consultar Ganhos') 
+                          : t('Check requirements and join', 'Verificar requisitos e inscrever-se')}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">{t('Views Earnings', 'Ganhos de Visualizações')}</h3>
-                    <p className="text-zinc-500 text-[10px] font-light mt-1">{t('Based on your total views count', 'Com base no total de visualizações de seus vídeos')}</p>
+                  <ChevronRight size={18} className="text-zinc-400" />
+                </div>
+                
+                {/* Visualização de Status Rápido */}
+                <div className="flex justify-between items-center bg-white rounded-2xl p-4 border border-zinc-100/50 w-full text-xs">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Status do Programa</span>
+                    <span className="font-bold">
+                      {profile?.monetization_status === 'approved' && <span className="text-green-600">● Aprovado</span>}
+                      {profile?.monetization_status === 'pending' && <span className="text-amber-500">● Pendente de Análise</span>}
+                      {profile?.monetization_status === 'rejected' && <span className="text-red-500">● Recusado</span>}
+                      {(!profile?.monetization_status || profile?.monetization_status === 'not_applied') && <span className="text-zinc-500">● Não Inscrito</span>}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Seguidores / Views</span>
+                    <span className="font-mono font-bold text-zinc-600">{stats.followers} / {stats.views}</span>
                   </div>
                 </div>
-                <div className="flex justify-between items-center bg-white rounded-2xl p-4 border border-zinc-100">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">{t('Total Views')}</span>
-                    <span className="text-sm font-black text-black">{stats.views}</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">{t('Views Rate')}</span>
-                    <span className="text-[10px] font-semibold text-zinc-500">{VIEW_RATE} Coin / View</span>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-zinc-100 flex items-baseline justify-between">
-                  <span className="text-2xl font-bold tracking-tight">{(stats.views * VIEW_RATE).toFixed(3)} <span className="text-xs font-semibold text-zinc-400">Coins</span></span>
-                  <span className="text-sm font-semibold text-zinc-500">≈ $ {((stats.views * VIEW_RATE) / 100).toFixed(5)} USD</span>
-                </div>
-              </div>
+              </button>
 
             </div>
           </div>
         </div>
       )}
 
-      {/* Monetization Views View (Full Screen) */}
-      {showMonetizationViews && (
-        <div className="fixed inset-0 z-[120] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
+      {/* Views Monetization Panel (Full Screen) */}
+      {showViewsMonetization && (
+        <div className="fixed inset-0 z-[140] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
           {/* Header */}
           <header className="sticky top-0 bg-white flex items-center px-4 h-14 border-b border-zinc-100 z-50 gap-3">
             <button 
-              onClick={() => setShowMonetizationViews(false)}
+              onClick={() => {
+                setShowViewsMonetization(false);
+                setShowMonetization(true);
+              }}
               className="text-black hover:opacity-70 transition-all p-1"
             >
               <ArrowLeft size={24} />
             </button>
             <div className="flex flex-col flex-1">
-              <span className="text-sm font-black uppercase tracking-widest">{t('Monetização por views', 'Monetização por views')}</span>
+              <span className="text-sm font-black uppercase tracking-widest">{t('Monetização por Views', 'Monetização por Views')}</span>
             </div>
           </header>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32 bg-zinc-50/50">
-            <div className="flex flex-col gap-8 py-8 max-w-md mx-auto">
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
+            <div className="flex flex-col gap-8 py-8">
               
-              {/* Header Card */}
-              <div className="bg-white rounded-3xl p-6 border border-zinc-100/80 shadow-sm flex flex-col items-center text-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                  <BarChart3 size={28} />
+              {/* Apresentação do Programa */}
+              <div className="text-center space-y-3 max-w-sm mx-auto">
+                <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 mx-auto font-bold text-xl">
+                  ★
                 </div>
-                <div>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-zinc-900">{t('Programa de Ganhos por Views', 'Programa de Ganhos por Views')}</h3>
-                  <p className="text-xs text-zinc-500 mt-1">Monetize o seu conteúdo de Reels com base nas visualizações reais dos seus vídeos.</p>
-                </div>
+                <h2 className="text-xl font-black tracking-tight text-zinc-900">{t('Ganha Dinheiro com as tuas Views', 'Fatura com as tuas Views')}</h2>
+                <p className="text-xs text-zinc-500 leading-relaxed font-light">
+                  {t('Monetization Promo Info', 'No Angochat podes monetizar os teus vídeos com base nas visualizações acumuladas. Produz conteúdo incrível para os teus fãs e sê recompensado!')}
+                </p>
               </div>
 
-              {/* Status Section */}
-              <div className="bg-white rounded-3xl p-6 border border-zinc-100/80 shadow-sm flex flex-col gap-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Estado do Program</h4>
+              {/* Barra de Progresso e Metas */}
+              <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100/80 space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">{t('Requisitos de Elegibilidade', 'Requisitos de Elegibilidade')}</h3>
                 
-                {/* Status Badge */}
-                {profile?.monetization_status === 'approved' ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-800 rounded-2xl border border-emerald-100 text-xs font-bold uppercase tracking-wider justify-center">
-                      <Check size={16} />
-                      Aprovado & Ativo
-                    </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed text-center">
-                      Parabéns! Sua conta está monetizada. Continue a criar excelentes conteúdos para aumentar os seus ganhos diários.
-                    </p>
-                  </div>
-                ) : profile?.monetization_status === 'pending' ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 rounded-2xl border border-amber-100 text-xs font-bold uppercase tracking-wider justify-center animate-pulse">
-                      <Clock size={16} />
-                      Pedido Pendente
-                    </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed text-center">
-                      A sua inscrição foi recebida e está pendente de aprovação pela equipe administrativa. Isto costuma demorar menos de 24 horas. Continue a produzir conteúdo incrível!
-                    </p>
-                  </div>
-                ) : profile?.monetization_status === 'rejected' ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 p-3 bg-rose-50 text-rose-800 rounded-2xl border border-rose-100 text-xs font-bold uppercase tracking-wider justify-center">
-                      <X size={16} />
-                      Pedido Recusado
-                    </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed text-center">
-                      Infelizmente, seu pedido de monetização não pôde ser aprovado no momento. Certifique-se de produzir conteúdo original e de qualidade para as regras da plataforma.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 p-3 bg-zinc-100 text-zinc-600 rounded-2xl border border-zinc-200 text-xs font-bold uppercase tracking-wider justify-center">
-                      <AlertCircle size={16} />
-                      Não Inscrito
-                    </div>
-                    <p className="text-xs text-zinc-500 leading-relaxed text-center">
-                      Ainda não está inscrito no programa de visualizações. Confira abaixo os requisitos de elegibilidade.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Progress & Requirements Card */}
-              <div className="bg-white rounded-3xl p-6 border border-zinc-100/80 shadow-sm flex flex-col gap-5">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Requisitos de Elegibilidade</h4>
-                
-                {/* 1. Followers Rule */}
+                {/* 1. Meta de Seguidores */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-zinc-700">Seguidores (mín. 100)</span>
-                    <span className={stats.followers >= 100 ? 'text-emerald-600' : 'text-zinc-400'}>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-zinc-700 flex items-center gap-1">
+                      <Users size={14} className="text-zinc-400" />
+                      {t('Seguidores', 'Seguidores')}
+                    </span>
+                    <span className="font-mono font-bold text-zinc-900">
                       {stats.followers} / 100
                     </span>
                   </div>
-                  <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden">
+                  <div className="h-2 bg-zinc-200 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-500 ${stats.followers >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                      style={{ width: `${Math.min(100, (stats.followers / 100) * 100)}%` }}
+                      className="h-full bg-purple-600 transition-all duration-500 rounded-full"
+                      style={{ width: `${Math.min((stats.followers / 100) * 100, 100)}%` }}
                     />
                   </div>
-                  {stats.followers >= 100 ? (
-                    <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider flex items-center gap-1">
-                      <span>✓ Requisito alcançado!</span>
-                    </p>
-                  ) : (
-                    <p className="text-[9px] text-zinc-400 font-medium">
-                      Precisa de mais {100 - stats.followers} seguidores para cumprir este requisito.
-                    </p>
-                  )}
+                  <p className="text-[10px] text-zinc-400 font-light">
+                    {stats.followers >= 100 
+                      ? t('Meta de seguidores atingida!', 'Meta de seguidores atingida! 🎉') 
+                      : t('Faltam x seguidores', `Faltam ${100 - stats.followers} seguidores para cumprires este requisito.`)}
+                  </p>
                 </div>
 
-                {/* 2. Views Rule */}
+                {/* 2. Meta de Visualizações */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-zinc-700">Visualizações (mín. 1000)</span>
-                    <span className={stats.views >= 1000 ? 'text-emerald-600' : 'text-zinc-400'}>
-                      {stats.views} / 1000
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-zinc-700 flex items-center gap-1">
+                      <Play size={14} className="text-zinc-400" />
+                      {t('Views Totais', 'Views Totais')}
+                    </span>
+                    <span className="font-mono font-bold text-zinc-900">
+                      {stats.views} / 1.000
                     </span>
                   </div>
-                  <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden">
+                  <div className="h-2 bg-zinc-200 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-500 ${stats.views >= 1000 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                      style={{ width: `${Math.min(100, (stats.views / 1000) * 100)}%` }}
+                      className="h-full bg-blue-600 transition-all duration-500 rounded-full"
+                      style={{ width: `${Math.min((stats.views / 1000) * 100, 100)}%` }}
                     />
                   </div>
-                  {stats.views >= 1000 ? (
-                    <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider flex items-center gap-1">
-                      <span>✓ Requisito alcançado!</span>
-                    </p>
-                  ) : (
-                    <p className="text-[9px] text-zinc-400 font-medium">
-                      Precisa de mais {1000 - stats.views} visualizações para cumprir este requisito.
-                    </p>
-                  )}
+                  <p className="text-[10px] text-zinc-400 font-light">
+                    {stats.views >= 1000 
+                      ? t('Meta de visualizações atingida!', 'Meta de visualizações atingida! 🎉') 
+                      : t('Faltam x views', `Faltam ${1000 - stats.views} visualizações para cumprires este requisito.`)}
+                  </p>
                 </div>
               </div>
 
-              {/* Action Button */}
-              {(!profile?.monetization_status || profile?.monetization_status === 'not_applied' || profile?.monetization_status === 'rejected') && (
-                <div className="flex flex-col gap-3">
-                  {stats.followers >= 100 && stats.views >= 1000 ? (
-                    <button
-                      onClick={async () => {
-                        setIsApplying(true);
-                        try {
-                          const { error } = await supabase
-                            .from('profiles')
-                            .update({ monetization_status: 'pending' })
-                            .eq('id', userId);
-
-                          if (error) throw error;
-                          
-                          // Update local state of profile
-                          setProfile(prev => prev ? { ...prev, monetization_status: 'pending' } : null);
-                          alert('Sua candidatura foi submetida com sucesso!');
-                        } catch (err) {
-                          console.error("Error submitting monetization application:", err);
-                          alert('Erro ao enviar candidatura. Tente novamente mais tarde.');
-                        } finally {
-                          setIsApplying(false);
-                        }
-                      }}
-                      disabled={isApplying}
-                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
-                    >
-                      {isApplying ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <Check size={16} />
-                      )}
-                      Inscrever-se na monetização por views
-                    </button>
-                  ) : (
-                    <div className="bg-zinc-100 p-4 rounded-3xl text-center border border-zinc-200">
-                      <p className="text-xs font-semibold text-zinc-600 leading-relaxed">
-                        Continue a produzir vídeos fantásticos para alcançar as metas de 100 seguidores e 1000 views para ativar a sua monetização!
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Earnings calculator if approved */}
-              {profile?.monetization_status === 'approved' && (
-                <div className="bg-white rounded-3xl p-6 border border-zinc-100 flex flex-col gap-4 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold">
-                      <span className="text-sm">▶</span>
+              {/* Painel Informativo / Incentivo e Botão de Inscrição */}
+              <div className="space-y-4">
+                {/* 1. Caso de aprovação total */}
+                {profile?.monetization_status === 'approved' && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 text-center space-y-4">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                      <Check size={24} />
                     </div>
                     <div>
-                      <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Ganhos em Moedas</h3>
-                      <p className="text-zinc-500 text-[10px] font-light mt-1">Ganhos calculados a partir de suas visualizações atuais</p>
+                      <h4 className="font-black text-sm text-emerald-800 uppercase tracking-wider">{t('Programa Ativo', 'Monetização Ativada!')}</h4>
+                      <p className="text-xs text-emerald-600 font-light mt-1">
+                        {t('Monetization Active Sub', 'Parabéns! Fazes parte do programa de ganhos por views. Todas as tuas visualizações estão a render Coins automaticamente!')}
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-emerald-100 flex justify-between text-xs font-semibold text-emerald-800">
+                      <span>{t('Ganhos por Views', 'Ganhos Acumulados:')}</span>
+                      <span className="font-bold">{(stats.views * VIEW_RATE).toFixed(3)} Coins (~ ${((stats.views * VIEW_RATE) / 100).toFixed(5)} USD)</span>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center bg-zinc-50 rounded-2xl p-4 border border-zinc-100">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Total de Visualizações</span>
-                      <span className="text-sm font-black text-black">{stats.views}</span>
+                )}
+
+                {/* 2. Caso pendente */}
+                {profile?.monetization_status === 'pending' && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 text-center space-y-4">
+                    <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                      <Clock size={24} />
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Taxa de Conversão</span>
-                      <span className="text-[10px] font-semibold text-zinc-500">{VIEW_RATE} Coin / View</span>
+                    <div>
+                      <h4 className="font-black text-sm text-amber-800 uppercase tracking-wider">{t('Análise em Curso', 'Pedido em Análise')}</h4>
+                      <p className="text-xs text-amber-600 font-light mt-1 leading-relaxed">
+                        {t('Monetization Pending Sub', 'O teu pedido de monetização por views foi recebido e está em análise. A equipa do Angochat reavaliará os teus vídeos e comportamento para aprovar a tua entrada. Aguarda, por favor!')}
+                      </p>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-zinc-100 flex items-baseline justify-between">
-                    <span className="text-2xl font-bold tracking-tight">{(stats.views * VIEW_RATE).toFixed(3)} <span className="text-xs font-semibold text-zinc-400">Coins</span></span>
-                    <span className="text-sm font-semibold text-zinc-500">≈ $ {((stats.views * VIEW_RATE) / 100).toFixed(5)} USD</span>
+                )}
+
+                {/* 3. Caso recusado */}
+                {profile?.monetization_status === 'rejected' && (
+                  <div className="bg-rose-50 border border-rose-100 rounded-3xl p-6 text-center space-y-4">
+                    <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                      <AlertCircle size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-rose-800 uppercase tracking-wider">{t('Pedido Recusado', 'Inscrição Recusada')}</h4>
+                      <p className="text-xs text-rose-600 font-light mt-1 leading-relaxed">
+                        {t('Monetization Rejected Sub', 'A tua solicitação de monetização foi recusada por não estar em conformidade com as nossas diretrizes de comunidade. Se corrigiste o teu conteúdo, podes submeter um novo pedido quando cumprires os requisitos novamente.')}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* 4. Caso não elegível (ainda sem 100 seguidores ou 1000 views) */}
+                {(!profile?.monetization_status || profile?.monetization_status === 'not_applied' || profile?.monetization_status === 'rejected') && (stats.followers < 100 || stats.views < 1000) && (
+                  <div className="bg-zinc-50 border border-zinc-100 rounded-3xl p-6 text-center space-y-3">
+                    <p className="text-xs text-zinc-500 font-light leading-relaxed">
+                      {t('Monetization Incentivo', 'Ainda não cumpres todos os requisitos de elegibilidade. Continua a produzir e partilhar reels originais e divertidos para cresceres a tua audiência!')}
+                    </p>
+                    <button
+                      disabled
+                      className="w-full h-12 bg-zinc-200 text-zinc-400 rounded-2xl font-black uppercase text-[10px] tracking-widest cursor-not-allowed"
+                    >
+                      {t('Requisitos não atingidos', 'Requisitos não atingidos')}
+                    </button>
+                  </div>
+                )}
+
+                {/* 5. Caso elegível mas ainda não inscrito (ou rejeitado anteriormente mas agora atende aos requisitos) */}
+                {(!profile?.monetization_status || profile?.monetization_status === 'not_applied' || profile?.monetization_status === 'rejected') && stats.followers >= 100 && stats.views >= 1000 && (
+                  <div className="bg-purple-50 border border-purple-100 rounded-3xl p-6 text-center space-y-4">
+                    <p className="text-xs text-purple-950 font-semibold leading-relaxed">
+                      {t('Monetization Eligible Success', 'Parabéns! Cumpres todos os requisitos necessários para monetizar o teu perfil. Clica no botão abaixo para te inscreveres agora!')}
+                    </p>
+                    <button
+                      disabled={submittingMonetization}
+                      onClick={handleApplyForMonetization}
+                      className="w-full h-14 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black uppercase text-[11px] tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                    >
+                      {submittingMonetization ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        t('Inscrever-se na Monetização por Views', 'Inscrever-se na Monetização por Views')
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
 
             </div>
           </div>
@@ -2009,7 +1997,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="flex items-start">
                   <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
                   <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                    {(((profile.redeemable_balance || 0) + getViewEarnings()) / 100).toFixed(5)}
+                    {(((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100).toFixed(5)}
                   </h1>
                 </div>
               </button>
@@ -2081,15 +2069,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             {/* Method & Monetization Buttons */}
-            <div className="py-10 flex flex-wrap items-center justify-center gap-4">
+            <div className="py-10 flex items-center justify-center gap-6">
               <button 
                 onClick={() => {
                   setShowMethodPicker(true);
                 }}
-                className="flex flex-col items-center justify-center gap-3 w-[105px] h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
+                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
                 <Settings size={26} strokeWidth={1.5} className="text-zinc-800" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-1 leading-tight">
+                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
                   {t('Payment Method')}
                 </span>
               </button>
@@ -2098,23 +2086,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 onClick={() => {
                   setShowMonetization(true);
                 }}
-                className="flex flex-col items-center justify-center gap-3 w-[105px] h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
+                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
               >
                 <DollarSign size={26} strokeWidth={1.5} className="text-purple-600" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-1 leading-tight">
+                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
                   {t('Monetização')}
-                </span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setShowMonetizationViews(true);
-                }}
-                className="flex flex-col items-center justify-center gap-3 w-[105px] h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
-              >
-                <BarChart3 size={26} strokeWidth={1.5} className="text-blue-600" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-1 leading-tight">
-                  {t('Monetização por views', 'Monetização por views')}
                 </span>
               </button>
             </div>
@@ -2493,10 +2469,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="text-center space-y-2">
                 <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{t('Available for Withdrawal')}</p>
                 <div className="flex items-baseline justify-center gap-2">
-                  <p className="text-6xl font-semibold tracking-tighter leading-none">${(((profile?.redeemable_balance || 0) + getViewEarnings()) / 100).toFixed(5)}</p>
+                  <p className="text-6xl font-semibold tracking-tighter leading-none">${(((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100).toFixed(5)}</p>
                   <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">USD</p>
                 </div>
-                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + getViewEarnings()).toFixed(3)} Angochat Coins</p>
+                <p className="text-sm text-zinc-400 font-light">≈ {((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)).toFixed(3)} Angochat Coins</p>
               </div>
 
               <div className="space-y-6 pt-6">
@@ -2577,7 +2553,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       <div className="flex items-center justify-between text-xs font-black">
                         <span className="text-zinc-700">Valor a levantar ≈</span>
                         <span className="text-emerald-600 font-mono">
-                          {(Math.min((((profile?.redeemable_balance || 0) + getViewEarnings()) / 100), 50) * 800).toLocaleString('pt-AO')} Kz
+                          {(Math.min((((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100), 50) * 800).toLocaleString('pt-AO')} Kz
                         </span>
                       </div>
                     </div>
@@ -2586,19 +2562,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div className="pt-8 space-y-3">
-                {(((profile?.redeemable_balance || 0) + getViewEarnings()) / 100) > 50 && (
+                {(((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100) > 50 && (
                   <p className="text-center text-[9px] text-amber-600 font-bold uppercase tracking-wider">
                     ⚠️ Limite diário: Apenas $50.00 USD serão levantados hoje
                   </p>
                 )}
                 <button 
                    onClick={handleWithdraw}
-                   disabled={saving || (((profile?.redeemable_balance || 0) + getViewEarnings()) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5)}
+                   disabled={saving || (((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5)}
                    className="w-full h-20 bg-black text-white rounded-full font-medium uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-3 disabled:bg-zinc-100 disabled:text-zinc-300 active:scale-95 shadow-xl shadow-black/5"
                 >
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : `${t('Confirm Withdrawal')} ($${Math.min((((profile?.redeemable_balance || 0) + getViewEarnings()) / 100), 50).toFixed(2)})`}
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : `${t('Confirm Withdrawal')} ($${Math.min((((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100), 50).toFixed(2)})`}
                 </button>
-                {(((profile?.redeemable_balance || 0) + getViewEarnings()) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5) && (
+                {(((profile?.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100) < (withdrawMethod === 'iban' ? 2 : 0.5) && (
                   <p className="text-center mt-4 text-[9px] text-zinc-400 uppercase tracking-widest">
                     {withdrawMethod === 'iban' ? 'Mínimo para IBAN: $2.00 USD (1.600 Kz)' : t('Min required')}
                   </p>
