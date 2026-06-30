@@ -62,6 +62,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const videoScrollCountRef = React.useRef<number>(0);
   const totalVideosWatchedRef = React.useRef<number>(0);
   const lastViewedIndexRef = React.useRef<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
   const isAdActiveRef = React.useRef<boolean>(false);
 
   const fallbackInAppBrowser = (url: string) => {
@@ -198,6 +199,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               // A cada 10 vídeos, apresentar a publicidade
               if (lastViewedIndexRef.current !== index) {
                 lastViewedIndexRef.current = index;
+                setActiveIndex(index);
                 videoScrollCountRef.current += 1;
                 totalVideosWatchedRef.current += 1;
                 console.log(`>>> [InAppBrowser] Vídeo visto: ${videoScrollCountRef.current}/10`);
@@ -740,6 +742,8 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
               isPaused={isPaused || showExternalUrl || showGameIntro}
               onDub={onDub}
               onViewAudio={onViewAudio}
+              isActive={index === activeIndex}
+              isAdjacent={Math.abs(index - activeIndex) === 1}
             />
           </div>
         ))}

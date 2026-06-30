@@ -25,6 +25,8 @@ interface PostCardProps {
   isPaused?: boolean;
   onDub?: (mp3Url: string, originalPostId: string) => void;
   onViewAudio?: (audioPostId: string) => void;
+  isActive?: boolean;
+  isAdjacent?: boolean;
 }
 
 type EnhancedComment = Comment & { 
@@ -46,7 +48,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
   onJoinLive,
   isPaused,
   onDub,
-  onViewAudio
+  onViewAudio,
+  isActive = true,
+  isAdjacent = false
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1303,7 +1307,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           {isNearScreen && (
             <video
               ref={videoRef}
-              src={optimizedUrl}
+              src={(isActive || isAdjacent) ? optimizedUrl : undefined}
               className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
@@ -1316,7 +1320,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               loop
               muted={isMuted}
               playsInline
-              preload={isFullyVisible ? "auto" : "metadata"}
+              preload={isActive ? "auto" : "metadata"}
               disablePictureInPicture
               disableRemotePlayback
               onTimeUpdate={() => {
