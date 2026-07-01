@@ -532,6 +532,13 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     setDisplayLimit(15); 
   }, [initialPostId, feedType, user, fetchPosts, feedFilter, refreshTrigger]);
 
+  // Reset scroll container to top when posts change to ensure the first video starts playing immediately
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [posts]);
+
   // Intersection Observer for Infinite Scroll - Only for internal displayLimit
   useEffect(() => {
     if (loading || displayLimit >= posts.length) {
