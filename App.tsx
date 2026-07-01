@@ -23,7 +23,7 @@ import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
 import AdminDashboard from './admin/Dashboard';
-import { Home, Compass, Radio, Bell, User as UserIcon, Smartphone, Download, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
+import { Home, Compass, Radio, Bell, User as UserIcon, Download, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { appCache } from './services/cache';
 import { FeedFilter } from './types';
 
@@ -197,7 +197,7 @@ const App: React.FC = () => {
       let finalMp3R2Url: string | null = null;
 
       // --- PROCESSAMENTO FFmpeg (Background) ---
-      if (isVideo && !isFromGallery) {
+      if (isVideo) {
         setUploadTask(prev => prev ? { ...prev, progress: 5 } : null);
         
         try {
@@ -225,8 +225,8 @@ const App: React.FC = () => {
           }
 
           const filterParts = [];
-          // Redimensionar e garantir dimensões pares
-          filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
+          // Redimensionar para no máximo 540p (960px de altura) para reduzir drasticamente o tamanho e evitar buffering
+          filterParts.push("scale='if(gt(ih,960),-2,iw)':'if(gt(ih,960),960,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
           // CORREÇÃO DE ROTAÇÃO: Combinar flip da câmera traseira com rotação manual do usuário
@@ -250,7 +250,7 @@ const App: React.FC = () => {
 
             console.log(`[FFMPEG Dubbing Sync] Aplicando compensação: delay=${dubbingDelayMs}ms (${delaySec}s), trimStart=${trimStart}s, trimEnd=${trimEnd}s`);
             console.log(`[FFMPEG Dubbing Sync] Vídeo input0 começará em -ss ${videoStart}s, duração -t ${duration}s`);
-            console.log(`[FFMPEG Dubbing Sync] Áudio input1 começará em -ss ${audioStart}s, duração -t ${duration}s`);
+            console.log(`[FFMPEG Dubbing Sync] Áudio input1 começará em -ss ${audioStart}s, duration -t ${duration}s`);
 
             videoArgs.push('-ss', String(videoStart), '-t', String(duration), '-i', '/input.mp4');
             videoArgs.push('-ss', String(audioStart), '-t', String(duration), '-i', '/dub_audio.mp3');
@@ -272,11 +272,11 @@ const App: React.FC = () => {
             videoArgs.push('-map', '0:v:0', '-map', '1:a:0', '-shortest');
           }
 
-          // Configurações de compressão
+          // Configurações de compressão muito mais leves (CRF 34 e áudio otimizado)
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
-            '-crf', '32',
+            '-crf', '34',
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', 
             '-b:a', '96k',
@@ -294,6 +294,53 @@ const App: React.FC = () => {
           const thumbBlob = new Blob([thumbOutput], { type: 'image/jpeg' });
           const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
           finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+
+          // Se for vídeo da galeria e publicação normal, extraímos o MP3 usando o mesmo processo para economizar memória e tempo
+          if (isFromGallery && uploadType === 'post') {
+            try {
+              console.log('[Upload MP3] Convertendo vídeo processado para MP3...');
+              try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
+              
+              await ffmpeg.exec(['-i', '/output.mp4', '-vn', '-y', '/output_mp3.mp3']);
+              const audioOutput = await ffmpeg.readFile('/output_mp3.mp3');
+              const mp3Blob = new Blob([audioOutput], { type: 'audio/mp3' });
+              
+              const bucketName = 'mp3-audios';
+              const mp3Path = `${userId}/${timestamp}.mp3`;
+              
+              try {
+                const r2Mp3FileName = `${userId}-${timestamp}.mp3`;
+                console.log('[Upload MP3 R2] Enviando MP3 para o R2...');
+                const r2Mp3Url = await uploadToR2(mp3Blob, 'mp3-audios', r2Mp3FileName);
+                finalMp3R2Url = r2Mp3Url;
+                console.log('[Upload MP3 R2] MP3 enviado para o R2 com sucesso:', r2Mp3Url);
+              } catch (r2Error) {
+                console.error('[Upload MP3 R2] Erro ao enviar MP3 para o R2:', r2Error);
+              }
+
+              const { error: uploadError } = await supabase.storage
+                .from(bucketName)
+                .upload(mp3Path, mp3Blob, {
+                  contentType: 'audio/mp3',
+                  cacheControl: '3600',
+                  upsert: true
+                });
+                
+              if (uploadError) {
+                console.error('Erro no upload do MP3 no Supabase Storage:', uploadError);
+              } else {
+                const { data: { publicUrl } } = supabase.storage
+                  .from(bucketName)
+                  .getPublicUrl(mp3Path);
+                finalMp3Url = publicUrl;
+                console.log('MP3 salvo no Supabase Storage:', publicUrl);
+              }
+
+              try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
+            } catch (mp3Err) {
+              console.error('Erro ao extrair áudio MP3 do vídeo processado:', mp3Err);
+            }
+          }
           
           // Limpar arquivos temporários
           try { await ffmpeg.deleteFile('/input.mp4'); } catch { /* ignore */ }
@@ -305,71 +352,15 @@ const App: React.FC = () => {
           console.error('Erro no processamento FFmpeg background:', procErr);
           // Fallback para o original se falhar, mas avisamos o task
           setUploadTask(prev => prev ? { ...prev, progress: 10 } : null);
-        }
-      } else if (isVideo && isFromGallery && uploadType === 'post') {
-        // Se for da galeria, apenas geramos a thumbnail via browser
-        try {
-          const thumbBlob = await generateThumbnail(mediaFile);
-          const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
-          finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
-        } catch (thumbErr) {
-          console.error('Erro ao gerar thumbnail browser background:', thumbErr);
-        }
 
-        // --- EXTRAÇÃO E GRAVAÇÃO DE MP3 NO SUPABASE STORAGE ---
-        try {
-          console.log('[Upload MP3] Convertendo vídeo da galeria para MP3...');
-          const ffmpeg = new FFmpeg();
-          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-
-          const videoData = await fetchFile(mediaFile);
-          await ffmpeg.writeFile('/input_mp3.mp4', videoData);
-
-          await ffmpeg.exec(['-i', '/input_mp3.mp4', '-vn', '-y', '/output_mp3.mp3']);
-          const audioOutput = await ffmpeg.readFile('/output_mp3.mp3');
-          const mp3Blob = new Blob([audioOutput], { type: 'audio/mp3' });
-          
-          const bucketName = 'mp3-audios';
-          const mp3Path = `${userId}/${timestamp}.mp3`;
-          
-          // --- FAZER UPLOAD DO MP3 TAMBÉM NO R2 ---
+          // Fallback para thumbnail via browser se o processamento falhar
           try {
-            const r2Mp3FileName = `${userId}-${timestamp}.mp3`;
-            console.log('[Upload MP3 R2] Enviando MP3 também para o R2...');
-            const r2Mp3Url = await uploadToR2(mp3Blob, 'mp3-audios', r2Mp3FileName);
-            finalMp3R2Url = r2Mp3Url;
-            console.log('[Upload MP3 R2] MP3 enviado com sucesso para o R2:', r2Mp3Url);
-          } catch (r2Error) {
-            console.error('[Upload MP3 R2] Erro ao enviar MP3 para o R2:', r2Error);
+            const thumbBlob = await generateThumbnail(mediaFile);
+            const thumbFileName = `${userId}-${timestamp}-thumb.jpg`;
+            finalThumbnailUrl = await uploadToR2(thumbBlob, 'thumbnails', thumbFileName);
+          } catch (thumbErr) {
+            console.error('Erro ao gerar thumbnail de fallback:', thumbErr);
           }
-
-          const { error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(mp3Path, mp3Blob, {
-              contentType: 'audio/mp3',
-              cacheControl: '3600',
-              upsert: true
-            });
-            
-          if (uploadError) {
-            console.error('Erro no upload do MP3 no Supabase Storage:', uploadError);
-          } else {
-            const { data: { publicUrl } } = supabase.storage
-              .from(bucketName)
-              .getPublicUrl(mp3Path);
-            finalMp3Url = publicUrl;
-            console.log('MP3 salvo no Supabase Storage:', publicUrl);
-          }
-
-          // Limpeza
-          try { await ffmpeg.deleteFile('/input_mp3.mp4'); } catch { /* ignore */ }
-          try { await ffmpeg.deleteFile('/output_mp3.mp3'); } catch { /* ignore */ }
-        } catch (mp3Err) {
-          console.error('Erro ao extrair/enviar áudio MP3 no background:', mp3Err);
         }
       }
 

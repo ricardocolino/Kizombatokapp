@@ -1094,9 +1094,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
           // 2. Construção de Filtros
           const filterParts = [];
           
-          // Redimensionar para no máximo 720p (1280px de altura) para economizar espaço
+          // Redimensionar para no máximo 540p (960px de altura) para economizar bastante espaço e evitar buffering
           // E garantir dimensões pares para libx264/yuv420p
-          filterParts.push("scale='if(gt(ih,1280),-2,iw)':'if(gt(ih,1280),1280,ih)'");
+          filterParts.push("scale='if(gt(ih,960),-2,iw)':'if(gt(ih,960),960,ih)'");
           filterParts.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
           
           // CORREÇÃO DE ROTAÇÃO: Combinar flip da câmera traseira com rotação manual do usuário
@@ -1124,11 +1124,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
             videoArgs.push('-vf', finalVf);
           }
           
-          // Configuração HLS
+          // Configuração HLS muito mais leve (CRF 34 e áudio otimizado)
           videoArgs.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
-            '-crf', '32',
+            '-crf', '34',
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', 
             '-b:a', '96k',
