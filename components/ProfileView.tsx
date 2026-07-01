@@ -1486,7 +1486,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                       className="w-full h-full object-cover" 
                       muted 
                       playsInline 
-                      preload="metadata"
+                      preload="none"
                       poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined} 
                     />
                   ) : (

@@ -358,7 +358,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                               className="w-full h-full object-cover pointer-events-none" 
                               muted 
                               playsInline 
-                              preload="metadata"
+                              preload="none"
                               poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
                             />
                           ) : (
@@ -454,7 +454,7 @@ const Discovery: React.FC<DiscoveryProps> = ({ onNavigateToPost, onNavigateToPro
                               className="w-full h-full object-cover pointer-events-none" 
                               muted 
                               playsInline 
-                              preload="metadata"
+                              preload="none"
                               poster={post.thumbnail_url ? parseMediaUrl(post.thumbnail_url) : undefined}
                             />
                           ) : (
