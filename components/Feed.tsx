@@ -207,23 +207,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
                   console.log(">>> [InAppBrowser] Atingiu 10 vídeos! Disparando publicidade...");
                   triggerAdvertisement();
                 }
-
-                // Salvar o post como assistido/visto no localStorage (coluna de visualizados do usuário)
-                const currentPost = posts[index];
-                if (currentPost) {
-                  const currentUserId = user?.id || 'guest';
-                  try {
-                    const watchedKey = `watched_posts_${currentUserId}`;
-                    const watchedList = JSON.parse(localStorage.getItem(watchedKey) || '[]');
-                    if (!watchedList.includes(currentPost.id)) {
-                      watchedList.push(currentPost.id);
-                      localStorage.setItem(watchedKey, JSON.stringify(watchedList));
-                      console.log(`>>> [Feed.tsx] Vídeo marcado como assistido: ${currentPost.id}`);
-                    }
-                  } catch (e) {
-                    console.error("Erro ao registrar vídeo como visto:", e);
-                  }
-                }
               }
 
               // Se o usuário não tiver logado depois de 3 vídeos ir a página de login automaticamente
@@ -561,34 +544,20 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         return true;
       });
 
-      // Filter out posts already watched by this user
-      const currentUserId = user?.id || 'guest';
-      let watchedPostIds: string[] = [];
-      try {
-        watchedPostIds = JSON.parse(localStorage.getItem(`watched_posts_${currentUserId}`) || '[]');
-      } catch { /* ignore */ }
-
-      let unwatchedPosts = sortedPosts.filter(p => !watchedPostIds.includes(p.id));
-
-      // Se o usuário já assistiu a todos os vídeos, mostramos todos de qualquer forma (fallback)
-      if (unwatchedPosts.length === 0) {
-        unwatchedPosts = sortedPosts;
-      }
-
       // Save to pool and clear seen list
-      allPostsPoolRef.current = unwatchedPosts;
+      allPostsPoolRef.current = sortedPosts;
       seenPostIdsRef.current.clear();
 
       let selected: Post[] = [];
 
       if (initialPostId) {
-        const targetPost = unwatchedPosts.find(p => p.id === initialPostId);
+        const targetPost = sortedPosts.find(p => p.id === initialPostId);
         if (targetPost) {
           selected.push(targetPost);
           seenPostIdsRef.current.add(targetPost.id);
         }
         
-        const otherPosts = unwatchedPosts.filter(p => p.id !== initialPostId);
+        const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
         const shuffledOthers = [...otherPosts];
         for (let i = shuffledOthers.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -600,7 +569,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...fillPosts];
       } else {
-        const shuffled = [...unwatchedPosts];
+        const shuffled = [...sortedPosts];
         for (let i = shuffled.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
