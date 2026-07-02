@@ -534,7 +534,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   // Reset scroll container to top when posts change to ensure the first video starts playing immediately
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    if (pageRef.current === 0 && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [posts]);
