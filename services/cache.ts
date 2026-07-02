@@ -80,6 +80,18 @@ class AppCache {
       .filter(key => key.startsWith(this.PREFIX))
       .forEach(key => localStorage.removeItem(key));
   }
+
+  // Limpar cache de feeds para forçar nova randomização
+  clearFeedCache() {
+    for (const key of Array.from(this.cache.keys())) {
+      if (key.startsWith('feed_')) {
+        this.cache.delete(key);
+      }
+    }
+    Object.keys(localStorage)
+      .filter(key => key.startsWith(this.PREFIX + 'feed_'))
+      .forEach(key => localStorage.removeItem(key));
+  }
 }
 
 export const appCache = AppCache.getInstance();
