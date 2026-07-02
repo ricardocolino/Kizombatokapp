@@ -666,6 +666,7 @@ const App: React.FC = () => {
 
     handlerPromise = CapApp.addListener('backButton', () => {
       console.log('>>> [App.tsx] Botão físico de voltar pressionado.');
+      window.dispatchEvent(new CustomEvent('native-back-pressed'));
       
       // 1. Stories Viewer
       if (viewingStoryUserId) {

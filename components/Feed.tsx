@@ -619,6 +619,31 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, [posts]);
 
+  // Listen to native back button events to randomize the first video (index 0)
+  useEffect(() => {
+    const handleNativeBack = () => {
+      console.log(">>> [Feed.tsx] Native back button event received, randomizing first video...");
+      const pool = allPostsPoolRef.current;
+      if (pool && pool.length > 0) {
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        const randomPost = pool[randomIndex];
+        const remainingPosts = pool.filter(p => p.id !== randomPost.id);
+        const newPosts = [randomPost, ...remainingPosts.slice(0, 14)];
+        setPosts(newPosts);
+        fetchBatchMetadata(newPosts);
+        setDisplayLimit(15);
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = 0;
+        }
+      }
+    };
+
+    window.addEventListener('native-back-pressed', handleNativeBack);
+    return () => {
+      window.removeEventListener('native-back-pressed', handleNativeBack);
+    };
+  }, [fetchBatchMetadata]);
+
   // Intersection Observer for Automatic Endless Reels Loading
   useEffect(() => {
     if (loading || posts.length === 0) {
