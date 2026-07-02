@@ -534,10 +534,23 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
   // Reset scroll container to top when posts change to ensure the first video starts playing immediately
   useEffect(() => {
-    if (pageRef.current === 0 && scrollContainerRef.current) {
+    if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [posts]);
+
+  // Listen to native back button events to reset scroll to top (index 0)
+  useEffect(() => {
+    const handleResetScroll = () => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+    };
+    window.addEventListener('reset-feed-scroll', handleResetScroll);
+    return () => {
+      window.removeEventListener('reset-feed-scroll', handleResetScroll);
+    };
+  }, []);
 
   // Intersection Observer for Infinite Scroll - Only for internal displayLimit
   useEffect(() => {
