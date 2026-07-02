@@ -45,10 +45,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [user, setUser] = useState<User | null>(null);
   const [displayLimit, setDisplayLimit] = useState(15);
   const pageRef = React.useRef(0);
-  const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 15;
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
-  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+  const allPostsPoolRef = React.useRef<Post[]>([]);
+  const seenPostIdsRef = React.useRef<Set<string>>(new Set());
+  const loadMoreSentinelRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const viewedIndices = React.useRef<Set<number>>(new Set());
@@ -357,15 +357,78 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }));
   }, []);
 
-  const [loadingMore, setLoadingMore] = useState(false);
+  const loadNextBatchOfVideos = React.useCallback(() => {
+    if (allPostsPoolRef.current.length === 0) return;
+
+    // Get unseen posts from the pool
+    let unseenPosts = allPostsPoolRef.current.filter(p => !seenPostIdsRef.current.has(p.id));
+
+    let selected: Post[] = [];
+
+    if (unseenPosts.length >= 15) {
+      // We have enough unseen posts. Shuffle and pick 15.
+      const shuffled = [...unseenPosts];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      selected = shuffled.slice(0, 15);
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+    } else {
+      // We don't have enough unseen posts! That means we have exhausted the pool.
+      // So we take all remaining unseen posts first
+      selected = [...unseenPosts];
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+
+      // Reset seen list to allow repetition
+      seenPostIdsRef.current.clear();
+      
+      // Keep track of the ones we just selected so they aren't duplicated in the same batch
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+
+      // Now fill the remaining slots from the pool
+      const remainingSlots = 15 - selected.length;
+      if (remainingSlots > 0 && allPostsPoolRef.current.length > 0) {
+        // Filter out the ones we just added to selected
+        const poolExcludingSelected = allPostsPoolRef.current.filter(p => !selected.some(s => s.id === p.id));
+        const poolToPickFrom = poolExcludingSelected.length > 0 ? poolExcludingSelected : allPostsPoolRef.current;
+        
+        const shuffledPool = [...poolToPickFrom];
+        for (let i = shuffledPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+        }
+        
+        const fillPosts = shuffledPool.slice(0, remainingSlots);
+        fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+        selected = [...selected, ...fillPosts];
+      }
+    }
+
+    // Shuffle the final selection to make the first video random (at index 0)
+    if (selected.length > 0) {
+      for (let i = selected.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [selected[i], selected[j]] = [selected[j], selected[i]];
+      }
+    }
+
+    // Update posts and metadata
+    setPosts(selected);
+    fetchBatchMetadata(selected);
+    setDisplayLimit(15);
+
+    // Reset scroll to top
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [fetchBatchMetadata]);
 
   const fetchPosts = React.useCallback(async (isNextPage = false) => {
     try {
       if (!isNextPage) {
         setLoading(true);
         setError(null);
-      } else {
-        setLoadingMore(true);
       }
       
       const currentPage = isNextPage ? pageRef.current + 1 : 0;
@@ -387,16 +450,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         }
       }
 
-      console.log(`🔄 Buscando posts do servidor (página ${currentPage})`);
-      const from = currentPage * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      console.log(`🔄 Buscando posts do servidor`);
       
       let query = supabase
         .from('posts')
         .select(`*, profiles!user_id (*)`)
         .order('is_ready', { ascending: false })
         .order('created_at', { ascending: false })
-        .range(from, to);
+        .limit(1000);
 
       if (feedFilter) {
         if (feedFilter.type === 'user' || feedFilter.type === 'private') {
@@ -440,7 +501,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       let rawPosts = data || [];
       
       // Se tivermos um initialPostId e for a primeira página, garantir que ele está nos posts
-      if (currentPage === 0 && initialPostId) {
+      if (initialPostId) {
         const hasTarget = rawPosts.some(p => p.id === initialPostId);
         if (!hasTarget) {
           try {
@@ -458,8 +519,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           }
         }
       }
-
-      setHasMore(rawPosts.length >= PAGE_SIZE);
 
       let sortedPosts = [...rawPosts];
       
@@ -485,31 +544,54 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         return true;
       });
 
-      if (currentPage === 0) {
-        if (initialPostId) {
-          const targetPost = sortedPosts.find(p => p.id === initialPostId);
-          if (targetPost) {
-            sortedPosts = [targetPost, ...sortedPosts.filter(p => p.id !== initialPostId)];
-          }
-        }
+      // Save to pool and clear seen list
+      allPostsPoolRef.current = sortedPosts;
+      seenPostIdsRef.current.clear();
 
-        // Se não tivermos initialPostId, vamos randomizar todo o feed para que o primeiro vídeo seja sempre aleatório
-        if (!initialPostId) {
-          for (let i = sortedPosts.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [sortedPosts[i], sortedPosts[j]] = [sortedPosts[j], sortedPosts[i]];
-          }
+      let selected: Post[] = [];
+
+      if (initialPostId) {
+        const targetPost = sortedPosts.find(p => p.id === initialPostId);
+        if (targetPost) {
+          selected.push(targetPost);
+          seenPostIdsRef.current.add(targetPost.id);
+        }
+        
+        const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
+        const shuffledOthers = [...otherPosts];
+        for (let i = shuffledOthers.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledOthers[i], shuffledOthers[j]] = [shuffledOthers[j], shuffledOthers[i]];
+        }
+        
+        const fillCount = Math.min(14, shuffledOthers.length);
+        const fillPosts = shuffledOthers.slice(0, fillCount);
+        fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+        selected = [...selected, ...fillPosts];
+      } else {
+        const shuffled = [...sortedPosts];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const selectCount = Math.min(15, shuffled.length);
+        selected = shuffled.slice(0, selectCount);
+        selected.forEach(p => seenPostIdsRef.current.add(p.id));
+      }
+
+      // If no initialPostId, make sure we randomize the selected list so that the first video (at index 0) is random
+      if (!initialPostId && selected.length > 0) {
+        for (let i = selected.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [selected[i], selected[j]] = [selected[j], selected[i]];
         }
       }
 
       // BUSCAR METADADOS EM LOTE (Apenas para os novos posts)
-      fetchBatchMetadata(sortedPosts);
+      fetchBatchMetadata(selected);
 
-      setPosts(prevPosts => isNextPage ? [...prevPosts, ...sortedPosts] : sortedPosts);
-      
-      if (currentPage === 0) {
-        appCache.set(cacheKey, sortedPosts);
-      }
+      setPosts(selected);
+      appCache.set(cacheKey, selected);
     } catch (error: unknown) {
       console.error('Error fetching posts:', error);
       const message = error instanceof Error ? error.message : t('Error loading video connection');
@@ -517,8 +599,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     } finally {
       if (!isNextPage) {
         setTimeout(() => setLoading(false), 800);
-      } else {
-        setLoadingMore(false);
       }
     }
   }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t]);
@@ -539,31 +619,37 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, [posts]);
 
-  // Intersection Observer for Infinite Scroll - Only for internal displayLimit
+  // Intersection Observer for Automatic Endless Reels Loading
   useEffect(() => {
-    if (loading || displayLimit >= posts.length) {
+    if (loading || posts.length === 0) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          // Increment limit internally, but don't fetch from network
-          setDisplayLimit(prev => Math.min(prev + 15, posts.length));
+          console.log("Sentinel intersected! Loading next batch...");
+          loadNextBatchOfVideos();
         }
       },
       { 
-        threshold: 0,
-        rootMargin: '100% 0px'
+        threshold: 0.1,
+        root: scrollContainerRef.current
       }
     );
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
+    const currentSentinel = loadMoreSentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
     }
 
-    return () => observer.disconnect();
-  }, [loading, displayLimit, posts.length]);
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+      observer.disconnect();
+    };
+  }, [loading, posts, loadNextBatchOfVideos]);
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
@@ -724,31 +810,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           </div>
         ))}
         
-        {/* Ver mais vídeos Button - Every 50 videos limit */}
-        {displayLimit >= posts.length && hasMore && !loading && (
-          <div className="h-screen w-full flex flex-col items-center justify-center bg-black gap-6 px-10 text-center snap-start">
-            <button 
-              onClick={() => fetchPosts(true)}
-              disabled={loadingMore}
-              className="mt-4 bg-white text-black px-12 py-4 rounded-full font-black uppercase text-xs tracking-[0.2em] shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-3"
-            >
-              {loadingMore ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  {t('Searching')}
-                </>
-              ) : (
-                t('See more videos')
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Sentinel invisível para carregar internamente os posts já baixados */}
-        {displayLimit < posts.length && (
-          <div ref={loadMoreRef} className="h-20 w-full flex items-center justify-center bg-black">
-            <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin opacity-20"></div>
-          </div>
+        {/* Auto-load Sentinel */}
+        {!loading && posts.length > 0 && (
+          <div ref={loadMoreSentinelRef} className="h-1 w-full bg-transparent snap-start" />
         )}
       </div>
     </div>
