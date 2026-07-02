@@ -665,8 +665,63 @@ const App: React.FC = () => {
     let handlerPromise: Promise<{ remove: () => void }> | null = null;
 
     handlerPromise = CapApp.addListener('backButton', () => {
-      console.log('>>> [App.tsx] Botão físico de voltar pressionado (executando comportamento do botão Home).');
-      handleGoHome();
+      console.log('>>> [App.tsx] Botão físico de voltar pressionado.');
+      
+      // 1. Stories Viewer
+      if (viewingStoryUserId) {
+        setViewingStoryUserId(null);
+        setAllUsersWithStories([]);
+        return;
+      }
+      
+      // 2. Story Stats
+      if (viewingStatsUserId) {
+        setViewingStatsUserId(null);
+        return;
+      }
+      
+      // 3. Live Host / Live Viewer
+      if (isHosting) {
+        setIsHosting(false);
+        return;
+      }
+      if (activeLiveId) {
+        setActiveLiveId(null);
+        return;
+      }
+      
+      // 4. Detalhes do Áudio / Música
+      if (viewAudioPostId) {
+        setViewAudioPostId(null);
+        return;
+      }
+
+      // 5. Filtros/postagem em destaque no Feed
+      if (feedFilter || targetPostId) {
+        setFeedFilter(null);
+        setTargetPostId(null);
+        return;
+      }
+
+      // 6. Tabs e Perfis
+      if (activeTab === Tab.PROFILE) {
+        if (viewProfileId) {
+          setViewProfileId(null);
+        } else {
+          setActiveTab(Tab.HOME);
+        }
+        return;
+      }
+
+      if (activeTab !== Tab.HOME) {
+        // Se estiver em outra aba, volta para a HOME
+        setActiveTab(Tab.HOME);
+        return;
+      }
+
+      // Se já estiver na HOME e sem overlays ativos, sai do App
+      console.log('>>> [App.tsx] Sem mais páginas internas para voltar. A sair do aplicativo...');
+      CapApp.exitApp();
     });
 
     return () => {
@@ -678,7 +733,17 @@ const App: React.FC = () => {
         }).catch(() => {});
       }
     };
-  }, [handleGoHome]);
+  }, [
+    viewingStoryUserId,
+    viewingStatsUserId,
+    isHosting,
+    activeLiveId,
+    viewAudioPostId,
+    feedFilter,
+    targetPostId,
+    activeTab,
+    viewProfileId
+  ]);
 
   // Monitora notificações quando o utilizador está logado
   useEffect(() => {
@@ -789,13 +854,13 @@ const App: React.FC = () => {
     setActiveTab(Tab.HOME);
   };
 
-  const handleGoHome = React.useCallback(() => {
+  const handleGoHome = () => {
     setViewProfileId(null);
     setTargetPostId(null);
     setFeedFilter(null);
     setActiveTab(Tab.HOME);
     setHomeRefreshTrigger(prev => prev + 1);
-  }, []);
+  };
 
   const handleDub = (mp3Url: string, originalPostId?: string | null) => {
     setDubbingMp3Url(mp3Url);
