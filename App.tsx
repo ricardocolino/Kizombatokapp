@@ -696,9 +696,32 @@ const App: React.FC = () => {
         return;
       }
 
-      // 5. Para qualquer outro caso (Tabs, Perfis, Filtros ou já na HOME):
-      // O botão físico de voltar nativo age exatamente como clicar no botão Home do navibar
-      handleGoHome();
+      // 5. Filtros/postagem em destaque no Feed
+      if (feedFilter || targetPostId) {
+        setFeedFilter(null);
+        setTargetPostId(null);
+        return;
+      }
+
+      // 6. Tabs e Perfis
+      if (activeTab === Tab.PROFILE) {
+        if (viewProfileId) {
+          setViewProfileId(null);
+        } else {
+          setActiveTab(Tab.HOME);
+        }
+        return;
+      }
+
+      if (activeTab !== Tab.HOME) {
+        // Se estiver em outra aba, volta para a HOME
+        setActiveTab(Tab.HOME);
+        return;
+      }
+
+      // Se já estiver na HOME e sem overlays ativos, sai do App
+      console.log('>>> [App.tsx] Sem mais páginas internas para voltar. A sair do aplicativo...');
+      CapApp.exitApp();
     });
 
     return () => {
@@ -716,7 +739,10 @@ const App: React.FC = () => {
     isHosting,
     activeLiveId,
     viewAudioPostId,
-    handleGoHome
+    feedFilter,
+    targetPostId,
+    activeTab,
+    viewProfileId
   ]);
 
   // Monitora notificações quando o utilizador está logado
@@ -828,13 +854,13 @@ const App: React.FC = () => {
     setActiveTab(Tab.HOME);
   };
 
-  const handleGoHome = React.useCallback(() => {
+  const handleGoHome = () => {
     setViewProfileId(null);
     setTargetPostId(null);
     setFeedFilter(null);
     setActiveTab(Tab.HOME);
     setHomeRefreshTrigger(prev => prev + 1);
-  }, []);
+  };
 
   const handleDub = (mp3Url: string, originalPostId?: string | null) => {
     setDubbingMp3Url(mp3Url);
