@@ -539,19 +539,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }
   }, [posts]);
 
-  // Listen to native back button events to reset scroll to top (index 0)
-  useEffect(() => {
-    const handleResetScroll = () => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-      }
-    };
-    window.addEventListener('reset-feed-scroll', handleResetScroll);
-    return () => {
-      window.removeEventListener('reset-feed-scroll', handleResetScroll);
-    };
-  }, []);
-
   // Intersection Observer for Infinite Scroll - Only for internal displayLimit
   useEffect(() => {
     if (loading || displayLimit >= posts.length) {

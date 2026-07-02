@@ -667,43 +667,32 @@ const App: React.FC = () => {
     handlerPromise = CapApp.addListener('backButton', () => {
       console.log('>>> [App.tsx] Botão físico de voltar pressionado.');
       
-      const triggerScrollReset = () => {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('reset-feed-scroll'));
-        }, 100);
-      };
-
       // 1. Stories Viewer
       if (viewingStoryUserId) {
         setViewingStoryUserId(null);
         setAllUsersWithStories([]);
-        triggerScrollReset();
         return;
       }
       
       // 2. Story Stats
       if (viewingStatsUserId) {
         setViewingStatsUserId(null);
-        triggerScrollReset();
         return;
       }
       
       // 3. Live Host / Live Viewer
       if (isHosting) {
         setIsHosting(false);
-        triggerScrollReset();
         return;
       }
       if (activeLiveId) {
         setActiveLiveId(null);
-        triggerScrollReset();
         return;
       }
       
       // 4. Detalhes do Áudio / Música
       if (viewAudioPostId) {
         setViewAudioPostId(null);
-        triggerScrollReset();
         return;
       }
 
@@ -711,7 +700,6 @@ const App: React.FC = () => {
       if (feedFilter || targetPostId) {
         setFeedFilter(null);
         setTargetPostId(null);
-        triggerScrollReset();
         return;
       }
 
@@ -722,14 +710,12 @@ const App: React.FC = () => {
         } else {
           setActiveTab(Tab.HOME);
         }
-        triggerScrollReset();
         return;
       }
 
       if (activeTab !== Tab.HOME) {
         // Se estiver em outra aba, volta para a HOME
         setActiveTab(Tab.HOME);
-        triggerScrollReset();
         return;
       }
 
