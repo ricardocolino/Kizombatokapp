@@ -43,7 +43,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [isMuted, setIsMuted] = useState(false);
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
-  const [displayLimit, setDisplayLimit] = useState(15);
+  const [displayLimit, setDisplayLimit] = useState(70);
   const pageRef = React.useRef(0);
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const allPostsPoolRef = React.useRef<Post[]>([]);
@@ -365,14 +365,14 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
     let selected: Post[] = [];
 
-    if (unseenPosts.length >= 15) {
-      // We have enough unseen posts. Shuffle and pick 15.
+    if (unseenPosts.length >= 70) {
+      // We have enough unseen posts. Shuffle and pick 70.
       const shuffled = [...unseenPosts];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      selected = shuffled.slice(0, 15);
+      selected = shuffled.slice(0, 70);
       selected.forEach(p => seenPostIdsRef.current.add(p.id));
     } else {
       // We don't have enough unseen posts! That means we have exhausted the pool.
@@ -387,7 +387,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       selected.forEach(p => seenPostIdsRef.current.add(p.id));
 
       // Now fill the remaining slots from the pool
-      const remainingSlots = 15 - selected.length;
+      const remainingSlots = 70 - selected.length;
       if (remainingSlots > 0 && allPostsPoolRef.current.length > 0) {
         // Filter out the ones we just added to selected
         const poolExcludingSelected = allPostsPoolRef.current.filter(p => !selected.some(s => s.id === p.id));
@@ -416,7 +416,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     // Update posts and metadata
     setPosts(selected);
     fetchBatchMetadata(selected);
-    setDisplayLimit(15);
+    setDisplayLimit(70);
 
     // Reset scroll to top
     if (scrollContainerRef.current) {
@@ -564,7 +564,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           [shuffledOthers[i], shuffledOthers[j]] = [shuffledOthers[j], shuffledOthers[i]];
         }
         
-        const fillCount = Math.min(14, shuffledOthers.length);
+        const fillCount = Math.min(69, shuffledOthers.length);
         const fillPosts = shuffledOthers.slice(0, fillCount);
         fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...fillPosts];
@@ -574,7 +574,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           const j = Math.floor(Math.random() * (i + 1));
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        const selectCount = Math.min(15, shuffled.length);
+        const selectCount = Math.min(70, shuffled.length);
         selected = shuffled.slice(0, selectCount);
         selected.forEach(p => seenPostIdsRef.current.add(p.id));
       }
@@ -609,7 +609,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       appCache.clear(); // Limpa tudo para garantir fresh start
     }
     fetchPosts();
-    setDisplayLimit(15); 
+    setDisplayLimit(70); 
 
     // Ao sair da página de reels (componente Feed desmonta), limpamos o cache dos feeds
     // para que a próxima entrada carregue do zero com nova randomização (como se estivesse abrindo o APP agora)
