@@ -52,6 +52,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const viewedIndices = React.useRef<Set<number>>(new Set());
+  const previousFirstPostIdRef = React.useRef<string | null>(null);
 
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('');
@@ -581,9 +582,17 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
       // If no initialPostId, make sure we randomize the selected list so that the first video (at index 0) is random
       if (!initialPostId && selected.length > 0) {
-        for (let i = selected.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [selected[i], selected[j]] = [selected[j], selected[i]];
+        const prevId = previousFirstPostIdRef.current;
+        let attempts = 0;
+        while (attempts < 10) {
+          for (let i = selected.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [selected[i], selected[j]] = [selected[j], selected[i]];
+          }
+          if (selected.length <= 1 || selected[0].id !== prevId) {
+            break;
+          }
+          attempts++;
         }
       }
 
@@ -616,6 +625,9 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
+    }
+    if (posts && posts.length > 0) {
+      previousFirstPostIdRef.current = posts[0].id;
     }
   }, [posts]);
 
