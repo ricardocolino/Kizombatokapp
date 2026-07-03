@@ -19,6 +19,7 @@ import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import AudioDetailsPage from './components/AudioDetailsPage';
 import { uploadToR2 } from './services/uploadService';
+import { savePendingUpload, getPendingUploads, deletePendingUpload } from './services/uploadQueue';
 import LiveList from './components/LiveList';
 import LiveHost from './components/LiveHost';
 import LiveViewer from './components/LiveViewer';
@@ -162,9 +163,14 @@ const App: React.FC = () => {
     });
   };
 
-  const handleBackgroundUpload = async (uploadData: UploadData) => {
+  const handleBackgroundUpload = async (uploadData: UploadData, recoveredId?: string) => {
     setUploadTask({ progress: 0, active: true, error: null });
     setActiveTab(Tab.HOME); // Immediate navigation
+
+    const uploadId = recoveredId || ('up-' + Date.now());
+    if (!recoveredId) {
+      await savePendingUpload(uploadId, uploadData);
+    }
 
     try {
       const {
@@ -449,6 +455,9 @@ const App: React.FC = () => {
       setUploadTask({ progress: 100, active: false, error: null });
       setHomeRefreshTrigger(prev => prev + 1);
       
+      // Remover da fila do IndexedDB
+      await deletePendingUpload(uploadId);
+      
       // Limpar após 3 segundos
       setTimeout(() => {
         setUploadTask(null);
@@ -458,6 +467,8 @@ const App: React.FC = () => {
       console.error('Background upload error:', err);
       const message = err instanceof Error ? err.message : t('Upload error');
       setUploadTask(prev => prev ? { ...prev, active: false, error: message } : null);
+      // Remover da fila do IndexedDB em caso de erro para evitar loops infinitos
+      await deletePendingUpload(uploadId);
     }
   };
 
@@ -657,6 +668,61 @@ const App: React.FC = () => {
       }
     };
   }, []);
+
+  // Recuperar uploads pendentes na inicialização do aplicativo
+  useEffect(() => {
+    if (loadingSession || !user) return;
+
+    const recoverUploads = async () => {
+      try {
+        const pending = await getPendingUploads();
+        if (pending && pending.length > 0) {
+          console.log(`>>> [UploadQueue] Encontrado(s) ${pending.length} upload(s) pendente(s). Tentando recuperar...`);
+          // Recuperar o primeiro upload pendente
+          const upload = pending[0];
+          
+          // Reconstrói o arquivo principal
+          const mediaFile = new File([upload.mediaFileBlob], upload.mediaFileName || 'media', { type: upload.mediaFileType });
+          
+          let mediaFiles: File[] | undefined = undefined;
+          if (upload.mediaFiles) {
+            mediaFiles = upload.mediaFiles.map(f => new File([f.blob], f.name || 'file', { type: f.type }));
+          }
+          
+          const uploadData: UploadData = {
+            mediaFile,
+            mediaFiles,
+            content: upload.content,
+            uploadType: upload.uploadType,
+            isEducation: upload.isEducation,
+            recordedFacingMode: upload.recordedFacingMode,
+            isFromGallery: upload.isFromGallery,
+            trimStart: upload.trimStart,
+            trimEnd: upload.trimEnd,
+            recordingSeconds: upload.recordingSeconds,
+            dubbedMp3Url: upload.dubbedMp3Url,
+            dubbedFromId: upload.dubbedFromId,
+            dubbingDelayMs: upload.dubbingDelayMs,
+            textOverlay: upload.textOverlay,
+            rotation: upload.rotation,
+          };
+
+          console.log(`>>> [UploadQueue] Retomando upload pendente ${upload.id}...`);
+          handleBackgroundUpload(uploadData, upload.id);
+        }
+      } catch (err) {
+        console.error('>>> [UploadQueue] Erro ao recuperar upload pendente:', err);
+      }
+    };
+
+    // Pequeno delay para garantir que todo o estado esteja pronto
+    const timer = setTimeout(() => {
+      recoverUploads();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loadingSession]);
 
   // Handler para botão físico de voltar no Capacitor (Android)
   useEffect(() => {
