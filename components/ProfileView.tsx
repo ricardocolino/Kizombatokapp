@@ -274,7 +274,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showIbanModal, setShowIbanModal] = useState(false);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
-  const [withdrawMethod, setWithdrawMethod] = useState<'usdt' | 'iban'>('usdt');
+  const [withdrawMethod, setWithdrawMethod] = useState<'usdt' | 'iban'>('iban');
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newIban, setNewIban] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
@@ -2399,7 +2399,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       )}
       {/* Wallet Modal */}
       {showWalletModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowWalletModal(false)} />
           <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-8">
@@ -2440,7 +2440,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* IBAN Modal */}
       {showIbanModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowIbanModal(false)} />
           <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-8">
@@ -2483,7 +2483,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Method Picker Modal */}
       {showMethodPicker && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-white/80 backdrop-blur-md" onClick={() => setShowMethodPicker(false)} />
           <div className="relative bg-white border border-zinc-100 w-full max-w-sm rounded-2xl overflow-hidden shadow-xl animate-in fade-in zoom-in duration-300 text-black">
             <div className="p-8 flex flex-col gap-6">
@@ -2569,16 +2569,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Método de Levantamento</p>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setWithdrawMethod('usdt')}
-                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                        withdrawMethod === 'usdt'
-                          ? 'bg-black text-white border-black shadow-lg'
-                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
-                      }`}
-                    >
-                      USDT (BEP-20)
-                    </button>
-                    <button
                       onClick={() => setWithdrawMethod('iban')}
                       className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
                         withdrawMethod === 'iban'
@@ -2588,6 +2578,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                     >
                       <span>IBAN (Angola)</span>
                       <span>🇦🇴</span>
+                    </button>
+                    <button
+                      onClick={() => setWithdrawMethod('usdt')}
+                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                        withdrawMethod === 'usdt'
+                          ? 'bg-black text-white border-black shadow-lg'
+                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                      }`}
+                    >
+                      USDT (BEP-20)
                     </button>
                   </div>
                 </div>
