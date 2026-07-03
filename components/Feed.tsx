@@ -43,7 +43,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
   const [isMuted, setIsMuted] = useState(false);
   const [feedType, setFeedType] = useState<'for_you' | 'following'>('for_you');
   const [user, setUser] = useState<User | null>(null);
-  const [displayLimit, setDisplayLimit] = useState(70);
+  const [displayLimit, setDisplayLimit] = useState(10);
   const pageRef = React.useRef(0);
   const [metadataMap, setMetadataMap] = useState<Record<string, PostMetadata>>({});
   const allPostsPoolRef = React.useRef<Post[]>([]);
@@ -197,6 +197,11 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
             if (!isNaN(index)) {
+              // Se o utilizador se aproximar do limite atual de 10 em 10, exibe mais 10 posts até 70
+              if (index >= displayLimit - 2 && displayLimit < 70) {
+                setDisplayLimit(prev => Math.min(70, prev + 10));
+              }
+
               // A cada 10 vídeos, apresentar a publicidade
               if (lastViewedIndexRef.current !== index) {
                 lastViewedIndexRef.current = index;
@@ -238,7 +243,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement]);
+  }, [posts, sessionLoaded, user, onRequireAuth, triggerAdvertisement, displayLimit]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -497,7 +502,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     // Update posts and metadata
     setPosts(selected);
     fetchBatchMetadata(selected);
-    setDisplayLimit(70);
+    setDisplayLimit(10);
 
     // Reset scroll to top
     if (scrollContainerRef.current) {
@@ -710,7 +715,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       appCache.clear(); // Limpa tudo para garantir fresh start
     }
     fetchPosts();
-    setDisplayLimit(70); 
+    setDisplayLimit(10); 
 
     // Ao sair da página de reels (componente Feed desmonta), limpamos o cache dos feeds
     // para que a próxima entrada carregue do zero com nova randomização (como se estivesse abrindo o APP agora)
