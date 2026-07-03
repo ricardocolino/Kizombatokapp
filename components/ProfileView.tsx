@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock, Info, Eye, EyeOff, ArrowUp, Plus } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock, Info, Eye, EyeOff, ArrowUp } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -1987,7 +1987,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             {/* Top Balance Card (USD Card from the image) */}
             <div 
               id="balance_card_container"
-              className="w-full rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl mb-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#12103E] flex flex-col justify-between min-h-[220px]"
+              className="w-full rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl mb-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#12103E] flex flex-col justify-between min-h-[160px] pb-6"
             >
               {/* Decorative Background Waves or Curves to mimic premium design */}
               <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-overlay bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-indigo-200 to-indigo-900" />
@@ -2028,62 +2028,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   )}
                 </h2>
                 
-                {/* Equivalent Coins */}
-                <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs font-medium" id="balance_coins_approx">
-                  <span>≈ {isBalanceVisible ? ((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)).toFixed(0) : "•••"} Coins</span>
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-yellow-950 font-bold text-[10px]">🪙</span>
+                {/* Equivalent in Kwanza (1 USD = 800 Kz) */}
+                <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs font-medium" id="balance_kwanza_approx">
+                  <span>
+                    ≈ {isBalanceVisible ? (
+                      ((((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100) * 800).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    ) : (
+                      "••••••"
+                    )} Kz
+                  </span>
                 </div>
-              </div>
-
-              {/* Dividers & Card Quick Actions Footer Row */}
-              <div className="border-t border-white/10 pt-4 grid grid-cols-4 relative z-10 -mx-6 px-6 bg-black/10 -mb-6 pb-5 mt-auto">
-                {/* Depositar button */}
-                <button 
-                  onClick={() => setShowDeposit(true)}
-                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
-                  id="card_action_deposit"
-                >
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
-                    <Plus size={14} className="text-white" />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-tight">{t('Depositar')}</span>
-                </button>
-
-                {/* Levantar button */}
-                <button 
-                  onClick={() => setShowWithdrawModal(true)}
-                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
-                  id="card_action_withdraw"
-                >
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
-                    <ArrowUp size={14} className="text-white" />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-tight">{t('Levantar')}</span>
-                </button>
-
-                {/* Histórico button */}
-                <button 
-                  onClick={() => alert("O histórico detalhado de transações estará disponível na próxima atualização.")}
-                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
-                  id="card_action_history"
-                >
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
-                    <Clock size={14} className="text-white" />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-tight">{t('Histórico')}</span>
-                </button>
-
-                {/* Recompensas button */}
-                <button 
-                  onClick={() => alert("As recompensas e bónus diários estarão disponíveis na próxima atualização.")}
-                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 last:border-0"
-                  id="card_action_rewards"
-                >
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
-                    <Gift size={14} className="text-white" />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-tight">{t('Recompensas')}</span>
-                </button>
               </div>
             </div>
 
@@ -2103,9 +2057,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
 
             {/* "Meus Coins" compact section */}
-            <button 
-              onClick={() => setShowDeposit(true)}
-              className="w-full bg-white hover:bg-zinc-50/50 border border-zinc-100 rounded-2xl py-3 px-5 flex items-center justify-between transition-all mb-6 shadow-sm"
+            <div 
+              className="w-full bg-white border border-zinc-100 rounded-2xl py-3 px-5 flex items-center justify-between transition-all mb-6 shadow-sm"
               id="wallet_my_coins_banner"
             >
               <div className="flex items-center gap-3">
@@ -2118,9 +2071,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 <span className="text-base font-bold text-indigo-600 font-mono">
                   {profile.balance?.toFixed(0) || '0'}
                 </span>
-                <ChevronRight size={14} className="text-zinc-400" />
               </div>
-            </button>
+            </div>
 
             {/* Section Header: Carregar Coins */}
             <div className="mb-4 text-left" id="charge_coins_header_section">
