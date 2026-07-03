@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock, Info, Eye, EyeOff, ArrowUp, Plus } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -36,7 +36,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   
   // Follow modal states
   const [followModalType, setFollowModalType] = useState<'followers' | 'following' | null>(null);
-  const [showRechargeOptions, setShowRechargeOptions] = useState(false);
   const [showKursinhaWarning, setShowKursinhaWarning] = useState(false);
   const [copiedKursinhaEmail, setCopiedKursinhaEmail] = useState(false);
   const [kursinhaEmail, setKursinhaEmail] = useState('');
@@ -279,6 +278,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newIban, setNewIban] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [showExternalUrl, setShowExternalUrl] = useState(false);
   const [iframeUrl, setIframeUrl] = useState('https://angochatpayments.vercel.app');
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -1971,127 +1971,263 @@ const ProfileView: React.FC<ProfileViewProps> = ({
       {showDashboard && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in slide-in-from-right duration-300 text-black">
           {/* Header Minimalista */}
-          <header className="flex items-center justify-between px-6 h-20 shrink-0">
+          <header className="flex items-center justify-between px-6 h-20 shrink-0 border-b border-zinc-100 bg-white">
             <button 
               onClick={() => setShowDashboard(false)}
               className="p-2 -ml-2 text-black transition-opacity hover:opacity-50"
+              id="wallet_back_btn"
             >
               <ChevronLeft size={24} strokeWidth={1.5} />
             </button>
-            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900">{t('Wallet')}</h1>
+            <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-900" id="wallet_title_hdr">{t('Wallet')}</h1>
             <div className="w-10" /> {/* Spacer */}
           </header>
 
-          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32">
-            {/* Hero Section: Balanço Principal */}
-            <div className="w-full pt-10 pb-10 flex flex-col items-center justify-center border-b border-zinc-100">
-              <button 
-                onClick={() => setShowWithdrawModal(true)}
-                className="flex flex-col items-center justify-center group active:opacity-70 transition-all cursor-pointer mb-6"
-              >
-                <div className="flex items-center gap-1.5 mb-3">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-900 font-black">{t('Total Balance')} (USD)</span>
-                  <span className="text-[9px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">Levantar</span>
-                  <ChevronRight size={14} strokeWidth={2.5} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+          <div className="flex-1 overflow-y-auto px-6 no-scrollbar pb-32 pt-6 bg-slate-50/40">
+            {/* Top Balance Card (USD Card from the image) */}
+            <div 
+              id="balance_card_container"
+              className="w-full rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl mb-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#12103E] flex flex-col justify-between min-h-[220px]"
+            >
+              {/* Decorative Background Waves or Curves to mimic premium design */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-overlay bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-indigo-200 to-indigo-900" />
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+              
+              {/* Card Header row */}
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-1.5 text-white/80">
+                  <span className="text-xs uppercase tracking-wider font-semibold">Saldo total (USD)</span>
+                  <button 
+                    onClick={() => alert("O saldo total reflete os seus ganhos resgatáveis acumulados com visualizações e presentes recebidos convertidos em dólares.")}
+                    className="p-1 hover:text-white transition-colors"
+                    id="balance_info_btn"
+                  >
+                    <Info size={14} />
+                  </button>
                 </div>
-                <div className="flex items-start">
-                  <span className="text-xl font-medium mt-1 mr-1 text-zinc-900">$</span>
-                  <h1 className="text-6xl font-semibold tracking-tighter text-zinc-900">
-                    {(((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100).toFixed(5)}
-                  </h1>
-                </div>
-              </button>
+                
+                {/* Eye toggle button styled inside a transparent circular square */}
+                <button 
+                  onClick={() => setIsBalanceVisible(!isBalanceVisible)}
+                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors border border-white/5"
+                  id="balance_visibility_toggle"
+                >
+                  {isBalanceVisible ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+              </div>
 
-              <button
-                onClick={() => setShowWithdrawModal(true)}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-900/15 group"
-              >
-                <Wallet size={16} />
-                <span className="text-xs uppercase tracking-wider">{t('Withdraw Earnings')}</span>
-              </button>
-            </div>
-
-            {/* Botão de Moedas Rápido */}
-            <div className="pt-8 pb-8 border-b border-zinc-100 w-full">
-              <div className="mb-4 flex items-center gap-2.5">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-extrabold">{t('My Coins')}</span>
-                <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-full">
-                  <AngoCoinIcon size={12} className="text-purple-600" />
-                  <span className="text-xs font-black text-purple-700 font-mono">
-                    {profile.balance?.toFixed(0) || '0'}
-                  </span>
+              {/* Balance Value */}
+              <div className="my-6 relative z-10">
+                <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight flex items-baseline gap-1" id="balance_amount_display">
+                  <span className="text-2xl sm:text-3xl font-medium text-white/90">$</span>
+                  {isBalanceVisible ? (
+                    (((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)) / 100).toFixed(6)
+                  ) : (
+                    "••••••"
+                  )}
+                </h2>
+                
+                {/* Equivalent Coins */}
+                <div className="flex items-center gap-1.5 mt-2 text-white/70 text-xs font-medium" id="balance_coins_approx">
+                  <span>≈ {isBalanceVisible ? ((profile.redeemable_balance || 0) + (isApprovedForViews ? (stats.views - (profile?.claimed_views || 0)) * VIEW_RATE : 0)).toFixed(0) : "•••"} Coins</span>
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-yellow-950 font-bold text-[10px]">🪙</span>
                 </div>
               </div>
-              
-              {/* Row with recharge options directly visible */}
-              <div className="space-y-3">
-                <div className="px-1">
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-tight">
-                    Escolhe uma opção caso deseja carregar coins
-                  </p>
+
+              {/* Dividers & Card Quick Actions Footer Row */}
+              <div className="border-t border-white/10 pt-4 grid grid-cols-4 relative z-10 -mx-6 px-6 bg-black/10 -mb-6 pb-5 mt-auto">
+                {/* Depositar button */}
+                <button 
+                  onClick={() => setShowDeposit(true)}
+                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
+                  id="card_action_deposit"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
+                    <Plus size={14} className="text-white" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight">{t('Depositar')}</span>
+                </button>
+
+                {/* Levantar button */}
+                <button 
+                  onClick={() => setShowWithdrawModal(true)}
+                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
+                  id="card_action_withdraw"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
+                    <ArrowUp size={14} className="text-white" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight">{t('Levantar')}</span>
+                </button>
+
+                {/* Histórico button */}
+                <button 
+                  onClick={() => alert("O histórico detalhado de transações estará disponível na próxima atualização.")}
+                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 border-r border-white/5 last:border-0"
+                  id="card_action_history"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
+                    <Clock size={14} className="text-white" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight">{t('Histórico')}</span>
+                </button>
+
+                {/* Recompensas button */}
+                <button 
+                  onClick={() => alert("As recompensas e bónus diários estarão disponíveis na próxima atualização.")}
+                  className="flex flex-col items-center justify-center gap-1.5 group hover:text-white transition-all text-white/80 last:border-0"
+                  id="card_action_rewards"
+                >
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all border border-white/5">
+                    <Gift size={14} className="text-white" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight">{t('Recompensas')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* "Levantar Ganhos" bright purple banner button */}
+            <button 
+              onClick={() => setShowWithdrawModal(true)}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white font-semibold py-4 px-5 rounded-2xl flex items-center justify-between transition-all shadow-md group mb-4"
+              id="wallet_withdraw_earnings_banner"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-indigo-600">
+                  <ArrowUp size={16} strokeWidth={2.5} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Option 1: Multicaixa Express */}
-                  <button 
-                    onClick={handleOpenKursinhaPayment}
-                    className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
-                  >
+                <span className="text-sm font-semibold">{t('Levantar ganhos')}</span>
+              </div>
+              <ChevronRight size={16} strokeWidth={2.5} className="text-white/80 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            {/* "Meus Coins" compact section */}
+            <button 
+              onClick={() => setShowDeposit(true)}
+              className="w-full bg-white hover:bg-zinc-50/50 border border-zinc-100 rounded-2xl py-3 px-5 flex items-center justify-between transition-all mb-6 shadow-sm"
+              id="wallet_my_coins_banner"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  <AngoCoinIcon size={14} />
+                </div>
+                <span className="text-sm font-semibold text-zinc-800">{t('Meus Coins')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-indigo-600 font-mono">
+                  {profile.balance?.toFixed(0) || '0'}
+                </span>
+                <ChevronRight size={14} className="text-zinc-400" />
+              </div>
+            </button>
+
+            {/* Section Header: Carregar Coins */}
+            <div className="mb-4 text-left" id="charge_coins_header_section">
+              <h3 className="text-base font-bold text-zinc-900 leading-none">{t('Carregar Coins')}</h3>
+              <p className="text-xs text-zinc-400 mt-1.5">{t('Escolha uma opção para carregar seus Coins')}</p>
+            </div>
+
+            {/* Grid 2x2: Payment options (Bento Grid) */}
+            <div className="grid grid-cols-2 gap-3" id="payment_options_grid">
+              {/* Option 1: Multicaixa Express */}
+              <button 
+                onClick={handleOpenKursinhaPayment}
+                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                id="mc_express_payment_option"
+              >
+                {/* Icon row */}
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-100 flex items-center justify-center">
                     <img 
                       src="https://cdn.angochat.ao/IMG_8146-770x613.jpeg" 
                       alt="Multicaixa Express"
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
-                        Multicaixa Express
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Option 2: Crypto */}
-                  <button 
-                    onClick={handleOpenExternalDeposit}
-                    className="relative overflow-hidden flex flex-col items-center justify-end p-3 bg-zinc-900 active:scale-95 border border-zinc-200/80 rounded-2xl transition-all text-center group h-32 shadow-sm"
-                  >
-                    <img 
-                      src="https://cdn.angochat.ao/images%20(1).jpeg" 
-                      alt="Carregar com Crypto"
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex items-end justify-center p-3">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-white leading-tight drop-shadow">
-                        Carregar com Crypto
-                      </span>
-                    </div>
-                  </button>
+                  </div>
+                  
+                  <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <ChevronRight size={14} strokeWidth={2.5} />
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Method & Monetization Buttons */}
-            <div className="py-10 flex items-center justify-center gap-6">
-              <button 
-                onClick={() => {
-                  setShowMethodPicker(true);
-                }}
-                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
-              >
-                <Settings size={26} strokeWidth={1.5} className="text-zinc-800" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
-                  {t('Payment Method')}
-                </span>
+                
+                {/* Text column */}
+                <div className="mt-auto">
+                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Multicaixa Express</h4>
+                  <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Depósito instantâneo</p>
+                </div>
               </button>
 
+              {/* Option 2: Crypto */}
               <button 
-                onClick={() => {
-                  setShowMonetization(true);
-                }}
-                className="flex flex-col items-center justify-center gap-3 w-36 h-32 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-3xl group active:scale-95 transition-all text-black"
+                onClick={handleOpenExternalDeposit}
+                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                id="crypto_payment_option"
               >
-                <DollarSign size={26} strokeWidth={1.5} className="text-purple-600" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-800 text-center px-2 leading-tight">
-                  {t('Monetização')}
-                </span>
+                {/* Icon row */}
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-[#F7931A] text-white flex items-center justify-center text-xl font-bold shadow-sm shadow-[#F7931A]/20">
+                    ₿
+                  </div>
+                  
+                  <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <ChevronRight size={14} strokeWidth={2.5} />
+                  </div>
+                </div>
+                
+                {/* Text column */}
+                <div className="mt-auto">
+                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Crypto</h4>
+                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5">BTC • ETH • USDT</p>
+                </div>
+              </button>
+
+              {/* Option 3: Métodos de Pagamento */}
+              <button 
+                onClick={() => setShowMethodPicker(true)}
+                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                id="methods_payment_option"
+              >
+                {/* Icon row */}
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                    <Wallet size={20} />
+                  </div>
+                  
+                  <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <ChevronRight size={14} strokeWidth={2.5} />
+                  </div>
+                </div>
+                
+                {/* Text column */}
+                <div className="mt-auto">
+                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Métodos de pagamento</h4>
+                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Gerencie seus métodos</p>
+                </div>
+              </button>
+
+              {/* Option 4: Monetização */}
+              <button 
+                onClick={() => setShowMonetization(true)}
+                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                id="monetization_payment_option"
+              >
+                {/* Icon row */}
+                <div className="flex items-center justify-between w-full">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                    <BarChart3 size={20} />
+                  </div>
+                  
+                  <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <ChevronRight size={14} strokeWidth={2.5} />
+                  </div>
+                </div>
+                
+                {/* Text column */}
+                <div className="mt-auto">
+                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Monetização</h4>
+                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Acompanhe e gerencie</p>
+                </div>
               </button>
             </div>
           </div>
