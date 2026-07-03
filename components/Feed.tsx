@@ -366,50 +366,52 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     let selected: Post[] = [];
 
     if (unseenPosts.length >= 70) {
-      // We have enough unseen posts. Shuffle and pick 70.
-      const shuffled = [...unseenPosts];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      selected = shuffled.slice(0, 70);
-      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+      // Pick a random post to be first
+      const randomIndex = Math.floor(Math.random() * unseenPosts.length);
+      const firstPost = unseenPosts[randomIndex];
+      selected.push(firstPost);
+      seenPostIdsRef.current.add(firstPost.id);
+
+      // Remaining are sorted by created_at desc (newest first)
+      const otherPosts = unseenPosts.filter(p => p.id !== firstPost.id);
+      otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      const fillPosts = otherPosts.slice(0, 69);
+      fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+      selected = [...selected, ...fillPosts];
     } else {
       // We don't have enough unseen posts! That means we have exhausted the pool.
       // So we take all remaining unseen posts first
-      selected = [...unseenPosts];
-      selected.forEach(p => seenPostIdsRef.current.add(p.id));
-
+      let candidates = [...unseenPosts];
+      
       // Reset seen list to allow repetition
       seenPostIdsRef.current.clear();
       
-      // Keep track of the ones we just selected so they aren't duplicated in the same batch
-      selected.forEach(p => seenPostIdsRef.current.add(p.id));
-
-      // Now fill the remaining slots from the pool
-      const remainingSlots = 70 - selected.length;
+      // Fill the remaining slots from the full pool
+      const remainingSlots = 70 - candidates.length;
       if (remainingSlots > 0 && allPostsPoolRef.current.length > 0) {
-        // Filter out the ones we just added to selected
-        const poolExcludingSelected = allPostsPoolRef.current.filter(p => !selected.some(s => s.id === p.id));
-        const poolToPickFrom = poolExcludingSelected.length > 0 ? poolExcludingSelected : allPostsPoolRef.current;
+        const poolExcludingCandidates = allPostsPoolRef.current.filter(p => !candidates.some(c => c.id === p.id));
+        const poolToPickFrom = poolExcludingCandidates.length > 0 ? poolExcludingCandidates : allPostsPoolRef.current;
         
-        const shuffledPool = [...poolToPickFrom];
-        for (let i = shuffledPool.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
-        }
+        const sortedPool = [...poolToPickFrom];
+        sortedPool.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
-        const fillPosts = shuffledPool.slice(0, remainingSlots);
-        fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
-        selected = [...selected, ...fillPosts];
+        const fillPosts = sortedPool.slice(0, remainingSlots);
+        candidates = [...candidates, ...fillPosts];
       }
-    }
 
-    // Shuffle the final selection to make the first video random (at index 0)
-    if (selected.length > 0) {
-      for (let i = selected.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [selected[i], selected[j]] = [selected[j], selected[i]];
+      // Now we have candidates. Let's make the first random and the rest sorted newest to oldest.
+      if (candidates.length > 0) {
+        const randomIndex = Math.floor(Math.random() * candidates.length);
+        const firstPost = candidates[randomIndex];
+        selected.push(firstPost);
+        seenPostIdsRef.current.add(firstPost.id);
+
+        const otherPosts = candidates.filter(p => p.id !== firstPost.id);
+        otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        otherPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+        selected = [...selected, ...otherPosts];
       }
     }
 
@@ -558,32 +560,26 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         }
         
         const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
-        const shuffledOthers = [...otherPosts];
-        for (let i = shuffledOthers.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledOthers[i], shuffledOthers[j]] = [shuffledOthers[j], shuffledOthers[i]];
-        }
+        otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
-        const fillCount = Math.min(69, shuffledOthers.length);
-        const fillPosts = shuffledOthers.slice(0, fillCount);
+        const fillCount = Math.min(69, otherPosts.length);
+        const fillPosts = otherPosts.slice(0, fillCount);
         fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...fillPosts];
       } else {
-        const shuffled = [...sortedPosts];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        const selectCount = Math.min(70, shuffled.length);
-        selected = shuffled.slice(0, selectCount);
-        selected.forEach(p => seenPostIdsRef.current.add(p.id));
-      }
-
-      // If no initialPostId, make sure we randomize the selected list so that the first video (at index 0) is random
-      if (!initialPostId && selected.length > 0) {
-        for (let i = selected.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [selected[i], selected[j]] = [selected[j], selected[i]];
+        if (sortedPosts.length > 0) {
+          const randomIndex = Math.floor(Math.random() * sortedPosts.length);
+          const firstPost = sortedPosts[randomIndex];
+          selected.push(firstPost);
+          seenPostIdsRef.current.add(firstPost.id);
+          
+          const otherPosts = sortedPosts.filter(p => p.id !== firstPost.id);
+          otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          
+          const fillCount = Math.min(69, otherPosts.length);
+          const fillPosts = otherPosts.slice(0, fillCount);
+          fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+          selected = [...selected, ...fillPosts];
         }
       }
 
