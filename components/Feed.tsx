@@ -357,6 +357,46 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }));
   }, []);
 
+  const getPriorityLists = React.useCallback((postsToPartition: Post[]) => {
+    const pool = allPostsPoolRef.current;
+    if (pool.length === 0) {
+      return { high: postsToPartition, low: [] };
+    }
+
+    // 1. Sort the entire pool by age (newest first) to find the "novos" cutoff
+    const sortedPoolByAge = [...pool].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // Define "novos" as the newest 30% of the pool (minimum 1, maximum 50)
+    const newCutoffCount = Math.min(50, Math.max(1, Math.floor(sortedPoolByAge.length * 0.3)));
+    const novosInPool = sortedPoolByAge.slice(0, newCutoffCount);
+    const novosIds = new Set(novosInPool.map(p => p.id));
+
+    // 2. Calculate the average views of these "novos" videos
+    const averageNewViews = novosInPool.length > 0 
+      ? (novosInPool.reduce((sum, p) => sum + (p.views || 0), 0) / novosInPool.length)
+      : 0;
+
+    // 3. Define the threshold for "rising" old videos (must have more views than average of new videos, and at least 1 view)
+    const risingThreshold = Math.max(averageNewViews, 1);
+
+    // 4. Partition the postsToPartition list
+    const high: Post[] = [];
+    const low: Post[] = [];
+
+    postsToPartition.forEach(post => {
+      const isNew = novosIds.has(post.id);
+      const isRisingOld = !isNew && (post.views || 0) > risingThreshold;
+
+      if (isNew || isRisingOld) {
+        high.push(post);
+      } else {
+        low.push(post);
+      }
+    });
+
+    return { high, low };
+  }, []);
+
   const loadNextBatchOfVideos = React.useCallback(() => {
     if (allPostsPoolRef.current.length === 0) return;
 
@@ -372,14 +412,24 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       selected.push(firstPost);
       seenPostIdsRef.current.add(firstPost.id);
 
-      // Remaining are shuffled/randomized so the user doesn't always see the same sequence
+      // Remaining are partitioned into high and low priority, and shuffled
       const otherPosts = unseenPosts.filter(p => p.id !== firstPost.id);
-      for (let i = otherPosts.length - 1; i > 0; i--) {
+      const { high, low } = getPriorityLists(otherPosts);
+
+      // Shuffle high-priority list
+      for (let i = high.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+        [high[i], high[j]] = [high[j], high[i]];
       }
 
-      const fillPosts = otherPosts.slice(0, 69);
+      // Shuffle low-priority list
+      for (let i = low.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [low[i], low[j]] = [low[j], low[i]];
+      }
+
+      const prioritizedOthers = [...high, ...low];
+      const fillPosts = prioritizedOthers.slice(0, 69);
       fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
       selected = [...selected, ...fillPosts];
     } else {
@@ -397,12 +447,22 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         const poolToPickFrom = poolExcludingCandidates.length > 0 ? poolExcludingCandidates : allPostsPoolRef.current;
         
         const sortedPool = [...poolToPickFrom];
-        for (let i = sortedPool.length - 1; i > 0; i--) {
+        const { high: poolHigh, low: poolLow } = getPriorityLists(sortedPool);
+        
+        // Shuffle high pool
+        for (let i = poolHigh.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [sortedPool[i], sortedPool[j]] = [sortedPool[j], sortedPool[i]];
+          [poolHigh[i], poolHigh[j]] = [poolHigh[j], poolHigh[i]];
         }
         
-        const fillPosts = sortedPool.slice(0, remainingSlots);
+        // Shuffle low pool
+        for (let i = poolLow.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [poolLow[i], poolLow[j]] = [poolLow[j], poolLow[i]];
+        }
+        
+        const prioritizedPool = [...poolHigh, ...poolLow];
+        const fillPosts = prioritizedPool.slice(0, remainingSlots);
         candidates = [...candidates, ...fillPosts];
       }
 
@@ -414,13 +474,23 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         seenPostIdsRef.current.add(firstPost.id);
 
         const otherPosts = candidates.filter(p => p.id !== firstPost.id);
-        for (let i = otherPosts.length - 1; i > 0; i--) {
+        const { high: otherHigh, low: otherLow } = getPriorityLists(otherPosts);
+
+        // Shuffle otherHigh
+        for (let i = otherHigh.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+          [otherHigh[i], otherHigh[j]] = [otherHigh[j], otherHigh[i]];
         }
-        
-        otherPosts.forEach(p => seenPostIdsRef.current.add(p.id));
-        selected = [...selected, ...otherPosts];
+
+        // Shuffle otherLow
+        for (let i = otherLow.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [otherLow[i], otherLow[j]] = [otherLow[j], otherLow[i]];
+        }
+
+        const prioritizedOthers = [...otherHigh, ...otherLow];
+        prioritizedOthers.forEach(p => seenPostIdsRef.current.add(p.id));
+        selected = [...selected, ...prioritizedOthers];
       }
     }
 
@@ -433,7 +503,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
-  }, [fetchBatchMetadata]);
+  }, [fetchBatchMetadata, getPriorityLists]);
 
   const fetchPosts = React.useCallback(async (isNextPage = false) => {
     try {
@@ -569,13 +639,23 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         }
         
         const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
-        for (let i = otherPosts.length - 1; i > 0; i--) {
+        const { high, low } = getPriorityLists(otherPosts);
+
+        // Shuffle high-priority list
+        for (let i = high.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+          [high[i], high[j]] = [high[j], high[i]];
         }
-        
-        const fillCount = Math.min(69, otherPosts.length);
-        const fillPosts = otherPosts.slice(0, fillCount);
+
+        // Shuffle low-priority list
+        for (let i = low.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [low[i], low[j]] = [low[j], low[i]];
+        }
+
+        const prioritizedOthers = [...high, ...low];
+        const fillCount = Math.min(69, prioritizedOthers.length);
+        const fillPosts = prioritizedOthers.slice(0, fillCount);
         fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...fillPosts];
       } else {
@@ -586,13 +666,23 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           seenPostIdsRef.current.add(firstPost.id);
           
           const otherPosts = sortedPosts.filter(p => p.id !== firstPost.id);
-          for (let i = otherPosts.length - 1; i > 0; i--) {
+          const { high, low } = getPriorityLists(otherPosts);
+
+          // Shuffle high-priority list
+          for (let i = high.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+            [high[i], high[j]] = [high[j], high[i]];
           }
-          
-          const fillCount = Math.min(69, otherPosts.length);
-          const fillPosts = otherPosts.slice(0, fillCount);
+
+          // Shuffle low-priority list
+          for (let i = low.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [low[i], low[j]] = [low[j], low[i]];
+          }
+
+          const prioritizedOthers = [...high, ...low];
+          const fillCount = Math.min(69, prioritizedOthers.length);
+          const fillPosts = prioritizedOthers.slice(0, fillCount);
           fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
           selected = [...selected, ...fillPosts];
         }
@@ -612,7 +702,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         setTimeout(() => setLoading(false), 800);
       }
     }
-  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t]);
+  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t, getPriorityLists]);
 
   useEffect(() => {
     // Se o refreshTrigger mudar, limpamos o cache para este feed específico para garantir novo random
