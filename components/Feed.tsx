@@ -372,9 +372,12 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
       selected.push(firstPost);
       seenPostIdsRef.current.add(firstPost.id);
 
-      // Remaining are sorted by created_at desc (newest first)
+      // Remaining are shuffled/randomized so the user doesn't always see the same sequence
       const otherPosts = unseenPosts.filter(p => p.id !== firstPost.id);
-      otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      for (let i = otherPosts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+      }
 
       const fillPosts = otherPosts.slice(0, 69);
       fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
@@ -394,13 +397,16 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         const poolToPickFrom = poolExcludingCandidates.length > 0 ? poolExcludingCandidates : allPostsPoolRef.current;
         
         const sortedPool = [...poolToPickFrom];
-        sortedPool.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        for (let i = sortedPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [sortedPool[i], sortedPool[j]] = [sortedPool[j], sortedPool[i]];
+        }
         
         const fillPosts = sortedPool.slice(0, remainingSlots);
         candidates = [...candidates, ...fillPosts];
       }
 
-      // Now we have candidates. Let's make the first random and the rest sorted newest to oldest.
+      // Now we have candidates. Let's make the first random and the rest randomized.
       if (candidates.length > 0) {
         const randomIndex = Math.floor(Math.random() * candidates.length);
         const firstPost = candidates[randomIndex];
@@ -408,7 +414,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         seenPostIdsRef.current.add(firstPost.id);
 
         const otherPosts = candidates.filter(p => p.id !== firstPost.id);
-        otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        for (let i = otherPosts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+        }
         
         otherPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...otherPosts];
@@ -560,7 +569,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         }
         
         const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
-        otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        for (let i = otherPosts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+        }
         
         const fillCount = Math.min(69, otherPosts.length);
         const fillPosts = otherPosts.slice(0, fillCount);
@@ -574,7 +586,10 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           seenPostIdsRef.current.add(firstPost.id);
           
           const otherPosts = sortedPosts.filter(p => p.id !== firstPost.id);
-          otherPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          for (let i = otherPosts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [otherPosts[i], otherPosts[j]] = [otherPosts[j], otherPosts[i]];
+          }
           
           const fillCount = Math.min(69, otherPosts.length);
           const fillPosts = otherPosts.slice(0, fillCount);
