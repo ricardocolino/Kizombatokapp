@@ -1056,6 +1056,7 @@ const App: React.FC = () => {
             setDubbingMp3Url(null);
             setDubbedFromId(null);
           }}
+          isUploading={!!(uploadTask && uploadTask.active)}
         />;
       case Tab.LIVE:
         return <LiveList 

@@ -33,9 +33,10 @@ interface CreatePostProps {
   dubbingMp3Url?: string | null;
   dubbedFromId?: string | null;
   onClearDubbing?: () => void;
+  isUploading?: boolean;
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, dubbedFromId, onClearDubbing }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, onStartLive, initialType = 'post', dubbingMp3Url, dubbedFromId, onClearDubbing, isUploading }) => {
   const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [textOverlay, setTextOverlay] = useState('');
@@ -960,6 +961,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
   const handleUpload = async () => {
     if (mediaFiles.length === 0) return;
     
+    if (isUploading) {
+      setError('Já existe uma publicação a ser carregada. Por favor, aguarda que termine para publicar outra.');
+      return;
+    }
+    
     // Se o pai suportar upload em background, usamos essa via e saímos logo
     if (onBackgroundUpload) {
       onBackgroundUpload({
@@ -1495,6 +1501,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
               {/* Publish Button (Top) */}
               <button 
                 onClick={() => {
+                  if (isUploading) {
+                    setError('Já existe uma publicação a ser carregada. Por favor, aguarda que termine para publicar outra.');
+                    return;
+                  }
                   if (isVideoTooLong) {
                     setError('Este vídeo ultrapassa 1:30. Para brilhar na banda, partilha apenas os teus momentos mais épicos e curtos!');
                     return;
@@ -1505,11 +1515,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onCreated, onBackgroundUpload, 
                     handleUpload();
                   }
                 }} 
-                disabled={uploading || processingVideo || isVideoTooLong}
+                disabled={uploading || processingVideo || isVideoTooLong || isUploading}
                 className="flex flex-col items-center gap-1 group active:scale-95 transition-all disabled:opacity-50"
               >
                 <div className="p-2 text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] transition-all group-hover:scale-105">
-                  {uploading || processingVideo ? (
+                  {uploading || processingVideo || isUploading ? (
                     <Loader2 size={20} className="animate-spin" />
                   ) : isVideoTooLong ? (
                     <AlertCircle size={20} />
