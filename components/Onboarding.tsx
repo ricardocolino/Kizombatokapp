@@ -24,6 +24,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
   const [avatarUrl, setAvatarUrl] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [iban, setIban] = useState('');
+  const [country, setCountry] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           if (data.avatar_url) setAvatarUrl(data.avatar_url);
           if (data.wallet_address) setWalletAddress(data.wallet_address);
           if (data.iban) setIban(data.iban);
+          if (data.country) setCountry(data.country);
         }
       } catch (err) {
         console.error('Error fetching profile during onboarding:', err);
@@ -66,6 +68,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
       }
       if (username.length < 3) {
         setError(t('Username too short'));
+        return;
+      }
+      if (!country) {
+        setError(t('Country is required', 'Por favor, selecione o seu país.'));
         return;
       }
       
@@ -173,8 +179,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
           name: name || username,
           username: username.toLowerCase().trim(),
           avatar_url: avatarUrl || null,
-          wallet_address: trimmedWallet || null,
-          iban: iban.trim() || null,
+          wallet_address: country !== 'Angola' ? (trimmedWallet || null) : null,
+          iban: country === 'Angola' ? (iban.trim() || null) : null,
+          country: country,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
         })
@@ -240,6 +247,24 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
                 maxLength={20}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-1">{t('Select your country', 'Seleciona o teu país')}</label>
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-purple-600 outline-none transition-all"
+              >
+                <option value="">{t('Choose a country...', 'Escolhe um país...')}</option>
+                <option value="Angola">Angola 🇦🇴</option>
+                <option value="Portugal">Portugal 🇵🇹</option>
+                <option value="Brasil">Brasil 🇧🇷</option>
+                <option value="Moçambique">Moçambique 🇲🇿</option>
+                <option value="Cabo Verde">Cabo Verde 🇨🇻</option>
+                <option value="São Tomé e Príncipe">São Tomé e Príncipe 🇸🇹</option>
+                <option value="Guiné-Bissau">Guiné-Bissau 🇬🇼</option>
+                <option value="Outro">{t('Other', 'Outro')}</option>
+              </select>
             </div>
           </motion.div>
         );
@@ -324,34 +349,36 @@ const Onboarding: React.FC<OnboardingProps> = ({ userId, userEmail, onComplete }
             </div>
             
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
-                  <span>Carteira USDT (BEP-20)</span>
-                  <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono text-xs"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">Transferência Bancária (IBAN) <span title="Angola">🇦🇴</span></span>
-                  <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={iban}
-                  onChange={(e) => setIban(e.target.value)}
-                  placeholder="AO06 0000 0000 0000 0000 0000 0"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono uppercase text-xs"
-                />
-                <p className="text-[9px] text-zinc-500 ml-1">Apenas contas bancárias de Angola 🇦🇴</p>
-              </div>
+              {country !== 'Angola' ? (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
+                    <span>Carteira USDT (BEP-20)</span>
+                    <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={walletAddress}
+                    onChange={(e) => setWalletAddress(e.target.value)}
+                    placeholder="0x..."
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono text-xs"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">Transferência Bancária (IBAN) <span title="Angola">🇦🇴</span></span>
+                    <span className="text-purple-400 font-bold text-[9px]">OPCIONAL</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={iban}
+                    onChange={(e) => setIban(e.target.value)}
+                    placeholder="AO06 0000 0000 0000 0000 0000 0"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-white focus:border-purple-600 outline-none transition-all font-mono uppercase text-xs"
+                  />
+                  <p className="text-[9px] text-zinc-500 ml-1">Apenas contas bancárias de Angola 🇦🇴</p>
+                </div>
+              )}
             </div>
 
             <p className="text-[9px] text-zinc-500 uppercase tracking-wider text-center px-2">

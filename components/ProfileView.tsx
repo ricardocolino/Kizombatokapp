@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { Profile, Post, FeedFilter } from '../types';
 import { uploadToR2 } from '../services/uploadService';
-import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, Clock, Info, Eye, EyeOff, ArrowUp } from 'lucide-react';
+import { AlertCircle, LogOut, X, Camera, Check, Loader2, Wallet, ChevronLeft, ChevronRight, Menu, Box, Settings, ArrowLeft, Gift, DollarSign, Lock, Unlock, Trash2, Play, Edit3, BarChart3, Film, Layers, Pin, Users, User, Clock, Info, Eye, EyeOff, ArrowUp } from 'lucide-react';
 import { parseMediaUrl } from '../services/mediaUtils';
 import { Browser } from '@capacitor/browser';
 import AngoCoinIcon from './AngoCoinIcon';
@@ -275,6 +275,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   const [showIbanModal, setShowIbanModal] = useState(false);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState<'usdt' | 'iban'>('iban');
+
+  useEffect(() => {
+    if (profile?.country) {
+      if (profile.country === 'Angola') {
+        setWithdrawMethod('iban');
+      } else {
+        setWithdrawMethod('usdt');
+      }
+    }
+  }, [showWithdrawModal, profile?.country]);
+
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [newIban, setNewIban] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
@@ -422,7 +433,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     name: '',
     bio: '',
     avatar_url: '',
-    cover_url: ''
+    cover_url: '',
+    country: ''
   });
   const [saving, setSaving] = useState(false);
   const [isClaimingContent, setIsClaimingContent] = useState(false);
@@ -441,7 +453,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         name: data.name || '',
         bio: data.bio || '',
         avatar_url: data.avatar_url || '',
-        cover_url: data.cover_url || ''
+        cover_url: data.cover_url || '',
+        country: data.country || ''
       });
     }
   }, [userId]);
@@ -866,6 +879,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({
           bio: editForm.bio,
           avatar_url: editForm.avatar_url,
           cover_url: editForm.cover_url,
+          country: editForm.country || null,
+          wallet_address: editForm.country !== 'Angola' ? (profile?.wallet_address || null) : null,
+          iban: editForm.country === 'Angola' ? (profile?.iban || null) : null,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -2041,147 +2057,182 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
             </div>
 
-            {/* "Levantar Ganhos" bright purple banner button */}
-            <button 
-              onClick={() => setShowWithdrawModal(true)}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white font-semibold py-4 px-5 rounded-2xl flex items-center justify-between transition-all shadow-md group mb-4"
-              id="wallet_withdraw_earnings_banner"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-indigo-600">
-                  <ArrowUp size={16} strokeWidth={2.5} />
+            {!profile?.country ? (
+              <div className="bg-white border border-amber-200 rounded-[2rem] p-8 text-center space-y-6 shadow-sm my-6">
+                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 mx-auto text-2xl font-bold">
+                  ⚠️
                 </div>
-                <span className="text-sm font-semibold">{t('Levantar ganhos')}</span>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900">Configuração de País Obrigatória</h3>
+                  <p className="text-xs text-zinc-500 leading-relaxed font-light">
+                    Para continuar a aceder às funções de carteira (depósitos, levantamentos e visualização de opções de pagamento), por favor defina o seu país no seu perfil.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDashboard(false);
+                    setIsEditing(true);
+                  }}
+                  className="w-full h-14 bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <User size={14} />
+                  Configurar País no Perfil
+                </button>
               </div>
-              <ChevronRight size={16} strokeWidth={2.5} className="text-white/80 group-hover:translate-x-0.5 transition-transform" />
-            </button>
+            ) : (
+              <>
+                {/* "Levantar Ganhos" bright purple banner button */}
+                <button 
+                  onClick={() => setShowWithdrawModal(true)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white font-semibold py-4 px-5 rounded-2xl flex items-center justify-between transition-all shadow-md group mb-4"
+                  id="wallet_withdraw_earnings_banner"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-indigo-600">
+                      <ArrowUp size={16} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-sm font-semibold">{t('Levantar ganhos')}</span>
+                  </div>
+                  <ChevronRight size={16} strokeWidth={2.5} className="text-white/80 group-hover:translate-x-0.5 transition-transform" />
+                </button>
 
-            {/* "Meus Coins" compact section */}
-            <div 
-              className="w-full bg-white border border-zinc-100 rounded-2xl py-3 px-5 flex items-center justify-between transition-all mb-6 shadow-sm"
-              id="wallet_my_coins_banner"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                  <AngoCoinIcon size={14} />
+                {/* "Meus Coins" compact section */}
+                <div 
+                  className="w-full bg-white border border-zinc-100 rounded-2xl py-3 px-5 flex items-center justify-between transition-all mb-6 shadow-sm"
+                  id="wallet_my_coins_banner"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                      <AngoCoinIcon size={14} />
+                    </div>
+                    <span className="text-sm font-semibold text-zinc-800">{t('Meus Coins')}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base font-bold text-indigo-600 font-mono">
+                      {profile.balance?.toFixed(0) || '0'}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm font-semibold text-zinc-800">{t('Meus Coins')}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-bold text-indigo-600 font-mono">
-                  {profile.balance?.toFixed(0) || '0'}
-                </span>
-              </div>
-            </div>
 
-            {/* Section Header: Carregar Coins */}
-            <div className="mb-4 text-left" id="charge_coins_header_section">
-              <h3 className="text-base font-bold text-zinc-900 leading-none">{t('Carregar Coins')}</h3>
-              <p className="text-xs text-zinc-400 mt-1.5">{t('Escolha uma opção para carregar seus Coins')}</p>
-            </div>
+                {/* Section Header: Carregar Coins */}
+                <div className="mb-4 text-left" id="charge_coins_header_section">
+                  <h3 className="text-base font-bold text-zinc-900 leading-none">{t('Carregar Coins')}</h3>
+                  <p className="text-xs text-zinc-400 mt-1.5">
+                    {profile.country === 'Angola' 
+                      ? 'Método elegível para Angola: Multicaixa Express' 
+                      : 'Método elegível para o seu país: Criptomoedas (USDT)'}
+                  </p>
+                </div>
 
-            {/* Grid 2x2: Payment options (Bento Grid) */}
-            <div className="grid grid-cols-2 gap-3" id="payment_options_grid">
-              {/* Option 1: Multicaixa Express */}
-              <button 
-                onClick={handleOpenKursinhaPayment}
-                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
-                id="mc_express_payment_option"
-              >
-                {/* Icon row */}
-                <div className="flex items-center justify-between w-full">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                    <img 
-                      src="https://cdn.angochat.ao/IMG_8146-770x613.jpeg" 
-                      alt="Multicaixa Express"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                    <ChevronRight size={14} strokeWidth={2.5} />
-                  </div>
-                </div>
-                
-                {/* Text column */}
-                <div className="mt-auto">
-                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Multicaixa Express</h4>
-                  <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Depósito instantâneo</p>
-                </div>
-              </button>
+                {/* Grid 2x2: Payment options (Bento Grid) */}
+                <div className="grid grid-cols-2 gap-3" id="payment_options_grid">
+                  {/* Option 1: Multicaixa Express */}
+                  {profile.country === 'Angola' && (
+                    <button 
+                      onClick={handleOpenKursinhaPayment}
+                      className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                      id="mc_express_payment_option"
+                    >
+                      {/* Icon row */}
+                      <div className="flex items-center justify-between w-full">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                          <img 
+                            src="https://cdn.angochat.ao/IMG_8146-770x613.jpeg" 
+                            alt="Multicaixa Express"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          <ChevronRight size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      
+                      {/* Text column */}
+                      <div className="mt-auto">
+                        <h4 className="text-xs font-bold text-zinc-900 leading-tight">Multicaixa Express</h4>
+                        <p className="text-[10px] text-indigo-500 font-medium mt-0.5">Depósito instantâneo</p>
+                      </div>
+                    </button>
+                  )}
 
-              {/* Option 2: Crypto */}
-              <button 
-                onClick={handleOpenExternalDeposit}
-                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
-                id="crypto_payment_option"
-              >
-                {/* Icon row */}
-                <div className="flex items-center justify-between w-full">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-[#F7931A] text-white flex items-center justify-center text-xl font-bold shadow-sm shadow-[#F7931A]/20">
-                    ₿
-                  </div>
-                  
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                    <ChevronRight size={14} strokeWidth={2.5} />
-                  </div>
-                </div>
-                
-                {/* Text column */}
-                <div className="mt-auto">
-                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Crypto</h4>
-                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5">BTC • ETH • USDT</p>
-                </div>
-              </button>
+                  {/* Option 2: Crypto */}
+                  {profile.country !== 'Angola' && (
+                    <button 
+                      onClick={handleOpenExternalDeposit}
+                      className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                      id="crypto_payment_option"
+                    >
+                      {/* Icon row */}
+                      <div className="flex items-center justify-between w-full">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-[#F7931A] text-white flex items-center justify-center text-xl font-bold shadow-sm shadow-[#F7931A]/20">
+                          ₿
+                        </div>
+                        
+                        <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          <ChevronRight size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      
+                      {/* Text column */}
+                      <div className="mt-auto">
+                        <h4 className="text-xs font-bold text-zinc-900 leading-tight">Crypto</h4>
+                        <p className="text-[10px] text-zinc-400 font-medium mt-0.5">BTC • ETH • USDT</p>
+                      </div>
+                    </button>
+                  )}
 
-              {/* Option 3: Métodos de Pagamento */}
-              <button 
-                onClick={() => setShowMethodPicker(true)}
-                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
-                id="methods_payment_option"
-              >
-                {/* Icon row */}
-                <div className="flex items-center justify-between w-full">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                    <Wallet size={20} />
-                  </div>
-                  
-                  <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                    <ChevronRight size={14} strokeWidth={2.5} />
-                  </div>
-                </div>
-                
-                {/* Text column */}
-                <div className="mt-auto">
-                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Métodos de pagamento</h4>
-                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Gerencie seus métodos</p>
-                </div>
-              </button>
+                  {/* Option 3: Métodos de Pagamento */}
+                  <button 
+                    onClick={() => setShowMethodPicker(true)}
+                    className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                    id="methods_payment_option"
+                  >
+                    {/* Icon row */}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                        <Wallet size={20} />
+                      </div>
+                      
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                        <ChevronRight size={14} strokeWidth={2.5} />
+                      </div>
+                    </div>
+                    
+                    {/* Text column */}
+                    <div className="mt-auto">
+                      <h4 className="text-xs font-bold text-zinc-900 leading-tight">Métodos de pagamento</h4>
+                      <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Gerencie seus métodos</p>
+                    </div>
+                  </button>
 
-              {/* Option 4: Monetização */}
-              <button 
-                onClick={() => setShowMonetization(true)}
-                className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
-                id="monetization_payment_option"
-              >
-                {/* Icon row */}
-                <div className="flex items-center justify-between w-full">
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
-                    <BarChart3 size={20} />
-                  </div>
-                  
-                  <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                    <ChevronRight size={14} strokeWidth={2.5} />
-                  </div>
+                  {/* Option 4: Monetização */}
+                  <button 
+                    onClick={() => setShowMonetization(true)}
+                    className="bg-white hover:bg-zinc-50 border border-zinc-100 rounded-3xl p-4 flex flex-col justify-between active:scale-98 transition-all text-left shadow-sm h-36 relative overflow-hidden group"
+                    id="monetization_payment_option"
+                  >
+                    {/* Icon row */}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                        <BarChart3 size={20} />
+                      </div>
+                      
+                      <div className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                        <ChevronRight size={14} strokeWidth={2.5} />
+                      </div>
+                    </div>
+                    
+                    {/* Text column */}
+                    <div className="mt-auto">
+                      <h4 className="text-xs font-bold text-zinc-900 leading-tight">Monetização</h4>
+                      <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Acompanhe e gerencie</p>
+                    </div>
+                  </button>
                 </div>
-                
-                {/* Text column */}
-                <div className="mt-auto">
-                  <h4 className="text-xs font-bold text-zinc-900 leading-tight">Monetização</h4>
-                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5 line-clamp-1">Acompanhe e gerencie</p>
-                </div>
-              </button>
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2353,6 +2404,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">{t('Country', 'País')}</label>
+                <select
+                  value={editForm.country}
+                  onChange={(e) => setEditForm({...editForm, country: e.target.value})}
+                  className="w-full bg-white border-b border-zinc-100 px-0 py-4 text-base font-light focus:border-black outline-none transition-all text-black"
+                  required
+                >
+                  <option value="">{t('Choose a country...', 'Escolhe um país...')}</option>
+                  <option value="Angola">Angola 🇦🇴</option>
+                  <option value="Portugal">Portugal 🇵🇹</option>
+                  <option value="Brasil">Brasil 🇧🇷</option>
+                  <option value="Moçambique">Moçambique 🇲🇿</option>
+                  <option value="Cabo Verde">Cabo Verde 🇨🇻</option>
+                  <option value="São Tomé e Príncipe">São Tomé e Príncipe 🇸🇹</option>
+                  <option value="Guiné-Bissau">Guiné-Bissau 🇬🇼</option>
+                  <option value="Outro">{t('Other', 'Outro')}</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-[9px] font-bold uppercase text-zinc-400 tracking-widest ml-1">{t('Biography')}</label>
                 <textarea 
                   value={editForm.bio}
@@ -2495,42 +2566,46 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
               <p className="text-xs text-zinc-500">Escolha o método de recebimento que deseja configurar:</p>
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => {
-                    setShowMethodPicker(false);
-                    setNewWalletAddress(profile?.wallet_address || '');
-                    setShowWalletModal(true);
-                  }}
-                  className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
-                >
-                  <div>
-                    <div className="text-xs font-bold uppercase">USDT (BEP-20)</div>
-                    <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
-                      {profile?.wallet_address || 'Não configurado'}
+                {profile?.country !== 'Angola' && (
+                  <button
+                    onClick={() => {
+                      setShowMethodPicker(false);
+                      setNewWalletAddress(profile?.wallet_address || '');
+                      setShowWalletModal(true);
+                    }}
+                    className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
+                  >
+                    <div>
+                      <div className="text-xs font-bold uppercase">USDT (BEP-20)</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
+                        {profile?.wallet_address || 'Não configurado'}
+                      </div>
                     </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-400" />
-                </button>
+                    <ChevronRight size={18} className="text-zinc-400" />
+                  </button>
+                )}
 
-                <button
-                  onClick={() => {
-                    setShowMethodPicker(false);
-                    setNewIban(profile?.iban || '');
-                    setShowIbanModal(true);
-                  }}
-                  className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
-                >
-                  <div>
-                    <div className="text-xs font-bold uppercase flex items-center gap-1.5">
-                      <span>Transferência Bancária (IBAN)</span>
-                      <span title="Angola">🇦🇴</span>
+                {profile?.country === 'Angola' && (
+                  <button
+                    onClick={() => {
+                      setShowMethodPicker(false);
+                      setNewIban(profile?.iban || '');
+                      setShowIbanModal(true);
+                    }}
+                    className="p-4 rounded-xl border border-zinc-200 hover:border-black bg-zinc-50 hover:bg-zinc-100 flex items-center justify-between transition-all text-left"
+                  >
+                    <div>
+                      <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                        <span>Transferência Bancária (IBAN)</span>
+                        <span title="Angola">🇦🇴</span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
+                        {profile?.iban || 'Não configurado'}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-zinc-400 mt-0.5 truncate max-w-[200px]">
-                      {profile?.iban || 'Não configurado'}
-                    </div>
-                  </div>
-                  <ChevronRight size={18} className="text-zinc-400" />
-                </button>
+                    <ChevronRight size={18} className="text-zinc-400" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -2564,33 +2639,26 @@ const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div className="space-y-6 pt-6">
-                {/* Selector de Método */}
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Método de Levantamento</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setWithdrawMethod('iban')}
-                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
-                        withdrawMethod === 'iban'
-                          ? 'bg-black text-white border-black shadow-lg'
-                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
-                      }`}
-                    >
-                      <span>IBAN (Angola)</span>
-                      <span>🇦🇴</span>
-                    </button>
-                    <button
-                      onClick={() => setWithdrawMethod('usdt')}
-                      className={`p-3.5 rounded-2xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                        withdrawMethod === 'usdt'
-                          ? 'bg-black text-white border-black shadow-lg'
-                          : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
-                      }`}
-                    >
-                      USDT (BEP-20)
-                    </button>
-                  </div>
-                </div>
+                 {/* Selector de Método */}
+                 <div className="space-y-2">
+                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Método de Levantamento</p>
+                   {profile?.country === 'Angola' ? (
+                     <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-between">
+                       <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-zinc-800">
+                         <span>IBAN (Angola)</span>
+                         <span>🇦🇴</span>
+                       </span>
+                       <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wide">Fixo para Angola</span>
+                     </div>
+                   ) : (
+                     <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-between">
+                       <span className="text-xs font-bold uppercase tracking-wider text-zinc-800">
+                         USDT (BEP-20)
+                       </span>
+                       <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wide font-medium">Fixo para Criptomoeda</span>
+                     </div>
+                   )}
+                 </div>
 
                 {withdrawMethod === 'usdt' ? (
                   <div className="space-y-2">

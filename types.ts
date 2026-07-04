@@ -13,6 +13,7 @@ export interface Profile {
   airtm_email: string | null;
   onboarding_completed: boolean;
   monetization_status?: string | null;
+  country?: string | null;
   created_at: string;
 }
 
