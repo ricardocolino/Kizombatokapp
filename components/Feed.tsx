@@ -357,46 +357,6 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     }));
   }, []);
 
-  const getPriorityLists = React.useCallback((postsToPartition: Post[]) => {
-    const pool = allPostsPoolRef.current;
-    if (pool.length === 0) {
-      return { high: postsToPartition, low: [] };
-    }
-
-    // 1. Sort the entire pool by age (newest first) to find the "novos" cutoff
-    const sortedPoolByAge = [...pool].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    
-    // Define "novos" as the newest 30% of the pool (minimum 1, maximum 50)
-    const newCutoffCount = Math.min(50, Math.max(1, Math.floor(sortedPoolByAge.length * 0.3)));
-    const novosInPool = sortedPoolByAge.slice(0, newCutoffCount);
-    const novosIds = new Set(novosInPool.map(p => p.id));
-
-    // 2. Calculate the average views of these "novos" videos
-    const averageNewViews = novosInPool.length > 0 
-      ? (novosInPool.reduce((sum, p) => sum + (p.views || 0), 0) / novosInPool.length)
-      : 0;
-
-    // 3. Define the threshold for "rising" old videos (must have more views than average of new videos, and at least 1 view)
-    const risingThreshold = Math.max(averageNewViews, 1);
-
-    // 4. Partition the postsToPartition list
-    const high: Post[] = [];
-    const low: Post[] = [];
-
-    postsToPartition.forEach(post => {
-      const isNew = novosIds.has(post.id);
-      const isRisingOld = !isNew && (post.views || 0) > risingThreshold;
-
-      if (isNew || isRisingOld) {
-        high.push(post);
-      } else {
-        low.push(post);
-      }
-    });
-
-    return { high, low };
-  }, []);
-
   const loadNextBatchOfVideos = React.useCallback(() => {
     if (allPostsPoolRef.current.length === 0) return;
 
@@ -406,91 +366,50 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     let selected: Post[] = [];
 
     if (unseenPosts.length >= 70) {
-      // Pick a random post to be first
-      const randomIndex = Math.floor(Math.random() * unseenPosts.length);
-      const firstPost = unseenPosts[randomIndex];
-      selected.push(firstPost);
-      seenPostIdsRef.current.add(firstPost.id);
-
-      // Remaining are partitioned into high and low priority, and shuffled
-      const otherPosts = unseenPosts.filter(p => p.id !== firstPost.id);
-      const { high, low } = getPriorityLists(otherPosts);
-
-      // Shuffle high-priority list
-      for (let i = high.length - 1; i > 0; i--) {
+      // We have enough unseen posts. Shuffle and pick 70.
+      const shuffled = [...unseenPosts];
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [high[i], high[j]] = [high[j], high[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-
-      // Shuffle low-priority list
-      for (let i = low.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [low[i], low[j]] = [low[j], low[i]];
-      }
-
-      const prioritizedOthers = [...high, ...low];
-      const fillPosts = prioritizedOthers.slice(0, 69);
-      fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
-      selected = [...selected, ...fillPosts];
+      selected = shuffled.slice(0, 70);
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
     } else {
       // We don't have enough unseen posts! That means we have exhausted the pool.
       // So we take all remaining unseen posts first
-      let candidates = [...unseenPosts];
-      
+      selected = [...unseenPosts];
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+
       // Reset seen list to allow repetition
       seenPostIdsRef.current.clear();
       
-      // Fill the remaining slots from the full pool
-      const remainingSlots = 70 - candidates.length;
+      // Keep track of the ones we just selected so they aren't duplicated in the same batch
+      selected.forEach(p => seenPostIdsRef.current.add(p.id));
+
+      // Now fill the remaining slots from the pool
+      const remainingSlots = 70 - selected.length;
       if (remainingSlots > 0 && allPostsPoolRef.current.length > 0) {
-        const poolExcludingCandidates = allPostsPoolRef.current.filter(p => !candidates.some(c => c.id === p.id));
-        const poolToPickFrom = poolExcludingCandidates.length > 0 ? poolExcludingCandidates : allPostsPoolRef.current;
+        // Filter out the ones we just added to selected
+        const poolExcludingSelected = allPostsPoolRef.current.filter(p => !selected.some(s => s.id === p.id));
+        const poolToPickFrom = poolExcludingSelected.length > 0 ? poolExcludingSelected : allPostsPoolRef.current;
         
-        const sortedPool = [...poolToPickFrom];
-        const { high: poolHigh, low: poolLow } = getPriorityLists(sortedPool);
-        
-        // Shuffle high pool
-        for (let i = poolHigh.length - 1; i > 0; i--) {
+        const shuffledPool = [...poolToPickFrom];
+        for (let i = shuffledPool.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [poolHigh[i], poolHigh[j]] = [poolHigh[j], poolHigh[i]];
+          [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
         }
         
-        // Shuffle low pool
-        for (let i = poolLow.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [poolLow[i], poolLow[j]] = [poolLow[j], poolLow[i]];
-        }
-        
-        const prioritizedPool = [...poolHigh, ...poolLow];
-        const fillPosts = prioritizedPool.slice(0, remainingSlots);
-        candidates = [...candidates, ...fillPosts];
+        const fillPosts = shuffledPool.slice(0, remainingSlots);
+        fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
+        selected = [...selected, ...fillPosts];
       }
+    }
 
-      // Now we have candidates. Let's make the first random and the rest randomized.
-      if (candidates.length > 0) {
-        const randomIndex = Math.floor(Math.random() * candidates.length);
-        const firstPost = candidates[randomIndex];
-        selected.push(firstPost);
-        seenPostIdsRef.current.add(firstPost.id);
-
-        const otherPosts = candidates.filter(p => p.id !== firstPost.id);
-        const { high: otherHigh, low: otherLow } = getPriorityLists(otherPosts);
-
-        // Shuffle otherHigh
-        for (let i = otherHigh.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [otherHigh[i], otherHigh[j]] = [otherHigh[j], otherHigh[i]];
-        }
-
-        // Shuffle otherLow
-        for (let i = otherLow.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [otherLow[i], otherLow[j]] = [otherLow[j], otherLow[i]];
-        }
-
-        const prioritizedOthers = [...otherHigh, ...otherLow];
-        prioritizedOthers.forEach(p => seenPostIdsRef.current.add(p.id));
-        selected = [...selected, ...prioritizedOthers];
+    // Shuffle the final selection to make the first video random (at index 0)
+    if (selected.length > 0) {
+      for (let i = selected.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [selected[i], selected[j]] = [selected[j], selected[i]];
       }
     }
 
@@ -503,7 +422,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
-  }, [fetchBatchMetadata, getPriorityLists]);
+  }, [fetchBatchMetadata]);
 
   const fetchPosts = React.useCallback(async (isNextPage = false) => {
     try {
@@ -639,52 +558,32 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         }
         
         const otherPosts = sortedPosts.filter(p => p.id !== initialPostId);
-        const { high, low } = getPriorityLists(otherPosts);
-
-        // Shuffle high-priority list
-        for (let i = high.length - 1; i > 0; i--) {
+        const shuffledOthers = [...otherPosts];
+        for (let i = shuffledOthers.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [high[i], high[j]] = [high[j], high[i]];
+          [shuffledOthers[i], shuffledOthers[j]] = [shuffledOthers[j], shuffledOthers[i]];
         }
-
-        // Shuffle low-priority list
-        for (let i = low.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [low[i], low[j]] = [low[j], low[i]];
-        }
-
-        const prioritizedOthers = [...high, ...low];
-        const fillCount = Math.min(69, prioritizedOthers.length);
-        const fillPosts = prioritizedOthers.slice(0, fillCount);
+        
+        const fillCount = Math.min(69, shuffledOthers.length);
+        const fillPosts = shuffledOthers.slice(0, fillCount);
         fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
         selected = [...selected, ...fillPosts];
       } else {
-        if (sortedPosts.length > 0) {
-          const randomIndex = Math.floor(Math.random() * sortedPosts.length);
-          const firstPost = sortedPosts[randomIndex];
-          selected.push(firstPost);
-          seenPostIdsRef.current.add(firstPost.id);
-          
-          const otherPosts = sortedPosts.filter(p => p.id !== firstPost.id);
-          const { high, low } = getPriorityLists(otherPosts);
+        const shuffled = [...sortedPosts];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const selectCount = Math.min(70, shuffled.length);
+        selected = shuffled.slice(0, selectCount);
+        selected.forEach(p => seenPostIdsRef.current.add(p.id));
+      }
 
-          // Shuffle high-priority list
-          for (let i = high.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [high[i], high[j]] = [high[j], high[i]];
-          }
-
-          // Shuffle low-priority list
-          for (let i = low.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [low[i], low[j]] = [low[j], low[i]];
-          }
-
-          const prioritizedOthers = [...high, ...low];
-          const fillCount = Math.min(69, prioritizedOthers.length);
-          const fillPosts = prioritizedOthers.slice(0, fillCount);
-          fillPosts.forEach(p => seenPostIdsRef.current.add(p.id));
-          selected = [...selected, ...fillPosts];
+      // If no initialPostId, make sure we randomize the selected list so that the first video (at index 0) is random
+      if (!initialPostId && selected.length > 0) {
+        for (let i = selected.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [selected[i], selected[j]] = [selected[j], selected[i]];
         }
       }
 
@@ -702,7 +601,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
         setTimeout(() => setLoading(false), 800);
       }
     }
-  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t, getPriorityLists]);
+  }, [feedType, user, initialPostId, fetchBatchMetadata, feedFilter, t]);
 
   useEffect(() => {
     // Se o refreshTrigger mudar, limpamos o cache para este feed específico para garantir novo random
