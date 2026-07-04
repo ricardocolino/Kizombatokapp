@@ -592,7 +592,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             playTimeoutRef.current = setTimeout(() => {
               handlePlay();
               playTimeoutRef.current = null;
-            }, 250); // 250ms delay to confirm user stopped scrolling
+            }, 50); // 50ms delay to confirm user stopped scrolling
           } else {
             handlePause();
           }
@@ -1307,8 +1307,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
                 filter: post.filter ? post.filter.split('|')[0] : undefined,
-                opacity: isPlaying ? 1 : 0,
-                transition: 'opacity 0.3s ease-in-out',
+                opacity: 1,
                 transform: 'translate3d(0,0,0)',
                 WebkitBackfaceVisibility: 'hidden',
                 backfaceVisibility: 'hidden',
@@ -1316,7 +1315,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               loop
               muted={isMuted}
               playsInline
-              preload={isFullyVisible ? "auto" : "metadata"}
+              preload={isNearScreen ? "auto" : "metadata"}
               disablePictureInPicture
               disableRemotePlayback
               onTimeUpdate={() => {
@@ -1360,7 +1359,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               className="absolute inset-0 pointer-events-none"
               style={{
                 opacity: isPlaying ? 0 : 1,
-                transition: 'opacity 0.3s ease-in-out'
+                transition: 'opacity 0.15s ease-in-out'
               }}
             >
                <img 
