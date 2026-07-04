@@ -349,7 +349,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       hlsRef.current = null;
     }
 
-    if (optimizedUrl && isFullyVisible) {
+    if (optimizedUrl && isNearScreen) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
           const hls = new Hls({
@@ -436,7 +436,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         hlsRef.current = null;
       }
     };
-  }, [optimizedUrl, isFullyVisible, isPaused]);
+  }, [optimizedUrl, isNearScreen, isFullyVisible, isPaused]);
 
   useEffect(() => {
     // Mostrar a UI com um pequeno delay para dar prioridade ao vídeo
@@ -493,9 +493,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     }
     if (videoRef.current) {
       videoRef.current.pause();
-      // Prioridade máxima: se o vídeo não estiver totalmente visível, libertamos os recursos de rede imediatamente!
-      // Isto impede que vídeos de cima continuem a descarregar e consumam largura de banda do vídeo atual.
-      if (!isFullyVisible) {
+      // Optimization: if not near screen anymore, release resources
+      if (!isNearScreen) {
         videoRef.current.src = "";
         videoRef.current.load();
       }
@@ -505,7 +504,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       clearTimeout(viewTimeoutRef.current);
       viewTimeoutRef.current = null;
     }
-  }, [isFullyVisible]);
+  }, [isNearScreen]);
 
   const incrementView = React.useCallback(async () => {
     if (viewCountedRef.current) return;
@@ -593,7 +592,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             playTimeoutRef.current = setTimeout(() => {
               handlePlay();
               playTimeoutRef.current = null;
-            }, 80); // Reduzido para 80ms para dar início ultra rápido de reprodução do vídeo na tela
+            }, 250); // 250ms delay to confirm user stopped scrolling
           } else {
             handlePause();
           }
