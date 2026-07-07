@@ -38,6 +38,7 @@ export interface PostMetadata {
 const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewStories, onJoinLive, initialPostId, isPaused, feedFilter, onClearFilter, refreshTrigger, onDub, onViewAudio }) => {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -197,6 +198,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             const index = Number(entry.target.getAttribute('data-index'));
             if (!isNaN(index)) {
+              setActiveIndex(index);
               // A cada 10 vídeos, apresentar a publicidade
               if (lastViewedIndexRef.current !== index) {
                 lastViewedIndexRef.current = index;
@@ -624,6 +626,7 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
+    setActiveIndex(0);
   }, [posts]);
 
   // Intersection Observer for Automatic Endless Reels Loading
@@ -798,24 +801,36 @@ const Feed: React.FC<FeedProps> = ({ onNavigateToProfile, onRequireAuth, onViewS
 
       <div className="flex-1 min-h-0 relative">
         <div ref={scrollContainerRef} className="feed-container h-full w-full no-scrollbar">
-        {posts.slice(0, displayLimit).map((post, index) => (
-          <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
-            <PostCard 
-              post={post} 
-              metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
-              onUpdateMetadata={handleUpdateMetadata}
-              onNavigateToProfile={onNavigateToProfile} 
-              isMuted={isMuted}
-              onToggleMute={toggleMute}
-              onRequireAuth={onRequireAuth}
-              onViewStories={onViewStories}
-              onJoinLive={onJoinLive}
-              isPaused={isPaused || showExternalUrl || showGameIntro}
-              onDub={onDub}
-              onViewAudio={onViewAudio}
-            />
-          </div>
-        ))}
+        {posts.slice(0, displayLimit).map((post, index) => {
+          const isVisibleInDom = Math.abs(index - activeIndex) <= 1;
+
+          if (!isVisibleInDom) {
+            return (
+              <div key={post.id} className="feed-item relative h-full w-full bg-black flex items-center justify-center" data-index={index}>
+                <div className="w-8 h-8 rounded-full border-2 border-zinc-800 border-t-purple-600 animate-spin opacity-40" />
+              </div>
+            );
+          }
+
+          return (
+            <div key={post.id} className="feed-item relative h-full w-full" data-index={index}>
+              <PostCard 
+                post={post} 
+                metadata={metadataMap[post.id] || { likesCount: 0, commentsCount: 0, repostsCount: 0, liked: false, reposted: false, hasStories: false, isFollowing: false, isOwnPost: false }}
+                onUpdateMetadata={handleUpdateMetadata}
+                onNavigateToProfile={onNavigateToProfile} 
+                isMuted={isMuted}
+                onToggleMute={toggleMute}
+                onRequireAuth={onRequireAuth}
+                onViewStories={onViewStories}
+                onJoinLive={onJoinLive}
+                isPaused={isPaused || showExternalUrl || showGameIntro}
+                onDub={onDub}
+                onViewAudio={onViewAudio}
+              />
+            </div>
+          );
+        })}
         
         {/* Auto-load Sentinel */}
         {!loading && posts.length > 0 && (
