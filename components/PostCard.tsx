@@ -90,6 +90,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
+  const shouldRenderVideo = isNearScreen && (isFullyVisible || isPlaying);
 
   const formatPublishedTime = (dateStr: string) => {
     if (!dateStr) return '';
@@ -1300,7 +1301,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
           )}
 
-          {isNearScreen && (
+          {shouldRenderVideo && (
             <video
               ref={videoRef}
               src={optimizedUrl}
