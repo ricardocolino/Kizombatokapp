@@ -50,6 +50,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 }) {
   const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
   const [uiVisible, setUiVisible] = useState(false);
@@ -90,7 +91,6 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
 
   const [isNearScreen, setIsNearScreen] = useState(false);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
-  const shouldRenderVideo = isNearScreen && (isFullyVisible || isPlaying);
 
   const formatPublishedTime = (dateStr: string) => {
     if (!dateStr) return '';
@@ -550,6 +550,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
       if (playPromise !== undefined) {
         playPromise.then(() => {
           setIsPlaying(true);
+          setIsManuallyPaused(false);
           // Deferir o incremento de views para não competir com a reprodução inicial
           if (!viewCountedRef.current && !viewTimeoutRef.current) {
             viewTimeoutRef.current = setTimeout(() => {
@@ -1183,8 +1184,10 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
         clickTimeoutRef.current = setTimeout(() => {
           if (isPlaying) {
             handlePause();
+            setIsManuallyPaused(true);
           } else {
             handlePlay();
+            setIsManuallyPaused(false);
           }
           clickTimeoutRef.current = null;
         }, DOUBLE_PRESS_DELAY);
@@ -1301,7 +1304,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             </div>
           )}
 
-          {shouldRenderVideo && (
+          {isNearScreen && (
             <video
               ref={videoRef}
               src={optimizedUrl}
@@ -1386,7 +1389,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
           </div>
         )}
         
-        {!isPlaying && !videoError && !isLoading && (
+        {isManuallyPaused && !isPlaying && !videoError && !isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
             <Play size={64} className="text-white opacity-60" fill="white" />
           </div>
