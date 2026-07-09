@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
+import { Capacitor } from '@capacitor/core';
 import { Post, Comment, Profile } from '../types';
 import { MessageCircle, Share2, Repeat, Play, VolumeX, Send, X, CornerDownRight, ChevronDown, ChevronUp, CheckCircle2, Flag, Download, Link, Facebook, Twitter, MessageSquare, Gift, Loader2, Heart, Music, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -353,9 +354,14 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
     if (optimizedUrl && isNearScreen) {
       if (optimizedUrl.toLowerCase().includes('.m3u8')) {
         if (Hls.isSupported()) {
+          const isNative = Capacitor.isNativePlatform();
           const hls = new Hls({
             capLevelToPlayerSize: true,
             autoStartLoad: true,
+            maxBufferSize: isNative ? 1 * 1024 * 1024 : 30 * 1024 * 1024, // 1MB on mobile to save RAM, 30MB on web
+            maxBufferLength: isNative ? 2 : 10, // Buffer only 2s ahead on mobile, 10s on web
+            enableWorker: true, // Run segment parsing inside a Web Worker thread (unblocks the React scroll/UI thread!)
+            lowLatencyMode: isNative,
           });
           hls.loadSource(optimizedUrl);
           hls.attachMedia(video);
@@ -1305,9 +1311,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
             <video
               ref={videoRef}
               src={optimizedUrl}
-              className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} contrast-[1.05] saturate-[1.12] brightness-[1.02]` : "absolute pointer-events-none opacity-0 w-1 h-1"}
+              className={mediaType === 'video' ? `w-full h-full bg-black transition-all duration-300 ${showComments ? 'object-contain' : 'object-cover'} ${Capacitor.isNativePlatform() ? '' : 'contrast-[1.05] saturate-[1.12] brightness-[1.02]'}` : "absolute pointer-events-none opacity-0 w-1 h-1"}
               style={mediaType === 'video' ? { 
-                filter: post.filter ? post.filter.split('|')[0] : undefined,
+                filter: (!Capacitor.isNativePlatform() && post.filter) ? post.filter.split('|')[0] : undefined,
                 opacity: 1,
                 transform: 'translate3d(0,0,0)',
                 WebkitBackfaceVisibility: 'hidden',
@@ -1316,7 +1322,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(function PostCard({
               loop
               muted={isMuted}
               playsInline
-              preload={isNearScreen ? "auto" : "metadata"}
+              preload={isFullyVisible ? "auto" : isNearScreen ? "metadata" : "none"}
               disablePictureInPicture
               disableRemotePlayback
               onTimeUpdate={() => {
