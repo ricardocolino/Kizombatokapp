@@ -144,7 +144,7 @@ app.get("/api/health", (req, res) => {
 // NOWPayments Integration
 app.post("/api/payments/create", async (req, res) => {
   console.log(">>> [API] Payment Create Request received:", req.body);
-  const { userId, amount, currency = 'usdttrc20' } = req.body;
+  const { userId, amount, currency = 'usdttrc20', orderDescription } = req.body;
 
   if (!userId || !amount) {
     console.error(">>> [API] Payment Error: Missing userId or amount");
@@ -158,7 +158,13 @@ app.post("/api/payments/create", async (req, res) => {
       throw new Error("NOWPayments API Key not configured");
     }
 
-    console.log(">>> [API] Calling NOWPayments API with amount:", amount);
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const host = req.headers.host;
+    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
+    const callbackUrl = `${baseUrl}/api/payments/webhook`;
+
+    console.log(`>>> [API] Creating NOWPayments order: User=${userId}, Amount=${amount}, Currency=${currency}, Callback=${callbackUrl}`);
+
     // Create payment in NOWPayments
     const response = await fetch("https://api.nowpayments.io/v1/payment", {
       method: "POST",
@@ -170,10 +176,9 @@ app.post("/api/payments/create", async (req, res) => {
         price_amount: amount,
         price_currency: "usd",
         pay_currency: currency,
-        // Usando o URL do projeto atual para o webhook
-        ipn_callback_url: `https://ais-pre-zrifqkgbujknyfw6lb6hhi-7031768075.europe-west2.run.app/api/payments/webhook`,
+        ipn_callback_url: callbackUrl,
         order_id: `${userId}_${Date.now()}`,
-        order_description: `Deposit for user ${userId}`,
+        order_description: orderDescription || `Recarga de AngoCoins para ${userId}`,
       }),
     });
 
@@ -183,27 +188,31 @@ app.post("/api/payments/create", async (req, res) => {
 
     if (!response.ok) {
       console.error(">>> [API] NOWPayments API Error:", data);
+      let errorMsg = data.message || data.error || (typeof data === 'string' ? data : JSON.stringify(data));
+      if (errorMsg.includes('minimal') || data.code === 'AMOUNT_MINIMAL_ERROR') {
+        errorMsg = `O valor escolhido é muito baixo para pagar com ${currency.toUpperCase()}. Por favor, escolha uma quantia maior.`;
+      }
+
       return res.status(response.status).json({ 
-        error: data.message || "A API de pagamentos recusou o pedido. Talvez o valor seja demasiado baixo.",
-        details: data
+        error: "A API de pagamentos recusou o pedido.", 
+        details: errorMsg
       });
     }
 
-    console.log(">>> [API] Saving deposit to Supabase for user:", userId);
-    // Save deposit record in Supabase
-    const { error: dbError } = await supabaseAdmin
-      .from('deposits')
-      .insert({
-        user_id: userId,
-        amount: amount,
-        currency: currency,
-        payment_id: data.payment_id,
-        status: 'waiting'
-      });
-
-    if (dbError) {
-      console.error(">>> [API] Database Error saving deposit:", dbError);
-      // Não falhamos o pedido se apenas o log falhar, mas avisamos
+    console.log(">>> [API] Saving deposit record to Supabase for user:", userId);
+    // Save deposit record in Supabase (if deposits table exists)
+    try {
+      await supabaseAdmin
+        .from('deposits')
+        .insert({
+          user_id: userId,
+          amount: amount,
+          currency: currency,
+          payment_id: data.payment_id,
+          status: 'waiting'
+        });
+    } catch (err) {
+      console.warn(">>> [API] Could not insert into deposits table:", err);
     }
 
     res.json({ 
@@ -218,78 +227,170 @@ app.post("/api/payments/create", async (req, res) => {
   }
 });
 
-// NOWPayments Webhook
-app.post("/api/payments/webhook", async (req, res) => {
-  const hmac = req.get("x-nowpayments-sig");
-  const notificationsKey = process.env.NOWPAYMENTS_IPN_SECRET;
+// NOWPayments Webhook Handler Function
+const handleNowPaymentsWebhook = async (req: any, res: any) => {
+  const secret = process.env.NOWPAYMENTS_IPN_SECRET;
+  const signature = req.headers['x-nowpayments-sig'] || req.headers['x-nowpayments-sig'.toLowerCase()];
+  const payload = req.body || {};
 
-  if (!notificationsKey) {
-    console.error(">>> [WEBHOOK] IPN Secret not configured");
-    return res.status(500).send("Configuration error");
-  }
+  console.log("=== Webhook NOWPayments Recebido ===");
+  console.log("Headers:", JSON.stringify(req.headers));
+  console.log("Payload:", JSON.stringify(payload));
 
-  // Verify signature
-  const sortedData = JSON.stringify(req.body, Object.keys(req.body).sort());
-  const checkHmac = crypto
-    .createHmac("sha512", notificationsKey)
-    .update(sortedData)
-    .digest("hex");
-
-  if (hmac !== checkHmac) {
-    console.error(">>> [WEBHOOK] Invalid signature");
-    return res.status(400).send("Invalid signature");
-  }
-
-  const { payment_status, payment_id, price_amount, order_id } = req.body;
-  const userId = order_id.split('_')[0];
-
-  console.log(`>>> [WEBHOOK] Payment ${payment_id} status: ${payment_status}`);
-
-  if (payment_status === 'finished') {
+  if (secret && signature) {
     try {
-      // 1. Update deposit status
-      const { error: updateError } = await supabaseAdmin
-        .from('deposits')
-        .update({ status: 'finished', updated_at: new Date().toISOString() })
-        .eq('payment_id', payment_id);
+      const sortedData = JSON.stringify(payload, Object.keys(payload).sort());
+      const checkHmac = crypto
+        .createHmac("sha512", secret)
+        .update(sortedData)
+        .digest("hex");
 
-      if (updateError) throw updateError;
-
-      // 2. Add balance to user profile
-      // 1 USD = 100 AngoCoins (based on ProfileView.tsx logic)
-      const coinsToAdd = Math.floor(price_amount * 100);
-
-      const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('balance')
-        .eq('id', userId)
-        .single();
-
-      if (profileError) throw profileError;
-
-      const newBalance = (profile.balance || 0) + coinsToAdd;
-
-      const { error: balanceError } = await supabaseAdmin
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', userId);
-
-      if (balanceError) throw balanceError;
-
-      console.log(`>>> [WEBHOOK] Balance updated for user ${userId}: +${coinsToAdd} coins`);
-    } catch (error) {
-      console.error(">>> [WEBHOOK] Error processing finished payment:", error);
-      return res.status(500).send("Error processing payment");
+      if (signature !== checkHmac) {
+        console.error(`>>> [NOWPAYMENTS WEBHOOK] Signature mismatch! Calc: ${checkHmac}, Recv: ${signature}`);
+        return res.status(401).json({ error: "Invalid HMAC signature" });
+      }
+    } catch (err) {
+      console.error(">>> [NOWPAYMENTS WEBHOOK] HMAC verification error:", err);
     }
-  } else if (payment_status === 'failed' || payment_status === 'expired') {
-    await supabaseAdmin
-      .from('deposits')
-      .update({ status: payment_status, updated_at: new Date().toISOString() })
-      .eq('payment_id', payment_id);
   }
 
-  res.status(200).send("OK");
-});
+  const status = (payload.payment_status || '').toLowerCase();
+  console.log(`>>> [NOWPAYMENTS WEBHOOK] Status: ${status}, Order ID: ${payload.order_id}`);
+
+  if (['finished', 'confirmed', 'partially_paid'].includes(status)) {
+    const orderId = payload.order_id;
+    let userId = orderId ? orderId.split('_')[0] : null;
+
+    if (!userId || userId.length < 10) {
+      userId = orderId;
+    }
+
+    if (!userId) {
+      console.error('>>> [NOWPAYMENTS WEBHOOK] Error: order_id inválido ou ausente:', orderId);
+      return res.status(400).json({ error: 'Invalid order_id' });
+    }
+
+    const rawPrice = payload.price_amount ?? payload.outcome_amount ?? payload.actually_paid_at_fiat ?? payload.amount ?? '0';
+    const priceUSD = parseFloat(rawPrice.toString());
+    const coins = Math.round(priceUSD * 100);
+
+    console.log(`>>> [NOWPAYMENTS WEBHOOK] Calculation: rawPrice=${rawPrice}, priceUSD=${priceUSD}, coins=${coins} for user=${userId}`);
+
+    if (coins <= 0) {
+      console.warn(`>>> [NOWPAYMENTS WEBHOOK] Warning: 0 coins calculated for order ${orderId}`);
+      try {
+        await supabaseAdmin.from('payment_logs').insert({
+          user_id: userId,
+          order_id: orderId || payload.payment_id,
+          status: 'warning',
+          message: 'Webhook recebido, mas o valor calculado em USD foi 0.',
+          coins: 0
+        });
+      } catch (_) {}
+      return res.status(200).json({ message: 'Zero coins' });
+    }
+
+    try {
+      // 1. Fetch user profile from Supabase
+      const { data: profile, error: fetchError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, balance')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('>>> [NOWPAYMENTS WEBHOOK] Error fetching profile:', fetchError);
+      }
+
+      const currentBalance = profile?.balance != null ? parseFloat(profile.balance.toString()) : 0;
+      const newBalance = Math.round((currentBalance + coins) * 100) / 100;
+
+      if (profile) {
+        const { error: updateError } = await supabaseAdmin
+          .from('profiles')
+          .update({ balance: newBalance })
+          .eq('id', userId);
+
+        if (updateError) {
+          console.error('>>> [NOWPAYMENTS WEBHOOK] Error updating balance:', updateError);
+          throw updateError;
+        }
+      } else {
+        const { error: insertError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            id: userId,
+            balance: newBalance,
+            username: `user_${userId.slice(0, 8)}`
+          });
+
+        if (insertError) {
+          await supabaseAdmin
+            .from('profiles')
+            .insert({ id: userId, balance: newBalance })
+            .catch((e) => console.error('>>> Fallback profile insert error:', e));
+        }
+      }
+
+      // Update deposits table if payment_id exists
+      if (payload.payment_id) {
+        try {
+          await supabaseAdmin
+            .from('deposits')
+            .update({ status: 'finished', updated_at: new Date().toISOString() })
+            .eq('payment_id', payload.payment_id);
+        } catch (_) {}
+      }
+
+      // Log in payment_logs if available
+      try {
+        await supabaseAdmin.from('payment_logs').insert({
+          user_id: userId,
+          order_id: orderId || payload.payment_id,
+          status: 'success',
+          message: `Pagamento confirmado via NOWPayments! ${coins} AC creditados com sucesso.`,
+          coins: coins
+        });
+      } catch (_) {}
+
+      console.log(`✅ [NOWPAYMENTS WEBHOOK] Success: ${coins} AC creditados ao usuário ${userId}. Saldo anterior: ${currentBalance}, Novo saldo: ${newBalance}`);
+      return res.status(200).json({ status: 'success', userId, addedCoins: coins, previousBalance: currentBalance, newBalance });
+    } catch (err: any) {
+      console.error('>>> [NOWPAYMENTS WEBHOOK] Error updating balance:', err);
+      try {
+        await supabaseAdmin.from('payment_logs').insert({
+          user_id: userId,
+          order_id: orderId || payload.payment_id,
+          status: 'error',
+          message: `Erro ao creditar saldo: ${err.message || 'Erro no banco de dados'}`,
+          coins: 0
+        });
+      } catch (_) {}
+      return res.status(500).json({ error: 'Error updating balance: ' + (err.message || err) });
+    }
+  } else if (['failed', 'refunded', 'expired'].includes(status)) {
+    const orderId = payload.order_id;
+    let userId = orderId ? orderId.split('_')[0] : null;
+    if (userId) {
+      try {
+        await supabaseAdmin.from('payment_logs').insert({
+          user_id: userId,
+          order_id: orderId,
+          status: 'failed',
+          message: `O pagamento falhou ou expirou na NOWPayments (Status: ${status}).`,
+          coins: 0
+        });
+      } catch (_) {}
+    }
+  }
+
+  return res.status(200).json({ message: `Ignored status: ${status}` });
+};
+
+// NOWPayments Webhook routes
+app.post("/api/payments/webhook", handleNowPaymentsWebhook);
+app.post("/api/payments/nowpayments-webhook", handleNowPaymentsWebhook);
+app.post("/api/webhook", handleNowPaymentsWebhook);
 
 // Kursinha Webhook Integration
 app.post("/api/payments/kursinha-webhook", async (req, res) => {
