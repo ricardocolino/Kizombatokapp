@@ -14,6 +14,7 @@ interface SongPost {
   mp3_r2_url: string | null;
   is_seen_music_admin?: boolean | null;
   disponibilidade_dublar?: string | null;
+  dubbed_from_id?: string | null;
   created_at: string;
   user_id: string;
   profiles?: {
@@ -42,9 +43,10 @@ export const AdminSongsManager: React.FC = () => {
     try {
       let { data, error } = await supabase
         .from('posts')
-        .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, is_seen_music_admin, created_at, user_id, profiles!user_id (*)')
+        .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, is_seen_music_admin, disponibilidade_dublar, dubbed_from_id, created_at, user_id, profiles!user_id (*)')
         .or('mp3_url.not.is.null,mp3_r2_url.not.is.null')
         .or('is_seen_music_admin.is.null,is_seen_music_admin.eq.false')
+        .is('dubbed_from_id', null)
         .order('created_at', { ascending: false })
         .limit(200);
 
@@ -53,15 +55,17 @@ export const AdminSongsManager: React.FC = () => {
         // Fallback caso a coluna ainda não exista
         const fb = await supabase
           .from('posts')
-          .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+          .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, disponibilidade_dublar, dubbed_from_id, created_at, user_id, profiles!user_id (*)')
           .or('mp3_url.not.is.null,mp3_r2_url.not.is.null')
+          .is('dubbed_from_id', null)
           .order('created_at', { ascending: false })
           .limit(200);
         
         if (fb.error) {
           const fb2 = await supabase
             .from('posts')
-            .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+            .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, disponibilidade_dublar, dubbed_from_id, created_at, user_id, profiles!user_id (*)')
+            .is('dubbed_from_id', null)
             .order('created_at', { ascending: false })
             .limit(300);
           if (fb2.error) throw fb2.error;
@@ -73,7 +77,8 @@ export const AdminSongsManager: React.FC = () => {
         // Fallback caso dê erro na sintaxe do OR
         const fb = await supabase
           .from('posts')
-          .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, created_at, user_id, profiles!user_id (*)')
+          .select('id, content, media_url, media_type, mp3_url, mp3_r2_url, disponibilidade_dublar, dubbed_from_id, created_at, user_id, profiles!user_id (*)')
+          .is('dubbed_from_id', null)
           .order('created_at', { ascending: false })
           .limit(300);
         
@@ -81,7 +86,9 @@ export const AdminSongsManager: React.FC = () => {
         data = fb.data;
       }
 
-      const validSongs = (data || []).filter((p: any) => Boolean(p.mp3_url) || Boolean(p.mp3_r2_url));
+      const validSongs = (data || []).filter((p: any) => 
+        (Boolean(p.mp3_url) || Boolean(p.mp3_r2_url)) && !p.dubbed_from_id
+      );
       setSongsList(validSongs);
     } catch (err: any) {
       console.error('Erro ao buscar músicas:', err);
