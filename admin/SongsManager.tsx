@@ -13,6 +13,7 @@ interface SongPost {
   mp3_url: string | null;
   mp3_r2_url: string | null;
   is_seen_music_admin?: boolean | null;
+  disponibilidade_dublar?: string | null;
   created_at: string;
   user_id: string;
   profiles?: {
@@ -99,17 +100,33 @@ export const AdminSongsManager: React.FC = () => {
     setNotice(null);
 
     try {
-      const { error } = await supabase
-        .from('posts')
-        .update({ is_seen_music_admin: true })
-        .eq('id', postId);
+      // Tentar usar a função RPC do Supabase se existir, com fallback para update direto
+      const { error: rpcError } = await supabase.rpc('admin_mark_song_seen', {
+        target_post_id: postId
+      });
 
-      if (error && error.message?.includes('is_seen_music_admin')) {
-        alert('A coluna "is_seen_music_admin" ainda não existe na sua base de dados. Execute o SQL fornecido!');
-        return;
+      if (rpcError) {
+        const { error } = await supabase
+          .from('posts')
+          .update({ 
+            is_seen_music_admin: true,
+            disponibilidade_dublar: 'disponível'
+          })
+          .eq('id', postId);
+
+        if (error && error.message?.includes('is_seen_music_admin')) {
+          alert('A coluna "is_seen_music_admin" ainda não existe na sua base de dados. Execute o SQL fornecido!');
+          return;
+        } else if (error) {
+          // Se der erro por falta da coluna disponibilidade_dublar, tenta atualizar apenas is_seen_music_admin
+          await supabase
+            .from('posts')
+            .update({ is_seen_music_admin: true })
+            .eq('id', postId);
+        }
       }
 
-      setNotice({ type: 'success', text: 'Música marcada como vista e ocultada dos pendentes!' });
+      setNotice({ type: 'success', text: 'Música marcada como vista e alterada para disponível para dublar!' });
       setSongsList(prev => prev.filter(s => s.id !== postId));
     } catch (err: any) {
       console.error('Erro ao marcar música como vista:', err);
