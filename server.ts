@@ -567,6 +567,63 @@ app.get("/api/payments/kursinha-webhook", (req, res) => {
   });
 });
 
+// Admin endpoints (Utilizando Supabase Service Role Key)
+app.post("/api/admin/delete-post", async (req, res) => {
+  const { postId } = req.body;
+  if (!postId) {
+    return res.status(400).json({ error: "postId é obrigatório" });
+  }
+
+  try {
+    console.log(`>>> [ADMIN API] Apagando post ${postId} via Service Role Key...`);
+    
+    // 1. Apagar denúncias associadas
+    await supabaseAdmin.from('reports').delete().eq('post_id', postId);
+
+    // 2. Apagar comentários associados
+    await supabaseAdmin.from('post_comments').delete().eq('post_id', postId);
+
+    // 3. Apagar curtidas associadas
+    await supabaseAdmin.from('post_likes').delete().eq('post_id', postId);
+
+    // 4. Apagar o post
+    const { error } = await supabaseAdmin.from('posts').delete().eq('id', postId);
+
+    if (error) {
+      console.error(">>> [ADMIN API] Erro ao apagar post no Supabase:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    console.log(`>>> [ADMIN API] Post ${postId} apagado com sucesso.`);
+    return res.json({ success: true, message: "Publicação eliminada com sucesso." });
+  } catch (err: any) {
+    console.error(">>> [ADMIN API] Exceção ao apagar post:", err);
+    return res.status(500).json({ error: err.message || "Erro interno ao apagar publicação." });
+  }
+});
+
+app.post("/api/admin/mark-post-seen", async (req, res) => {
+  const { postId } = req.body;
+  if (!postId) {
+    return res.status(400).json({ error: "postId é obrigatório" });
+  }
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('posts')
+      .update({ is_seen_by_admin: true })
+      .eq('id', postId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true, message: "Publicação marcada como vista." });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Beautiful Success Page for Content Delivery after payments (Kursinha)
 app.get("/payment-success", (req, res) => {
   res.send(`<!DOCTYPE html>

@@ -120,14 +120,31 @@ export const AdminModeration: React.FC = () => {
   const handleMarkAsSeen = async (post: PostItem) => {
     setActionLoading(post.id);
     try {
-      const { error } = await supabase
-        .from('posts')
-        .update({ is_seen_by_admin: true })
-        .eq('id', post.id);
+      // 1. Tentar endpoint API via backend (utiliza SUPABASE_SERVICE_ROLE_KEY)
+      const res = await fetch('/api/admin/mark-post-seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: post.id })
+      });
 
-      if (error && error.message?.includes('is_seen_by_admin')) {
-        alert('A coluna "is_seen_by_admin" ainda não existe na sua base de dados. Execute o SQL fornecido!');
-        return;
+      if (!res.ok) {
+        // Fallback 1: Tentar RPC
+        const { error: rpcError } = await supabase.rpc('admin_mark_post_as_seen', {
+          target_post_id: post.id
+        });
+
+        if (rpcError) {
+          // Fallback 2: Update direto via cliente Supabase
+          const { error } = await supabase
+            .from('posts')
+            .update({ is_seen_by_admin: true })
+            .eq('id', post.id);
+
+          if (error && error.message?.includes('is_seen_by_admin')) {
+            alert('A coluna "is_seen_by_admin" ainda não existe na sua base de dados. Execute o SQL fornecido!');
+            return;
+          }
+        }
       }
 
       setPostsList(prev => prev.filter(p => p.id !== post.id));
@@ -147,17 +164,35 @@ export const AdminModeration: React.FC = () => {
 
     setActionLoading(post.id);
     try {
-      await supabase.from('posts').delete().eq('id', post.id);
-      await supabase.from('reports').delete().eq('post_id', post.id);
+      // 1. Tentar eliminar via backend API (utiliza SUPABASE_SERVICE_ROLE_KEY para contornar RLS)
+      const res = await fetch('/api/admin/delete-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: post.id })
+      });
+
+      if (!res.ok) {
+        // Fallback 1: Tentar via RPC seguro
+        const { error: rpcError } = await supabase.rpc('admin_delete_reported_post', {
+          target_post_id: post.id
+        });
+
+        if (rpcError) {
+          // Fallback 2: Tentar delete direto no Supabase Client
+          await supabase.from('reports').delete().eq('post_id', post.id);
+          const { error: deleteError } = await supabase.from('posts').delete().eq('id', post.id);
+          if (deleteError) throw deleteError;
+        }
+      }
 
       setPostsList(prev => prev.filter(p => p.id !== post.id));
-      setNotice('Publicação removida com sucesso.');
+      setNotice('Publicação removida com sucesso da base de dados.');
       if (selectedMediaPost?.id === post.id) {
         setSelectedMediaPost(null);
       }
     } catch (err: any) {
       console.error('Erro ao apagar post:', err);
-      alert('Não foi possível remover o post.');
+      alert('Não foi possível remover o post: ' + (err.message || 'Erro de permissão no banco de dados.'));
     } finally {
       setActionLoading(null);
     }
